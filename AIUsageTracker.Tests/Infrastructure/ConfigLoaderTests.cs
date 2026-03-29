@@ -105,7 +105,6 @@ public class ConfigLoaderTests : IntegrationTestBase
             var openAi = Assert.Single(configs, config => string.Equals(config.ProviderId, "openai", StringComparison.Ordinal));
             Assert.Equal("sk-env-key", openAi.ApiKey);
             Assert.Equal("https://configured", openAi.BaseUrl);
-            Assert.Equal("quota-based", openAi.Type);
             Assert.Equal("Env: OPENAI_API_KEY", openAi.AuthSource);
         }
         finally

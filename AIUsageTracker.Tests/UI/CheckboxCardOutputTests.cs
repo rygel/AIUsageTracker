@@ -29,24 +29,6 @@ public sealed class CheckboxCardOutputTests
         double rollingUsedPercent = 60.0,
         string accountEmail = "user@example.com")
     {
-        var burstDetail = new ProviderUsageDetail
-        {
-            Name = "5-hour quota",
-            Description = "burst window",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Burst,
-        };
-        burstDetail.SetPercentageValue(burstUsedPercent, PercentageValueSemantic.Used);
-
-        var rollingDetail = new ProviderUsageDetail
-        {
-            Name = "Weekly quota",
-            Description = "rolling window",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Rolling,
-        };
-        rollingDetail.SetPercentageValue(rollingUsedPercent, PercentageValueSemantic.Used);
-
         return new ProviderUsage
         {
             ProviderId = "codex",
@@ -56,7 +38,11 @@ public sealed class CheckboxCardOutputTests
             IsQuotaBased = true,
             UsedPercent = rollingUsedPercent,
             NextResetTime = DateTime.UtcNow.AddDays(5),
-            Details = new List<ProviderUsageDetail> { burstDetail, rollingDetail },
+            WindowCards = new[]
+            {
+                new ProviderUsage { ProviderId = "codex", Name = "5h",     WindowKind = WindowKind.Burst,   UsedPercent = burstUsedPercent,   NextResetTime = DateTime.UtcNow.AddHours(2) },
+                new ProviderUsage { ProviderId = "codex", Name = "Weekly", WindowKind = WindowKind.Rolling, UsedPercent = rollingUsedPercent, NextResetTime = DateTime.UtcNow.AddDays(5) },
+            },
         };
     }
 
@@ -114,14 +100,12 @@ public sealed class CheckboxCardOutputTests
 
         // Dual bucket data is present
         Assert.True(presentation.HasDualBuckets);
-        Assert.Equal("5h", presentation.DualBucketPrimaryLabel);
-        Assert.Equal("Weekly", presentation.DualBucketSecondaryLabel);
+        Assert.Equal("5h", presentation.DualBar!.Primary.Label);
+        Assert.Equal("Weekly", presentation.DualBar.Secondary.Label);
 
         // Values are set
-        Assert.NotNull(presentation.DualBucketPrimaryUsed);
-        Assert.NotNull(presentation.DualBucketSecondaryUsed);
-        Assert.Equal(40.0, presentation.DualBucketPrimaryUsed!.Value, precision: 1);
-        Assert.Equal(60.0, presentation.DualBucketSecondaryUsed!.Value, precision: 1);
+        Assert.Equal(40.0, presentation.DualBar.Primary.UsedPercent, precision: 1);
+        Assert.Equal(60.0, presentation.DualBar.Secondary.UsedPercent, precision: 1);
 
         // Status text contains the "|" separator between segments
         Assert.Contains("|", presentation.StatusText, StringComparison.Ordinal);
@@ -380,30 +364,28 @@ public sealed class CheckboxCardOutputTests
     }
 
     // ---------------------------------------------------------------------------
-    // Dual quota color thresholds — redThreshold affects DualBucketPrimaryColorPercent
+    // Dual quota bar tier — high/low usage produces correct PaceTier
     // ---------------------------------------------------------------------------
 
     [Fact]
-    public void RedThreshold_AffectsDualBucketColorPercent()
+    public void HighUsage_DualBucketBurst_IsOverPace()
     {
-        // 90% used → should be above threshold=80 → color should reach/exceed 80
+        // 90% used in burst window (5h, ~3h elapsed) → projected ~150% → OverPace
         var usage = BuildCodexDualQuotaUsage(burstUsedPercent: 90.0, rollingUsedPercent: 90.0);
-        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: true, redThreshold: 80);
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: true, enablePaceAdjustment: true);
 
-        Assert.NotNull(presentation.DualBucketPrimaryColorPercent);
-        Assert.True(presentation.DualBucketPrimaryColorPercent!.Value >= 80.0,
-            $"90% used at threshold=80 must produce color >= 80, got {presentation.DualBucketPrimaryColorPercent:F1}");
+        Assert.NotNull(presentation.DualBar);
+        Assert.Equal(PaceTier.OverPace, presentation.DualBar!.Primary.PaceColor.PaceTier);
     }
 
     [Fact]
-    public void LowUsage_DualBucketColorPercent_BelowRedThreshold()
+    public void LowUsage_DualBucketBurst_IsNotOverPace()
     {
-        // 10% used → well below threshold → color should be below threshold
+        // 10% used in burst window → projected ~17% → Headroom
         var usage = BuildCodexDualQuotaUsage(burstUsedPercent: 10.0, rollingUsedPercent: 10.0);
-        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: true, redThreshold: 80);
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: true, enablePaceAdjustment: true);
 
-        Assert.NotNull(presentation.DualBucketPrimaryColorPercent);
-        Assert.True(presentation.DualBucketPrimaryColorPercent!.Value < 80.0,
-            $"10% used at threshold=80 must produce color < 80, got {presentation.DualBucketPrimaryColorPercent:F1}");
+        Assert.NotNull(presentation.DualBar);
+        Assert.NotEqual(PaceTier.OverPace, presentation.DualBar!.Primary.PaceColor.PaceTier);
     }
 }

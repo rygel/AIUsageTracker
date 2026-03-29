@@ -97,6 +97,9 @@ public class AppPreferences
     // An empty list means all items are visible (default).
     public IList<string> HiddenProviderItemIds { get; set; } = new List<string>();
 
+    // Per-group collapse state for flat card groups (keyed by GroupId).
+    public IDictionary<string, bool> CollapsedGroupIds { get; set; } = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+
     // Update channel (Stable or Beta)
     public UpdateChannel UpdateChannel { get; set; } = UpdateChannel.Stable;
 

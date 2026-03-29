@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Text.Json;
 using AIUsageTracker.Core.Models;
 using Microsoft.Extensions.Logging;
 using NetSparkleUpdater;
@@ -72,15 +73,17 @@ public class GitHubUpdateChecker
     {
         try
         {
-            // Get the appcast URL for current architecture
-            var appcastUrl = this.GetAppcastUrlForCurrentArchitecture();
+            if (this._channel == UpdateChannel.Beta)
+            {
+                return await this.CheckForBetaUpdatesAsync().ConfigureAwait(false);
+            }
 
-            // Initialize SparkleUpdater with the architecture-specific appcast URL
+            // Stable channel: use NetSparkle appcast
+            var appcastUrl = this.GetAppcastUrlForCurrentArchitecture();
             using var sparkle = new SparkleUpdater(appcastUrl, new Ed25519Checker(SecurityMode.Unsafe));
 
             this._logger.LogDebug("Checking for updates via NetSparkle appcast: {Url}", appcastUrl);
 
-            // Check for updates quietly (no UI)
             var updateInfo = await sparkle.CheckForUpdatesQuietly().ConfigureAwait(false);
 
             if (updateInfo?.Updates?.Any() == true)
@@ -88,7 +91,6 @@ public class GitHubUpdateChecker
                 var latest = updateInfo.Updates.First();
                 var currentVersion = System.Reflection.Assembly.GetEntryAssembly()?.GetName()?.Version ?? new Version(1, 0, 0);
 
-                // Parse version (handle 'v' prefix)
                 var latestVersionStr = latest.Version?.TrimStart('v') ?? "0.0.0";
 
                 if (Version.TryParse(latestVersionStr, out var latestVersion) && latestVersion > currentVersion)
@@ -98,7 +100,6 @@ public class GitHubUpdateChecker
                         latestVersion,
                         currentVersion);
 
-                    // Fetch release notes from GitHub API
                     var releaseNotes = await this.FetchReleaseNotesFromGitHubAsync(latestVersionStr).ConfigureAwait(false);
 
                     return new AIUsageTracker.Core.Interfaces.UpdateInfo
@@ -150,6 +151,127 @@ public class GitHubUpdateChecker
         }
     }
 
+    /// <summary>
+    /// Parses an app version string of the form "M.m.p-beta.N" or "M.m.p" into a comparable
+    /// tuple. Stable releases sort higher than any pre-release of the same core version.
+    /// </summary>
+    internal static (int Major, int Minor, int Patch, int PreRelease) ParseAppVersion(string version)
+    {
+        var betaIndex = version.IndexOf("-beta.", StringComparison.OrdinalIgnoreCase);
+
+        string coreVersion;
+        int preRelease;
+
+        if (betaIndex >= 0)
+        {
+            coreVersion = version[..betaIndex];
+            var betaNumStr = version[(betaIndex + 6)..]; // skip "-beta."
+            preRelease = int.TryParse(betaNumStr, out var n) ? n : 0;
+        }
+        else
+        {
+            coreVersion = version;
+            preRelease = int.MaxValue; // stable is higher than any beta of the same core version
+        }
+
+        var parts = coreVersion.Split('.');
+        var major = parts.Length > 0 && int.TryParse(parts[0], out var v) ? v : 0;
+        var minor = parts.Length > 1 && int.TryParse(parts[1], out v) ? v : 0;
+        var patch = parts.Length > 2 && int.TryParse(parts[2], out v) ? v : 0;
+
+        return (major, minor, patch, preRelease);
+    }
+
+    /// <summary>Returns true when <paramref name="candidate"/> is a newer release than <paramref name="current"/>.</summary>
+    internal static bool IsNewerVersion(string candidate, string current)
+    {
+        return ParseAppVersion(candidate.TrimStart('v')).CompareTo(ParseAppVersion(current.TrimStart('v'))) > 0;
+    }
+
+    /// <summary>
+    /// Returns the running app's informational version (e.g. "2.3.4-beta.7"), stripping any
+    /// build-metadata suffix appended by the SDK (e.g. "+abc1234").
+    /// </summary>
+    internal static string GetCurrentInformationalVersion()
+    {
+        var raw = System.Reflection.CustomAttributeExtensions
+            .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>(
+                System.Reflection.Assembly.GetEntryAssembly()!)
+            ?.InformationalVersion ?? string.Empty;
+
+        var plusIdx = raw.IndexOf('+', StringComparison.Ordinal);
+        return plusIdx >= 0 ? raw[..plusIdx] : raw;
+    }
+
+    private async Task<AIUsageTracker.Core.Interfaces.UpdateInfo?> CheckForBetaUpdatesAsync()
+    {
+        // /releases/latest only resolves to non-pre-release releases, so beta appcasts are
+        // never reachable via that URL. Use the GitHub Releases API directly instead.
+        this._logger.LogDebug("Checking for beta updates via GitHub Releases API");
+
+        var releasesUrl = $"{RepositoryApiBaseUrl}/releases?per_page=10";
+        using var response = await this._httpClient.GetAsync(releasesUrl).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            this._logger.LogWarning("GitHub releases API returned {StatusCode}", response.StatusCode);
+            return null;
+        }
+
+        var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        using var doc = JsonDocument.Parse(content);
+
+        var currentVersionStr = GetCurrentInformationalVersion();
+
+        // Releases are returned newest-first; take the first pre-release that is newer.
+        foreach (var release in doc.RootElement.EnumerateArray())
+        {
+            var isPrerelease = release.TryGetProperty("prerelease", out var pre) && pre.GetBoolean();
+            if (!isPrerelease)
+            {
+                continue;
+            }
+
+            var tagName = release.TryGetProperty("tag_name", out var tag) ? tag.GetString() : null;
+            if (string.IsNullOrWhiteSpace(tagName))
+            {
+                continue;
+            }
+
+            var latestVersionStr = tagName.TrimStart('v');
+
+            if (!IsNewerVersion(latestVersionStr, currentVersionStr))
+            {
+                break; // sorted newest-first; nothing further can be newer
+            }
+
+            var publishedAt = release.TryGetProperty("published_at", out var pub) &&
+                              DateTime.TryParse(pub.GetString(), out var dt)
+                ? dt
+                : DateTime.UtcNow;
+
+            var releaseBody = release.TryGetProperty("body", out var body)
+                ? body.GetString() ?? string.Empty
+                : string.Empty;
+
+            var arch = this.GetCurrentArchitectureName();
+            var downloadUrl = $"{RepositoryBaseUrl}/releases/download/{tagName}/AIUsageTracker_Setup_v{latestVersionStr}_win-{arch}.exe";
+
+            this._logger.LogInformation("Beta update available: {Version}", latestVersionStr);
+
+            return new AIUsageTracker.Core.Interfaces.UpdateInfo
+            {
+                Version = latestVersionStr,
+                ReleaseUrl = GetReleaseTagUrl(latestVersionStr),
+                DownloadUrl = downloadUrl,
+                ReleaseNotes = releaseBody,
+                PublishedAt = publishedAt,
+            };
+        }
+
+        this._logger.LogDebug("No beta updates available");
+        return null;
+    }
+
     private static string GetInstallerDownloadPath(string version)
     {
         var tempDir = Path.Combine(Path.GetTempPath(), "AIUsageTracker_Updates");
@@ -165,11 +287,21 @@ public class GitHubUpdateChecker
         }
     }
 
+    private string GetCurrentArchitectureName()
+    {
+        return System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture switch
+        {
+            System.Runtime.InteropServices.Architecture.Arm64 => "arm64",
+            System.Runtime.InteropServices.Architecture.Arm => "arm64",
+            System.Runtime.InteropServices.Architecture.X86 => "x86",
+            _ => "x64",
+        };
+    }
+
     private string GetAppcastUrlForCurrentArchitecture()
     {
         var currentArch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLower(System.Globalization.CultureInfo.InvariantCulture);
 
-        // Map architecture names
         var archMapping = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["x64"] = "x64",
@@ -247,7 +379,7 @@ public class GitHubUpdateChecker
             }
 
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-            using var doc = System.Text.Json.JsonDocument.Parse(content);
+            using var doc = JsonDocument.Parse(content);
 
             if (doc.RootElement.TryGetProperty("body", out var bodyElement))
             {

@@ -142,30 +142,26 @@ public sealed class UsageDatabasePipelineTests : IDisposable
     }
 
     [Fact]
-    public async Task Pipeline_WithDetails_DetailsRoundTripThroughDatabaseAsync()
+    public async Task Pipeline_FlatCardWithWindowKind_RoundTripsThroughDatabaseAsync()
     {
         var db = await this.CreateDatabaseAsync();
 
+        // Flat burst card — replaces the old Details round-trip test
         var usage = new ProviderUsage
         {
             ProviderId = "codex",
             ProviderName = "OpenAI Codex",
+            CardId = "burst",
+            GroupId = "codex",
+            Name = "5-hour quota",
+            WindowKind = WindowKind.Burst,
+            UsedPercent = 50.0,
             RequestsUsed = 50,
             RequestsAvailable = 950,
             IsAvailable = true,
-            Description = "ok",
+            Description = "50% remaining",
             HttpStatus = 200,
             FetchedAt = DateTime.UtcNow.AddMinutes(-1),
-            Details =
-            [
-                new ProviderUsageDetail
-                {
-                    Name = "Primary Window",
-                    PercentageValue = 50.0,
-                    DetailType = ProviderUsageDetailType.QuotaWindow,
-                    QuotaBucketKind = WindowKind.Burst,
-                },
-            ],
         };
 
         var result = this._pipeline.Process([usage], activeProviderIds: ["codex"], isPrivacyMode: false);
@@ -174,10 +170,10 @@ public sealed class UsageDatabasePipelineTests : IDisposable
         var latest = await db.GetLatestHistoryAsync();
 
         var codex = Assert.Single(latest, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal));
-        Assert.NotNull(codex.Details);
-        Assert.Single(codex.Details!);
-        Assert.Equal("Primary Window", codex.Details![0].Name);
-        Assert.Equal(50.0, codex.Details![0].PercentageValue!.Value, precision: 5);
+        Assert.Equal(WindowKind.Burst, codex.WindowKind);
+        Assert.Equal("burst", codex.CardId);
+        Assert.Equal("5-hour quota", codex.Name);
+        Assert.Equal(50.0, codex.UsedPercent, precision: 5);
     }
 
     [Fact]

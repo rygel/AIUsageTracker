@@ -58,20 +58,15 @@ public class DeepSeekProviderTests : HttpProviderTestBase<DeepSeekProvider>
         var result = await this._provider.GetUsageAsync(this.Config);
         var usages = result.ToList();
 
-        // Assert
-        Assert.Single(usages);
-        var usage = usages[0];
-        Assert.True(usage.IsAvailable);
-        Assert.Equal("Balance: ¥150.50", usage.Description);
-        Assert.Equal(2, usage.Details?.Count);
+        // Assert — DeepSeek now emits one flat card per currency
+        Assert.Equal(2, usages.Count);
+        Assert.All(usages, u => Assert.True(u.IsAvailable));
 
-        var cnyDetail = usage.Details?.FirstOrDefault(d => string.Equals(d.Name, "Balance (CNY)", StringComparison.Ordinal));
-        Assert.NotNull(cnyDetail);
-        Assert.StartsWith("¥150.50", cnyDetail.Description, StringComparison.Ordinal);
+        var cnyCard = Assert.Single(usages, u => string.Equals(u.Name, "Balance (CNY)", StringComparison.Ordinal));
+        Assert.StartsWith("¥150.50", cnyCard.Description, StringComparison.Ordinal);
 
-        var usdDetail = usage.Details?.FirstOrDefault(d => string.Equals(d.Name, "Balance (USD)", StringComparison.Ordinal));
-        Assert.NotNull(usdDetail);
-        Assert.StartsWith("$10.00", usdDetail.Description, StringComparison.Ordinal);
+        var usdCard = Assert.Single(usages, u => string.Equals(u.Name, "Balance (USD)", StringComparison.Ordinal));
+        Assert.StartsWith("$10.00", usdCard.Description, StringComparison.Ordinal);
     }
 
     [Fact]

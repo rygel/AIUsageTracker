@@ -58,23 +58,26 @@ public class OpenRouterProviderTests : HttpProviderTestBase<OpenRouterProvider>
 
         var result = await this._provider.GetUsageAsync(this.Config);
 
-        var usage = result.Single();
-        Assert.True(usage.IsAvailable);
-        Assert.Equal("My Project Key", usage.ProviderName);
-        Assert.Equal(25.0, usage.UsedPercent); // 2.5 used of 10 total = 25% used
-        Assert.Equal(2.5, usage.RequestsUsed);
+        // Provider now emits flat cards: credits + spending-limit + free-tier
+        var usages = result.ToList();
+
+        var creditsCard = Assert.Single(usages, u => string.Equals(u.CardId, "credits", StringComparison.Ordinal));
+        Assert.True(creditsCard.IsAvailable);
+        Assert.Equal("My Project Key", creditsCard.ProviderName);
+        Assert.Equal(25.0, creditsCard.UsedPercent); // 2.5 used of 10 total = 25% used
+        Assert.Equal(2.5, creditsCard.RequestsUsed);
 
         // UsageUnit removed; OpenRouter does not set IsCurrencyUsage since it uses Credits not USD
-        Assert.Equal("7.50 Credits Remaining", usage.Description);
+        Assert.Equal("7.50 Credits Remaining", creditsCard.Description);
 
         Assert.Contains(
-            usage.Details!,
-            detail => string.Equals(detail.Name, "Spending Limit", StringComparison.Ordinal) &&
-                detail.Description.StartsWith("100.00", StringComparison.Ordinal));
+            usages,
+            u => string.Equals(u.Name, "Spending Limit", StringComparison.Ordinal) &&
+                u.Description.StartsWith("100.00", StringComparison.Ordinal));
         Assert.Contains(
-            usage.Details!,
-            detail => string.Equals(detail.Name, "Free Tier", StringComparison.Ordinal) &&
-                string.Equals(detail.Description, "No", StringComparison.Ordinal));
+            usages,
+            u => string.Equals(u.Name, "Free Tier", StringComparison.Ordinal) &&
+                string.Equals(u.Description, "No", StringComparison.Ordinal));
     }
 
     [Fact]

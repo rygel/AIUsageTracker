@@ -51,7 +51,7 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         {
             buckets = new[]
             {
-                new { remainingFraction = 0.8, resetTime = "2026-03-10T12:00:00Z" },
+                new { modelId = "gemini-2.5-flash", remainingFraction = 0.8, resetTime = "2026-03-10T12:00:00Z" },
             },
         };
 
@@ -64,15 +64,15 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         // Act
         var result = await provider.GetUsageAsync(this.Config);
 
-        // Assert
+        // Assert — Gemini emits one flat model card per bucket with a modelId
         var usage = Assert.Single(
             result,
             item => string.Equals(item.ProviderId, "gemini-cli", StringComparison.Ordinal));
         Assert.True(usage.IsAvailable);
         Assert.Equal("user@example.com", usage.AccountName);
         Assert.Contains("20", usage.UsedPercent.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal); // 20% used (80% remaining)
-        Assert.Contains("20", usage.RequestsUsed.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
-        Assert.Contains("80", usage.Description, StringComparison.Ordinal);
+        Assert.Equal("gemini-2.5-flash", usage.ModelName);
+        Assert.Contains("80", usage.Description, StringComparison.Ordinal); // "80.0% remaining"
 
         TestTempPaths.CleanupPath(tempDir);
     }
@@ -130,7 +130,7 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         this.SetupHttpResponse("https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota", new HttpResponseMessage
         {
             StatusCode = HttpStatusCode.OK,
-            Content = new StringContent("{\"buckets\":[{\"remainingFraction\":0.65,\"resetTime\":\"2026-03-10T12:00:00Z\"}]}"),
+            Content = new StringContent("{\"buckets\":[{\"modelId\":\"gemini-2.5-flash\",\"remainingFraction\":0.65,\"resetTime\":\"2026-03-10T12:00:00Z\"}]}"),
         });
 
         // Act
@@ -190,20 +190,12 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         // Act
         var result = await provider.GetUsageAsync(this.Config);
 
-        // Assert
-        var usage = Assert.Single(
-            result,
-            item => string.Equals(item.ProviderId, "gemini-cli", StringComparison.Ordinal));
-        Assert.True(usage.IsAvailable);
-        Assert.Null(usage.Details);
-
-        var slotBars = result
-            .Where(item =>
-                string.Equals(item.ProviderId, "gemini-cli.minute", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(item.ProviderId, "gemini-cli.hourly", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(item.ProviderId, "gemini-cli.daily", StringComparison.OrdinalIgnoreCase))
-            .ToList();
-        Assert.Empty(slotBars);
+        // Assert — buckets without modelId produce no flat cards; provider returns unavailable when no cards
+        var resultList = result.ToList();
+        Assert.All(resultList, u => Assert.Equal("gemini-cli", u.ProviderId));
+        Assert.DoesNotContain(
+            resultList,
+            item => item.ProviderId.StartsWith("gemini-cli.", StringComparison.OrdinalIgnoreCase));
 
         TestTempPaths.CleanupPath(tempDir);
     }
@@ -252,25 +244,18 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         // Act
         var result = await provider.GetUsageAsync(this.Config);
 
-        // Assert
-        var usage = Assert.Single(
-            result,
-            item => string.Equals(item.ProviderId, "gemini-cli", StringComparison.Ordinal));
-        Assert.True(usage.IsAvailable);
-        Assert.NotNull(usage.Details);
+        // Assert — provider now emits one flat card per model (no parent card)
+        var resultList = result.ToList();
+        Assert.Equal(5, resultList.Count);
+        Assert.All(resultList, u => Assert.Equal("gemini-cli", u.ProviderId));
+        Assert.All(resultList, u => Assert.True(u.IsAvailable));
+        Assert.All(resultList, u => Assert.False(string.IsNullOrWhiteSpace(u.Description)));
 
-        var modelDetails = usage.Details!
-            .Where(detail => detail.DetailType == ProviderUsageDetailType.Model)
-            .OrderBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        Assert.Equal(5, modelDetails.Count);
-        Assert.Contains(modelDetails, detail => string.Equals(detail.ModelName, "gemini-2.5-pro", StringComparison.Ordinal));
-        Assert.Contains(modelDetails, detail => string.Equals(detail.Name, "Gemini 3.1 Pro Preview", StringComparison.Ordinal));
-        Assert.All(modelDetails, detail => Assert.False(string.IsNullOrWhiteSpace(detail.Description)));
+        Assert.Contains(resultList, u => string.Equals(u.ModelName, "gemini-2.5-pro", StringComparison.Ordinal));
+        Assert.Contains(resultList, u => string.Equals(u.Name, "Gemini 3.1 Pro Preview", StringComparison.Ordinal));
 
-        Assert.Single(result);
         Assert.DoesNotContain(
-            result,
+            resultList,
             item => item.ProviderId.StartsWith("gemini-cli.", StringComparison.OrdinalIgnoreCase));
 
         TestTempPaths.CleanupPath(tempDir);
@@ -316,18 +301,15 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
 
         var result = await provider.GetUsageAsync(this.Config);
 
-        var summary = Assert.Single(result, item => string.Equals(item.ProviderId, "gemini-cli", StringComparison.Ordinal));
-        Assert.NotNull(summary.Details);
-        var modelDetails = summary.Details!
-            .Where(detail => detail.DetailType == ProviderUsageDetailType.Model)
-            .OrderBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        Assert.Equal(3, modelDetails.Count);
-        Assert.Contains(modelDetails, detail => string.Equals(detail.ModelName, "gemini-2.5-flash-lite", StringComparison.Ordinal));
-        Assert.Contains(modelDetails, detail => string.Equals(detail.ModelName, "gemini-3-flash-preview", StringComparison.Ordinal));
-        Assert.Contains(modelDetails, detail => string.Equals(detail.ModelName, "gemini-2.5-pro", StringComparison.Ordinal));
+        // Provider now emits one flat card per model (no parent card)
+        var resultList = result.ToList();
+        Assert.Equal(3, resultList.Count);
+        Assert.All(resultList, u => Assert.Equal("gemini-cli", u.ProviderId));
+        Assert.Contains(resultList, u => string.Equals(u.ModelName, "gemini-2.5-flash-lite", StringComparison.Ordinal));
+        Assert.Contains(resultList, u => string.Equals(u.ModelName, "gemini-3-flash-preview", StringComparison.Ordinal));
+        Assert.Contains(resultList, u => string.Equals(u.ModelName, "gemini-2.5-pro", StringComparison.Ordinal));
         Assert.DoesNotContain(
-            result,
+            resultList,
             item => item.ProviderId.StartsWith("gemini-cli.", StringComparison.OrdinalIgnoreCase));
 
         TestTempPaths.CleanupPath(tempDir);
@@ -376,16 +358,14 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
 
         var result = await provider.GetUsageAsync(this.Config);
 
-        var summary = Assert.Single(result, item => string.Equals(item.ProviderId, "gemini-cli", StringComparison.Ordinal));
-        Assert.NotNull(summary.Details);
-        var modelDetails = summary.Details!
-            .Where(detail => detail.DetailType == ProviderUsageDetailType.Model)
-            .ToList();
-        Assert.Contains(modelDetails, detail => string.Equals(detail.Name, "Gemini 2.5 Flash Lite", StringComparison.Ordinal));
-        Assert.Contains(modelDetails, detail => string.Equals(detail.Name, "Gemini 3 Flash Preview", StringComparison.Ordinal));
-        Assert.Contains(modelDetails, detail => string.Equals(detail.Name, "Gemini 2.5 Pro", StringComparison.Ordinal));
+        // Provider now emits one flat card per model (buckets without modelId are ignored)
+        var resultList = result.ToList();
+        Assert.All(resultList, u => Assert.Equal("gemini-cli", u.ProviderId));
+        Assert.Contains(resultList, u => string.Equals(u.Name, "Gemini 2.5 Flash Lite", StringComparison.Ordinal));
+        Assert.Contains(resultList, u => string.Equals(u.Name, "Gemini 3 Flash Preview", StringComparison.Ordinal));
+        Assert.Contains(resultList, u => string.Equals(u.Name, "Gemini 2.5 Pro", StringComparison.Ordinal));
         Assert.DoesNotContain(
-            result,
+            resultList,
             item => item.ProviderId.StartsWith("gemini-cli.", StringComparison.OrdinalIgnoreCase));
 
         TestTempPaths.CleanupPath(tempDir);
@@ -422,13 +402,14 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
 
         var result = await provider.GetUsageAsync(this.Config);
 
-        var summary = Assert.Single(result, item => string.Equals(item.ProviderId, "gemini-cli", StringComparison.Ordinal));
-        Assert.NotNull(summary.Details);
-        Assert.Contains(summary.Details!, detail => detail.DetailType == ProviderUsageDetailType.Model && string.Equals(detail.Name, "Gemini 2.5 Flash Lite", StringComparison.Ordinal));
-        Assert.Contains(summary.Details!, detail => detail.DetailType == ProviderUsageDetailType.Model && string.Equals(detail.Name, "Gemini 3.1 Pro Preview", StringComparison.Ordinal));
+        // Provider now emits one flat card per model (no parent card)
+        var resultList = result.ToList();
+        Assert.All(resultList, u => Assert.Equal("gemini-cli", u.ProviderId));
+        Assert.Contains(resultList, u => string.Equals(u.Name, "Gemini 2.5 Flash Lite", StringComparison.Ordinal));
+        Assert.Contains(resultList, u => string.Equals(u.Name, "Gemini 3.1 Pro Preview", StringComparison.Ordinal));
 
         Assert.DoesNotContain(
-            result,
+            resultList,
             item => item.ProviderId.StartsWith("gemini-cli.", StringComparison.OrdinalIgnoreCase));
 
         TestTempPaths.CleanupPath(tempDir);
@@ -497,7 +478,7 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         this.SetupHttpResponse("https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota", new HttpResponseMessage
         {
             StatusCode = HttpStatusCode.OK,
-            Content = new StringContent("{\"buckets\":[{\"remainingFraction\":0.7}]}"),
+            Content = new StringContent("{\"buckets\":[{\"modelId\":\"gemini-2.5-flash\",\"remainingFraction\":0.7}]}"),
         });
 
         // Act

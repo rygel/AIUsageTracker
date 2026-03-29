@@ -52,8 +52,10 @@ public class SlimGroupedUsageGuardrailTests
     }
 
     [Fact]
-    public void SlimQuotaPresentation_DoesNotUseObsoleteWindowKindProperty()
+    public void SlimQuotaPresentation_DoesNotUseRemovedDetailsProperty()
     {
+        // ProviderUsageDetail and ProviderUsage.Details were removed in the flat-card refactor.
+        // Presentation code must not reference the old Details-based patterns.
         var files = new[]
         {
             GetRepoPath("AIUsageTracker.UI.Slim", "MainWindowRuntimeLogic.cs"),
@@ -64,7 +66,8 @@ public class SlimGroupedUsageGuardrailTests
         foreach (var path in files)
         {
             var source = File.ReadAllText(path);
-            Assert.DoesNotContain(".WindowKind", source, StringComparison.Ordinal);
+            Assert.DoesNotContain(".Details", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("ProviderUsageDetail", source, StringComparison.Ordinal);
         }
     }
 

@@ -129,8 +129,7 @@ public class MockProviderService : IProviderService
             providerId: providerId,
             displayName: providerId,
             planType: PlanType.Usage,
-            isQuotaBased: false,
-            defaultConfigType: "pay-as-you-go");
+            isQuotaBased: false);
     }
 
     private static MockProviderService CreateFixedUsageMock(

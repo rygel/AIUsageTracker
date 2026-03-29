@@ -10,31 +10,33 @@ namespace AIUsageTracker.Tests.Infrastructure;
 public sealed class ProviderDerivedModelAssignmentResolverTests
 {
     [Fact]
-    public void Resolve_CodexSparkModel_AssignsConfiguredDerivedProvider()
+    public void Resolve_CodexModels_ReturnsEmpty_WhenFlatWindowCards()
     {
+        // Codex uses FlatWindowCards — the resolver has nothing to do; flat cards are built
+        // directly from ModelId in the display adapter without any selector-based routing.
         var assignments = ProviderDerivedModelAssignmentResolver.Resolve(
             "codex",
             new[]
             {
                 new AgentGroupedModelUsage
                 {
-                    ModelId = "gpt-5.3-codex",
-                    ModelName = "GPT-5.3 Codex",
+                    ModelId = "burst",
+                    ModelName = "5-hour quota",
                 },
                 new AgentGroupedModelUsage
                 {
-                    ModelId = "gpt-5.3-codex-spark",
-                    ModelName = "GPT-5.3 Codex Spark",
+                    ModelId = "spark",
+                    ModelName = "Spark",
                 },
             });
 
-        var spark = Assert.Single(assignments, assignment => string.Equals(assignment.ProviderId, "codex.spark", StringComparison.Ordinal));
-        Assert.Equal("gpt-5.3-codex-spark", spark.Model.ModelId);
+        Assert.Empty(assignments);
     }
 
     [Fact]
-    public void Resolve_GeminiPartialSelectorMatch_AddsDynamicAssignmentForUnmatchedModels()
+    public void Resolve_GeminiModels_ReturnsEmpty_WhenFlatWindowCards()
     {
+        // Gemini uses FlatWindowCards — the resolver has nothing to do.
         var assignments = ProviderDerivedModelAssignmentResolver.Resolve(
             "gemini-cli",
             new[]
@@ -51,13 +53,14 @@ public sealed class ProviderDerivedModelAssignmentResolverTests
                 },
             });
 
-        Assert.Contains(assignments, assignment => string.Equals(assignment.ProviderId, "gemini-cli.minute", StringComparison.Ordinal));
-        Assert.Contains(assignments, assignment => string.Equals(assignment.ProviderId, "gemini-cli.gemini-3-pro", StringComparison.Ordinal));
+        Assert.Empty(assignments);
     }
 
     [Fact]
-    public void Resolve_AntigravityModels_UsesDynamicChildProviderRows()
+    public void Resolve_AntigravityModels_ReturnsEmpty_WhenFlatWindowCards()
     {
+        // Antigravity uses FlatWindowCards — no derived model selectors, no dynamic rows.
+        // Cards are emitted directly by the provider with CardId; Resolve has nothing to do.
         var assignments = ProviderDerivedModelAssignmentResolver.Resolve(
             "antigravity",
             new[]
@@ -69,8 +72,6 @@ public sealed class ProviderDerivedModelAssignmentResolverTests
                 },
             });
 
-        var assignment = Assert.Single(assignments);
-        Assert.Equal("antigravity.gemini-3-flash", assignment.ProviderId);
-        Assert.Equal("gemini-3-flash", assignment.Model.ModelId);
+        Assert.Empty(assignments);
     }
 }

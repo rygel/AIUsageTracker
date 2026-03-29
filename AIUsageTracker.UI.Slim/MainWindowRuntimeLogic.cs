@@ -45,6 +45,25 @@ internal static partial class MainWindowRuntimeLogic
         return $"Monitor offline — last sync {ago}";
     }
 
+    public static bool GetIsCollapsedForGroup(AppPreferences preferences, string groupId)
+    {
+        ArgumentNullException.ThrowIfNull(preferences);
+        return preferences.CollapsedGroupIds.TryGetValue(groupId, out var collapsed) && collapsed;
+    }
+
+    public static void SetIsCollapsedForGroup(AppPreferences preferences, string groupId, bool isCollapsed)
+    {
+        ArgumentNullException.ThrowIfNull(preferences);
+        if (isCollapsed)
+        {
+            preferences.CollapsedGroupIds[groupId] = true;
+        }
+        else
+        {
+            preferences.CollapsedGroupIds.Remove(groupId);
+        }
+    }
+
     public static bool GetSectionIsCollapsed(AppPreferences preferences, bool isQuotaBased)
     {
         ArgumentNullException.ThrowIfNull(preferences);
@@ -102,7 +121,7 @@ internal static partial class MainWindowRuntimeLogic
     {
         var hiddenIds = hiddenItemIds ?? Array.Empty<string>();
         var renderPreparation = PrepareForMainWindow(usages, hiddenIds);
-        var orderedUsages = OrderForMainWindow(renderPreparation).ToList();
+        var orderedUsages = renderPreparation.ToList();
         foreach (var usage in orderedUsages)
         {
             EnrichWithPeriodDuration(usage);
@@ -125,8 +144,9 @@ internal static partial class MainWindowRuntimeLogic
                 var id = usage.ProviderId ?? string.Empty;
                 return (ProviderMetadataCatalog.Find(id)?.ShowInMainWindow ?? false) && !hiddenSet.Contains(id);
             })
-            .GroupBy(usage => usage.ProviderId, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(usage => $"{usage.ProviderId ?? string.Empty}::{usage.CardId ?? string.Empty}", StringComparer.OrdinalIgnoreCase)
             .Select(SelectPreferredUsage)
+            .OrderByDescending(usage => usage.IsQuotaBased)
             .ToList();
 
         return filteredUsages;
@@ -157,19 +177,6 @@ internal static partial class MainWindowRuntimeLogic
         }
 
         return sections;
-    }
-
-    internal static IEnumerable<ProviderUsage> OrderForMainWindow(IEnumerable<ProviderUsage> usages)
-    {
-        return usages
-            .OrderByDescending(usage => usage.IsQuotaBased)
-            .ThenBy(
-                usage => GetFamilyDisplayName(usage),
-                StringComparer.OrdinalIgnoreCase)
-            .ThenBy(
-                usage => ProviderMetadataCatalog.ResolveDisplayLabel(usage),
-                StringComparer.OrdinalIgnoreCase)
-            .ThenBy(usage => usage.ProviderId ?? string.Empty, StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -208,19 +215,6 @@ internal static partial class MainWindowRuntimeLogic
         if (matchedWindow?.PeriodDuration is { } duration)
         {
             usage.PeriodDuration = duration;
-
-            // Ensure NextResetTime matches the rolling window, not the burst window.
-            // Providers often set the parent's NextResetTime from the burst (5h) window,
-            // which makes pace projection nonsensical against a 7-day PeriodDuration.
-            if (usage.Details != null && matchedWindow.Kind == WindowKind.Rolling)
-            {
-                var rollingDetail = usage.Details.FirstOrDefault(d =>
-                    d.QuotaBucketKind == WindowKind.Rolling && d.NextResetTime.HasValue);
-                if (rollingDetail != null)
-                {
-                    usage.NextResetTime = rollingDetail.NextResetTime;
-                }
-            }
         }
     }
 
@@ -230,13 +224,6 @@ internal static partial class MainWindowRuntimeLogic
             .OrderByDescending(GetSelectionScore)
             .ThenByDescending(usage => usage.FetchedAt)
             .First();
-    }
-
-    private static string GetFamilyDisplayName(ProviderUsage usage)
-    {
-        var providerId = usage.ProviderId ?? string.Empty;
-        var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
-        return ProviderMetadataCatalog.GetConfiguredDisplayName(canonicalProviderId);
     }
 
     private static int GetSelectionScore(ProviderUsage usage)
@@ -252,11 +239,6 @@ internal static partial class MainWindowRuntimeLogic
             score += 100;
         }
 
-        if (usage.Details?.Count > 0)
-        {
-            score += 5;
-        }
-
         if (usage.NextResetTime.HasValue)
         {
             score += 10;
@@ -266,29 +248,12 @@ internal static partial class MainWindowRuntimeLogic
     }
 
     /// <summary>
-    /// Resolves reset times from detail-level quota windows, falling back to the parent's
-    /// NextResetTime when fewer than two distinct detail reset times are available.
+    /// Resolves reset times for the provider card, falling back to the parent's
+    /// NextResetTime when no specific window reset is available.
     /// </summary>
     internal static IReadOnlyList<DateTime> ResolveResetTimes(ProviderUsage usage, bool suppressSingleResetFallback)
     {
         ArgumentNullException.ThrowIfNull(usage);
-
-        // Only show Burst and Rolling reset times on the parent card.
-        // ModelSpecific windows (e.g. Spark) have their own child card.
-        var detailResetTimes = usage.Details?
-            .Where(detail => detail.DetailType == ProviderUsageDetailType.QuotaWindow)
-            .Where(detail => detail.QuotaBucketKind is WindowKind.Burst or WindowKind.Rolling)
-            .Where(detail => detail.NextResetTime.HasValue)
-            .Where(detail => UsageMath.GetEffectiveUsedPercent(detail).HasValue)
-            .Select(detail => detail.NextResetTime!.Value)
-            .Distinct()
-            .ToList()
-            ?? new List<DateTime>();
-
-        if (detailResetTimes.Count >= 2)
-        {
-            return detailResetTimes;
-        }
 
         if (suppressSingleResetFallback)
         {
@@ -300,29 +265,9 @@ internal static partial class MainWindowRuntimeLogic
             : Array.Empty<DateTime>();
     }
 
-    internal static IReadOnlyList<DateTime> ResolveResetTimesForWindow(ProviderUsage usage, WindowKind windowKind)
-    {
-        ArgumentNullException.ThrowIfNull(usage);
-
-        if (windowKind == WindowKind.None)
-        {
-            return Array.Empty<DateTime>();
-        }
-
-        return usage.Details?
-            .Where(detail => detail.DetailType == ProviderUsageDetailType.QuotaWindow)
-            .Where(detail => detail.QuotaBucketKind == windowKind)
-            .Where(detail => detail.NextResetTime.HasValue)
-            .Where(detail => UsageMath.GetEffectiveUsedPercent(detail).HasValue)
-            .Select(detail => detail.NextResetTime!.Value)
-            .Distinct()
-            .ToList()
-            ?? new List<DateTime>();
-    }
-
     /// <summary>
     /// Builds a multi-line tooltip string for a provider card, including daily budget
-    /// information for multi-day quota periods and per-detail rate limit breakdowns.
+    /// information for multi-day quota periods.
     /// </summary>
     internal static string? BuildTooltipContent(ProviderUsage usage, string friendlyName)
     {
@@ -344,24 +289,6 @@ internal static partial class MainWindowRuntimeLogic
             tooltipBuilder.AppendLine($"Expected by now: {expectedAtThisPoint:F0}% | Actual: {usage.UsedPercent:F0}%");
         }
 
-        if (usage.Details?.Any() == true)
-        {
-            tooltipBuilder.AppendLine();
-            tooltipBuilder.AppendLine("Rate Limits:");
-            foreach (var detail in usage.Details
-                         .OrderBy(GetTooltipDetailSortOrder)
-                         .ThenBy(GetDetailDisplayName, StringComparer.OrdinalIgnoreCase))
-            {
-                var detailValue = GetDetailDisplayValue(detail);
-                if (string.IsNullOrWhiteSpace(detailValue))
-                {
-                    continue;
-                }
-
-                tooltipBuilder.AppendLine($"  {GetDetailDisplayName(detail)}: {detailValue}");
-            }
-        }
-
         if (!string.IsNullOrEmpty(usage.AuthSource))
         {
             tooltipBuilder.AppendLine();
@@ -370,39 +297,5 @@ internal static partial class MainWindowRuntimeLogic
 
         var result = tooltipBuilder.ToString().Trim();
         return string.IsNullOrWhiteSpace(result) ? null : result;
-    }
-
-    /// <summary>
-    /// Gets the display name for a detail row (used in tooltip rendering).
-    /// </summary>
-    internal static string GetDetailDisplayName(ProviderUsageDetail detail)
-    {
-        return detail.Name;
-    }
-
-    /// <summary>
-    /// Gets the formatted display value for a detail row (used in tooltip rendering).
-    /// </summary>
-    internal static string GetDetailDisplayValue(ProviderUsageDetail detail)
-    {
-        return GetStoredDisplayText(detail);
-    }
-
-    /// <summary>
-    /// Sort order for tooltip detail rows, grouping quota windows by bucket kind
-    /// before model and credit details.
-    /// </summary>
-    private static int GetTooltipDetailSortOrder(ProviderUsageDetail detail)
-    {
-        return (detail.DetailType, detail.QuotaBucketKind) switch
-        {
-            (ProviderUsageDetailType.QuotaWindow, WindowKind.Burst) => 0,
-            (ProviderUsageDetailType.QuotaWindow, WindowKind.Rolling) => 1,
-            (ProviderUsageDetailType.QuotaWindow, WindowKind.ModelSpecific) => 2,
-            (ProviderUsageDetailType.QuotaWindow, _) => 3,
-            (ProviderUsageDetailType.Model, _) => 3,
-            (ProviderUsageDetailType.Credit, _) => 4,
-            _ => 5,
-        };
     }
 }

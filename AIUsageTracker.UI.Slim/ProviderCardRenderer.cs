@@ -43,11 +43,13 @@ internal sealed class ProviderCardRenderer
         this._getRelativeTimeString = getRelativeTimeString;
     }
 
-    public FrameworkElement CreateProviderCard(ProviderUsage usage, bool showUsed, bool isChild = false)
+    public FrameworkElement CreateProviderCard(ProviderUsage usage, bool showUsed, bool isChild = false, ProviderDefinition? definition = null)
     {
         var providerId = usage.ProviderId ?? string.Empty;
-        var friendlyName = ProviderMetadataCatalog.ResolveDisplayLabel(usage);
-        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed, this._preferences.ColorThresholdRed);
+        var friendlyName = definition != null
+            ? (definition.ResolveDisplayName(providerId) ?? usage.ProviderName)
+            : ProviderMetadataCatalog.ResolveDisplayLabel(usage);
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed, this._preferences.EnablePaceAdjustment);
 
         var isCompact = this._preferences.CardCompactMode;
         var grid = new Grid
@@ -59,25 +61,25 @@ internal sealed class ProviderCardRenderer
         };
 
         var pGrid = new Grid();
-        var useDualBars = presentation.HasDualBuckets && this._preferences.ShowDualQuotaBars;
+        var useDualBars = presentation.DualBar != null && this._preferences.ShowDualQuotaBars;
         if (useDualBars)
         {
             pGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             pGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
-            var primaryRow = this.CreateProgressLayer(presentation.DualBucketPrimaryUsed!.Value, presentation.DualBucketPrimaryColorPercent ?? presentation.DualBucketPrimaryUsed!.Value, showUsed, opacity: 0.55);
-            var secondaryRow = this.CreateProgressLayer(presentation.DualBucketSecondaryUsed!.Value, presentation.DualBucketSecondaryColorPercent ?? presentation.DualBucketSecondaryUsed!.Value, showUsed, opacity: 0.35);
+            var primaryRow = this.CreateProgressLayer(presentation.DualBar!.Primary.UsedPercent, presentation.DualBar.Primary.PaceColor, showUsed, opacity: 0.55);
+            var secondaryRow = this.CreateProgressLayer(presentation.DualBar.Secondary.UsedPercent, presentation.DualBar.Secondary.PaceColor, showUsed, opacity: 0.35);
             Grid.SetRow(primaryRow, 0);
             Grid.SetRow(secondaryRow, 1);
             pGrid.Children.Add(primaryRow);
             pGrid.Children.Add(secondaryRow);
 
             // Burst/weekly labels on each bar row (from provider metadata)
-            if (!string.IsNullOrEmpty(presentation.DualBucketPrimaryLabel))
+            if (!string.IsNullOrEmpty(presentation.DualBar.Primary.Label))
             {
                 var burstLabel = new TextBlock
                 {
-                    Text = presentation.DualBucketPrimaryLabel,
+                    Text = presentation.DualBar.Primary.Label,
                     FontSize = 8,
                     Foreground = this._getResourceBrush("TertiaryText", Brushes.Gray),
                     VerticalAlignment = VerticalAlignment.Center,
@@ -89,11 +91,11 @@ internal sealed class ProviderCardRenderer
                 pGrid.Children.Add(burstLabel);
             }
 
-            if (!string.IsNullOrEmpty(presentation.DualBucketSecondaryLabel))
+            if (!string.IsNullOrEmpty(presentation.DualBar.Secondary.Label))
             {
                 var weeklyLabel = new TextBlock
                 {
-                    Text = presentation.DualBucketSecondaryLabel,
+                    Text = presentation.DualBar.Secondary.Label,
                     FontSize = 8,
                     Foreground = this._getResourceBrush("TertiaryText", Brushes.Gray),
                     VerticalAlignment = VerticalAlignment.Center,
@@ -108,35 +110,29 @@ internal sealed class ProviderCardRenderer
         else
         {
             double indicatorWidth;
-            double colorIndicatorPercent;
+            PaceColorResult colorIndicator;
 
-            if (presentation.HasDualBuckets && !this._preferences.ShowDualQuotaBars)
+            if (presentation.DualBar != null && !this._preferences.ShowDualQuotaBars)
             {
-                var (selectedUsed, selectedColor) = this.GetSingleBarDualQuotaPercents(presentation);
-                indicatorWidth = showUsed ? selectedUsed : Math.Max(0, 100 - selectedUsed);
-                colorIndicatorPercent = selectedColor;
+                var bar = this._preferences.DualQuotaSingleBarMode == DualQuotaSingleBarMode.Burst
+                    ? presentation.DualBar.Primary
+                    : presentation.DualBar.Secondary;
+                indicatorWidth = showUsed ? bar.UsedPercent : Math.Max(0, 100 - bar.UsedPercent);
+                colorIndicator = bar.PaceColor;
             }
             else
             {
-                var paceColor = UsageMath.ComputePaceColor(
-                    presentation.UsedPercent,
-                    usage.NextResetTime,
-                    usage.PeriodDuration,
-                    this._preferences.ColorThresholdRed,
-                    this._preferences.EnablePaceAdjustment);
                 indicatorWidth = showUsed ? presentation.UsedPercent : presentation.RemainingPercent;
-                colorIndicatorPercent = paceColor.ColorPercent;
+                colorIndicator = presentation.PaceColor;
             }
-            pGrid = this.CreateSingleProgressLayer(colorIndicatorPercent, indicatorWidth, opacity: 0.45);
+
+            pGrid = this.CreateSingleProgressLayer(colorIndicator, indicatorWidth, opacity: 0.45);
         }
 
-        // Compute pace result once — used by both bar color and slot rendering.
-        var cardPaceColor = UsageMath.ComputePaceColor(
-            presentation.UsedPercent,
-            usage.NextResetTime,
-            usage.PeriodDuration,
-            this._preferences.ColorThresholdRed,
-            this._preferences.EnablePaceAdjustment);
+        // For dual-window providers (burst + rolling), drive the badge from the rolling window:
+        // the burst window routinely over-paces within its 5-hour window even when the weekly
+        // quota is healthy, so using it for the badge produces misleading "Over pace" warnings.
+        var cardPaceColor = presentation.DualBar?.Secondary.PaceColor ?? presentation.PaceColor;
 
         var useBackgroundBar = this._preferences.CardBackgroundBar;
         if (useBackgroundBar)
@@ -166,7 +162,7 @@ internal sealed class ProviderCardRenderer
                 {
                     Width = 3,
                     HorizontalAlignment = HorizontalAlignment.Left,
-                    Background = this.GetProgressBarColor(cardPaceColor.ColorPercent),
+                    Background = this.GetProgressBarColor(cardPaceColor),
                     Opacity = 0.8,
                 });
             }
@@ -198,7 +194,8 @@ internal sealed class ProviderCardRenderer
         var accountName = MainWindowRuntimeLogic.ResolveDisplayAccountName(
             providerId,
             usage.AccountName,
-            this._isPrivacyMode);
+            this._isPrivacyMode,
+            definition);
         AddDockedElement(
             contentPanel,
             this.CreateProviderNameTextBlock(
@@ -239,72 +236,14 @@ internal sealed class ProviderCardRenderer
         return grid;
     }
 
-    public FrameworkElement CreateSubProviderCard(ProviderUsage usage, ProviderUsageDetail detail, bool showUsed)
-    {
-        var grid = new Grid
-        {
-            Margin = new Thickness(20, 0, 0, 2),
-            Height = 20,
-            Background = Brushes.Transparent,
-        };
-
-        var presentation = MainWindowRuntimeLogic.BuildDetailPresentation(
-            detail,
-            showUsed,
-            this._getRelativeTimeString);
-
-        var pGrid = this.CreateSingleProgressLayer(presentation.UsedPercent, presentation.IndicatorWidth, opacity: 0.3);
-        if (presentation.HasProgress)
-        {
-            grid.Children.Add(pGrid);
-        }
-
-        var bulletPanel = new DockPanel { LastChildFill = false, Margin = new Thickness(6, 0, 6, 0) };
-        AddDockedElement(bulletPanel, this.CreateBulletMarker(), Dock.Left);
-
-        if (!string.IsNullOrEmpty(presentation.ResetText))
-        {
-            AddDockedElement(
-                bulletPanel,
-                this.CreateDockedTextBlock(
-                    presentation.ResetText,
-                    fontSize: 9,
-                    foreground: this._getResourceBrush("StatusTextWarning", Brushes.Goldenrod),
-                    fontWeight: FontWeights.SemiBold,
-                    margin: new Thickness(6, 0, 0, 0)),
-                Dock.Right);
-        }
-
-        AddDockedElement(
-            bulletPanel,
-            this.CreateDockedTextBlock(
-                presentation.DisplayText,
-                fontSize: 10,
-                foreground: this._getResourceBrush("TertiaryText", Brushes.Gray),
-                margin: new Thickness(10, 0, 0, 0)),
-            Dock.Right);
-
-        AddDockedElement(
-            bulletPanel,
-            this.CreateDockedTextBlock(
-                detail.Name,
-                fontSize: 10,
-                foreground: this._getResourceBrush("SecondaryText", Brushes.LightGray),
-                textTrimming: TextTrimming.CharacterEllipsis),
-            Dock.Left);
-
-        grid.Children.Add(bulletPanel);
-        return grid;
-    }
-
-    private Grid CreateProgressLayer(double usedPercent, double colorPercent, bool showUsed, double opacity)
+    private Grid CreateProgressLayer(double usedPercent, PaceColorResult paceColor, bool showUsed, double opacity)
     {
         var remainingPercent = Math.Max(0, 100 - usedPercent);
         var indicatorWidth = showUsed ? usedPercent : remainingPercent;
-        return this.CreateSingleProgressLayer(colorPercent, indicatorWidth, opacity);
+        return this.CreateSingleProgressLayer(paceColor, indicatorWidth, opacity);
     }
 
-    private Grid CreateSingleProgressLayer(double usedPercent, double indicatorWidth, double opacity)
+    private Grid CreateSingleProgressLayer(PaceColorResult paceColor, double indicatorWidth, double opacity)
     {
         var clampedWidth = Math.Clamp(indicatorWidth, 0, 100);
 
@@ -314,12 +253,25 @@ internal sealed class ProviderCardRenderer
 
         layer.Children.Add(new Border
         {
-            Background = this.GetProgressBarColor(usedPercent),
+            Background = this.GetProgressBarColor(paceColor),
             Opacity = opacity,
             CornerRadius = new CornerRadius(0),
         });
 
         return layer;
+    }
+
+    private Brush GetProgressBarColor(PaceColorResult paceColor)
+    {
+        if (paceColor.IsPaceAdjusted)
+        {
+            // Tier is the single source of truth: Headroom/OnPace → green, OverPace → red.
+            return paceColor.PaceTier == PaceTier.OverPace
+                ? this._getResourceBrush("ProgressBarRed", Brushes.Crimson)
+                : this._getResourceBrush("ProgressBarGreen", Brushes.MediumSeaGreen);
+        }
+
+        return this.GetProgressBarColor(paceColor.ColorPercent);
     }
 
     private Brush GetProgressBarColor(double usedPercentage)
@@ -343,13 +295,13 @@ internal sealed class ProviderCardRenderer
     private string? BuildResetBadgeText(ProviderUsage usage, ProviderCardPresentation presentation)
     {
         IReadOnlyList<DateTime> resetTimes;
-        if (presentation.HasDualBuckets && !this._preferences.ShowDualQuotaBars)
+        if (presentation.DualBar != null && !this._preferences.ShowDualQuotaBars)
         {
-            var preferredKind = MainWindowRuntimeLogic.GetPreferredDualBucketKind(
-                presentation,
-                this._preferences.DualQuotaSingleBarMode);
-            resetTimes = preferredKind.HasValue
-                ? MainWindowRuntimeLogic.ResolveResetTimesForWindow(usage, preferredKind.Value)
+            var bar = this._preferences.DualQuotaSingleBarMode == DualQuotaSingleBarMode.Burst
+                ? presentation.DualBar.Primary
+                : presentation.DualBar.Secondary;
+            resetTimes = bar.ResetTime.HasValue
+                ? new[] { bar.ResetTime.Value }
                 : Array.Empty<DateTime>();
         }
         else
@@ -461,12 +413,10 @@ internal sealed class ProviderCardRenderer
                 break;
 
             case CardSlotContent.StatusText:
-                var statusText = presentation.StatusText;
-                if (presentation.HasDualBuckets && !this._preferences.ShowDualQuotaBars)
-                {
-                    statusText = MainWindowRuntimeLogic.BuildSingleDualQuotaStatusText(
-                        presentation, showUsed, this._preferences.DualQuotaSingleBarMode);
-                }
+                var statusText = presentation.DualBar != null && !this._preferences.ShowDualQuotaBars
+                    ? MainWindowRuntimeLogic.BuildSingleDualQuotaStatusText(
+                        presentation, showUsed, this._preferences.DualQuotaSingleBarMode)
+                    : presentation.StatusText;
 
                 Brush statusBrush = presentation.StatusTone switch
                 {
@@ -514,20 +464,6 @@ internal sealed class ProviderCardRenderer
                 fontWeight: fontWeight ?? FontWeights.Normal,
                 margin: new Thickness(compact ? 4 : 6, 0, 0, 0)),
             Dock.Right);
-    }
-
-    private (double UsedPercent, double ColorPercent) GetSingleBarDualQuotaPercents(ProviderCardPresentation presentation)
-    {
-        var usePrimary = MainWindowRuntimeLogic.ShouldUsePrimaryDualBucket(
-            presentation,
-            this._preferences.DualQuotaSingleBarMode);
-        var used = usePrimary
-            ? presentation.DualBucketPrimaryUsed!.Value
-            : presentation.DualBucketSecondaryUsed!.Value;
-        var color = usePrimary
-            ? presentation.DualBucketPrimaryColorPercent ?? used
-            : presentation.DualBucketSecondaryColorPercent ?? used;
-        return (used, color);
     }
 
     private Border CreateBulletMarker()

@@ -69,7 +69,7 @@ public static class ProviderMetadataCatalog
         }
 
         var isDerived = !string.Equals(providerId, definition.ProviderId, StringComparison.OrdinalIgnoreCase);
-        if (isDerived && !string.IsNullOrWhiteSpace(runtimeLabel) && !definition.PreferDisplayNameOverridesForDerivedProviderIds)
+        if (isDerived && !string.IsNullOrWhiteSpace(runtimeLabel))
         {
             return runtimeLabel;
         }
@@ -152,15 +152,6 @@ public static class ProviderMetadataCatalog
             .ToList();
     }
 
-    public static IReadOnlyList<string> GetWellKnownProviderIds()
-    {
-        return Definitions
-            .Where(definition => definition.IncludeInWellKnownProviders)
-            .Select(definition => definition.ProviderId)
-            .OrderBy(providerId => providerId, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-    }
-
     public static IReadOnlyList<string> GetProviderIdsWithDedicatedSessionAuthFiles()
     {
         return Definitions
@@ -219,7 +210,7 @@ public static class ProviderMetadataCatalog
         }
 
         return Definitions.Any(definition =>
-            definition.VisibleDerivedProviderIds.Contains(providerId, StringComparer.OrdinalIgnoreCase));
+            definition.SettingsAdditionalProviderIds.Contains(providerId, StringComparer.OrdinalIgnoreCase));
     }
 
     public static bool TryCreateDefaultConfig(

@@ -124,16 +124,20 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
         // Act
         var result = await this._provider.GetUsageAsync(this.Config);
 
-        // Assert
-        var usage = Assert.Single(result);
-        Assert.True(usage.IsAvailable);
-        Assert.Equal(80.0, usage.UsedPercent); // 20 remaining out of 100 = 80% used
-        Assert.Equal(80.0, usage.RequestsUsed);
-        Assert.Equal(100.0, usage.RequestsAvailable);
-        Assert.Contains("Weekly Quota", usage.Description, StringComparison.Ordinal);
-        Assert.NotNull(usage.Details);
-        Assert.Contains(usage.Details!, detail => string.Equals(detail.Name, "5-hour Window", StringComparison.Ordinal) && detail.QuotaBucketKind == WindowKind.Burst);
-        Assert.Contains(usage.Details!, detail => string.Equals(detail.Name, "Weekly Quota", StringComparison.Ordinal) && detail.QuotaBucketKind == WindowKind.Rolling);
+        // Assert — provider now emits flat cards: one per quota window
+        var usages = result.ToList();
+        Assert.Equal(2, usages.Count);
+        Assert.All(usages, u => Assert.True(u.IsAvailable));
+
+        var weeklyCard = Assert.Single(usages, u => u.WindowKind == WindowKind.Rolling);
+        Assert.Equal(80.0, weeklyCard.UsedPercent); // 20 remaining out of 100 = 80% used
+        Assert.Equal(80.0, weeklyCard.RequestsUsed);
+        Assert.Equal(100.0, weeklyCard.RequestsAvailable);
+        Assert.Contains("Weekly Quota", weeklyCard.Name ?? string.Empty, StringComparison.Ordinal);
+        Assert.Contains("remaining", weeklyCard.Description, StringComparison.OrdinalIgnoreCase);
+
+        var burstCard = Assert.Single(usages, u => u.WindowKind == WindowKind.Burst);
+        Assert.Contains("5-Hour Window", burstCard.Name ?? string.Empty, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -177,15 +181,15 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
         // Act
         var result = await this._provider.GetUsageAsync(this.Config);
 
-        // Assert
+        // Assert — provider emits only a burst card (no weekly quota in this scenario)
         var usage = Assert.Single(result);
         Assert.Equal(25.0, usage.UsedPercent); // 150 remaining out of 200 = 25% used
         Assert.Equal(50.0, usage.RequestsUsed);
         Assert.Equal(200.0, usage.RequestsAvailable);
-        Assert.Contains("5-hour Window", usage.Description, StringComparison.Ordinal);
-        Assert.NotNull(usage.Details);
-        Assert.Contains(usage.Details!, detail => string.Equals(detail.Name, "5-hour Window", StringComparison.Ordinal));
-        Assert.DoesNotContain(usage.Details!, detail => string.Equals(detail.Name, "Weekly Quota", StringComparison.Ordinal));
+        Assert.Contains("5-Hour Window", usage.Name ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("remaining", usage.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(WindowKind.Burst, usage.WindowKind);
+        Assert.DoesNotContain(result, u => u.WindowKind == WindowKind.Rolling);
     }
 
     [Fact]
@@ -299,10 +303,8 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
         Assert.Equal(148.0, usage.RequestsUsed, 1);
         Assert.Equal("Copilot Individual", usage.AuthSource);
 
-        Assert.NotNull(usage.Details);
-        var weekly = Assert.Single(
-            usage.Details!.Where(d => string.Equals(d.Name, "Weekly Quota", StringComparison.Ordinal)));
-        Assert.Equal(WindowKind.Rolling, weekly.QuotaBucketKind);
-        Assert.Contains("152 / 300 remaining", weekly.Description, StringComparison.Ordinal);
+        // Provider now emits flat cards — the weekly card is a top-level ProviderUsage
+        Assert.Equal(WindowKind.Rolling, usage.WindowKind);
+        Assert.Contains("152 / 300 remaining", usage.Description, StringComparison.Ordinal);
     }
 }

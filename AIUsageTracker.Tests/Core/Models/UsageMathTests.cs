@@ -384,16 +384,16 @@ public class UsageMathTests
     }
 
     [Fact]
-    public void ComputePaceColor_ExactlyAtPace_MapsToRedThreshold()
+    public void ComputePaceColor_ExactlyAtPace_IsOverPace()
     {
-        // 50% used after 50% → projected 100% → boundary between on-pace and over-pace
+        // 50% used after 50% → projected 100% → boundary is over-pace
         var period = TimeSpan.FromDays(7);
         var now = DateTime.UtcNow;
         var nextReset = now.AddDays(3.5);
         var result = UsageMath.ComputePaceColor(50.0, nextReset, period, nowUtc: now);
 
-        Assert.Equal(80.0, result.ColorPercent, precision: 1);
-        Assert.Equal(PaceTier.OverPace, result.PaceTier); // 100% projected = over pace
+        Assert.Equal(PaceTier.OverPace, result.PaceTier);
+        Assert.Equal(50.0, result.ColorPercent, precision: 1); // raw usedPercent, no scaling
     }
 
     [Fact]
@@ -431,35 +431,15 @@ public class UsageMathTests
     [InlineData(49, PaceTier.OnPace)]
     [InlineData(50, PaceTier.OverPace)]
     [InlineData(80, PaceTier.OverPace)]
-    public void ComputePaceColor_TierAndColorAlwaysAgree(double usedPercent, PaceTier expectedTier)
+    public void ComputePaceColor_TierDrivesColorForPaceAdjusted(double usedPercent, PaceTier expectedTier)
     {
         // 50% elapsed (3.5 days left of 7) → projected = usedPercent / 0.5 = usedPercent * 2
         var now = DateTime.UtcNow;
-        var result = UsageMath.ComputePaceColor(usedPercent, now.AddDays(3.5), TimeSpan.FromDays(7), redThreshold: 80, nowUtc: now);
+        var result = UsageMath.ComputePaceColor(usedPercent, now.AddDays(3.5), TimeSpan.FromDays(7), nowUtc: now);
 
         Assert.Equal(expectedTier, result.PaceTier);
-
-        // THE CONSISTENCY GUARANTEE:
-        // Headroom/OnPace → color below red threshold
-        // OverPace → color at or above red threshold
-        if (expectedTier == PaceTier.OverPace)
-        {
-            Assert.True(result.ColorPercent >= 80.0, $"OverPace must have red color, was {result.ColorPercent:F1}");
-        }
-        else
-        {
-            Assert.True(result.ColorPercent < 80.0, $"{expectedTier} must NOT have red color, was {result.ColorPercent:F1}");
-        }
-    }
-
-    [Fact]
-    public void ComputePaceColor_CustomRedThreshold_ScalesCorrectly()
-    {
-        // 50% used at 50% elapsed → projected 100% → maps to custom threshold
-        var now = DateTime.UtcNow;
-        var result = UsageMath.ComputePaceColor(50.0, now.AddDays(3.5), TimeSpan.FromDays(7), redThreshold: 90, nowUtc: now);
-
-        Assert.Equal(90.0, result.ColorPercent, precision: 1);
+        // ColorPercent is always raw usedPercent — tier drives bar color, not ColorPercent.
+        Assert.Equal(usedPercent, result.ColorPercent, precision: 1);
     }
 
     // ── ComputePaceColor projected percent ─────────────────────────────────

@@ -46,7 +46,6 @@ public sealed class ProviderUsagePersistenceService
             var dynamicConfig = new ProviderConfig
             {
                 ProviderId = usage.ProviderId,
-                Type = usage.IsQuotaBased ? "quota-based" : "pay-as-you-go",
                 AuthSource = usage.AuthSource,
                 ApiKey = "dynamic",
             };

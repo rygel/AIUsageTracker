@@ -217,7 +217,6 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         Assert.Equal("minimax", definition.ProviderId); // provider-id-guardrail-allow: test assertion
         Assert.Equal("Minimax (China)", definition.DisplayName);
         Assert.True(definition.IsQuotaBased);
-        Assert.Equal("quota-based", definition.DefaultConfigType);
         Assert.Contains("MINIMAX_API_KEY", definition.DiscoveryEnvironmentVariables);
     }
 

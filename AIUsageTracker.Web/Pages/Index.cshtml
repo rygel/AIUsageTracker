@@ -249,32 +249,35 @@
                         </div>
                         
                         @{
-                            var displayableDetails = usage.Details?
-                                .Where(detail => detail.IsDisplayableSubProviderDetail())
-                                .ToList();
+                            // For flat-card providers, show sibling cards in the same group as sub-rows.
+                            var siblingCards = !string.IsNullOrEmpty(usage.GroupId) && usage.CardId != null
+                                ? (Model.LatestUsage ?? new List<AIUsageTracker.Core.Models.ProviderUsage>())
+                                    .Where(u => string.Equals(u.GroupId, usage.GroupId, StringComparison.OrdinalIgnoreCase)
+                                                && !string.Equals(u.CardId, usage.CardId, StringComparison.OrdinalIgnoreCase))
+                                    .ToList()
+                                : new List<AIUsageTracker.Core.Models.ProviderUsage>();
                         }
-                        @if (displayableDetails?.Any() == true)
+                        @if (siblingCards.Count > 0)
                         {
                             <div class="sub-providers-container">
-                                <button class="sub-providers-toggle" onclick="toggleSubProviders('@usage.ProviderId')">
-                                    <span id="toggle-icon-@usage.ProviderId">▼</span>
-                                    <span id="toggle-text-@usage.ProviderId">Hide @(displayableDetails.Count) details</span>
+                                <button class="sub-providers-toggle" onclick="toggleSubProviders('@usage.GroupId')">
+                                    <span id="toggle-icon-@usage.GroupId">▼</span>
+                                    <span id="toggle-text-@usage.GroupId">Hide @(siblingCards.Count) cards</span>
                                 </button>
-                                <div id="sub-providers-@usage.ProviderId" class="sub-providers">
-                                    @foreach (var detail in displayableDetails)
+                                <div id="sub-providers-@usage.GroupId" class="sub-providers">
+                                    @foreach (var sibling in siblingCards)
                                     {
-                                        var detailUsed = AIUsageTracker.Core.Models.UsageMath.GetEffectiveUsedPercent(detail);
                                         var showUsed = Model.ShowUsedPercentage;
-                                        var displayVal = detailUsed.HasValue
-                                            ? (showUsed ? detailUsed.Value : (100.0 - detailUsed.Value)).ToString("F0") + "%"
-                                            : detail.Description;
+                                        var displayVal = showUsed
+                                            ? sibling.UsedPercent.ToString("F0") + "% used"
+                                            : sibling.RemainingPercent.ToString("F0") + "% remaining";
 
                                         <div class="sub-provider-row">
-                                            <span class="sub-provider-name">@detail.Name</span>
+                                            <span class="sub-provider-name">@(sibling.Name ?? sibling.CardId)</span>
                                             <span class="sub-provider-value">@displayVal</span>
-                                            @if (detail.NextResetTime.HasValue)
+                                            @if (sibling.NextResetTime.HasValue)
                                             {
-                                                <span class="sub-provider-reset">(@GetRelativeTimeString(detail.NextResetTime.Value))</span>
+                                                <span class="sub-provider-reset">(@GetRelativeTimeString(sibling.NextResetTime.Value))</span>
                                             }
                                         </div>
                                     }
@@ -623,30 +626,12 @@
 
     bool TryGetDualWindowPercentages(AIUsageTracker.Core.Models.ProviderUsage usage, out double primaryUsed, out double secondaryUsed, out string primaryName, out string secondaryName)
     {
+        // Dual-window data now comes from flat ProviderUsage cards (WindowKind != None).
+        // The web page operates on root ProviderUsage objects which no longer carry sub-details.
         primaryUsed = 0;
         secondaryUsed = 0;
         primaryName = "";
         secondaryName = "";
-
-        if (usage.Details == null || !usage.Details.Any()) return false;
-
-        var primaryDetail = usage.Details.FirstOrDefault(d => d.DetailType == AIUsageTracker.Core.Models.ProviderUsageDetailType.QuotaWindow && d.QuotaBucketKind == AIUsageTracker.Core.Models.WindowKind.Burst);
-        var secondaryDetail = usage.Details.FirstOrDefault(d => d.DetailType == AIUsageTracker.Core.Models.ProviderUsageDetailType.QuotaWindow && d.QuotaBucketKind == AIUsageTracker.Core.Models.WindowKind.Rolling);
-
-        if (primaryDetail == null || secondaryDetail == null) return false;
-
-        var p = AIUsageTracker.Core.Models.UsageMath.GetEffectiveUsedPercent(primaryDetail);
-        var s = AIUsageTracker.Core.Models.UsageMath.GetEffectiveUsedPercent(secondaryDetail);
-
-        if (p.HasValue && s.HasValue)
-        {
-            primaryUsed = p.Value;
-            secondaryUsed = s.Value;
-            primaryName = primaryDetail.Name;
-            secondaryName = secondaryDetail.Name;
-            return true;
-        }
-
         return false;
     }
 }

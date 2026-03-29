@@ -244,6 +244,11 @@ public class DatabaseMigrationService
         EnsureColumn(connection, "provider_history", "upstream_response_validity", "INTEGER NOT NULL DEFAULT 0");
         EnsureColumn(connection, "provider_history", "upstream_response_note", "TEXT NOT NULL DEFAULT ''");
         EnsureColumn(connection, "provider_history", "parent_provider_id", "TEXT");
+        EnsureColumn(connection, "provider_history", "card_id", "TEXT");
+        EnsureColumn(connection, "provider_history", "group_id", "TEXT");
+        EnsureColumn(connection, "provider_history", "window_kind", "INTEGER NOT NULL DEFAULT 0");
+        EnsureColumn(connection, "provider_history", "model_name", "TEXT");
+        EnsureColumn(connection, "provider_history", "name", "TEXT");
 
         // Convert fetched_at TEXT → INTEGER epoch for databases that pre-date V11.
         ConvertTimestampsToEpochIfNeeded(connection);

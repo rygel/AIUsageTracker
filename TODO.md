@@ -1,5 +1,31 @@
 # TODO
 
+## Current Task (2026-03-29): Fix Sonnet / All Models visibility
+
+### Bug
+Child rows for Claude Code (`claude-code.sonnet`, `claude-code.all-models`) are invisible even though the parent Claude Code card shows "headroom."
+
+### Root causes
+
+**Fix 1 (critical) — `SplitActiveInactive` hides child rows**
+- File: `AIUsageTracker.UI.Slim/MainWindow.Rendering.cs`
+- Synthesized derived-child rows have `HttpStatus = 0` and may have `UsedPercent = 0`.
+- Inactive criteria (`IsAvailable && UsedPercent <= 0 && HttpStatus is 0 or 200`) incorrectly marks them inactive → "Other providers" collapsed section → invisible.
+- Fix: Skip inactive check for derived child provider IDs (`ProviderId != canonical ProviderId`).
+
+**Fix 2 (secondary) — `ResolvePeriodDuration` returns null for child provider IDs**
+- File: `AIUsageTracker.UI.Slim/GroupedUsageDisplayAdapter.cs`
+- `ResolvePeriodDuration("claude-code.sonnet")` returns `null` → `PeriodDuration = null` → no pace → no Headroom badge.
+- Fix: Fall back to parent's Rolling window `PeriodDuration` for derived child providers.
+
+### Status
+- [x] Fix 1 — `SplitActiveInactive` (`MainWindow.Rendering.cs`)
+- [x] Fix 2 — `ResolvePeriodDuration` (`GroupedUsageDisplayAdapter.cs`)
+- [x] Build & 908/909 tests pass (1 pre-existing unrelated failure)
+- [ ] Push & PR
+
+---
+
 ## Current Status (Updated: 2026-03-04)
 
 ### Recently Completed

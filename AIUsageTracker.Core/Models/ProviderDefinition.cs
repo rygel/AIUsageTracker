@@ -12,8 +12,7 @@ public sealed class ProviderDefinition
         string providerId,
         string displayName,
         PlanType planType,
-        bool isQuotaBased,
-        string defaultConfigType)
+        bool isQuotaBased)
     {
         if (string.IsNullOrWhiteSpace(providerId))
         {
@@ -29,7 +28,6 @@ public sealed class ProviderDefinition
         this.DisplayName = displayName.Trim();
         this.PlanType = planType;
         this.IsQuotaBased = isQuotaBased;
-        this.DefaultConfigType = defaultConfigType;
     }
 
     public string ProviderId { get; }
@@ -39,12 +37,6 @@ public sealed class ProviderDefinition
     public PlanType PlanType { get; }
 
     public bool IsQuotaBased { get; }
-
-    public string DefaultConfigType { get; }
-
-    public bool AutoIncludeWhenUnconfigured { get; init; }
-
-    public bool IncludeInWellKnownProviders { get; init; }
 
     public ProviderFamilyMode FamilyMode { get; init; } = ProviderFamilyMode.Standalone;
 
@@ -70,6 +62,12 @@ public sealed class ProviderDefinition
     public IReadOnlyCollection<string> VisibleDerivedProviderIds { get; init; } = Array.Empty<string>();
 
     public IReadOnlyCollection<ProviderDerivedModelSelector> DerivedModelSelectors { get; init; } = Array.Empty<ProviderDerivedModelSelector>();
+
+    /// <summary>
+    /// Model IDs that are consumed by the parent card (e.g. progress bars) and must not
+    /// appear as dynamic child rows even when other VisibleDerivedProviderIds are declared.
+    /// </summary>
+    public IReadOnlyCollection<string> ExcludedDerivedModelIds { get; init; } = Array.Empty<string>();
 
     public IReadOnlyCollection<string> ExplicitApiKeyPrefixes { get; init; } = Array.Empty<string>();
 
@@ -98,8 +96,6 @@ public sealed class ProviderDefinition
     public string? BadgeColorHex { get; init; }
 
     public string? BadgeInitial { get; init; }
-
-    public bool PreferDisplayNameOverridesForDerivedProviderIds { get; init; }
 
     public bool SupportsAccountIdentity { get; init; }
 
@@ -208,8 +204,6 @@ public sealed class ProviderDefinition
         {
             ProviderId = string.IsNullOrWhiteSpace(providerId) ? this.ProviderId : providerId,
             ApiKey = apiKey ?? string.Empty,
-            Type = this.DefaultConfigType,
-            PlanType = this.PlanType,
             AuthSource = authSource ?? AuthSource.Unknown,
             Description = description,
         };

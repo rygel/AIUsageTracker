@@ -47,8 +47,7 @@ public class AllProvidersWorkingTests
             "minimax",
             "Minimax (China)",
             PlanType.Coding,
-            isQuotaBased: true,
-            defaultConfigType: "quota-based")
+            isQuotaBased: true)
         {
             AdditionalHandledProviderIds = new[] { "minimax-io", "minimax-global" },
         });

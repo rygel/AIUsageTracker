@@ -22,16 +22,7 @@ internal static class SettingsWindowDeterministicFixture
             CreateUsage(
                 new DeterministicProviderScenario(AntigravityProvider.StaticDefinition.ProviderId, "local-session"),
                 deterministicNow,
-                new FixtureUsageScenario(40.0, 0, 0, "60.0% Remaining", 6),
-                details: new List<ProviderUsageDetail>
-                {
-                    CreateDetail(deterministicNow, "Claude Opus 4.6 (Thinking)", 40.0, 10),
-                    CreateDetail(deterministicNow, "Claude Sonnet 4.6 (Thinking)", 40.0, 10),
-                    CreateDetail(deterministicNow, "Gemini 3 Flash", 0.0, 6),
-                    CreateDetail(deterministicNow, "Gemini 3.1 Pro (High)", 0.0, 14),
-                    CreateDetail(deterministicNow, "Gemini 3.1 Pro (Low)", 0.0, 14),
-                    CreateDetail(deterministicNow, "GPT-OSS 120B (Medium)", 40.0, 8),
-                }),
+                new FixtureUsageScenario(40.0, 0, 0, "60.0% Remaining", 6)),
         };
 
         usages.AddRange(DeterministicProviderScenario.Scenarios
@@ -67,8 +58,7 @@ internal static class SettingsWindowDeterministicFixture
         DeterministicProviderScenario scenario,
         DateTime deterministicNow,
         FixtureUsageScenario usageScenario,
-        bool isAvailable = true,
-        List<ProviderUsageDetail>? details = null)
+        bool isAvailable = true)
     {
         var def = ProviderMetadataCatalog.Find(scenario.ProviderId)
             ?? throw new InvalidOperationException($"Unknown provider id '{scenario.ProviderId}' in deterministic screenshot data.");
@@ -86,25 +76,10 @@ internal static class SettingsWindowDeterministicFixture
             RequestsUsed = usageScenario.RequestsUsed,
             RequestsAvailable = usageScenario.RequestsAvailable,
             Description = usageScenario.Description,
-            Details = details,
             NextResetTime = usageScenario.ResetHours.HasValue
                 ? deterministicNow.AddHours(usageScenario.ResetHours.Value)
                 : null,
         };
-    }
-
-    private static ProviderUsageDetail CreateDetail(DateTime deterministicNow, string name, double usedPercent, int resetHours)
-    {
-        var detail = new ProviderUsageDetail
-        {
-            Name = name,
-            ModelName = name,
-            GroupName = "Recommended Group 1",
-            Description = $"{100.0 - usedPercent:F0}% remaining",
-            NextResetTime = deterministicNow.AddHours(resetHours),
-        };
-        detail.SetPercentageValue(usedPercent, PercentageValueSemantic.Used);
-        return detail;
     }
 
     private static SettingsWindowHistoryRow CreateHistoryRow(string providerId, FixtureHistoryScenario scenario)

@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // Used: legacy field read in projection service
-
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.Providers;
@@ -51,13 +49,12 @@ public static class GroupedUsageProjectionService
                 .FirstOrDefault();
 
         var displayName = ResolveProviderDisplayName(primary, canonicalProviderId);
-        var providerDetails = primary.Details is { Count: > 0 }
-            ? (IReadOnlyList<ProviderUsageDetail>)primary.Details
-                .Where(d => !d.IsStale
-                    && d.DetailType == ProviderUsageDetailType.QuotaWindow
-                    && string.IsNullOrWhiteSpace(d.ModelName))
-                .ToList()
-            : Array.Empty<ProviderUsageDetail>();
+        // Flat cards with WindowKind != None are the quota-window cards for this group.
+        var providerDetails = (IReadOnlyList<ProviderUsage>)group
+            .Where(u => u.WindowKind != WindowKind.None && !u.IsStale)
+            .OrderBy(u => u.NextResetTime ?? DateTime.MaxValue)
+            .ThenBy(u => u.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
         return new AgentGroupedProviderUsage
         {
             ProviderId = canonicalProviderId,
@@ -84,8 +81,10 @@ public static class GroupedUsageProjectionService
 
     private static ProviderUsage SelectPrimaryUsage(IEnumerable<ProviderUsage> group, string canonicalProviderId)
     {
-        return group.FirstOrDefault(usage =>
-                string.Equals(usage.ProviderId, canonicalProviderId, StringComparison.OrdinalIgnoreCase))
+        return group
+                .Where(usage => string.Equals(usage.ProviderId, canonicalProviderId, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(usage => usage.FetchedAt)
+                .FirstOrDefault()
             ?? group
                 .OrderByDescending(usage => usage.FetchedAt)
                 .First();
@@ -96,6 +95,16 @@ public static class GroupedUsageProjectionService
         string canonicalProviderId)
     {
         var usages = group.ToList();
+
+        // Flat-card providers: if any non-currency usages have a CardId, project them as models.
+        // Currency/balance cards (e.g. DeepSeek balance-usd) have CardId but must not be projected
+        // as quota model rows — they are balance display cards, not model-level quota windows.
+        var flatModelCards = usages.Where(u => !string.IsNullOrWhiteSpace(u.CardId) && !u.IsCurrencyUsage).ToList();
+        if (flatModelCards.Count > 0)
+        {
+            return BuildModelsFromFlatCards(flatModelCards, canonicalProviderId);
+        }
+
         if ((ProviderMetadataCatalog.Find(canonicalProviderId)?.UseChildProviderRowsForGroupedModels ?? false) &&
             ShouldBuildModelsFromExplicitChildRows(usages, canonicalProviderId))
         {
@@ -105,87 +114,41 @@ public static class GroupedUsageProjectionService
         return BuildModelsFromDetails(usages);
     }
 
-    private static IReadOnlyList<AgentGroupedModelUsage> BuildModelsFromDetails(IEnumerable<ProviderUsage> group)
+    private static IReadOnlyList<AgentGroupedModelUsage> BuildModelsFromFlatCards(
+        IEnumerable<ProviderUsage> group,
+        string canonicalProviderId)
     {
-        var models = new Dictionary<string, AgentGroupedModelUsage>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var usage in group.OrderByDescending(item => item.FetchedAt))
-        {
-            if (usage.Details == null || usage.Details.Count == 0)
+        return group
+            .Where(u => !string.IsNullOrWhiteSpace(u.CardId))
+            .GroupBy(u => u.CardId!, StringComparer.OrdinalIgnoreCase)
+            .Select(cardGroup => cardGroup.OrderByDescending(u => u.FetchedAt).First())
+            .OrderBy(u => u.CardId, StringComparer.OrdinalIgnoreCase)
+            .Select(u =>
             {
-                continue;
-            }
-
-            var quotaDetails = usage.Details
-                .Where(detail => detail.DetailType == ProviderUsageDetailType.QuotaWindow)
-                .ToList();
-
-            foreach (var detail in usage.Details.Where(detail =>
-                         detail.DetailType == ProviderUsageDetailType.Model &&
-                         !string.IsNullOrWhiteSpace(detail.Name)))
-            {
-                var modelId = !string.IsNullOrWhiteSpace(detail.ModelName)
-                    ? detail.ModelName
-                    : CreateModelIdFromName(detail.Name);
-                if (models.ContainsKey(modelId))
-                {
-                    continue;
-                }
-
-                double? usedPercentage;
-                double? remainingPercentage;
-                if (detail.TryGetPercentageValue(out var typedPercent, out var typedSemantic, out _))
-                {
-                    var isRemaining = typedSemantic == PercentageValueSemantic.Remaining
-                        || (typedSemantic == PercentageValueSemantic.None
-                            && (detail.DetailType == ProviderUsageDetailType.QuotaWindow || usage.IsQuotaBased));
-                    if (isRemaining)
-                    {
-                        remainingPercentage = typedPercent;
-                        usedPercentage = UsageMath.ClampPercent(100.0 - typedPercent);
-                    }
-                    else
-                    {
-                        usedPercentage = typedPercent;
-                        remainingPercentage = UsageMath.ClampPercent(100.0 - typedPercent);
-                    }
-                }
-                else
-                {
-                    usedPercentage = UsageMath.GetEffectiveUsedPercent(detail);
-                    remainingPercentage = usedPercentage.HasValue
-                        ? (double?)UsageMath.ClampPercent(100.0 - usedPercentage.Value)
-                        : null;
-                }
-
-                var modelScopedQuotaDetails = quotaDetails
-                    .Where(quotaDetail => string.Equals(quotaDetail.ModelName, modelId, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-                var quotaBuckets = BuildQuotaBucketsFromDetails(modelScopedQuotaDetails, usage.IsQuotaBased);
+                var usedPercentage = UsageMath.ClampPercent(u.UsedPercent);
+                var remainingPercentage = UsageMath.ClampPercent(u.RemainingPercent);
                 var model = new AgentGroupedModelUsage
                 {
-                    ModelId = modelId,
-                    ModelName = detail.Name,
+                    ModelId = u.CardId!,
+                    ModelName = u.Name ?? u.CardId!,
                     UsedPercentage = usedPercentage,
                     RemainingPercentage = remainingPercentage,
-                    NextResetTime = detail.NextResetTime,
-                    Description = detail.Description ?? string.Empty,
-                    QuotaBuckets = quotaBuckets.Count > 0
-                        ? quotaBuckets
-                        : BuildSummaryQuotaBuckets(
-                            usedPercentage,
-                            remainingPercentage,
-                            detail.NextResetTime,
-                            detail.Description),
+                    NextResetTime = u.NextResetTime,
+                    Description = u.Description ?? string.Empty,
+                    QuotaBuckets = BuildSummaryQuotaBuckets(usedPercentage, remainingPercentage, u.NextResetTime, u.Description),
                 };
-                ApplyEffectiveModelState(model, usage.IsQuotaBased);
-                models[modelId] = model;
-            }
-        }
-
-        return models.Values
-            .OrderBy(model => model.ModelName, StringComparer.OrdinalIgnoreCase)
+                ApplyEffectiveModelState(model, u.IsQuotaBased);
+                return model;
+            })
             .ToList();
+    }
+
+    private static IReadOnlyList<AgentGroupedModelUsage> BuildModelsFromDetails(IEnumerable<ProviderUsage> group)
+    {
+        // Legacy path: providers that neither emit flat cards nor use explicit child rows.
+        // With all providers now emitting flat cards, this path returns empty.
+        // Left in place to avoid removing the BuildModels dispatch branch.
+        return Array.Empty<AgentGroupedModelUsage>();
     }
 
     private static bool ShouldBuildModelsFromExplicitChildRows(
@@ -215,7 +178,7 @@ public static class GroupedUsageProjectionService
             {
                 var remainingPercentage = UsageMath.ClampPercent(usage.RemainingPercent);
                 var usedPercentage = UsageMath.ClampPercent(usage.UsedPercent);
-                var quotaBuckets = BuildQuotaBucketsFromDetails(usage.Details ?? Array.Empty<ProviderUsageDetail>(), usage.IsQuotaBased);
+                var quotaBuckets = BuildSummaryQuotaBuckets(usedPercentage, remainingPercentage, usage.NextResetTime, usage.Description);
                 var model = new AgentGroupedModelUsage
                 {
                     ModelId = ResolveChildModelId(usage, canonicalProviderId),
@@ -238,45 +201,21 @@ public static class GroupedUsageProjectionService
             .ToList();
     }
 
-    private static IReadOnlyList<AgentGroupedQuotaBucketUsage> BuildQuotaBucketsFromDetails(
-        IEnumerable<ProviderUsageDetail> quotaDetails,
-        bool parentIsQuotaBased)
+    private static IReadOnlyList<AgentGroupedQuotaBucketUsage> BuildQuotaBucketsFromCards(
+        IEnumerable<ProviderUsage> windowCards)
     {
         var buckets = new List<AgentGroupedQuotaBucketUsage>();
         var usedBucketIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var detail in quotaDetails
-                     .Where(detail => !string.IsNullOrWhiteSpace(detail.Name))
-                     .OrderBy(detail => detail.NextResetTime ?? DateTime.MaxValue)
-                     .ThenBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase))
+        foreach (var card in windowCards
+                     .Where(card => !string.IsNullOrWhiteSpace(card.Name))
+                     .OrderBy(card => card.NextResetTime ?? DateTime.MaxValue)
+                     .ThenBy(card => card.Name, StringComparer.OrdinalIgnoreCase))
         {
-            double? usedPercent;
-            double? remainingPercent;
-            if (detail.TryGetPercentageValue(out var typedPercent, out var typedSemantic, out _))
-            {
-                var isRemaining = typedSemantic == PercentageValueSemantic.Remaining
-                    || (typedSemantic == PercentageValueSemantic.None
-                        && (detail.DetailType == ProviderUsageDetailType.QuotaWindow || parentIsQuotaBased));
-                if (isRemaining)
-                {
-                    remainingPercent = typedPercent;
-                    usedPercent = UsageMath.ClampPercent(100.0 - typedPercent);
-                }
-                else
-                {
-                    usedPercent = typedPercent;
-                    remainingPercent = UsageMath.ClampPercent(100.0 - typedPercent);
-                }
-            }
-            else
-            {
-                usedPercent = UsageMath.GetEffectiveUsedPercent(detail);
-                remainingPercent = usedPercent.HasValue
-                    ? (double?)UsageMath.ClampPercent(100.0 - usedPercent.Value)
-                    : null;
-            }
+            var usedPercent = UsageMath.ClampPercent(card.UsedPercent);
+            var remainingPercent = UsageMath.ClampPercent(card.RemainingPercent);
 
-            var baseBucketId = CreateModelIdFromName(detail.Name);
+            var baseBucketId = card.CardId ?? CreateModelIdFromName(card.Name!);
             var bucketId = baseBucketId;
             var duplicateCounter = 2;
             while (!usedBucketIds.Add(bucketId))
@@ -288,12 +227,12 @@ public static class GroupedUsageProjectionService
             buckets.Add(new AgentGroupedQuotaBucketUsage
             {
                 BucketId = bucketId,
-                BucketName = detail.Name,
-                UsedPercentage = usedPercent.HasValue ? UsageMath.ClampPercent(usedPercent.Value) : null,
+                BucketName = card.Name!,
+                UsedPercentage = usedPercent,
                 RemainingPercentage = remainingPercent,
-                NextResetTime = detail.NextResetTime,
-                Description = detail.Description ?? string.Empty,
-                QuotaBucketKind = detail.QuotaBucketKind,
+                NextResetTime = card.NextResetTime,
+                Description = card.Description ?? string.Empty,
+                QuotaBucketKind = card.WindowKind,
             });
         }
 

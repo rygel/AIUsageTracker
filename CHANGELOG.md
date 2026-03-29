@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [2.3.4-beta.9] - 2026-03-28
+
+### Changed
+- **Flat provider card model**: replaced the `ProviderUsage` + `ProviderUsageDetail` parent-child structure with a flat list of independent cards. Each card has a stable `CardId` (database key), `GroupId` (rendering group), `WindowKind`, and `ModelName`. Grouping is now a rendering concern, not a data structure concern.
+- **Claude Code**: All Models, Sonnet, Opus, and Current Session are now explicit named cards rather than sub-details of a single parent card.
+- **Database migrations V12 and V13**: add `card_id`, `group_id`, `window_kind`, `model_name`, and `is_stale` columns to the history table.
+- Removed `ProviderUsageDetail` and `ProviderUsageDetailType` entirely (−2 900 net lines).
+
+### Fixed
+- Beta update checker now correctly detects new versions.
+
 ## [2.3.4-beta.8] - 2026-03-27
 
 ### Changed

@@ -129,8 +129,8 @@ public class AntigravityProviderTests : HttpProviderTestBase<AntigravityProvider
         var usages = await InvokeFetchUsageAsync(this._provider, 5109, "csrf-token", this.Config);
         var summary = usages.First();
 
-        Assert.NotNull(summary.Details);
-        Assert.Contains(summary.Details!, detail => string.Equals(detail.Name, "gpt-oss", StringComparison.OrdinalIgnoreCase));
+        // In the flat-card model, each model becomes its own child ProviderUsage card.
+        Assert.Contains(usages, u => u.ProviderId.Contains("gpt-oss", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -146,19 +146,12 @@ public class AntigravityProviderTests : HttpProviderTestBase<AntigravityProvider
 
         var usages = await InvokeFetchUsageAsync(this._provider, 5109, "csrf-token", this.Config);
         var summary = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "antigravity", StringComparison.Ordinal));
-        var geminiFlashDetail = Assert.Single(
-            summary.Details!,
-            detail => string.Equals(detail.Name, "Gemini 3 Flash", StringComparison.Ordinal));
         var geminiFlashChild = Assert.Single(
             usages,
             usage => string.Equals(usage.ProviderId, "antigravity.gemini-3-flash", StringComparison.Ordinal));
 
         Assert.Equal("Google Antigravity", summary.ProviderName);
 
-        // Detail description contains reset info, not remaining text
-        Assert.True(geminiFlashDetail.TryGetPercentageValue(out var pct, out var sem, out _));
-        Assert.Equal(100.0, pct, 1); // 100% remaining fraction
-        Assert.Equal(PercentageValueSemantic.Remaining, sem);
         Assert.Equal(0, geminiFlashChild.UsedPercent); // 0% used (100% remaining)
         Assert.Equal(0, geminiFlashChild.RequestsUsed);
         Assert.Equal(100, geminiFlashChild.RequestsAvailable);

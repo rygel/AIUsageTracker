@@ -20,8 +20,6 @@ public abstract class ProviderTestBase<TProvider>
         this.Config = new ProviderConfig
         {
             ProviderId = definition?.ProviderId ?? GetProviderId(),
-            PlanType = definition?.PlanType ?? PlanType.Usage,
-            Type = definition?.DefaultConfigType ?? "pay-as-you-go",
         };
     }
 

@@ -3,7 +3,6 @@
 // </copyright>
 
 using System.Net;
-using System.Text.Json;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -24,8 +23,8 @@ public class ProviderResponseDeserializationTests
 
     /// <summary>
     /// Codex provider: realistic response with primary_window, secondary_window, and
-    /// an additional_rate_limits entry for Spark. Verifies the full ProviderUsage output
-    /// including details for burst, weekly, and spark windows.
+    /// an additional_rate_limits entry for Spark. Verifies the flat-card output
+    /// including burst, weekly, and spark cards.
     /// </summary>
     [Fact]
     public async Task CodexProvider_ParsesRealisticResponse_WithAllWindows()
@@ -84,64 +83,29 @@ public class ProviderResponseDeserializationTests
         // Act
         var usages = (await provider.GetUsageAsync(config)).ToList();
 
-        // Assert — should return exactly one ProviderUsage
-        Assert.Single(usages);
-        var usage = usages[0];
+        // Assert — flat cards: burst, weekly, spark
+        Assert.True(usages.Count >= 3, $"Expected at least 3 flat cards (burst, weekly, spark), got {usages.Count}");
+        Assert.All(usages, u => Assert.True(u.IsAvailable, $"Card {u.CardId} should be available"));
+        Assert.All(usages, u => Assert.Equal(200, u.HttpStatus));
 
-        Assert.Equal("codex", usage.ProviderId);
-        Assert.True(usage.IsAvailable, "Usage should be available");
-        Assert.Equal(200, usage.HttpStatus);
+        // Burst card (primary_window, 5h)
+        var burstCard = usages.First(u => u.CardId == "burst");
+        Assert.Equal("codex", burstCard.ProviderId);
+        Assert.Equal(42.5, burstCard.UsedPercent, precision: 1);
+        Assert.NotNull(burstCard.NextResetTime);
 
-        // Effective used percent should be the max across all windows:
-        // primary=42.5, secondary=28.0, spark_primary=15.0, spark_secondary=22.0 → max=42.5
-        Assert.Equal(42.5, usage.UsedPercent, precision: 1);
+        // Weekly card (secondary_window, 7d)
+        var weeklyCard = usages.First(u => u.CardId == "weekly");
+        Assert.Equal("codex", weeklyCard.ProviderId);
+        Assert.Equal(28.0, weeklyCard.UsedPercent, precision: 1);
+        Assert.NotNull(weeklyCard.NextResetTime);
 
-        // NextResetTime should be set (from the weekly/secondary window)
-        Assert.NotNull(usage.NextResetTime);
+        // Spark card (additional_rate_limits)
+        var sparkCard = usages.First(u => u.CardId == "spark");
+        Assert.Contains("Spark", sparkCard.ProviderName, StringComparison.OrdinalIgnoreCase);
 
-        // Details should include burst (5h), weekly, and spark windows
-        Assert.NotNull(usage.Details);
-        Assert.True(usage.Details.Count >= 3, $"Expected at least 3 details (burst, weekly, spark), got {usage.Details.Count}");
-
-        // Verify burst window detail (primary_window)
-        var burstDetail = usage.Details.FirstOrDefault(d =>
-            d.QuotaBucketKind == WindowKind.Burst &&
-            d.DetailType == ProviderUsageDetailType.QuotaWindow &&
-            string.IsNullOrEmpty(d.ModelName));
-        Assert.NotNull(burstDetail);
-        Assert.NotNull(burstDetail!.PercentageValue);
-
-        // primary_window used=42.5% → remaining=57.5%
-        Assert.Equal(57.5, burstDetail.PercentageValue!.Value, precision: 1);
-        Assert.Equal(PercentageValueSemantic.Remaining, burstDetail.PercentageSemantic);
-
-        // Verify weekly window detail (secondary_window)
-        var weeklyDetail = usage.Details.FirstOrDefault(d =>
-            d.QuotaBucketKind == WindowKind.Rolling &&
-            d.DetailType == ProviderUsageDetailType.QuotaWindow &&
-            string.IsNullOrEmpty(d.ModelName));
-        Assert.NotNull(weeklyDetail);
-        Assert.NotNull(weeklyDetail!.PercentageValue);
-
-        // secondary_window used=28% → remaining=72%
-        Assert.Equal(72.0, weeklyDetail.PercentageValue!.Value, precision: 1);
-        Assert.Equal(PercentageValueSemantic.Remaining, weeklyDetail.PercentageSemantic);
-
-        // Verify spark detail exists (ModelSpecific kind)
-        var sparkDetail = usage.Details.FirstOrDefault(d =>
-            d.QuotaBucketKind == WindowKind.ModelSpecific &&
-            d.DetailType == ProviderUsageDetailType.QuotaWindow);
-        Assert.NotNull(sparkDetail);
-        Assert.Contains("Spark", sparkDetail!.Name, StringComparison.OrdinalIgnoreCase);
-
-        // Verify credits detail
-        var creditsDetail = usage.Details.FirstOrDefault(d => d.DetailType == ProviderUsageDetailType.Credit);
-        Assert.NotNull(creditsDetail);
-        Assert.Contains("150", creditsDetail!.Description, StringComparison.Ordinal);
-
-        // Verify model detail exists
-        var modelDetail = usage.Details.FirstOrDefault(d => d.DetailType == ProviderUsageDetailType.Model);
-        Assert.NotNull(modelDetail);
+        // All cards share the same GroupId for visual grouping
+        Assert.All(usages, u => Assert.Equal("codex", u.GroupId));
     }
 
     /// <summary>
@@ -169,20 +133,20 @@ public class ProviderResponseDeserializationTests
 
         var usages = (await provider.GetUsageAsync(config)).ToList();
 
+        // Only burst card expected — no secondary window means no weekly or spark cards
         Assert.Single(usages);
-        var usage = usages[0];
-        Assert.True(usage.IsAvailable);
-        Assert.Equal(85.0, usage.UsedPercent, precision: 1);
+        var burstCard = usages[0];
+        Assert.True(burstCard.IsAvailable);
+        Assert.Equal("burst", burstCard.CardId);
+        Assert.Equal(85.0, burstCard.UsedPercent, precision: 1);
 
-        // Should still have burst detail and model detail, but no weekly or spark
-        Assert.NotNull(usage.Details);
-        var weeklyDetails = usage.Details.Where(d => d.QuotaBucketKind == WindowKind.Rolling).ToList();
-        Assert.Empty(weeklyDetails);
+        // No weekly card
+        Assert.DoesNotContain(usages, u => u.CardId == "weekly");
     }
 
     /// <summary>
     /// Claude Code provider: realistic OAuth usage response with five_hour, seven_day,
-    /// seven_day_sonnet, and seven_day_opus windows.
+    /// seven_day_sonnet, and seven_day_opus windows. Verifies flat-card output.
     /// </summary>
     [Fact]
     public async Task ClaudeCodeProvider_ParsesOAuthUsageResponse_WithAllWindows()
@@ -216,57 +180,36 @@ public class ProviderResponseDeserializationTests
         var httpClient = CreateMockHttpClient(responseJson, HttpStatusCode.OK);
         var provider = new ClaudeCodeProvider(NullLogger<ClaudeCodeProvider>.Instance, httpClient);
 
-        // Call the internal GetUsageFromOAuthAsync which is visible to tests
-        var usage = await provider.GetUsageFromOAuthAsync("test-oauth-token");
+        // Act — GetUsageFromOAuthAsync returns IEnumerable<ProviderUsage>?
+        var results = await provider.GetUsageFromOAuthAsync("test-oauth-token");
 
-        // Assert
-        Assert.NotNull(usage);
-        Assert.Equal("claude-code", usage!.ProviderId);
-        Assert.True(usage.IsAvailable);
+        // Assert — flat cards: current-session, sonnet, opus, all-models
+        Assert.NotNull(results);
+        var cards = results!.ToList();
+        Assert.True(cards.Count >= 4, $"Expected at least 4 flat cards, got {cards.Count}");
+        Assert.All(cards, c => Assert.Equal("claude-code", c.ProviderId));
+        Assert.All(cards, c => Assert.True(c.IsAvailable));
 
-        // Main percent = max(five_hour=35, seven_day=48) = 48
-        Assert.Equal(48.0, usage.UsedPercent, precision: 1);
+        // Current Session card (5-hour burst)
+        var currentSession = cards.First(c => c.CardId == "current-session");
+        Assert.Equal(35.0, currentSession.UsedPercent, precision: 1);
+        Assert.NotNull(currentSession.NextResetTime);
 
-        // Should contain details for all windows
-        Assert.NotNull(usage.Details);
-        Assert.True(usage.Details.Count >= 4, $"Expected at least 4 details, got {usage.Details.Count}");
+        // Sonnet card (7-day model-specific)
+        var sonnetCard = cards.First(c => c.CardId == "sonnet");
+        Assert.Equal(52.0, sonnetCard.UsedPercent, precision: 1);
 
-        // Current Session (5-hour burst) — must be QuotaWindow so it drives the dual burst bar
-        var sessionDetail = usage.Details.FirstOrDefault(d =>
-            d.QuotaBucketKind == WindowKind.Burst);
-        Assert.NotNull(sessionDetail);
-        Assert.Equal("Current Session", sessionDetail!.Name);
-        Assert.Equal(ProviderUsageDetailType.QuotaWindow, sessionDetail.DetailType);
-        Assert.NotNull(sessionDetail.PercentageValue);
-        Assert.Equal(35.0, sessionDetail.PercentageValue!.Value, precision: 1);
-        Assert.Equal(PercentageValueSemantic.Used, sessionDetail.PercentageSemantic);
+        // Opus card (7-day model-specific)
+        var opusCard = cards.First(c => c.CardId == "opus");
+        Assert.Equal(10.0, opusCard.UsedPercent, precision: 1);
 
-        // Sonnet (7-day model-specific) — Model type, not QuotaWindow
-        var sonnetDetail = usage.Details.FirstOrDefault(d =>
-            string.Equals(d.Name, "Sonnet", StringComparison.Ordinal));
-        Assert.NotNull(sonnetDetail);
-        Assert.Equal(ProviderUsageDetailType.Model, sonnetDetail!.DetailType);
-        Assert.Equal(WindowKind.ModelSpecific, sonnetDetail.QuotaBucketKind);
-        Assert.Equal(52.0, sonnetDetail.PercentageValue!.Value, precision: 1);
+        // All Models card (7-day rolling)
+        var allModelsCard = cards.First(c => c.CardId == "all-models");
+        Assert.Equal(48.0, allModelsCard.UsedPercent, precision: 1);
+        Assert.NotNull(allModelsCard.NextResetTime);
 
-        // Opus (7-day model-specific) — Model type, not QuotaWindow
-        var opusDetail = usage.Details.FirstOrDefault(d =>
-            string.Equals(d.Name, "Opus", StringComparison.Ordinal));
-        Assert.NotNull(opusDetail);
-        Assert.Equal(ProviderUsageDetailType.Model, opusDetail!.DetailType);
-        Assert.Equal(WindowKind.ModelSpecific, opusDetail.QuotaBucketKind);
-        Assert.Equal(10.0, opusDetail.PercentageValue!.Value, precision: 1);
-
-        // All Models (7-day rolling) — must be QuotaWindow so it drives the dual rolling bar
-        var allModelsDetail = usage.Details.FirstOrDefault(d =>
-            d.QuotaBucketKind == WindowKind.Rolling);
-        Assert.NotNull(allModelsDetail);
-        Assert.Equal("All Models", allModelsDetail!.Name);
-        Assert.Equal(ProviderUsageDetailType.QuotaWindow, allModelsDetail.DetailType);
-        Assert.Equal(48.0, allModelsDetail.PercentageValue!.Value, precision: 1);
-
-        // Description should mention extra usage
-        Assert.Contains("Extra usage enabled", usage.Description, StringComparison.Ordinal);
+        // Extra usage flag should appear in the all-models description
+        Assert.Contains("Extra usage enabled", allModelsCard.Description, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -289,19 +232,19 @@ public class ProviderResponseDeserializationTests
         var httpClient = CreateMockHttpClient(responseJson, HttpStatusCode.OK);
         var provider = new ClaudeCodeProvider(NullLogger<ClaudeCodeProvider>.Instance, httpClient);
 
-        var usage = await provider.GetUsageFromOAuthAsync("test-token");
+        var results = await provider.GetUsageFromOAuthAsync("test-token");
 
-        Assert.NotNull(usage);
-        Assert.Equal(90.0, usage!.UsedPercent, precision: 1);
+        Assert.NotNull(results);
+        var cards = results!.ToList();
 
-        // Should have at least the current session detail
-        var sessionDetail = usage.Details?.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Burst);
-        Assert.NotNull(sessionDetail);
-        Assert.Equal(90.0, sessionDetail!.PercentageValue!.Value, precision: 1);
+        // Only the current-session card should be present (no seven_day data)
+        Assert.Single(cards);
+        var currentSession = cards[0];
+        Assert.Equal("current-session", currentSession.CardId);
+        Assert.Equal(90.0, currentSession.UsedPercent, precision: 1);
 
-        // No rolling window detail since seven_day is null
-        var rollingDetail = usage.Details?.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Rolling);
-        Assert.Null(rollingDetail);
+        // No all-models card since seven_day is absent
+        Assert.DoesNotContain(cards, c => c.CardId == "all-models");
     }
 
     /// <summary>

@@ -114,7 +114,7 @@ public class StartupAntiHammerTests
             });
 
         var processingPipeline = new ProviderUsageProcessingPipeline(NullLogger<ProviderUsageProcessingPipeline>.Instance);
-        var configSelector = new ProviderRefreshConfigSelector(Enumerable.Empty<IProviderService>(), NullLogger<ProviderRefreshConfigSelector>.Instance);
+        var configSelector = new ProviderRefreshConfigSelector();
         var configLoadingService = new ProviderRefreshConfigLoadingService(mockConfigService.Object, mockDb.Object, configSelector, NullLogger<ProviderRefreshConfigLoadingService>.Instance);
         var usagePersistenceService = new ProviderUsagePersistenceService(mockDb.Object, NullLogger<ProviderUsagePersistenceService>.Instance);
         var connectivityCheckService = new ProviderConnectivityCheckService(mockConfigService.Object, processingPipeline);
@@ -198,7 +198,7 @@ public class StartupAntiHammerTests
             });
 
         var processingPipeline = new ProviderUsageProcessingPipeline(NullLogger<ProviderUsageProcessingPipeline>.Instance);
-        var configSelector = new ProviderRefreshConfigSelector(Enumerable.Empty<IProviderService>(), NullLogger<ProviderRefreshConfigSelector>.Instance);
+        var configSelector = new ProviderRefreshConfigSelector();
         var configLoadingService = new ProviderRefreshConfigLoadingService(mockConfigService.Object, mockDb.Object, configSelector, NullLogger<ProviderRefreshConfigLoadingService>.Instance);
         var usagePersistenceService = new ProviderUsagePersistenceService(mockDb.Object, NullLogger<ProviderUsagePersistenceService>.Instance);
         var connectivityCheckService = new ProviderConnectivityCheckService(mockConfigService.Object, processingPipeline);

@@ -42,8 +42,7 @@ public class ProviderSessionTokenResolverTests
                 "github-copilot",
                 "GitHub Copilot",
                 PlanType.Coding,
-                true,
-                "session")
+                true)
             {
                 AuthIdentityCandidatePathTemplates = new[] { authFilePath },
                 SessionAuthFileSchemas = new[]

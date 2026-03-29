@@ -37,8 +37,7 @@ public class OpenAIProvider : ProviderBase
         "openai",
         "OpenAI (API)",
         PlanType.Coding,
-        isQuotaBased: true,
-        defaultConfigType: "quota-based")
+        isQuotaBased: true)
     {
         DiscoveryEnvironmentVariables = new[] { "OPENAI_API_KEY" },
         RooConfigPropertyNames = new[] { "openAiApiKey" },
@@ -111,7 +110,7 @@ public class OpenAIProvider : ProviderBase
 
         try
         {
-            return new[] { await this.GetNativeUsageAsync(accessToken, accountId).ConfigureAwait(false) };
+            return await this.GetNativeUsageAsync(accessToken, accountId).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -125,63 +124,47 @@ public class OpenAIProvider : ProviderBase
         return token.StartsWith("sk-", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static List<ProviderUsageDetail> BuildOpenAiSessionDetails(JsonElement root)
+    private static (DateTime? BurstResetTime, double? BurstUsed, string BurstDesc, DateTime? WeeklyResetTime, double? WeeklyUsed, string WeeklyDesc, string? CreditsDesc) ParseOpenAiSessionWindows(JsonElement root)
     {
-        var details = new List<ProviderUsageDetail>();
-        var used = root.ReadDouble("rate_limit", "primary_window", "used_percent");
-        var reset = root.ReadDouble("rate_limit", "primary_window", "reset_after_seconds");
+        var primaryUsed = root.ReadDouble("rate_limit", "primary_window", "used_percent");
+        var primaryReset = root.ReadDouble("rate_limit", "primary_window", "reset_after_seconds");
         var primaryResetTime = ResolveWindowResetTime(root, "primary_window");
 
-        // Emit the Burst detail when usage OR reset timer is present. When the window just reset
-        // the API may omit used_percent (returning only reset_after_seconds), so a used-only guard
-        // would silently drop the bar, preventing dual-bar rendering on the parent card.
-        if (used.HasValue || primaryResetTime.HasValue)
+        DateTime? burstResetTime = null;
+        double? burstUsed = null;
+        string burstDesc = string.Empty;
+
+        if (primaryUsed.HasValue || primaryResetTime.HasValue)
         {
-            var primaryRemaining = Math.Clamp(100.0 - (used ?? 0.0), 0.0, 100.0);
-            details.Add(new ProviderUsageDetail
-            {
-                Name = "5-hour quota",
-                Description = FormatResetDescription(reset),
-                NextResetTime = primaryResetTime,
-                DetailType = ProviderUsageDetailType.QuotaWindow,
-                QuotaBucketKind = WindowKind.Burst,
-                PercentageValue = primaryRemaining,
-                PercentageSemantic = PercentageValueSemantic.Remaining,
-            });
+            burstUsed = Math.Clamp(primaryUsed ?? 0.0, 0.0, 100.0);
+            burstDesc = FormatResetDescription(primaryReset);
+            burstResetTime = primaryResetTime;
         }
 
-        var weeklyUsed = root.ReadDouble("rate_limit", "secondary_window", "used_percent");
+        var weeklyUsedVal = root.ReadDouble("rate_limit", "secondary_window", "used_percent");
         var weeklyReset = root.ReadDouble("rate_limit", "secondary_window", "reset_after_seconds");
         var weeklyResetTime = ResolveWindowResetTime(root, "secondary_window");
-        if (weeklyUsed.HasValue || weeklyResetTime.HasValue)
+
+        DateTime? weeklyResetTimeParsed = null;
+        double? weeklyUsed = null;
+        string weeklyDesc = string.Empty;
+
+        if (weeklyUsedVal.HasValue || weeklyResetTime.HasValue)
         {
-            var secondaryRemaining = Math.Clamp(100.0 - (weeklyUsed ?? 0.0), 0.0, 100.0);
-            details.Add(new ProviderUsageDetail
-            {
-                Name = "Weekly quota",
-                Description = FormatResetDescription(weeklyReset),
-                NextResetTime = weeklyResetTime,
-                DetailType = ProviderUsageDetailType.QuotaWindow,
-                QuotaBucketKind = WindowKind.Rolling,
-                PercentageValue = secondaryRemaining,
-                PercentageSemantic = PercentageValueSemantic.Remaining,
-            });
+            weeklyUsed = Math.Clamp(weeklyUsedVal ?? 0.0, 0.0, 100.0);
+            weeklyDesc = FormatResetDescription(weeklyReset);
+            weeklyResetTimeParsed = weeklyResetTime;
         }
 
         var credits = root.ReadDouble("credits", "balance");
         var unlimited = root.ReadBool("credits", "unlimited");
+        string? creditsDesc = null;
         if (credits.HasValue || unlimited.HasValue)
         {
-            details.Add(new ProviderUsageDetail
-            {
-                Name = "Credits",
-                Description = unlimited == true ? "Unlimited" : credits?.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) ?? "Unknown",
-                DetailType = ProviderUsageDetailType.Credit,
-                QuotaBucketKind = WindowKind.None,
-            });
+            creditsDesc = unlimited == true ? "Unlimited" : credits?.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) ?? "Unknown";
         }
 
-        return details;
+        return (burstResetTime, burstUsed, burstDesc, weeklyResetTimeParsed, weeklyUsed, weeklyDesc, creditsDesc);
     }
 
     private static DateTime? ResolveResetTime(JsonElement root)
@@ -322,7 +305,7 @@ public class OpenAIProvider : ProviderBase
         }
     }
 
-    private async Task<ProviderUsage> GetNativeUsageAsync(string accessToken, string? accountId)
+    private async Task<IEnumerable<ProviderUsage>> GetNativeUsageAsync(string accessToken, string? accountId)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, WhamUsageEndpoint);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
@@ -336,47 +319,110 @@ public class OpenAIProvider : ProviderBase
 
         if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
         {
-            return this.CreateUnavailableUsage($"Session invalid ({(int)response.StatusCode})", (int)response.StatusCode);
+            return new[] { this.CreateUnavailableUsage($"Session invalid ({(int)response.StatusCode})", (int)response.StatusCode) };
         }
 
         if (!response.IsSuccessStatusCode)
         {
-            return this.CreateUnavailableUsage($"Session usage request failed ({(int)response.StatusCode})", (int)response.StatusCode);
+            return new[] { this.CreateUnavailableUsage($"Session usage request failed ({(int)response.StatusCode})", (int)response.StatusCode) };
         }
 
         using var doc = JsonDocument.Parse(content);
         if (doc.RootElement.TryGetProperty("detail", out var detail) && detail.ValueKind == JsonValueKind.String)
         {
-            return this.CreateUnavailableUsage(detail.GetString() ?? "Session usage request failed", (int)response.StatusCode);
+            return new[] { this.CreateUnavailableUsage(detail.GetString() ?? "Session usage request failed", (int)response.StatusCode) };
         }
 
         var planType = doc.RootElement.ReadString("plan_type") ?? "chatgpt";
-        var primaryUsed = doc.RootElement.ReadDouble("rate_limit", "primary_window", "used_percent") ?? 0.0;
-        var secondaryUsed = doc.RootElement.ReadDouble("rate_limit", "secondary_window", "used_percent") ?? 0.0;
-        var nextResetTime = ResolveResetTime(doc.RootElement);
+        var accountIdentity = GetAccountIdentity(doc.RootElement, accessToken, accountId) ?? string.Empty;
+        var httpStatus = (int)response.StatusCode;
+        var (burstResetTime, burstUsed, burstDesc, weeklyResetTime, weeklyUsed, weeklyDesc, creditsDescRaw) = ParseOpenAiSessionWindows(doc.RootElement);
 
-        // Use the higher of primary or secondary window usage for the main display.
-        // The API may return 0 for primary_window but have actual usage in secondary_window.
-        var used = Math.Max(primaryUsed, secondaryUsed);
-        var remaining = Math.Clamp(100.0 - used, 0.0, 100.0);
+        var results = new List<ProviderUsage>();
 
-        return new ProviderUsage
+        var creditsDesc = creditsDescRaw != null
+            ? $" | Credits: {creditsDescRaw}"
+            : string.Empty;
+
+        if (burstUsed.HasValue || burstResetTime.HasValue)
         {
-            ProviderId = this.ProviderId,
-            ProviderName = this.Definition.DisplayName,
-            AccountName = GetAccountIdentity(doc.RootElement, accessToken, accountId) ?? string.Empty,
-            IsAvailable = true,
-            IsQuotaBased = this.Definition.IsQuotaBased,
-            PlanType = this.Definition.PlanType,
-            UsedPercent = used,
-            RequestsUsed = used,
-            RequestsAvailable = 100,
-            Description = $"{remaining:F0}% remaining ({used:F0}% used) | Plan: {planType}",
-            AuthSource = AuthSource.OpenCodeSession,
-            NextResetTime = nextResetTime,
-            Details = BuildOpenAiSessionDetails(doc.RootElement),
-            RawJson = content,
-            HttpStatus = (int)response.StatusCode,
-        };
+            var primaryUsed = burstUsed ?? 0.0;
+            results.Add(new ProviderUsage
+            {
+                ProviderId = this.ProviderId,
+                ProviderName = this.Definition.DisplayName,
+                CardId = "burst",
+                GroupId = this.ProviderId,
+                Name = "5-hour quota",
+                AccountName = accountIdentity,
+                IsAvailable = true,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
+                UsedPercent = primaryUsed,
+                RequestsUsed = primaryUsed,
+                RequestsAvailable = 100,
+                Description = $"{burstDesc} | Plan: {planType}{creditsDesc}",
+                AuthSource = AuthSource.OpenCodeSession,
+                NextResetTime = burstResetTime,
+                PeriodDuration = TimeSpan.FromHours(5),
+                WindowKind = WindowKind.Burst,
+                RawJson = content,
+                HttpStatus = httpStatus,
+            });
+        }
+
+        if (weeklyUsed.HasValue || weeklyResetTime.HasValue)
+        {
+            var wUsed = weeklyUsed ?? 0.0;
+            results.Add(new ProviderUsage
+            {
+                ProviderId = this.ProviderId,
+                ProviderName = this.Definition.DisplayName,
+                CardId = "weekly",
+                GroupId = this.ProviderId,
+                Name = "Weekly quota",
+                AccountName = accountIdentity,
+                IsAvailable = true,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
+                UsedPercent = wUsed,
+                RequestsUsed = wUsed,
+                RequestsAvailable = 100,
+                Description = $"{weeklyDesc} | Plan: {planType}{creditsDesc}",
+                AuthSource = AuthSource.OpenCodeSession,
+                NextResetTime = weeklyResetTime,
+                PeriodDuration = TimeSpan.FromDays(7),
+                WindowKind = WindowKind.Rolling,
+                RawJson = content,
+                HttpStatus = httpStatus,
+            });
+        }
+
+        if (results.Count == 0)
+        {
+            var primaryUsed = doc.RootElement.ReadDouble("rate_limit", "primary_window", "used_percent") ?? 0.0;
+            var secondaryUsed = doc.RootElement.ReadDouble("rate_limit", "secondary_window", "used_percent") ?? 0.0;
+            var used = Math.Max(primaryUsed, secondaryUsed);
+            var remaining = Math.Clamp(100.0 - used, 0.0, 100.0);
+            results.Add(new ProviderUsage
+            {
+                ProviderId = this.ProviderId,
+                ProviderName = this.Definition.DisplayName,
+                AccountName = accountIdentity,
+                IsAvailable = true,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
+                UsedPercent = used,
+                RequestsUsed = used,
+                RequestsAvailable = 100,
+                Description = $"{remaining:F0}% remaining ({used:F0}% used) | Plan: {planType}{creditsDesc}",
+                AuthSource = AuthSource.OpenCodeSession,
+                NextResetTime = ResolveResetTime(doc.RootElement),
+                RawJson = content,
+                HttpStatus = httpStatus,
+            });
+        }
+
+        return results;
     }
 }

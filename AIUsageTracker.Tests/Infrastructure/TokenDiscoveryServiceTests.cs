@@ -14,24 +14,6 @@ namespace AIUsageTracker.Tests.Infrastructure;
 public class TokenDiscoveryServiceTests
 {
     [Fact]
-    public async Task DiscoverTokensAsync_IncludesCodexAsWellKnownProviderAsync()
-    {
-        // Arrange
-        var mockPathProvider = new Mock<IAppPathProvider>();
-        mockPathProvider.Setup(p => p.GetUserProfileRoot()).Returns(Path.GetTempPath());
-        var discovery = new TokenDiscoveryService(NullLogger<TokenDiscoveryService>.Instance, mockPathProvider.Object);
-
-        // Act
-        var configs = await discovery.DiscoverTokensAsync();
-
-        // Assert
-        var codex = configs.FirstOrDefault(c => c.ProviderId.Equals("codex", StringComparison.OrdinalIgnoreCase));
-        Assert.NotNull(codex);
-        Assert.Equal(PlanType.Coding, codex!.PlanType);
-        Assert.Equal("quota-based", codex.Type);
-    }
-
-    [Fact]
     public async Task DiscoverTokensAsync_DoesNotExpandWellKnownProviderAliasesAsync()
     {
         var mockPathProvider = new Mock<IAppPathProvider>();

@@ -39,10 +39,8 @@ public class ClaudeCodeProvider : ProviderBase
         "claude-code",
         "Claude Code",
         PlanType.Usage,
-        isQuotaBased: true,
-        defaultConfigType: "quota-based")
+        isQuotaBased: true)
     {
-        AutoIncludeWhenUnconfigured = true,
         DiscoveryEnvironmentVariables = new[] { "ANTHROPIC_API_KEY", "CLAUDE_API_KEY" },
         IconAssetName = "anthropic",
         BadgeColorHex = "#FFA500",
@@ -57,11 +55,12 @@ public class ClaudeCodeProvider : ProviderBase
         },
         QuotaWindows = new QuotaWindowDefinition[]
         {
-            new(WindowKind.Burst,         "5h",     SettingsLabel: "Current Session (5-hour quota)", DetailName: "Current Session", PeriodDuration: TimeSpan.FromHours(5)),
-            new(WindowKind.ModelSpecific, "Sonnet", SettingsLabel: "Sonnet (7-day model quota)",    DetailName: "Sonnet",          PeriodDuration: TimeSpan.FromDays(7)),
-            new(WindowKind.ModelSpecific, "Opus",   SettingsLabel: "Opus (7-day model quota)",      DetailName: "Opus",            PeriodDuration: TimeSpan.FromDays(7)),
-            new(WindowKind.Rolling,       "7-day",  SettingsLabel: "All Models (7-day combined)",   DetailName: "All Models",      PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.Burst,         "5h",     ChildProviderId: "claude-code.current-session", SettingsLabel: "Current Session (5-hour quota)", DetailName: "Current Session", PeriodDuration: TimeSpan.FromHours(5)),
+            new(WindowKind.ModelSpecific, "Sonnet", ChildProviderId: "claude-code.sonnet",         SettingsLabel: "Sonnet (7-day model quota)",    DetailName: "Sonnet",          PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.ModelSpecific, "Opus",   ChildProviderId: "claude-code.opus",           SettingsLabel: "Opus (7-day model quota)",      DetailName: "Opus",            PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.Rolling,       "7-day",  ChildProviderId: "claude-code.all-models",     SettingsLabel: "All Models (7-day combined)",   DetailName: "All Models",      PeriodDuration: TimeSpan.FromDays(7)),
         },
+        FamilyMode = ProviderFamilyMode.FlatWindowCards,
     };
 
     /// <inheritdoc/>
@@ -112,10 +111,10 @@ public class ClaudeCodeProvider : ProviderBase
         // Try OAuth usage endpoint first (for subscription users)
         try
         {
-            var oauthUsage = await this.GetUsageFromOAuthAsync(effectiveApiKey).ConfigureAwait(false);
-            if (oauthUsage != null)
+            var oauthUsages = await this.GetUsageFromOAuthAsync(effectiveApiKey).ConfigureAwait(false);
+            if (oauthUsages != null)
             {
-                return new[] { oauthUsage };
+                return oauthUsages;
             }
         }
         catch (Exception ex)
@@ -149,8 +148,8 @@ public class ClaudeCodeProvider : ProviderBase
     /// Gets usage information from the OAuth usage endpoint for subscription users.
     /// </summary>
     /// <param name="accessToken">The OAuth access token from credentials file.</param>
-    /// <returns>Provider usage if successful, null otherwise.</returns>
-    internal async Task<ProviderUsage?> GetUsageFromOAuthAsync(string accessToken)
+    /// <returns>Provider usages if successful, null otherwise.</returns>
+    internal async Task<IEnumerable<ProviderUsage>?> GetUsageFromOAuthAsync(string accessToken)
     {
         try
         {
@@ -247,107 +246,120 @@ public class ClaudeCodeProvider : ProviderBase
         }
     }
 
-    private ProviderUsage ParseOAuthUsageResponse(OAuthUsageResponse response, string rawJson, int httpStatus)
+    private IReadOnlyList<ProviderUsage> ParseOAuthUsageResponse(OAuthUsageResponse response, string rawJson, int httpStatus)
     {
-        // Use 5-hour quota as primary (burst limit) and 7-day as secondary (rolling window)
-        var primaryPercent = response.FiveHour?.Utilization ?? 0;
-        var secondaryPercent = response.SevenDay?.Utilization ?? 0;
+        var results = new List<ProviderUsage>();
 
-        // Determine the "main" percentage to show - use the higher of the two quotas
-        var mainPercent = Math.Max(primaryPercent, secondaryPercent);
-
-        var details = new List<ProviderUsageDetail>();
-
-        // Current session (5-hour burst quota) — QuotaWindow type drives the dual bar display.
+        // Current session (5-hour burst quota)
         if (response.FiveHour != null)
         {
-            var fiveHourDetail = new ProviderUsageDetail
+            results.Add(new ProviderUsage
             {
+                ProviderId = this.ProviderId,
+                ProviderName = this.Definition.DisplayName,
+                CardId = "current-session",
+                GroupId = this.ProviderId,
                 Name = "Current Session",
-                DetailType = ProviderUsageDetailType.QuotaWindow,
-                QuotaBucketKind = WindowKind.Burst,
+                WindowKind = WindowKind.Burst,
+                UsedPercent = UsageMath.ClampPercent(response.FiveHour.Utilization),
                 NextResetTime = response.FiveHour.ResetsAt,
-            };
-            fiveHourDetail.SetPercentageValue(
-                response.FiveHour.Utilization,
-                PercentageValueSemantic.Used,
-                decimalPlaces: 0);
-            details.Add(fiveHourDetail);
+                PeriodDuration = TimeSpan.FromHours(5),
+                IsQuotaBased = true,
+                PlanType = this.Definition.PlanType,
+                IsAvailable = true,
+                RawJson = rawJson,
+                HttpStatus = httpStatus,
+                Description = $"{response.FiveHour.Utilization:F0}% used",
+            });
         }
 
-        // Model-specific breakdowns
         if (response.SevenDaySonnet != null)
         {
-            var sonnetDetail = new ProviderUsageDetail
+            results.Add(new ProviderUsage
             {
+                ProviderId = this.ProviderId,
+                ProviderName = this.Definition.DisplayName,
+                CardId = "sonnet",
+                GroupId = this.ProviderId,
                 Name = "Sonnet",
-                DetailType = ProviderUsageDetailType.Model,
-                QuotaBucketKind = WindowKind.ModelSpecific,
+                UsedPercent = UsageMath.ClampPercent(response.SevenDaySonnet.Utilization),
                 NextResetTime = response.SevenDay?.ResetsAt,
-            };
-            sonnetDetail.SetPercentageValue(
-                response.SevenDaySonnet.Utilization,
-                PercentageValueSemantic.Used,
-                decimalPlaces: 0);
-            details.Add(sonnetDetail);
+                PeriodDuration = TimeSpan.FromDays(7),
+                IsQuotaBased = true,
+                PlanType = this.Definition.PlanType,
+                IsAvailable = true,
+                RawJson = rawJson,
+                HttpStatus = httpStatus,
+                Description = $"{response.SevenDaySonnet.Utilization:F0}% used",
+            });
         }
 
         if (response.SevenDayOpus != null)
         {
-            var opusDetail = new ProviderUsageDetail
+            results.Add(new ProviderUsage
             {
+                ProviderId = this.ProviderId,
+                ProviderName = this.Definition.DisplayName,
+                CardId = "opus",
+                GroupId = this.ProviderId,
                 Name = "Opus",
-                DetailType = ProviderUsageDetailType.Model,
-                QuotaBucketKind = WindowKind.ModelSpecific,
+                UsedPercent = UsageMath.ClampPercent(response.SevenDayOpus.Utilization),
                 NextResetTime = response.SevenDay?.ResetsAt,
-            };
-            opusDetail.SetPercentageValue(
-                response.SevenDayOpus.Utilization,
-                PercentageValueSemantic.Used,
-                decimalPlaces: 0);
-            details.Add(opusDetail);
+                PeriodDuration = TimeSpan.FromDays(7),
+                IsQuotaBased = true,
+                PlanType = this.Definition.PlanType,
+                IsAvailable = true,
+                RawJson = rawJson,
+                HttpStatus = httpStatus,
+                Description = $"{response.SevenDayOpus.Utilization:F0}% used",
+            });
         }
 
-        // All-models 7-day rolling quota — QuotaWindow type drives the dual bar display.
+        // All-models 7-day rolling quota
         if (response.SevenDay != null)
         {
-            var sevenDayDetail = new ProviderUsageDetail
+            var desc = $"5h: {response.FiveHour?.Utilization ?? 0:F0}% | 7d: {response.SevenDay.Utilization:F0}% used";
+            if (response.ExtraUsage?.IsEnabled == true)
             {
+                desc += " | Extra usage enabled";
+            }
+
+            results.Add(new ProviderUsage
+            {
+                ProviderId = this.ProviderId,
+                ProviderName = this.Definition.DisplayName,
+                CardId = "all-models",
+                GroupId = this.ProviderId,
                 Name = "All Models",
-                DetailType = ProviderUsageDetailType.QuotaWindow,
-                QuotaBucketKind = WindowKind.Rolling,
+                WindowKind = WindowKind.Rolling,
+                UsedPercent = UsageMath.ClampPercent(response.SevenDay.Utilization),
                 NextResetTime = response.SevenDay.ResetsAt,
-            };
-            sevenDayDetail.SetPercentageValue(
-                response.SevenDay.Utilization,
-                PercentageValueSemantic.Used,
-                decimalPlaces: 0);
-            details.Add(sevenDayDetail);
+                PeriodDuration = TimeSpan.FromDays(7),
+                IsQuotaBased = true,
+                PlanType = this.Definition.PlanType,
+                IsAvailable = true,
+                RawJson = rawJson,
+                HttpStatus = httpStatus,
+                Description = desc,
+            });
         }
 
-        // Build description — sub-cards carry the detail; parent shows a compact summary.
-        var description = $"5h: {primaryPercent:F0}% used | 7d: {secondaryPercent:F0}% used";
-        if (response.ExtraUsage?.IsEnabled == true)
+        if (results.Count == 0)
         {
-            description += " | Extra usage enabled";
+            results.Add(new ProviderUsage
+            {
+                ProviderId = this.ProviderId,
+                ProviderName = this.Definition.DisplayName,
+                IsQuotaBased = true,
+                PlanType = this.Definition.PlanType,
+                IsAvailable = true,
+                RawJson = rawJson,
+                HttpStatus = httpStatus,
+                Description = "Usage data unavailable",
+            });
         }
 
-        return new ProviderUsage
-        {
-            ProviderId = this.ProviderId,
-            ProviderName = this.Definition.DisplayName,
-            UsedPercent = mainPercent,
-            RequestsUsed = mainPercent,
-            RequestsAvailable = 100,
-            IsQuotaBased = true,
-            PlanType = this.Definition.PlanType,
-            IsAvailable = true,
-            Description = description,
-            Details = details,
-            NextResetTime = response.SevenDay?.ResetsAt ?? response.FiveHour?.ResetsAt,
-            RawJson = rawJson,
-            HttpStatus = httpStatus,
-        };
+        return results;
     }
 
     private async Task<ProviderUsage?> GetUsageFromApiAsync(string apiKey)
@@ -392,24 +404,7 @@ public class ClaudeCodeProvider : ProviderBase
                 }
 
                 // Build description with rate limit info
-                var description = $"Tier: {rateLimitHeaders.GetTierName()} | Used: {used}/{rateLimitHeaders.RequestsLimit} RPM ({usagePercentage:F0}%)";
-
-                // Build detailed tooltip info
-                var tooltipDetails = new List<ProviderUsageDetail>();
-                tooltipDetails.Add(new ProviderUsageDetail { Name = "Rate Limit Tier", Description = rateLimitHeaders.GetTierName(), DetailType = ProviderUsageDetailType.RateLimit, QuotaBucketKind = WindowKind.None });
-                tooltipDetails.Add(new ProviderUsageDetail { Name = "Requests/min Limit", Description = rateLimitHeaders.RequestsLimit.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), DetailType = ProviderUsageDetailType.RateLimit, QuotaBucketKind = WindowKind.None });
-                tooltipDetails.Add(new ProviderUsageDetail { Name = "Requests/min Remaining", Description = rateLimitHeaders.RequestsRemaining.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), DetailType = ProviderUsageDetailType.RateLimit, QuotaBucketKind = WindowKind.None });
-                tooltipDetails.Add(new ProviderUsageDetail { Name = "Input Tokens/min Limit", Description = rateLimitHeaders.InputTokensLimit.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), DetailType = ProviderUsageDetailType.RateLimit, QuotaBucketKind = WindowKind.None });
-                tooltipDetails.Add(new ProviderUsageDetail { Name = "Input Tokens/min Remaining", Description = rateLimitHeaders.InputTokensRemaining.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), DetailType = ProviderUsageDetailType.RateLimit, QuotaBucketKind = WindowKind.None });
-                tooltipDetails.Add(new ProviderUsageDetail
-                {
-                    Name = "Current RPM Usage",
-                    DetailType = ProviderUsageDetailType.RateLimit,
-                    QuotaBucketKind = WindowKind.None,
-                    PercentageValue = usagePercentage,
-                    PercentageSemantic = PercentageValueSemantic.Used,
-                    PercentageDecimalPlaces = 1,
-                });
+                var description = $"Tier: {rateLimitHeaders.GetTierName()} | RPM: {rateLimitHeaders.RequestsRemaining}/{rateLimitHeaders.RequestsLimit} | Tokens/min: {rateLimitHeaders.InputTokensRemaining}/{rateLimitHeaders.InputTokensLimit}";
 
                 return new ProviderUsage
                 {
@@ -422,7 +417,6 @@ public class ClaudeCodeProvider : ProviderBase
                     PlanType = this.Definition.PlanType,
                     IsAvailable = true,
                     Description = description,
-                    Details = tooltipDetails,
                     AccountName = warningMessage ?? string.Empty, // Using AccountName to carry warning state
                     RawJson = responseBody,
                     HttpStatus = (int)testResponse.StatusCode,

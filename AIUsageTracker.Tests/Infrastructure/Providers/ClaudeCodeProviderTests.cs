@@ -58,22 +58,33 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         this.SetupOAuthResponse(HttpStatusCode.OK, responseJson);
 
         // Act
-        var result = await this._provider.GetUsageFromOAuthAsync("test-token");
+        var results = await this._provider.GetUsageFromOAuthAsync("test-token");
 
-        // Assert
-        Assert.NotNull(result);
-        Assert.Equal("claude-code", result.ProviderId); // provider-id-guardrail-allow: test assertion
-        Assert.Equal("Claude Code", result.ProviderName);
-        Assert.True(result.IsQuotaBased);
-        Assert.Equal(PlanType.Usage, result.PlanType);
+        // Assert — flat cards returned
+        Assert.NotNull(results);
+        var cards = results!.ToList();
+        Assert.Equal(4, cards.Count); // current-session, sonnet, opus, all-models
 
-        // UsedPercent is max utilization: max(35%, 42%) = 42% used
-        Assert.Equal(42, result.UsedPercent);
-        Assert.Equal(42, result.RequestsUsed); // Used percentage stored separately
-        Assert.Contains("5h: 35%", result.Description, StringComparison.Ordinal);
-        Assert.Contains("7d: 42%", result.Description, StringComparison.Ordinal);
-        Assert.NotNull(result.Details);
-        Assert.Equal(4, result.Details!.Count);
+        foreach (var card in cards)
+        {
+            Assert.Equal("claude-code", card.ProviderId); // provider-id-guardrail-allow: test assertion
+            Assert.Equal("Claude Code", card.ProviderName);
+            Assert.True(card.IsQuotaBased);
+            Assert.Equal(PlanType.Usage, card.PlanType);
+            Assert.NotNull(card.GroupId);
+        }
+
+        var currentSession = cards.First(c => c.CardId == "current-session");
+        Assert.Equal(35, currentSession.UsedPercent);
+
+        var allModels = cards.First(c => c.CardId == "all-models");
+        Assert.Equal(42, allModels.UsedPercent);
+
+        var sonnet = cards.First(c => c.CardId == "sonnet");
+        Assert.Equal(48, sonnet.UsedPercent);
+
+        var opus = cards.First(c => c.CardId == "opus");
+        Assert.Equal(22, opus.UsedPercent);
     }
 
     /// <summary>
@@ -109,22 +120,16 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         this.SetupOAuthResponse(HttpStatusCode.OK, responseJson);
 
         // Act
-        var result = await this._provider.GetUsageFromOAuthAsync("test-token");
+        var results = await this._provider.GetUsageFromOAuthAsync("test-token");
 
         // Assert
-        Assert.NotNull(result);
+        Assert.NotNull(results);
+        var cards = results!.ToList();
+        Assert.Equal(4, cards.Count);
 
-        // UsedPercent = max(92%, 28%) = 92% used
-        Assert.Equal(92, result.UsedPercent);
-        Assert.Equal(92, result.RequestsUsed); // Stores the used percentage
-        Assert.Contains("Extra usage enabled", result.Description, StringComparison.Ordinal);
-
-        // Verify 5-hour quota is primary
-        var primaryDetail = result.Details?.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Burst);
-        Assert.NotNull(primaryDetail);
-        Assert.Equal("Current Session", primaryDetail!.Name);
-        Assert.True(primaryDetail.TryGetPercentageValue(out var percent, out _, out _));
-        Assert.Equal(92, percent); // Detail stores actual utilization
+        var currentSession = cards.First(c => c.CardId == "current-session");
+        Assert.Equal(92, currentSession.UsedPercent);
+        Assert.Contains("Extra usage enabled", cards.First(c => c.CardId == "all-models").Description, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -160,25 +165,17 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         this.SetupOAuthResponse(HttpStatusCode.OK, responseJson);
 
         // Act
-        var result = await this._provider.GetUsageFromOAuthAsync("test-token");
+        var results = await this._provider.GetUsageFromOAuthAsync("test-token");
 
         // Assert
-        Assert.NotNull(result);
+        Assert.NotNull(results);
+        var cards = results!.ToList();
 
-        // UsedPercent = max(12%, 87%) = 87% used
-        Assert.Equal(87, result.UsedPercent);
-        Assert.Equal(87, result.RequestsUsed);
+        var sonnet = cards.First(c => c.CardId == "sonnet");
+        Assert.Equal(95, sonnet.UsedPercent);
 
-        // Verify model breakdown details
-        var sonnetDetail = result.Details?.FirstOrDefault(d => d.Name.Contains("Sonnet"));
-        Assert.NotNull(sonnetDetail);
-        Assert.True(sonnetDetail!.TryGetPercentageValue(out var sonnetPercent, out _, out _));
-        Assert.Equal(95, sonnetPercent);
-
-        var opusDetail = result.Details?.FirstOrDefault(d => d.Name.Contains("Opus"));
-        Assert.NotNull(opusDetail);
-        Assert.True(opusDetail!.TryGetPercentageValue(out var opusPercent, out _, out _));
-        Assert.Equal(45, opusPercent);
+        var opus = cards.First(c => c.CardId == "opus");
+        Assert.Equal(45, opus.UsedPercent);
     }
 
     /// <summary>
@@ -214,15 +211,15 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         this.SetupOAuthResponse(HttpStatusCode.OK, responseJson);
 
         // Act
-        var result = await this._provider.GetUsageFromOAuthAsync("test-token");
+        var results = await this._provider.GetUsageFromOAuthAsync("test-token");
 
         // Assert
-        Assert.NotNull(result);
+        Assert.NotNull(results);
+        var cards = results!.ToList();
+        Assert.True(cards.All(c => c.IsAvailable));
 
-        // UsedPercent = max(0%, 2%) = 2% used
-        Assert.Equal(2, result.UsedPercent);
-        Assert.Equal(2, result.RequestsUsed);
-        Assert.True(result.IsAvailable);
+        var allModels = cards.First(c => c.CardId == "all-models");
+        Assert.Equal(2, allModels.UsedPercent);
     }
 
     /// <summary>
@@ -258,23 +255,21 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         this.SetupOAuthResponse(HttpStatusCode.OK, responseJson);
 
         // Act
-        var result = await this._provider.GetUsageFromOAuthAsync("test-token");
+        var results = await this._provider.GetUsageFromOAuthAsync("test-token");
 
         // Assert
-        Assert.NotNull(result);
-
-        // UsedPercent = 100% used
-        Assert.Equal(100, result.UsedPercent);
-        Assert.Equal(100, result.RequestsUsed);
-        Assert.Contains("Extra usage enabled", result.Description, StringComparison.Ordinal);
+        Assert.NotNull(results);
+        var cards = results!.ToList();
+        Assert.True(cards.All(c => c.UsedPercent == 100));
+        Assert.Contains("Extra usage enabled", cards.First(c => c.CardId == "all-models").Description, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// Tests that reset time uses the 7-day rolling reset (matching PeriodDuration = 7d for correct pace calculation).
+    /// Tests that current-session card uses the 5-hour reset time, and all-models uses the 7-day reset.
     /// </summary>
     /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
-    public async Task GetUsageFromOAuthAsync_ResetTime_UsesSevenDayResetAsync()
+    public async Task GetUsageFromOAuthAsync_ResetTime_PerCardResetTimesCorrectAsync()
     {
         // Arrange
         var fiveHourReset = DateTime.UtcNow.AddHours(2);
@@ -299,14 +294,19 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         this.SetupOAuthResponse(HttpStatusCode.OK, responseJson);
 
         // Act
-        var result = await this._provider.GetUsageFromOAuthAsync("test-token");
+        var results = await this._provider.GetUsageFromOAuthAsync("test-token");
 
         // Assert
-        Assert.NotNull(result);
-        Assert.NotNull(result.NextResetTime);
+        Assert.NotNull(results);
+        var cards = results!.ToList();
 
-        // Should use 7-day reset to match PeriodDuration = 7d (ensures pace calculation is correct)
-        Assert.True(result.NextResetTime >= sevenDayReset.AddMinutes(-1) && result.NextResetTime <= sevenDayReset.AddMinutes(1));
+        var currentSession = cards.First(c => c.CardId == "current-session");
+        Assert.NotNull(currentSession.NextResetTime);
+        Assert.True(currentSession.NextResetTime >= fiveHourReset.AddMinutes(-1) && currentSession.NextResetTime <= fiveHourReset.AddMinutes(1));
+
+        var allModels = cards.First(c => c.CardId == "all-models");
+        Assert.NotNull(allModels.NextResetTime);
+        Assert.True(allModels.NextResetTime >= sevenDayReset.AddMinutes(-1) && allModels.NextResetTime <= sevenDayReset.AddMinutes(1));
     }
 
     /// <summary>
@@ -329,15 +329,14 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         this.SetupOAuthResponse(HttpStatusCode.OK, responseJson);
 
         // Act
-        var result = await this._provider.GetUsageFromOAuthAsync("test-token");
+        var results = await this._provider.GetUsageFromOAuthAsync("test-token");
 
         // Assert
-        Assert.NotNull(result);
-
-        // UsedPercent = 25% used
-        Assert.Equal(25, result.UsedPercent);
-        Assert.Equal(25, result.RequestsUsed);
-        Assert.Single(result.Details!);
+        Assert.NotNull(results);
+        var cards = results!.ToList();
+        Assert.Single(cards);
+        Assert.Equal("current-session", cards[0].CardId);
+        Assert.Equal(25, cards[0].UsedPercent);
     }
 
     [Fact]
@@ -431,16 +430,21 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         this.SetupOAuthResponse(HttpStatusCode.OK, oauthResponse);
 
         // Act
-        var result = await this._provider.GetUsageAsync(this.Config);
+        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
 
-        // Assert
-        var usage = result.Single();
-        Assert.Equal("claude-code", usage.ProviderId); // provider-id-guardrail-allow: test assertion
-        Assert.True(usage.IsQuotaBased);
+        // Assert — two flat cards: current-session and all-models
+        Assert.Equal(2, result.Count);
+        Assert.All(result, usage =>
+        {
+            Assert.Equal("claude-code", usage.ProviderId); // provider-id-guardrail-allow: test assertion
+            Assert.True(usage.IsQuotaBased);
+        });
 
-        // UsedPercent = max(45%, 60%) = 60% used
-        Assert.Equal(60, usage.UsedPercent);
-        Assert.Equal(60, usage.RequestsUsed);
+        var currentSession = result.First(u => u.CardId == "current-session");
+        Assert.Equal(45, currentSession.UsedPercent);
+
+        var allModels = result.First(u => u.CardId == "all-models");
+        Assert.Equal(60, allModels.UsedPercent);
     }
 
     [Fact]
@@ -466,8 +470,6 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         Assert.Equal("claude-code", definition.ProviderId); // provider-id-guardrail-allow: test assertion
         Assert.Equal("Claude Code", definition.DisplayName);
         Assert.True(definition.IsQuotaBased);
-        Assert.Equal("quota-based", definition.DefaultConfigType);
-        Assert.True(definition.AutoIncludeWhenUnconfigured);
         Assert.Contains("ANTHROPIC_API_KEY", definition.DiscoveryEnvironmentVariables);
         Assert.Contains("CLAUDE_API_KEY", definition.DiscoveryEnvironmentVariables);
     }

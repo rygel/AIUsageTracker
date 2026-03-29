@@ -29,10 +29,7 @@ public class TokenDiscoveryService
         var discoveredConfigs = new List<ProviderConfig>();
         var environmentVariables = this.GetNormalizedEnvironmentVariables();
 
-        // 1. Start with well-known supported providers (ensure they show up in --all)
-        this.AddWellKnownProviders(discoveredConfigs);
-
-        // 2. Discover from environment variables
+        // 1. Discover from environment variables
         foreach (var entry in environmentVariables)
         {
             this.TryAddEnvironmentVariable(discoveredConfigs, entry.Key, entry.Value);
@@ -171,14 +168,6 @@ public class TokenDiscoveryService
         }
     }
 
-    private void AddWellKnownProviders(List<ProviderConfig> configs)
-    {
-        foreach (var id in ProviderMetadataCatalog.GetWellKnownProviderIds())
-        {
-            this.AddIfNotExists(configs, id, string.Empty, "Well-known provider", AuthSource.SystemDefault);
-        }
-    }
-
     private void AddOrUpdate(List<ProviderConfig> configs, string providerId, string key, string description, string source)
     {
         if (!ProviderMetadataCatalog.TryCreateDefaultConfig(
@@ -195,8 +184,6 @@ public class TokenDiscoveryService
         var existing = configs.FirstOrDefault(c => c.ProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase));
         if (existing != null)
         {
-            existing.PlanType = defaultConfig.PlanType;
-            existing.Type = defaultConfig.Type;
             if (!string.IsNullOrEmpty(key))
             {
                 existing.ApiKey = key;
@@ -402,8 +389,6 @@ public class TokenDiscoveryService
             existing.ApiKey = key;
             existing.AuthSource = source;
             existing.Description = description;
-            existing.Type = defaultConfig.Type;
-            existing.PlanType = defaultConfig.PlanType;
         }
     }
 }

@@ -28,10 +28,8 @@ public class KimiProvider : ProviderBase
         "kimi-for-coding",
         "Kimi for Coding",
         PlanType.Coding,
-        isQuotaBased: true,
-        defaultConfigType: "quota-based")
+        isQuotaBased: true)
     {
-        IncludeInWellKnownProviders = true,
         AdditionalHandledProviderIds = new[] { "kimi" },
         DiscoveryEnvironmentVariables = new[] { "KIMI_API_KEY", "MOONSHOT_API_KEY" },
         IconAssetName = "kimi",
@@ -92,18 +90,12 @@ public class KimiProvider : ProviderBase
             double limit = data.Usage.Limit;
             double remaining = data.Usage.Remaining;
 
-            var description = "Active";
-
-            // Limits Detail
-            string soonestResetStr = string.Empty;
             DateTime? soonestResetDt = null;
-            var details = new List<ProviderUsageDetail>();
             TimeSpan minDiff = TimeSpan.MaxValue;
+            var flatCards = new List<ProviderUsage>();
+            var usedCardIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             // Add weekly limit from usage only when data.Limits has no 7-day (Rolling) entry.
-            // If data.Limits already has a 7-day window, it provides the authoritative weekly detail;
-            // adding a duplicate Rolling entry here would cause the dual bar to show two
-            // "Weekly" buckets with potentially inconsistent values (e.g. 25% vs 75%).
             var hasRollingFromLimits = data.Limits?.Any(l =>
                 l.Window != null && DetermineWindowKind(l.Window.Duration, l.Window.TimeUnit) == WindowKind.Rolling) ?? false;
 
@@ -123,17 +115,28 @@ public class KimiProvider : ProviderBase
                     }
                 }
 
-                details.Add(new ProviderUsageDetail
+                flatCards.Add(new ProviderUsage
                 {
+                    ProviderId = this.ProviderId,
+                    ProviderName = this.Definition.DisplayName,
+                    CardId = "weekly",
+                    GroupId = this.ProviderId,
                     Name = "Weekly Limit",
+                    WindowKind = WindowKind.Rolling,
+                    UsedPercent = weeklyUsedPct,
+                    RequestsUsed = used,
+                    RequestsAvailable = limit,
+                    IsQuotaBased = this.Definition.IsQuotaBased,
+                    PlanType = this.Definition.PlanType,
+                    IsAvailable = true,
                     Description = $"{remaining} remaining{(!string.IsNullOrEmpty(data.Usage.ResetTime) ? $" (Resets: {this.FormatResetTime(data.Usage.ResetTime)})" : string.Empty)}",
+                    RawJson = content,
+                    HttpStatus = (int)response.StatusCode,
                     NextResetTime = weeklyResetDt,
-                    DetailType = ProviderUsageDetailType.QuotaWindow,
-                    QuotaBucketKind = WindowKind.Rolling,
-                    PercentageValue = weeklyUsedPct,
-                    PercentageSemantic = PercentageValueSemantic.Used,
-                    PercentageDecimalPlaces = 1,
+                    PeriodDuration = TimeSpan.FromDays(7),
+                    AuthSource = config.AuthSource,
                 });
+                usedCardIds.Add("weekly");
             }
 
             if (data.Limits != null)
@@ -167,51 +170,77 @@ public class KimiProvider : ProviderBase
                         {
                             minDiff = diff;
                             soonestResetDt = itemResetDt;
-                            soonestResetStr = $" (Resets: {resetDisplay})";
                         }
                     }
 
                     var quotaBucketKind = DetermineWindowKind(win.Duration, win.TimeUnit);
+                    var periodDuration = quotaBucketKind == WindowKind.Rolling
+                        ? TimeSpan.FromDays(win.Duration)
+                        : quotaBucketKind == WindowKind.Burst
+                            ? (string.Equals(win.TimeUnit, "TIME_UNIT_HOUR", StringComparison.Ordinal)
+                                ? TimeSpan.FromHours(win.Duration)
+                                : TimeSpan.FromMinutes(win.Duration))
+                            : (TimeSpan?)null;
 
-                    details.Add(new ProviderUsageDetail
+                    var baseCardId = name.ToLowerInvariant()
+                        .Replace(" ", "-", StringComparison.Ordinal)
+                        .Replace("/", "-", StringComparison.Ordinal);
+                    var cardId = baseCardId;
+                    var dupCounter = 2;
+                    while (!usedCardIds.Add(cardId))
                     {
+                        cardId = $"{baseCardId}-{dupCounter}";
+                        dupCounter++;
+                    }
+
+                    flatCards.Add(new ProviderUsage
+                    {
+                        ProviderId = this.ProviderId,
+                        ProviderName = this.Definition.DisplayName,
+                        CardId = cardId,
+                        GroupId = this.ProviderId,
                         Name = name,
+                        WindowKind = quotaBucketKind,
+                        UsedPercent = itemUsedPercentage,
+                        RequestsUsed = itemUsed,
+                        RequestsAvailable = det.Limit,
+                        IsQuotaBased = this.Definition.IsQuotaBased,
+                        PlanType = this.Definition.PlanType,
+                        IsAvailable = true,
                         Description = $"{det.Remaining} / {det.Limit} remaining (Resets: {resetDisplay})",
+                        RawJson = content,
+                        HttpStatus = (int)response.StatusCode,
                         NextResetTime = itemResetDt,
-                        DetailType = ProviderUsageDetailType.QuotaWindow,
-                        QuotaBucketKind = quotaBucketKind,
-                        PercentageValue = itemUsedPercentage,
-                        PercentageSemantic = PercentageValueSemantic.Used,
-                        PercentageDecimalPlaces = 1,
+                        PeriodDuration = periodDuration,
+                        AuthSource = config.AuthSource,
                     });
                 }
             }
 
-            if (!string.IsNullOrEmpty(soonestResetStr))
+            if (flatCards.Count == 0)
             {
-                description += soonestResetStr;
+                return new[]
+                {
+                    new ProviderUsage
+                    {
+                        ProviderId = this.ProviderId,
+                        ProviderName = this.Definition.DisplayName,
+                        UsedPercent = limit > 0 ? UsageMath.CalculateUsedPercent(used, limit) : 0,
+                        RequestsUsed = used,
+                        RequestsAvailable = limit,
+                        IsQuotaBased = this.Definition.IsQuotaBased,
+                        PlanType = this.Definition.PlanType,
+                        IsAvailable = true,
+                        Description = "Active",
+                        RawJson = content,
+                        HttpStatus = (int)response.StatusCode,
+                        NextResetTime = soonestResetDt,
+                        AuthSource = config.AuthSource,
+                    },
+                };
             }
 
-            return new[]
-            {
-                new ProviderUsage
-            {
-                ProviderId = this.ProviderId,
-                ProviderName = this.Definition.DisplayName,
-                UsedPercent = limit > 0 ? UsageMath.CalculateUsedPercent(used, limit) : 0,
-                RequestsUsed = used,
-                RequestsAvailable = limit,
-                IsQuotaBased = this.Definition.IsQuotaBased,
-                PlanType = this.Definition.PlanType,
-                IsAvailable = true,
-                Description = description,
-                RawJson = content,
-                HttpStatus = (int)response.StatusCode,
-                Details = details,
-                NextResetTime = soonestResetDt,
-                AuthSource = config.AuthSource,
-            },
-            };
+            return flatCards;
         }
         catch (Exception ex)
         {

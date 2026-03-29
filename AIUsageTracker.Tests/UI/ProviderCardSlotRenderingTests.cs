@@ -103,7 +103,7 @@ public sealed class ProviderCardSlotRenderingTests
     }
 
     [Fact]
-    public void ComputePaceColor_OnPace_ColorNeverReachesRedThreshold()
+    public void ComputePaceColor_OnPace_TierIsOnPace()
     {
         // 40% used at 50% elapsed -> projected 80% (On pace)
         var now = DateTime.UtcNow;
@@ -111,16 +111,14 @@ public sealed class ProviderCardSlotRenderingTests
             40.0,
             now.AddDays(3.5),
             TimeSpan.FromDays(7),
-            redThreshold: 80,
             nowUtc: now);
 
         Assert.Equal(PaceTier.OnPace, result.PaceTier);
-        Assert.True(result.ColorPercent < 80.0,
-            $"On-pace color ({result.ColorPercent:F1}) must be below red threshold (80)");
+        Assert.Equal(40.0, result.ColorPercent, precision: 1); // raw usedPercent
     }
 
     [Fact]
-    public void ComputePaceColor_OverPace_ColorReachesRedThreshold()
+    public void ComputePaceColor_OverPace_TierIsOverPace()
     {
         // 60% used at 50% elapsed -> projected 120% (Over pace)
         var now = DateTime.UtcNow;
@@ -128,12 +126,10 @@ public sealed class ProviderCardSlotRenderingTests
             60.0,
             now.AddDays(3.5),
             TimeSpan.FromDays(7),
-            redThreshold: 80,
             nowUtc: now);
 
         Assert.Equal(PaceTier.OverPace, result.PaceTier);
-        Assert.True(result.ColorPercent >= 80.0,
-            $"Over-pace color ({result.ColorPercent:F1}) must reach red threshold (80)");
+        Assert.Equal(60.0, result.ColorPercent, precision: 1); // raw usedPercent
     }
 
     [Fact]

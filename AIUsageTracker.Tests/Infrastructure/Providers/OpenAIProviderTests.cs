@@ -100,30 +100,24 @@ public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
         // Act
         var result = await this._provider.GetUsageAsync(this.Config);
 
-        // Assert
-        var usage = result.Single();
-        Assert.True(usage.IsAvailable);
-        Assert.Equal("user@example.com", usage.AccountName);
-        Assert.Equal(45.5, usage.UsedPercent); // max(45.5%, 10.0%) = 45.5% used
-        Assert.Equal(45.5, usage.RequestsUsed);
-        Assert.Contains("Plan: plus", usage.Description, StringComparison.Ordinal);
+        // Assert — provider now emits flat cards: burst + weekly
+        var usages = result.ToList();
+        Assert.Equal(2, usages.Count);
 
-        // Regression test for Dual Progress Bars
-        Assert.NotNull(usage.Details);
-        var primary = usage.Details.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Burst);
-        var secondary = usage.Details.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Rolling);
+        var burstCard = Assert.Single(usages, u => u.WindowKind == WindowKind.Burst);
+        Assert.True(burstCard.IsAvailable);
+        Assert.Equal("user@example.com", burstCard.AccountName);
+        Assert.Equal(45.5, burstCard.UsedPercent); // 5h burst: 45.5% used
+        Assert.Equal(45.5, burstCard.RequestsUsed);
+        Assert.Contains("Plan: plus", burstCard.Description, StringComparison.Ordinal);
+        Assert.Equal("5-hour quota", burstCard.Name);
+        Assert.Equal(54.5, burstCard.RemainingPercent, precision: 1); // 100 - 45.5 = 54.5% remaining
+        Assert.Contains("Resets in", burstCard.Description, StringComparison.Ordinal);
 
-        Assert.NotNull(primary);
-        Assert.Equal("5-hour quota", primary.Name);
-        Assert.Equal(54.5, primary.PercentageValue);
-        Assert.Equal(PercentageValueSemantic.Remaining, primary.PercentageSemantic);
-        Assert.Contains("Resets in", primary.Description, StringComparison.Ordinal);
-
-        Assert.NotNull(secondary);
-        Assert.Equal("Weekly quota", secondary.Name);
-        Assert.Equal(90.0, secondary.PercentageValue);
-        Assert.Equal(PercentageValueSemantic.Remaining, secondary.PercentageSemantic);
-        Assert.Contains("Resets in", secondary.Description, StringComparison.Ordinal);
+        var weeklyCard = Assert.Single(usages, u => u.WindowKind == WindowKind.Rolling);
+        Assert.Equal("Weekly quota", weeklyCard.Name);
+        Assert.Equal(90.0, weeklyCard.RemainingPercent, precision: 1); // 100 - 10 = 90% remaining
+        Assert.Contains("Resets in", weeklyCard.Description, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -244,21 +238,17 @@ public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
 
         var result = await this._provider.GetUsageAsync(this.Config);
 
-        var usage = result.Single();
-        Assert.True(usage.IsAvailable);
-        Assert.NotNull(usage.Details);
+        // Burst flat card must be present even though used_percent was absent in API response
+        var burstCard = Assert.Single(result, u => u.WindowKind == WindowKind.Burst);
+        Assert.True(burstCard.IsAvailable);
+        Assert.Equal("5-hour quota", burstCard.Name);
+        Assert.Equal(0.0, burstCard.UsedPercent); // burst just reset → 0% used
+        Assert.Equal(100.0, burstCard.RemainingPercent); // 100% remaining
 
-        // Burst detail must be present even though used_percent was absent
-        var burstDetail = usage.Details.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Burst);
-        Assert.NotNull(burstDetail);
-        Assert.Equal("5-hour quota", burstDetail!.Name);
-        Assert.Equal(100.0, burstDetail.PercentageValue);
-        Assert.Equal(PercentageValueSemantic.Remaining, burstDetail.PercentageSemantic);
-
-        // Rolling detail must still be present
-        var rollingDetail = usage.Details.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Rolling);
-        Assert.NotNull(rollingDetail);
-        Assert.Equal(70.0, rollingDetail!.PercentageValue);
+        // Rolling flat card must still be present
+        var rollingCard = Assert.Single(result, u => u.WindowKind == WindowKind.Rolling);
+        Assert.Equal(30.0, rollingCard.UsedPercent); // 30% used
+        Assert.Equal(70.0, rollingCard.RemainingPercent); // 70% remaining
     }
 
     private static string Base64UrlEncode(string value)

@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.UI.Slim.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -75,15 +76,7 @@ public partial class MainWindow : Window
 
                 var (activeUsages, inactiveUsages) = SplitActiveInactive(section.Usages);
 
-                foreach (var usage in activeUsages)
-                {
-                    this.AddProviderCard(usage, container, cardRenderer);
-
-                    if (usage.Details?.Any() == true)
-                    {
-                        this.AddCollapsibleSubProviders(usage, container, cardRenderer);
-                    }
-                }
+                this.AddProviderCardsWithGrouping(activeUsages, container, cardRenderer);
 
                 if (inactiveUsages.Count > 0)
                 {
@@ -101,10 +94,7 @@ public partial class MainWindow : Window
                     container.Children.Add(inactiveHeader);
                     container.Children.Add(inactiveContainer);
 
-                    foreach (var usage in inactiveUsages)
-                    {
-                        this.AddProviderCard(usage, inactiveContainer, cardRenderer);
-                    }
+                    this.AddProviderCardsWithGrouping(inactiveUsages, inactiveContainer, cardRenderer);
                 }
             }
 
@@ -127,8 +117,18 @@ public partial class MainWindow : Window
 
         foreach (var usage in usages)
         {
+            var providerId = usage.ProviderId ?? string.Empty;
+
+            // Derived child rows (e.g. "claude-code.sonnet") must never be marked inactive:
+            // they belong to a parent that is already active and should always be visible.
+            var isDerivedChild = !string.Equals(
+                providerId,
+                ProviderMetadataCatalog.GetCanonicalProviderId(providerId),
+                StringComparison.OrdinalIgnoreCase);
+
             // A provider is "inactive" if it has 0% usage, is available, and not errored
-            var isInactive = usage.IsAvailable
+            var isInactive = !isDerivedChild
+                             && usage.IsAvailable
                              && usage.UsedPercent <= 0
                              && usage.HttpStatus is 0 or 200;
 
@@ -299,10 +299,67 @@ public partial class MainWindow : Window
             UsageMath.FormatRelativeTime);
     }
 
+    private void AddProviderCardsWithGrouping(IReadOnlyList<ProviderUsage> usages, StackPanel container, ProviderCardRenderer cardRenderer)
+    {
+        // Group consecutive cards by GroupId for visual grouping.
+        // Cards with GroupId == null are standalone and rendered directly.
+        var i = 0;
+        while (i < usages.Count)
+        {
+            var usage = usages[i];
+            var groupId = usage.GroupId;
+
+            if (string.IsNullOrEmpty(groupId))
+            {
+                this.AddProviderCard(usage, container, cardRenderer);
+                i++;
+                continue;
+            }
+
+            // Collect all cards in this group
+            var groupCards = new List<ProviderUsage>();
+            while (i < usages.Count && string.Equals(usages[i].GroupId, groupId, StringComparison.OrdinalIgnoreCase))
+            {
+                groupCards.Add(usages[i]);
+                i++;
+            }
+
+            if (groupCards.Count == 1)
+            {
+                // Single card in group — render standalone
+                this.AddProviderCard(groupCards[0], container, cardRenderer);
+                continue;
+            }
+
+            // Multiple cards in a group — render first card normally, rest as children
+            this.AddProviderCard(groupCards[0], container, cardRenderer, isChild: false);
+
+            var (groupHeader, groupContainer) = this.CreateCollapsibleHeader(
+                $"{ProviderMetadataCatalog.ResolveDisplayLabel(groupCards[0])} Details",
+                System.Windows.Media.Brushes.DeepSkyBlue,
+                isGroupHeader: false,
+                groupKey: null,
+                () => MainWindowRuntimeLogic.GetIsCollapsedForGroup(this._preferences, groupId),
+                v => MainWindowRuntimeLogic.SetIsCollapsedForGroup(this._preferences, groupId, v));
+
+            container.Children.Add(groupHeader);
+            container.Children.Add(groupContainer);
+
+            if (!MainWindowRuntimeLogic.GetIsCollapsedForGroup(this._preferences, groupId))
+            {
+                for (var j = 1; j < groupCards.Count; j++)
+                {
+                    this.AddProviderCard(groupCards[j], groupContainer, cardRenderer, isChild: true);
+                }
+            }
+        }
+    }
+
     private void AddProviderCard(ProviderUsage usage, StackPanel container, ProviderCardRenderer cardRenderer, bool isChild = false)
     {
         var showUsed = this.ShowUsedToggle?.IsChecked ?? false;
-        var card = cardRenderer.CreateProviderCard(usage, showUsed, isChild);
+        var definition = ProviderMetadataCatalog.Find(usage.ProviderId ?? string.Empty);
+        var card = cardRenderer.CreateProviderCard(usage, showUsed, isChild, definition);
 
         var contextMenu = new ContextMenu();
         var designerItem = new MenuItem { Header = "Card settings..." };
@@ -370,44 +427,6 @@ public partial class MainWindow : Window
     {
         ToolTipService.SetInitialShowDelay(target, 100);
         ToolTipService.SetShowDuration(target, 15000);
-    }
-
-    private void AddSubProviderCard(ProviderUsage usage, ProviderUsageDetail detail, StackPanel container, ProviderCardRenderer cardRenderer)
-    {
-        var showUsed = this.ShowUsedToggle?.IsChecked ?? false;
-        var subCard = cardRenderer.CreateSubProviderCard(usage, detail, showUsed);
-        container.Children.Add(subCard);
-    }
-
-    private void AddCollapsibleSubProviders(ProviderUsage usage, StackPanel container, ProviderCardRenderer cardRenderer)
-    {
-        var sectionOpt = MainWindowRuntimeLogic.Build(usage, this._preferences);
-        if (sectionOpt is null)
-        {
-            return;
-        }
-        var section = sectionOpt.Value;
-
-        var (subHeader, subContainer) = this.CreateCollapsibleHeader(
-            section.Title,
-            Brushes.DeepSkyBlue,
-            isGroupHeader: false,
-            groupKey: null,
-            () => MainWindowRuntimeLogic.GetIsCollapsed(this._preferences, section.ProviderId),
-            v => MainWindowRuntimeLogic.SetIsCollapsed(this._preferences, section.ProviderId, v));
-
-        container.Children.Add(subHeader);
-        container.Children.Add(subContainer);
-
-        if (section.IsCollapsed)
-        {
-            return;
-        }
-
-        foreach (var detail in section.Details)
-        {
-            this.AddSubProviderCard(usage, detail, subContainer, cardRenderer);
-        }
     }
 
     private void ShowStatus(string message, StatusType type)

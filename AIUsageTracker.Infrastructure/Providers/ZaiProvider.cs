@@ -26,8 +26,7 @@ public class ZaiProvider : ProviderBase
         "zai-coding-plan",
         "Z.ai Coding Plan",
         PlanType.Coding,
-        isQuotaBased: true,
-        defaultConfigType: "quota-based")
+        isQuotaBased: true)
     {
         AdditionalHandledProviderIds = new[] { "zai" },
         DisplayNameOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)

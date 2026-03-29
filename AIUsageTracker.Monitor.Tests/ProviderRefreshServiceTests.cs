@@ -78,9 +78,7 @@ public class ProviderRefreshServiceTests
         var circuitBreakerLogger = new Mock<ILogger<ProviderRefreshCircuitBreakerService>>();
         this._providerRefreshCircuitBreakerService = new ProviderRefreshCircuitBreakerService(circuitBreakerLogger.Object);
 
-        var configSelector = new ProviderRefreshConfigSelector(
-            Enumerable.Empty<IProviderService>(),
-            NullLogger<ProviderRefreshConfigSelector>.Instance);
+        var configSelector = new ProviderRefreshConfigSelector();
         var configLoadingService = new ProviderRefreshConfigLoadingService(
             this._mockConfigService.Object,
             this._mockDatabase.Object,
@@ -583,7 +581,7 @@ public class ProviderRefreshServiceTests
         var preferences = new AppPreferences { IsPrivacyMode = true, MaxConcurrentProviderRequests = 6 };
         var configs = new List<ProviderConfig>
         {
-            new() { ProviderId = "codex", ApiKey = TestApiKey, Type = "pay-as-you-go" },
+            new() { ProviderId = "codex", ApiKey = TestApiKey },
         };
         var processedOutput = new ProviderUsage
         {
@@ -621,11 +619,9 @@ public class ProviderRefreshServiceTests
             "codex",
             "OpenAI (Codex)",
             PlanType.Usage,
-            isQuotaBased: false,
-            defaultConfigType: "pay-as-you-go")
+            isQuotaBased: false)
         {
-            AutoIncludeWhenUnconfigured = true,
-        };
+            };
         var provider = new Mock<IProviderService>();
         provider.SetupGet(p => p.ProviderId).Returns("codex");
         provider.SetupGet(p => p.Definition).Returns(providerDefinition);
@@ -668,9 +664,7 @@ public class ProviderRefreshServiceTests
             .Returns(true);
 
         var providers = new[] { provider };
-        var configSelector = new ProviderRefreshConfigSelector(
-            providers,
-            NullLogger<ProviderRefreshConfigSelector>.Instance);
+        var configSelector = new ProviderRefreshConfigSelector();
         var configLoadingService = new ProviderRefreshConfigLoadingService(
             configService,
             database,
