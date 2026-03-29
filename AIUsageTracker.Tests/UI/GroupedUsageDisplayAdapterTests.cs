@@ -694,9 +694,9 @@ public class GroupedUsageDisplayAdapterTests
         var sonnet         = Assert.Single(usages, u => string.Equals(u.ProviderId, "claude-code", StringComparison.Ordinal) && string.Equals(u.CardId, "sonnet",          StringComparison.Ordinal));
         var allModels      = Assert.Single(usages, u => string.Equals(u.ProviderId, "claude-code", StringComparison.Ordinal) && string.Equals(u.CardId, "all-models",      StringComparison.Ordinal));
 
-        Assert.Equal("Current Session", currentSession.ProviderName);
-        Assert.Equal("Sonnet",          sonnet.ProviderName);
-        Assert.Equal("All Models",      allModels.ProviderName);
+        Assert.Equal("Claude Code (Current Session)", currentSession.ProviderName);
+        Assert.Equal("Claude Code (Sonnet)",          sonnet.ProviderName);
+        Assert.Equal("Claude Code (All Models)",      allModels.ProviderName);
 
         Assert.Equal(3, currentSession.UsedPercent, 1);
         Assert.Equal(2, sonnet.UsedPercent, 1);

@@ -61,6 +61,7 @@ public class ClaudeCodeProvider : ProviderBase
             new(WindowKind.None, "All Models",      ChildProviderId: "claude-code.all-models",      SettingsLabel: "All Models (7-day combined)",   DetailName: "All Models",      PeriodDuration: TimeSpan.FromDays(7)),
         },
         FamilyMode = ProviderFamilyMode.FlatWindowCards,
+        FlatCardShowProviderPrefix = true,
     };
 
     /// <inheritdoc/>

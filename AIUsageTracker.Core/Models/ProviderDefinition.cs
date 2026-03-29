@@ -118,6 +118,13 @@ public sealed class ProviderDefinition
 
     public bool DisplayAsFraction { get; init; }
 
+    /// <summary>
+    /// Gets a value indicating whether flat model cards for this provider should show the provider display name as a
+    /// prefix (e.g. "Claude Code (Current Session)"). Use when card names are generic and need provider
+    /// context to be meaningful.
+    /// </summary>
+    public bool FlatCardShowProviderPrefix { get; init; }
+
     public IReadOnlyList<QuotaWindowDefinition> QuotaWindows { get; init; } = Array.Empty<QuotaWindowDefinition>();
 
     /// <summary>
