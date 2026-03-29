@@ -100,14 +100,12 @@ public sealed class CheckboxCardOutputTests
 
         // Dual bucket data is present
         Assert.True(presentation.HasDualBuckets);
-        Assert.Equal("5h", presentation.DualBucketPrimaryLabel);
-        Assert.Equal("Weekly", presentation.DualBucketSecondaryLabel);
+        Assert.Equal("5h", presentation.DualBar!.Primary.Label);
+        Assert.Equal("Weekly", presentation.DualBar.Secondary.Label);
 
         // Values are set
-        Assert.NotNull(presentation.DualBucketPrimaryUsed);
-        Assert.NotNull(presentation.DualBucketSecondaryUsed);
-        Assert.Equal(40.0, presentation.DualBucketPrimaryUsed!.Value, precision: 1);
-        Assert.Equal(60.0, presentation.DualBucketSecondaryUsed!.Value, precision: 1);
+        Assert.Equal(40.0, presentation.DualBar.Primary.UsedPercent, precision: 1);
+        Assert.Equal(60.0, presentation.DualBar.Secondary.UsedPercent, precision: 1);
 
         // Status text contains the "|" separator between segments
         Assert.Contains("|", presentation.StatusText, StringComparison.Ordinal);
@@ -366,7 +364,7 @@ public sealed class CheckboxCardOutputTests
     }
 
     // ---------------------------------------------------------------------------
-    // Dual quota color thresholds — redThreshold affects DualBucketPrimaryColorPercent
+    // Dual quota color thresholds — redThreshold affects DualBar.Primary.ColorPercent
     // ---------------------------------------------------------------------------
 
     [Fact]
@@ -376,9 +374,9 @@ public sealed class CheckboxCardOutputTests
         var usage = BuildCodexDualQuotaUsage(burstUsedPercent: 90.0, rollingUsedPercent: 90.0);
         var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: true, redThreshold: 80);
 
-        Assert.NotNull(presentation.DualBucketPrimaryColorPercent);
-        Assert.True(presentation.DualBucketPrimaryColorPercent!.Value >= 80.0,
-            $"90% used at threshold=80 must produce color >= 80, got {presentation.DualBucketPrimaryColorPercent:F1}");
+        Assert.NotNull(presentation.DualBar);
+        Assert.True(presentation.DualBar!.Primary.ColorPercent >= 80.0,
+            $"90% used at threshold=80 must produce color >= 80, got {presentation.DualBar.Primary.ColorPercent:F1}");
     }
 
     [Fact]
@@ -388,8 +386,8 @@ public sealed class CheckboxCardOutputTests
         var usage = BuildCodexDualQuotaUsage(burstUsedPercent: 10.0, rollingUsedPercent: 10.0);
         var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: true, redThreshold: 80);
 
-        Assert.NotNull(presentation.DualBucketPrimaryColorPercent);
-        Assert.True(presentation.DualBucketPrimaryColorPercent!.Value < 80.0,
-            $"10% used at threshold=80 must produce color < 80, got {presentation.DualBucketPrimaryColorPercent:F1}");
+        Assert.NotNull(presentation.DualBar);
+        Assert.True(presentation.DualBar!.Primary.ColorPercent < 80.0,
+            $"10% used at threshold=80 must produce color < 80, got {presentation.DualBar.Primary.ColorPercent:F1}");
     }
 }

@@ -116,8 +116,8 @@ public sealed class DualQuotaSerializationRoundTripTests
 
         Assert.True(presentation.HasDualBuckets,
             "HasDualBuckets must be true after JSON round-trip");
-        Assert.Equal("5h", presentation.DualBucketPrimaryLabel);
-        Assert.Equal("Weekly", presentation.DualBucketSecondaryLabel);
+        Assert.Equal("5h", presentation.DualBar!.Primary.Label);
+        Assert.Equal("Weekly", presentation.DualBar.Secondary.Label);
         Assert.True(presentation.SuppressSingleResetTime);
         Assert.Contains("|", presentation.StatusText, StringComparison.Ordinal);
     }
@@ -159,9 +159,9 @@ public sealed class DualQuotaSerializationRoundTripTests
 
         Assert.True(presentation.HasDualBuckets,
             "claude-code must produce dual bars: Current Session (Burst) + All Models (Rolling)");
-        Assert.Equal("Current Session", presentation.DualBucketPrimaryLabel);
-        Assert.Equal("All Models", presentation.DualBucketSecondaryLabel);
-        Assert.Equal(4.0, presentation.DualBucketPrimaryUsed!.Value, precision: 1);
-        Assert.Equal(51.0, presentation.DualBucketSecondaryUsed!.Value, precision: 1);
+        Assert.Equal("Current Session", presentation.DualBar!.Primary.Label);
+        Assert.Equal("All Models", presentation.DualBar.Secondary.Label);
+        Assert.Equal(4.0, presentation.DualBar.Primary.UsedPercent, precision: 1);
+        Assert.Equal(51.0, presentation.DualBar.Secondary.UsedPercent, precision: 1);
     }
 }

@@ -208,8 +208,8 @@ public sealed class ProviderCardPresentationCatalogTests
 
         Assert.True(presentation.HasDualBuckets, "Kimi parent card must render dual progress bars");
         Assert.True(presentation.ShouldHaveProgress);
-        Assert.Equal(0, presentation.DualBucketPrimaryUsed!.Value, precision: 0);    // 5h Limit (Burst) top bar
-        Assert.Equal(25, presentation.DualBucketSecondaryUsed!.Value, precision: 0); // Weekly Limit (Rolling) bottom bar
+        Assert.Equal(0, presentation.DualBar!.Primary.UsedPercent, precision: 0);    // 5h Limit (Burst) top bar
+        Assert.Equal(25, presentation.DualBar.Secondary.UsedPercent, precision: 0);  // Weekly Limit (Rolling) bottom bar
         Assert.Contains("Weekly", presentation.StatusText, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("5h", presentation.StatusText, StringComparison.OrdinalIgnoreCase);
     }
@@ -246,10 +246,10 @@ public sealed class ProviderCardPresentationCatalogTests
 
         Assert.True(presentation.HasDualBuckets, "claude-code must render dual bars: Current Session (Burst) + All Models (Rolling)");
         Assert.True(presentation.ShouldHaveProgress);
-        Assert.Equal(4.0, presentation.DualBucketPrimaryUsed!.Value, precision: 1);   // Current Session (Burst)
-        Assert.Equal(51.0, presentation.DualBucketSecondaryUsed!.Value, precision: 1); // All Models (Rolling)
-        Assert.Equal("Current Session", presentation.DualBucketPrimaryLabel);
-        Assert.Equal("All Models", presentation.DualBucketSecondaryLabel);
+        Assert.Equal(4.0, presentation.DualBar!.Primary.UsedPercent, precision: 1);   // Current Session (Burst)
+        Assert.Equal(51.0, presentation.DualBar.Secondary.UsedPercent, precision: 1); // All Models (Rolling)
+        Assert.Equal("Current Session", presentation.DualBar.Primary.Label);
+        Assert.Equal("All Models", presentation.DualBar.Secondary.Label);
     }
 
     [Fact]
@@ -283,8 +283,8 @@ public sealed class ProviderCardPresentationCatalogTests
         // Dual bars come from the two QuotaWindow window cards
         var presentation = MainWindowRuntimeLogic.Create(parent, showUsed: false);
         Assert.True(presentation.HasDualBuckets, "Dual bars must render from ProviderDetails QuotaWindow entries");
-        Assert.Equal("Current Session", presentation.DualBucketPrimaryLabel);
-        Assert.Equal("All Models", presentation.DualBucketSecondaryLabel);
+        Assert.Equal("Current Session", presentation.DualBar!.Primary.Label);
+        Assert.Equal("All Models", presentation.DualBar.Secondary.Label);
     }
 
     [Theory]

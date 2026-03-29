@@ -284,20 +284,6 @@ internal static partial class MainWindowRuntimeLogic
             : Array.Empty<DateTime>();
     }
 
-    internal static IReadOnlyList<DateTime> ResolveResetTimesForWindow(ProviderUsage usage, WindowKind windowKind)
-    {
-        ArgumentNullException.ThrowIfNull(usage);
-
-        if (windowKind == WindowKind.None)
-        {
-            return Array.Empty<DateTime>();
-        }
-
-        return usage.NextResetTime.HasValue
-            ? new[] { usage.NextResetTime.Value }
-            : Array.Empty<DateTime>();
-    }
-
     /// <summary>
     /// Builds a multi-line tooltip string for a provider card, including daily budget
     /// information for multi-day quota periods.

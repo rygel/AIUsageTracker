@@ -47,7 +47,7 @@ internal sealed class ProviderCardRenderer
     {
         var providerId = usage.ProviderId ?? string.Empty;
         var friendlyName = ProviderMetadataCatalog.ResolveDisplayLabel(usage);
-        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed, this._preferences.ColorThresholdRed);
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed, this._preferences.ColorThresholdRed, this._preferences.EnablePaceAdjustment);
 
         var isCompact = this._preferences.CardCompactMode;
         var grid = new Grid
@@ -59,25 +59,25 @@ internal sealed class ProviderCardRenderer
         };
 
         var pGrid = new Grid();
-        var useDualBars = presentation.HasDualBuckets && this._preferences.ShowDualQuotaBars;
+        var useDualBars = presentation.DualBar != null && this._preferences.ShowDualQuotaBars;
         if (useDualBars)
         {
             pGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             pGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
-            var primaryRow = this.CreateProgressLayer(presentation.DualBucketPrimaryUsed!.Value, presentation.DualBucketPrimaryColorPercent ?? presentation.DualBucketPrimaryUsed!.Value, showUsed, opacity: 0.55);
-            var secondaryRow = this.CreateProgressLayer(presentation.DualBucketSecondaryUsed!.Value, presentation.DualBucketSecondaryColorPercent ?? presentation.DualBucketSecondaryUsed!.Value, showUsed, opacity: 0.35);
+            var primaryRow = this.CreateProgressLayer(presentation.DualBar!.Primary.UsedPercent, presentation.DualBar.Primary.ColorPercent, showUsed, opacity: 0.55);
+            var secondaryRow = this.CreateProgressLayer(presentation.DualBar.Secondary.UsedPercent, presentation.DualBar.Secondary.ColorPercent, showUsed, opacity: 0.35);
             Grid.SetRow(primaryRow, 0);
             Grid.SetRow(secondaryRow, 1);
             pGrid.Children.Add(primaryRow);
             pGrid.Children.Add(secondaryRow);
 
             // Burst/weekly labels on each bar row (from provider metadata)
-            if (!string.IsNullOrEmpty(presentation.DualBucketPrimaryLabel))
+            if (!string.IsNullOrEmpty(presentation.DualBar.Primary.Label))
             {
                 var burstLabel = new TextBlock
                 {
-                    Text = presentation.DualBucketPrimaryLabel,
+                    Text = presentation.DualBar.Primary.Label,
                     FontSize = 8,
                     Foreground = this._getResourceBrush("TertiaryText", Brushes.Gray),
                     VerticalAlignment = VerticalAlignment.Center,
@@ -89,11 +89,11 @@ internal sealed class ProviderCardRenderer
                 pGrid.Children.Add(burstLabel);
             }
 
-            if (!string.IsNullOrEmpty(presentation.DualBucketSecondaryLabel))
+            if (!string.IsNullOrEmpty(presentation.DualBar.Secondary.Label))
             {
                 var weeklyLabel = new TextBlock
                 {
-                    Text = presentation.DualBucketSecondaryLabel,
+                    Text = presentation.DualBar.Secondary.Label,
                     FontSize = 8,
                     Foreground = this._getResourceBrush("TertiaryText", Brushes.Gray),
                     VerticalAlignment = VerticalAlignment.Center,
@@ -110,38 +110,27 @@ internal sealed class ProviderCardRenderer
             double indicatorWidth;
             double colorIndicatorPercent;
 
-            if (presentation.HasDualBuckets && !this._preferences.ShowDualQuotaBars)
+            if (presentation.DualBar != null && !this._preferences.ShowDualQuotaBars)
             {
-                var (selectedUsed, selectedColor) = this.GetSingleBarDualQuotaPercents(presentation);
-                indicatorWidth = showUsed ? selectedUsed : Math.Max(0, 100 - selectedUsed);
-                colorIndicatorPercent = selectedColor;
+                var bar = this._preferences.DualQuotaSingleBarMode == DualQuotaSingleBarMode.Burst
+                    ? presentation.DualBar.Primary
+                    : presentation.DualBar.Secondary;
+                indicatorWidth = showUsed ? bar.UsedPercent : Math.Max(0, 100 - bar.UsedPercent);
+                colorIndicatorPercent = bar.ColorPercent;
             }
             else
             {
-                var paceColor = UsageMath.ComputePaceColor(
-                    presentation.UsedPercent,
-                    usage.NextResetTime,
-                    usage.PeriodDuration,
-                    this._preferences.ColorThresholdRed,
-                    this._preferences.EnablePaceAdjustment);
                 indicatorWidth = showUsed ? presentation.UsedPercent : presentation.RemainingPercent;
-                colorIndicatorPercent = paceColor.ColorPercent;
+                colorIndicatorPercent = presentation.PaceColor.ColorPercent;
             }
+
             pGrid = this.CreateSingleProgressLayer(colorIndicatorPercent, indicatorWidth, opacity: 0.45);
         }
 
-        // Compute pace result once — used by both bar color and slot rendering.
         // For dual-window providers (burst + rolling), drive the badge from the rolling window:
         // the burst window routinely over-paces within its 5-hour window even when the weekly
         // quota is healthy, so using it for the badge produces misleading "Over pace" warnings.
-        var cardPaceColor = presentation.HasDualBuckets && presentation.DualBucketRollingPaceColor.HasValue
-            ? presentation.DualBucketRollingPaceColor.Value
-            : UsageMath.ComputePaceColor(
-                presentation.UsedPercent,
-                usage.NextResetTime,
-                usage.PeriodDuration,
-                this._preferences.ColorThresholdRed,
-                this._preferences.EnablePaceAdjustment);
+        var cardPaceColor = presentation.DualBar?.Secondary.PaceColor ?? presentation.PaceColor;
 
         var useBackgroundBar = this._preferences.CardBackgroundBar;
         if (useBackgroundBar)
@@ -290,13 +279,13 @@ internal sealed class ProviderCardRenderer
     private string? BuildResetBadgeText(ProviderUsage usage, ProviderCardPresentation presentation)
     {
         IReadOnlyList<DateTime> resetTimes;
-        if (presentation.HasDualBuckets && !this._preferences.ShowDualQuotaBars)
+        if (presentation.DualBar != null && !this._preferences.ShowDualQuotaBars)
         {
-            var preferredKind = MainWindowRuntimeLogic.GetPreferredDualBucketKind(
-                presentation,
-                this._preferences.DualQuotaSingleBarMode);
-            resetTimes = preferredKind.HasValue
-                ? MainWindowRuntimeLogic.ResolveResetTimesForWindow(usage, preferredKind.Value)
+            var bar = this._preferences.DualQuotaSingleBarMode == DualQuotaSingleBarMode.Burst
+                ? presentation.DualBar.Primary
+                : presentation.DualBar.Secondary;
+            resetTimes = bar.ResetTime.HasValue
+                ? new[] { bar.ResetTime.Value }
                 : Array.Empty<DateTime>();
         }
         else
@@ -408,12 +397,10 @@ internal sealed class ProviderCardRenderer
                 break;
 
             case CardSlotContent.StatusText:
-                var statusText = presentation.StatusText;
-                if (presentation.HasDualBuckets && !this._preferences.ShowDualQuotaBars)
-                {
-                    statusText = MainWindowRuntimeLogic.BuildSingleDualQuotaStatusText(
-                        presentation, showUsed, this._preferences.DualQuotaSingleBarMode);
-                }
+                var statusText = presentation.DualBar != null && !this._preferences.ShowDualQuotaBars
+                    ? MainWindowRuntimeLogic.BuildSingleDualQuotaStatusText(
+                        presentation, showUsed, this._preferences.DualQuotaSingleBarMode)
+                    : presentation.StatusText;
 
                 Brush statusBrush = presentation.StatusTone switch
                 {
@@ -461,20 +448,6 @@ internal sealed class ProviderCardRenderer
                 fontWeight: fontWeight ?? FontWeights.Normal,
                 margin: new Thickness(compact ? 4 : 6, 0, 0, 0)),
             Dock.Right);
-    }
-
-    private (double UsedPercent, double ColorPercent) GetSingleBarDualQuotaPercents(ProviderCardPresentation presentation)
-    {
-        var usePrimary = MainWindowRuntimeLogic.ShouldUsePrimaryDualBucket(
-            presentation,
-            this._preferences.DualQuotaSingleBarMode);
-        var used = usePrimary
-            ? presentation.DualBucketPrimaryUsed!.Value
-            : presentation.DualBucketSecondaryUsed!.Value;
-        var color = usePrimary
-            ? presentation.DualBucketPrimaryColorPercent ?? used
-            : presentation.DualBucketSecondaryColorPercent ?? used;
-        return (used, color);
     }
 
     private Border CreateBulletMarker()

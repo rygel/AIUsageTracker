@@ -56,9 +56,9 @@ public class DualProgressBarLogicTests
             IsQuotaBased = true,
         };
 
-        var result = MainWindowRuntimeLogic.TryGetDualQuotaBucketPresentation(usage, out _);
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
 
-        Assert.False(result);
+        Assert.False(presentation.HasDualBuckets);
     }
 
     [Fact]
@@ -69,8 +69,8 @@ public class DualProgressBarLogicTests
             IsQuotaBased = true,
         };
 
-        var result = MainWindowRuntimeLogic.TryGetDualQuotaBucketPresentation(usage, out _);
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
 
-        Assert.False(result);
+        Assert.False(presentation.HasDualBuckets);
     }
 }

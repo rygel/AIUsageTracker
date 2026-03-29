@@ -36,13 +36,9 @@ internal static partial class MainWindowRuntimeLogic
     public static ProviderCardPresentation Create(
         ProviderUsage usage,
         bool showUsed,
-        double redThreshold = 80)
+        double redThreshold = 80,
+        bool enablePaceAdjustment = false)
     {
-        var providerId = usage.ProviderId ?? string.Empty;
-        // Provider-level IsStale covers providers with old FetchedAt.
-        // Detail-level IsStale covers parents that fetch successfully but whose
-        // child data is old (e.g. Antigravity "Application not running" — parent
-        // refreshes every cycle, but model details are days old).
         var isStale = usage.IsStale;
         var description = usage.Description ?? string.Empty;
         var isMissing = usage.State == ProviderUsageState.Missing;
@@ -50,7 +46,6 @@ internal static partial class MainWindowRuntimeLogic
         var isError = usage.State == ProviderUsageState.Error;
         var isUnknown = usage.State == ProviderUsageState.Unknown;
         var isStatusOnlyProvider = usage.IsStatusOnly;
-        var hasDualQuotaBucketPresentation = TryGetDualQuotaBucketPresentation(usage, out var dualQuotaBucketPresentation);
         var remainingPercent = usage.RemainingPercent;
         var usedPercent = usage.UsedPercent;
         var shouldHaveProgress = usage.IsAvailable &&
@@ -60,6 +55,14 @@ internal static partial class MainWindowRuntimeLogic
             !isMissing &&
             !isError;
 
+        // Always compute pace — used for bar color and badge regardless of card layout.
+        var paceColor = UsageMath.ComputePaceColor(
+            usedPercent,
+            usage.NextResetTime,
+            usage.PeriodDuration,
+            redThreshold,
+            enablePaceAdjustment);
+
         // HTTP 429 (rate limited) is a known temporary state — show as Warning (orange), not Error (red),
         // so users understand this is transient and not a configuration problem.
         if (usage.HttpStatus == 429)
@@ -68,17 +71,18 @@ internal static partial class MainWindowRuntimeLogic
                 ? "Rate limited — request limit reached"
                 : description;
 
-            return CreatePresentation(
-                isMissing: false,
-                isUnknown: false,
-                isError: false,
-                shouldHaveProgress: false,
-                suppressSingleResetTime: false,
-                usedPercent: usedPercent,
-                remainingPercent: remainingPercent,
-                statusText: rateLimitText,
-                statusTone: ProviderCardStatusTone.Warning,
-                isStale: isStale);
+            return new ProviderCardPresentation(
+                IsMissing: false,
+                IsUnknown: false,
+                IsError: false,
+                ShouldHaveProgress: false,
+                SuppressSingleResetTime: false,
+                UsedPercent: usedPercent,
+                RemainingPercent: remainingPercent,
+                StatusText: rateLimitText,
+                StatusTone: ProviderCardStatusTone.Warning,
+                PaceColor: paceColor,
+                IsStale: isStale);
         }
 
         if (TryCreateSpecialPresentation(
@@ -90,10 +94,14 @@ internal static partial class MainWindowRuntimeLogic
             usedPercent,
             remainingPercent,
             description,
+            paceColor,
+            isStale,
             out var specialPresentation))
         {
             return specialPresentation;
         }
+
+        var dualBar = TryBuildDualBarData(usage, redThreshold, enablePaceAdjustment);
 
         var (statusText, suppressSingleResetTime) = ResolveStatusText(
             usage,
@@ -101,39 +109,21 @@ internal static partial class MainWindowRuntimeLogic
             description,
             isUnknown,
             isStatusOnlyProvider,
-            hasDualQuotaBucketPresentation,
-            dualQuotaBucketPresentation);
+            dualBar);
 
-        PaceColorResult? rollingPaceColor = null;
-        if (hasDualQuotaBucketPresentation)
-        {
-            rollingPaceColor = UsageMath.ComputePaceColor(
-                dualQuotaBucketPresentation.SecondaryUsedPercent,
-                dualQuotaBucketPresentation.SecondaryResetTime,
-                dualQuotaBucketPresentation.SecondaryPeriodDuration,
-                redThreshold);
-        }
-
-        return CreatePresentation(
-            isMissing,
-            isUnknown,
-            isError,
-            shouldHaveProgress,
-            suppressSingleResetTime,
-            usedPercent,
-            remainingPercent,
-            statusText,
-            ProviderCardStatusTone.Secondary,
-            hasDualQuotaBucketPresentation ? dualQuotaBucketPresentation.PrimaryUsedPercent : (double?)null,
-            hasDualQuotaBucketPresentation ? dualQuotaBucketPresentation.SecondaryUsedPercent : (double?)null,
-            hasDualQuotaBucketPresentation ? UsageMath.ComputePaceColor(dualQuotaBucketPresentation.PrimaryUsedPercent, dualQuotaBucketPresentation.PrimaryResetTime, dualQuotaBucketPresentation.PrimaryPeriodDuration, redThreshold).ColorPercent : (double?)null,
-            hasDualQuotaBucketPresentation ? rollingPaceColor!.Value.ColorPercent : (double?)null,
-            hasDualQuotaBucketPresentation ? dualQuotaBucketPresentation.PrimaryLabel : null,
-            hasDualQuotaBucketPresentation ? dualQuotaBucketPresentation.SecondaryLabel : null,
-            hasDualQuotaBucketPresentation ? dualQuotaBucketPresentation.PrimaryKind : (WindowKind?)null,
-            hasDualQuotaBucketPresentation ? dualQuotaBucketPresentation.SecondaryKind : (WindowKind?)null,
-            isStale,
-            dualBucketRollingPaceColor: rollingPaceColor);
+        return new ProviderCardPresentation(
+            IsMissing: isMissing,
+            IsUnknown: isUnknown,
+            IsError: isError,
+            ShouldHaveProgress: shouldHaveProgress,
+            SuppressSingleResetTime: suppressSingleResetTime,
+            UsedPercent: usedPercent,
+            RemainingPercent: remainingPercent,
+            StatusText: statusText,
+            StatusTone: ProviderCardStatusTone.Secondary,
+            PaceColor: paceColor,
+            DualBar: dualBar,
+            IsStale: isStale);
     }
 
     private static bool TryCreateSpecialPresentation(
@@ -145,52 +135,58 @@ internal static partial class MainWindowRuntimeLogic
         double usedPercent,
         double remainingPercent,
         string description,
+        PaceColorResult paceColor,
+        bool isStale,
         out ProviderCardPresentation presentation)
     {
         if (isMissing)
         {
-            presentation = CreatePresentation(
-                isMissing,
-                isUnknown,
-                isError,
-                shouldHaveProgress,
-                false,
-                usedPercent,
-                remainingPercent,
-                description,
-                ProviderCardStatusTone.Missing);
+            presentation = new ProviderCardPresentation(
+                IsMissing: isMissing,
+                IsUnknown: isUnknown,
+                IsError: isError,
+                ShouldHaveProgress: shouldHaveProgress,
+                SuppressSingleResetTime: false,
+                UsedPercent: usedPercent,
+                RemainingPercent: remainingPercent,
+                StatusText: description,
+                StatusTone: ProviderCardStatusTone.Missing,
+                PaceColor: paceColor,
+                IsStale: isStale);
             return true;
         }
 
         if (isError)
         {
-            var errorText = description;
-
-            presentation = CreatePresentation(
-                isMissing,
-                isUnknown,
-                isError,
-                shouldHaveProgress,
-                false,
-                usedPercent,
-                remainingPercent,
-                errorText,
-                ProviderCardStatusTone.Error);
+            presentation = new ProviderCardPresentation(
+                IsMissing: isMissing,
+                IsUnknown: isUnknown,
+                IsError: isError,
+                ShouldHaveProgress: shouldHaveProgress,
+                SuppressSingleResetTime: false,
+                UsedPercent: usedPercent,
+                RemainingPercent: remainingPercent,
+                StatusText: description,
+                StatusTone: ProviderCardStatusTone.Error,
+                PaceColor: paceColor,
+                IsStale: isStale);
             return true;
         }
 
         if (isConsoleCheck)
         {
-            presentation = CreatePresentation(
-                isMissing,
-                isUnknown,
-                isError,
-                shouldHaveProgress,
-                false,
-                usedPercent,
-                remainingPercent,
-                description,
-                ProviderCardStatusTone.Warning);
+            presentation = new ProviderCardPresentation(
+                IsMissing: isMissing,
+                IsUnknown: isUnknown,
+                IsError: isError,
+                ShouldHaveProgress: shouldHaveProgress,
+                SuppressSingleResetTime: false,
+                UsedPercent: usedPercent,
+                RemainingPercent: remainingPercent,
+                StatusText: description,
+                StatusTone: ProviderCardStatusTone.Warning,
+                PaceColor: paceColor,
+                IsStale: isStale);
             return true;
         }
 
@@ -204,19 +200,17 @@ internal static partial class MainWindowRuntimeLogic
         string description,
         bool isUnknown,
         bool isStatusOnlyProvider,
-        bool hasDualQuotaBucketPresentation,
-        (string PrimaryLabel, double PrimaryUsedPercent, DateTime? PrimaryResetTime, TimeSpan? PrimaryPeriodDuration, WindowKind PrimaryKind, string SecondaryLabel, double SecondaryUsedPercent, DateTime? SecondaryResetTime, TimeSpan? SecondaryPeriodDuration, WindowKind SecondaryKind) dualQuotaBucketPresentation)
+        DualBarData? dualBar)
     {
-        // Reuse the already-resolved definition from the caller instead of a second catalog lookup.
         var def = ProviderMetadataCatalog.Find(usage.ProviderId ?? string.Empty);
         if (def?.IsTooltipOnly ?? false)
         {
             return (GetTooltipOnlyCompactStatus(usage, description), false);
         }
 
-        if (hasDualQuotaBucketPresentation)
+        if (dualBar != null)
         {
-            return (BuildDualQuotaBucketStatusText(dualQuotaBucketPresentation, showUsed), true);
+            return (BuildDualQuotaBucketStatusText(dualBar, showUsed), true);
         }
 
         if (!isUnknown && !isStatusOnlyProvider && usage.IsQuotaBased)
@@ -261,55 +255,10 @@ internal static partial class MainWindowRuntimeLogic
         return description;
     }
 
-    private static ProviderCardPresentation CreatePresentation(
-        bool isMissing,
-        bool isUnknown,
-        bool isError,
-        bool shouldHaveProgress,
-        bool suppressSingleResetTime,
-        double usedPercent,
-        double remainingPercent,
-        string statusText,
-        ProviderCardStatusTone statusTone,
-        double? dualBucketPrimaryUsed = null,
-        double? dualBucketSecondaryUsed = null,
-        double? dualBucketPrimaryColorPercent = null,
-        double? dualBucketSecondaryColorPercent = null,
-        string? dualBucketPrimaryLabel = null,
-        string? dualBucketSecondaryLabel = null,
-        WindowKind? dualBucketPrimaryKind = null,
-        WindowKind? dualBucketSecondaryKind = null,
-        bool isStale = false,
-        PaceColorResult? dualBucketRollingPaceColor = null)
+    private static string BuildDualQuotaBucketStatusText(DualBarData dualBar, bool showUsed)
     {
-        return new ProviderCardPresentation(
-            IsMissing: isMissing,
-            IsUnknown: isUnknown,
-            IsError: isError,
-            ShouldHaveProgress: shouldHaveProgress,
-            SuppressSingleResetTime: suppressSingleResetTime,
-            UsedPercent: usedPercent,
-            RemainingPercent: remainingPercent,
-            StatusText: statusText,
-            StatusTone: statusTone,
-            DualBucketPrimaryUsed: dualBucketPrimaryUsed,
-            DualBucketSecondaryUsed: dualBucketSecondaryUsed,
-            DualBucketPrimaryColorPercent: dualBucketPrimaryColorPercent,
-            DualBucketSecondaryColorPercent: dualBucketSecondaryColorPercent,
-            DualBucketPrimaryLabel: dualBucketPrimaryLabel,
-            DualBucketSecondaryLabel: dualBucketSecondaryLabel,
-            DualBucketPrimaryKind: dualBucketPrimaryKind,
-            DualBucketSecondaryKind: dualBucketSecondaryKind,
-            IsStale: isStale,
-            DualBucketRollingPaceColor: dualBucketRollingPaceColor);
-    }
-
-    private static string BuildDualQuotaBucketStatusText(
-        (string PrimaryLabel, double PrimaryUsedPercent, DateTime? PrimaryResetTime, TimeSpan? PrimaryPeriodDuration, WindowKind PrimaryKind, string SecondaryLabel, double SecondaryUsedPercent, DateTime? SecondaryResetTime, TimeSpan? SecondaryPeriodDuration, WindowKind SecondaryKind) presentation,
-        bool showUsed)
-    {
-        return $"{FormatDualQuotaBucketSegment(presentation.PrimaryLabel, presentation.PrimaryUsedPercent, showUsed)} | " +
-               $"{FormatDualQuotaBucketSegment(presentation.SecondaryLabel, presentation.SecondaryUsedPercent, showUsed)}";
+        return $"{FormatDualQuotaBucketSegment(dualBar.Primary.Label, dualBar.Primary.UsedPercent, showUsed)} | " +
+               $"{FormatDualQuotaBucketSegment(dualBar.Secondary.Label, dualBar.Secondary.UsedPercent, showUsed)}";
     }
 
     internal static string BuildSingleDualQuotaStatusText(
@@ -317,67 +266,73 @@ internal static partial class MainWindowRuntimeLogic
         bool showUsed,
         DualQuotaSingleBarMode mode)
     {
-        if (!presentation.HasDualBuckets)
+        if (presentation.DualBar == null)
         {
             return presentation.StatusText;
         }
 
-        var usePrimary = ShouldUsePrimaryDualBucket(presentation, mode);
-        var label = usePrimary ? presentation.DualBucketPrimaryLabel : presentation.DualBucketSecondaryLabel;
-        var usedPercent = usePrimary ? presentation.DualBucketPrimaryUsed : presentation.DualBucketSecondaryUsed;
+        var bar = mode == DualQuotaSingleBarMode.Burst
+            ? presentation.DualBar.Primary
+            : presentation.DualBar.Secondary;
 
-        if (string.IsNullOrWhiteSpace(label) || !usedPercent.HasValue)
+        if (string.IsNullOrWhiteSpace(bar.Label))
         {
             return presentation.StatusText;
         }
 
-        return FormatDualQuotaBucketSegment(label, usedPercent.Value, showUsed);
+        return FormatDualQuotaBucketSegment(bar.Label, bar.UsedPercent, showUsed);
     }
 
-    internal static bool ShouldUsePrimaryDualBucket(
-        ProviderCardPresentation presentation,
-        DualQuotaSingleBarMode mode)
+    internal static DualBarData? TryBuildDualBarData(ProviderUsage usage, double redThreshold, bool enablePaceAdjustment)
     {
-        if (mode == DualQuotaSingleBarMode.Rolling)
-        {
-            if (presentation.DualBucketPrimaryKind == WindowKind.Rolling)
-            {
-                return true;
-            }
-
-            if (presentation.DualBucketSecondaryKind == WindowKind.Rolling)
-            {
-                return false;
-            }
-        }
-        else
-        {
-            if (presentation.DualBucketPrimaryKind == WindowKind.Burst)
-            {
-                return true;
-            }
-
-            if (presentation.DualBucketSecondaryKind == WindowKind.Burst)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    internal static WindowKind? GetPreferredDualBucketKind(
-        ProviderCardPresentation presentation,
-        DualQuotaSingleBarMode mode)
-    {
-        if (!presentation.HasDualBuckets)
+        var windowCards = usage.WindowCards;
+        if (windowCards == null || windowCards.Count == 0)
         {
             return null;
         }
 
-        return ShouldUsePrimaryDualBucket(presentation, mode)
-            ? presentation.DualBucketPrimaryKind
-            : presentation.DualBucketSecondaryKind;
+        var burstCard = windowCards.FirstOrDefault(c => c.WindowKind == WindowKind.Burst);
+        var rollingCard = windowCards.FirstOrDefault(c => c.WindowKind == WindowKind.Rolling);
+
+        if (burstCard == null || rollingCard == null)
+        {
+            return null;
+        }
+
+        if (!ProviderMetadataCatalog.TryGet(usage.ProviderId ?? string.Empty, out var definition))
+        {
+            return null;
+        }
+
+        var burstWindow = definition.QuotaWindows.FirstOrDefault(w => w.Kind == WindowKind.Burst);
+        var rollingWindow = definition.QuotaWindows.FirstOrDefault(w => w.Kind == WindowKind.Rolling);
+
+        var burstLabel = burstCard.Name ?? burstWindow?.DetailName ?? "Burst";
+        var rollingLabel = rollingCard.Name ?? rollingWindow?.DetailName ?? "Rolling";
+
+        // Burst window is Primary (top bar), Rolling window is Secondary (bottom bar).
+        var primaryPace = UsageMath.ComputePaceColor(
+            burstCard.UsedPercent, burstCard.NextResetTime, burstWindow?.PeriodDuration,
+            redThreshold, enablePaceAdjustment);
+        var secondaryPace = UsageMath.ComputePaceColor(
+            rollingCard.UsedPercent, rollingCard.NextResetTime, rollingWindow?.PeriodDuration,
+            redThreshold, enablePaceAdjustment);
+
+        return new DualBarData(
+            Primary: new BarData(
+                Label: burstLabel,
+                UsedPercent: burstCard.UsedPercent,
+                ColorPercent: primaryPace.ColorPercent,
+                ResetTime: burstCard.NextResetTime,
+                PeriodDuration: burstWindow?.PeriodDuration,
+                PaceColor: primaryPace),
+            Secondary: new BarData(
+                Label: rollingLabel,
+                UsedPercent: rollingCard.UsedPercent,
+                ColorPercent: secondaryPace.ColorPercent,
+                ResetTime: rollingCard.NextResetTime,
+                PeriodDuration: rollingWindow?.PeriodDuration,
+                PaceColor: secondaryPace));
     }
 
     private static string FormatDualQuotaBucketSegment(string label, double usedPercent, bool showUsed)
@@ -426,70 +381,6 @@ internal static partial class MainWindowRuntimeLogic
         preferences.IsAntigravityCollapsed = isCollapsed;
     }
 
-    internal static bool TryGetDualQuotaBucketPresentation(
-        ProviderUsage usage,
-        out (string PrimaryLabel, double PrimaryUsedPercent, DateTime? PrimaryResetTime, TimeSpan? PrimaryPeriodDuration, WindowKind PrimaryKind, string SecondaryLabel, double SecondaryUsedPercent, DateTime? SecondaryResetTime, TimeSpan? SecondaryPeriodDuration, WindowKind SecondaryKind) presentation)
-    {
-        presentation = default;
-
-        // Dual-bar data comes from companion WindowCards: flat ProviderUsage cards
-        // with WindowKind = Burst or Rolling, populated by GroupedUsageDisplayAdapter
-        // from ProviderDetails. We need exactly one Burst card and one Rolling card.
-        var windowCards = usage.WindowCards;
-        if (windowCards == null || windowCards.Count == 0)
-        {
-            return false;
-        }
-
-        var burstCard = windowCards.FirstOrDefault(c => c.WindowKind == WindowKind.Burst);
-        var rollingCard = windowCards.FirstOrDefault(c => c.WindowKind == WindowKind.Rolling);
-
-        if (burstCard == null || rollingCard == null)
-        {
-            return false;
-        }
-
-        // Resolve labels: prefer the card's Name; fall back to the declared window label.
-        if (!ProviderMetadataCatalog.TryGet(usage.ProviderId ?? string.Empty, out var definition))
-        {
-            return false;
-        }
-
-        var burstWindow = definition.QuotaWindows.FirstOrDefault(w => w.Kind == WindowKind.Burst);
-        var rollingWindow = definition.QuotaWindows.FirstOrDefault(w => w.Kind == WindowKind.Rolling);
-
-        var burstLabel = burstCard.Name ?? burstWindow?.DetailName ?? "Burst";
-        var rollingLabel = rollingCard.Name ?? rollingWindow?.DetailName ?? "Rolling";
-
-        // The shorter window (Burst) is primary (top bar), Rolling is secondary (bottom bar).
-        presentation = (
-            PrimaryLabel: burstLabel,
-            PrimaryUsedPercent: burstCard.UsedPercent,
-            PrimaryResetTime: burstCard.NextResetTime,
-            PrimaryPeriodDuration: burstWindow?.PeriodDuration,
-            PrimaryKind: WindowKind.Burst,
-            SecondaryLabel: rollingLabel,
-            SecondaryUsedPercent: rollingCard.UsedPercent,
-            SecondaryResetTime: rollingCard.NextResetTime,
-            SecondaryPeriodDuration: rollingWindow?.PeriodDuration,
-            SecondaryKind: WindowKind.Rolling);
-
-        return true;
-    }
-
-    private static int GetDeclaredWindowOrder(QuotaWindowDefinition declaredWindow, IReadOnlyList<QuotaWindowDefinition> windows)
-    {
-        for (var index = 0; index < windows.Count; index++)
-        {
-            if (windows[index].Kind == declaredWindow.Kind)
-            {
-                return index;
-            }
-        }
-
-        return int.MaxValue;
-    }
-
     private static bool ShouldUseSharedCollapsePreference(string providerId) => false;
 
     private static string FormatPercentage(
@@ -534,8 +425,19 @@ internal static partial class MainWindowRuntimeLogic
             ? string.Empty
             : normalized;
     }
-
 }
+
+internal sealed record BarData(
+    string Label,
+    double UsedPercent,
+    double ColorPercent,
+    DateTime? ResetTime,
+    TimeSpan? PeriodDuration,
+    PaceColorResult PaceColor);
+
+internal sealed record DualBarData(
+    BarData Primary,
+    BarData Secondary);
 
 internal sealed record ProviderCardPresentation(
     bool IsMissing,
@@ -547,16 +449,9 @@ internal sealed record ProviderCardPresentation(
     double RemainingPercent,
     string StatusText,
     ProviderCardStatusTone StatusTone,
-    double? DualBucketPrimaryUsed = null,
-    double? DualBucketSecondaryUsed = null,
-    double? DualBucketPrimaryColorPercent = null,
-    double? DualBucketSecondaryColorPercent = null,
-    string? DualBucketPrimaryLabel = null,
-    string? DualBucketSecondaryLabel = null,
-    WindowKind? DualBucketPrimaryKind = null,
-    WindowKind? DualBucketSecondaryKind = null,
-    bool IsStale = false,
-    PaceColorResult? DualBucketRollingPaceColor = null)
+    PaceColorResult PaceColor,
+    DualBarData? DualBar = null,
+    bool IsStale = false)
 {
-    public bool HasDualBuckets => this.DualBucketPrimaryUsed.HasValue;
+    public bool HasDualBuckets => this.DualBar != null;
 }
