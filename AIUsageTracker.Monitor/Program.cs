@@ -208,6 +208,7 @@ public class Program
                 builder.Services.AddSingleton<INotificationService, NoOpNotificationService>();
             }
 
+            builder.Services.AddSingleton<IProviderMetadataCatalog>(ProviderMetadataCatalog.Default);
             builder.Services.AddSingleton<IConfigService, ConfigService>();
             builder.Services.AddSingleton<IGitHubAuthService, GitHubAuthService>();
             builder.Services.AddSingleton<IProviderDiscoveryService, ProviderDiscoveryService>();

@@ -34,7 +34,7 @@ internal static class JsonProviderConfigExportBuilder
         exportAuth[config.ProviderId] = authDict;
 
         var providerDict = GetMutablePayloadEntry(exportProviders, config.ProviderId);
-        providerDict["type"] = config.Type;
+        providerDict["type"] = ProviderMetadataCatalog.Find(config.ProviderId)?.DefaultConfigType ?? "pay-as-you-go";
         providerDict["show_in_tray"] = config.ShowInTray;
         providerDict["enable_notifications"] = config.EnableNotifications;
         providerDict["enabled_sub_trays"] = config.EnabledSubTrays;

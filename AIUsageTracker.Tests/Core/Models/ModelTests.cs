@@ -25,6 +25,5 @@ public class ModelTests
 
         // Assert
         Assert.Empty(config.ApiKey);
-        Assert.Equal("pay-as-you-go", config.Type);
     }
 }

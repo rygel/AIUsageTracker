@@ -6,6 +6,7 @@ using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.Configuration;
 using AIUsageTracker.Infrastructure.Helpers;
+using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Infrastructure.Services;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -16,6 +17,7 @@ internal static class WebServiceCollectionExtensions
 {
     public static IServiceCollection AddAIUsageTrackerWebServices(this IServiceCollection services, string databasePath)
     {
+        services.AddSingleton<IProviderMetadataCatalog>(ProviderMetadataCatalog.Default);
         services.AddSingleton<IAppPathProvider, DefaultAppPathProvider>();
         services.AddSingleton(_ => new WebDatabaseConnectionFactory(databasePath));
         services.AddSingleton(sp =>

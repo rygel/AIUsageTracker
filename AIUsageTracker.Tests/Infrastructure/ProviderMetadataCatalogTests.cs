@@ -115,8 +115,6 @@ public class ProviderMetadataCatalogTests
 
         Assert.True(created);
         Assert.Equal("codex.spark", config.ProviderId);
-        Assert.Equal("quota-based", config.Type);
-        Assert.Equal(PlanType.Coding, config.PlanType);
         Assert.Equal("token", config.ApiKey);
         Assert.Equal("test", config.AuthSource);
         Assert.Equal("demo", config.Description);

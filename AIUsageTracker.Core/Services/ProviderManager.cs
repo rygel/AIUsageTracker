@@ -186,7 +186,6 @@ public class ProviderManager : IDisposable
         {
             ProviderId = source.ProviderId,
             ApiKey = source.ApiKey,
-            Type = source.Type,
             BaseUrl = source.BaseUrl,
             ShowInTray = source.ShowInTray,
             EnableNotifications = source.EnableNotifications,
@@ -194,7 +193,6 @@ public class ProviderManager : IDisposable
             Models = source.Models,
             Description = source.Description,
             AuthSource = source.AuthSource,
-            PlanType = source.PlanType,
         };
     }
 

@@ -43,10 +43,12 @@ internal sealed class ProviderCardRenderer
         this._getRelativeTimeString = getRelativeTimeString;
     }
 
-    public FrameworkElement CreateProviderCard(ProviderUsage usage, bool showUsed, bool isChild = false)
+    public FrameworkElement CreateProviderCard(ProviderUsage usage, bool showUsed, bool isChild = false, ProviderDefinition? definition = null)
     {
         var providerId = usage.ProviderId ?? string.Empty;
-        var friendlyName = ProviderMetadataCatalog.ResolveDisplayLabel(usage);
+        var friendlyName = definition != null
+            ? (definition.ResolveDisplayName(providerId) ?? usage.ProviderName)
+            : ProviderMetadataCatalog.ResolveDisplayLabel(usage);
         var presentation = MainWindowRuntimeLogic.Create(usage, showUsed, this._preferences.ColorThresholdRed, this._preferences.EnablePaceAdjustment);
 
         var isCompact = this._preferences.CardCompactMode;
@@ -192,7 +194,8 @@ internal sealed class ProviderCardRenderer
         var accountName = MainWindowRuntimeLogic.ResolveDisplayAccountName(
             providerId,
             usage.AccountName,
-            this._isPrivacyMode);
+            this._isPrivacyMode,
+            definition);
         AddDockedElement(
             contentPanel,
             this.CreateProviderNameTextBlock(

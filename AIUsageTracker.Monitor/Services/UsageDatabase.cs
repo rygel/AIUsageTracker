@@ -180,7 +180,7 @@ public class UsageDatabase : IUsageDatabase
             var safeConfig = new
             {
                 config.ProviderId,
-                config.Type,
+                Type = ProviderMetadataCatalog.Find(config.ProviderId)?.DefaultConfigType ?? "pay-as-you-go",
                 config.AuthSource,
             };
 

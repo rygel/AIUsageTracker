@@ -358,7 +358,8 @@ public partial class MainWindow : Window
     private void AddProviderCard(ProviderUsage usage, StackPanel container, ProviderCardRenderer cardRenderer, bool isChild = false)
     {
         var showUsed = this.ShowUsedToggle?.IsChecked ?? false;
-        var card = cardRenderer.CreateProviderCard(usage, showUsed, isChild);
+        var definition = ProviderMetadataCatalog.Find(usage.ProviderId ?? string.Empty);
+        var card = cardRenderer.CreateProviderCard(usage, showUsed, isChild, definition);
 
         var contextMenu = new ContextMenu();
         var designerItem = new MenuItem { Header = "Card settings..." };

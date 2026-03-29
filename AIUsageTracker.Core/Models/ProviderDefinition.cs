@@ -212,8 +212,6 @@ public sealed class ProviderDefinition
         {
             ProviderId = string.IsNullOrWhiteSpace(providerId) ? this.ProviderId : providerId,
             ApiKey = apiKey ?? string.Empty,
-            Type = this.DefaultConfigType,
-            PlanType = this.PlanType,
             AuthSource = authSource ?? AuthSource.Unknown,
             Description = description,
         };

@@ -60,7 +60,6 @@ public sealed class DatabaseMigrationServiceTests : IDisposable
             new ProviderConfig
             {
                 ProviderId = "antigravity",
-                Type = "quota-based",
                 AuthSource = "antigravity",
                 ApiKey = TestApiKey,
             },

@@ -298,6 +298,7 @@ public sealed class ProviderCardPresentationCatalogTests
             IsAvailable = true,
             PlanType = PlanType.Usage,
             IsCurrencyUsage = true,
+            IsTooltipOnly = true,
             RequestsUsed = 12.34,
             Description = "$12.34 (4 sessions, 198 msgs, 7 days)",
         };

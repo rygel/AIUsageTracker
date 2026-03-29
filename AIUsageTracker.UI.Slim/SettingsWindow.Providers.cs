@@ -187,8 +187,6 @@ public partial class SettingsWindow
         return new ProviderConfig
         {
             ProviderId = usage.ProviderId,
-            Type = usage.IsQuotaBased ? "quota-based" : "pay-as-you-go",
-            PlanType = usage.PlanType,
         };
     }
 
@@ -708,8 +706,6 @@ public partial class SettingsWindow
         {
             ProviderId = config.ProviderId,
             ApiKey = config.ApiKey,
-            Type = config.Type,
-            PlanType = config.PlanType,
             Limit = config.Limit,
             BaseUrl = config.BaseUrl,
             ShowInTray = config.ShowInTray,

@@ -14,9 +14,11 @@ internal static partial class MainWindowRuntimeLogic
     public static string ResolveDisplayAccountName(
         string providerId,
         string? usageAccountName,
-        bool isPrivacyMode)
+        bool isPrivacyMode,
+        ProviderDefinition? definition = null)
     {
-        if (!(ProviderMetadataCatalog.Find(providerId)?.SupportsAccountIdentity ?? false))
+        var resolvedDefinition = definition ?? ProviderMetadataCatalog.Find(providerId);
+        if (!(resolvedDefinition?.SupportsAccountIdentity ?? false))
         {
             return string.Empty;
         }
@@ -202,8 +204,7 @@ internal static partial class MainWindowRuntimeLogic
         bool isStatusOnlyProvider,
         DualBarData? dualBar)
     {
-        var def = ProviderMetadataCatalog.Find(usage.ProviderId ?? string.Empty);
-        if (def?.IsTooltipOnly ?? false)
+        if (usage.IsTooltipOnly)
         {
             return (GetTooltipOnlyCompactStatus(usage, description), false);
         }

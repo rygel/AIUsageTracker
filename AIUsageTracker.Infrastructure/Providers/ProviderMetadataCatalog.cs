@@ -11,6 +11,13 @@ public static class ProviderMetadataCatalog
     private const string LegacyOpenAiProviderId = "openai";
     private static readonly Lazy<IReadOnlyList<ProviderDefinition>> DefinitionsValue = new(LoadDefinitions);
 
+    /// <summary>
+    /// Gets a singleton <see cref="IProviderMetadataCatalog"/> that delegates to the static members of
+    /// <see cref="ProviderMetadataCatalog"/>. Register this in DI containers instead of coupling
+    /// services directly to the static class.
+    /// </summary>
+    public static IProviderMetadataCatalog Default { get; } = new ProviderMetadataCatalogInstance();
+
     public static IReadOnlyList<ProviderDefinition> Definitions => DefinitionsValue.Value;
 
     public static ProviderDefinition? Find(string providerId)
@@ -513,4 +520,76 @@ public static class ProviderMetadataCatalog
                 string.Join(", ", invalidGroupedModelChildRowDefinitions));
         }
     }
+}
+
+/// <summary>
+/// Concrete implementation of <see cref="IProviderMetadataCatalog"/> that delegates every call to the
+/// static members of <see cref="ProviderMetadataCatalog"/>. Exposed via
+/// <see cref="ProviderMetadataCatalog.Default"/> and intended for DI registration.
+/// </summary>
+public sealed class ProviderMetadataCatalogInstance : IProviderMetadataCatalog
+{
+    public IReadOnlyList<ProviderDefinition> Definitions => ProviderMetadataCatalog.Definitions;
+
+    public ProviderDefinition? Find(string providerId) =>
+        ProviderMetadataCatalog.Find(providerId);
+
+    public bool TryGet(string providerId, out ProviderDefinition definition) =>
+        ProviderMetadataCatalog.TryGet(providerId, out definition);
+
+    public string GetCanonicalProviderId(string providerId) =>
+        ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
+
+    public string GetConfiguredDisplayName(string providerId) =>
+        ProviderMetadataCatalog.GetConfiguredDisplayName(providerId);
+
+    public string ResolveDisplayLabel(ProviderUsage usage) =>
+        ProviderMetadataCatalog.ResolveDisplayLabel(usage);
+
+    public string ResolveDisplayLabel(string providerId, string? runtimeLabel = null) =>
+        ProviderMetadataCatalog.ResolveDisplayLabel(providerId, runtimeLabel);
+
+    public string GetDerivedModelDisplayName(string providerId, string modelName) =>
+        ProviderMetadataCatalog.GetDerivedModelDisplayName(providerId, modelName);
+
+    public string GetIconAssetName(string providerId) =>
+        ProviderMetadataCatalog.GetIconAssetName(providerId);
+
+    public bool TryGetBadgeDefinition(string providerId, out string colorHex, out string initial) =>
+        ProviderMetadataCatalog.TryGetBadgeDefinition(providerId, out colorHex, out initial);
+
+    public ProviderDefinition? FindByEnvironmentVariable(string environmentVariableName) =>
+        ProviderMetadataCatalog.FindByEnvironmentVariable(environmentVariableName);
+
+    public ProviderDefinition? FindByRooConfigProperty(string propertyName) =>
+        ProviderMetadataCatalog.FindByRooConfigProperty(propertyName);
+
+    public IReadOnlyList<string> GetProviderIdsWithDiscoveryEnvironmentVariables() =>
+        ProviderMetadataCatalog.GetProviderIdsWithDiscoveryEnvironmentVariables();
+
+    public IReadOnlyList<string> GetProviderIdsWithDedicatedSessionAuthFiles() =>
+        ProviderMetadataCatalog.GetProviderIdsWithDedicatedSessionAuthFiles();
+
+    public IReadOnlyList<string> GetDefaultSettingsProviderIds() =>
+        ProviderMetadataCatalog.GetDefaultSettingsProviderIds();
+
+    public IReadOnlyList<string> GetStartupRefreshProviderIds() =>
+        ProviderMetadataCatalog.GetStartupRefreshProviderIds();
+
+    public bool ShouldPersistProviderId(string providerId) =>
+        ProviderMetadataCatalog.ShouldPersistProviderId(providerId);
+
+    public bool IsVisibleDerivedProviderId(string providerId) =>
+        ProviderMetadataCatalog.IsVisibleDerivedProviderId(providerId);
+
+    public bool TryCreateDefaultConfig(
+        string providerId,
+        out ProviderConfig config,
+        string? apiKey = null,
+        string? authSource = null,
+        string? description = null) =>
+        ProviderMetadataCatalog.TryCreateDefaultConfig(providerId, out config, apiKey, authSource, description);
+
+    public void NormalizeCanonicalConfigurations(IList<ProviderConfig> configs) =>
+        ProviderMetadataCatalog.NormalizeCanonicalConfigurations(configs);
 }

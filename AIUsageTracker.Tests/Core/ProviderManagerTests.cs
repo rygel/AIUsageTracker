@@ -60,7 +60,7 @@ public class ProviderManagerTests
         var providers = new List<IProviderService>();
         var configs = new List<ProviderConfig>
         {
-            new() { ProviderId = "unknown-api", Type = "api" },
+            new() { ProviderId = "unknown-api" },
         };
 
         this._mockConfigLoader.Setup(configLoader => configLoader.LoadConfigAsync()).ReturnsAsync(configs);
@@ -172,8 +172,6 @@ public class ProviderManagerTests
         Assert.True(usage.IsAvailable);
         Assert.NotNull(capturedConfig);
         Assert.Equal("github-copilot", capturedConfig!.ProviderId);
-        Assert.Equal("quota-based", capturedConfig.Type);
-        Assert.Equal(PlanType.Coding, capturedConfig.PlanType);
         Assert.Equal(string.Empty, capturedConfig.ApiKey);
     }
 }
