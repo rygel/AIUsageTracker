@@ -99,7 +99,7 @@ public static class GroupedUsageProjectionService
         // Flat-card providers: if any non-currency usages have a CardId, project them as models.
         // Currency/balance cards (e.g. DeepSeek balance-usd) have CardId but must not be projected
         // as quota model rows — they are balance display cards, not model-level quota windows.
-        var flatModelCards = usages.Where(u => !string.IsNullOrWhiteSpace(u.CardId) && !u.IsCurrencyUsage).ToList();
+        var flatModelCards = usages.Where(u => !string.IsNullOrWhiteSpace(u.CardId) && !u.IsCurrencyUsage && u.WindowKind == WindowKind.None).ToList();
         if (flatModelCards.Count > 0)
         {
             return BuildModelsFromFlatCards(flatModelCards, canonicalProviderId);
