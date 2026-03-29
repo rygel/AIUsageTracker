@@ -83,7 +83,7 @@ public class GroupedUsageDisplayAdapterTests
     [Fact]
     public void Expand_CodexSnapshot_CreatesSparkFlatCard_WhenModelIdIsSpark()
     {
-        // Codex uses FlatWindowCards; flat card ProviderId = parent ProviderId, CardId = modelId.
+        // When the snapshot already has Models populated, each model becomes a flat card.
         // ModelId = "spark" produces a card with ProviderId = "codex", CardId = "spark"
         // with PeriodDuration from the matched QuotaWindow.
         var snapshot = new AgentGroupedUsageSnapshot
@@ -384,7 +384,7 @@ public class GroupedUsageDisplayAdapterTests
     [Fact]
     public void Expand_CodexSnapshot_CreatesFlatCardPerModel_KeyedByModelId()
     {
-        // Flat card ProviderId = parent ProviderId, CardId = modelId.
+        // When Models are present, each becomes a flat card: ProviderId = parent, CardId = modelId.
         var snapshot = new AgentGroupedUsageSnapshot
         {
             Providers = new[]
@@ -694,17 +694,17 @@ public class GroupedUsageDisplayAdapterTests
         var sonnet         = Assert.Single(usages, u => string.Equals(u.ProviderId, "claude-code", StringComparison.Ordinal) && string.Equals(u.CardId, "sonnet",          StringComparison.Ordinal));
         var allModels      = Assert.Single(usages, u => string.Equals(u.ProviderId, "claude-code", StringComparison.Ordinal) && string.Equals(u.CardId, "all-models",      StringComparison.Ordinal));
 
-        Assert.Equal("Current Session", currentSession.ProviderName);
-        Assert.Equal("Sonnet",          sonnet.ProviderName);
-        Assert.Equal("All Models",      allModels.ProviderName);
+        Assert.Equal("Claude Code (Current Session)", currentSession.ProviderName);
+        Assert.Equal("Claude Code (Sonnet)",          sonnet.ProviderName);
+        Assert.Equal("Claude Code (All Models)",      allModels.ProviderName);
 
         Assert.Equal(3, currentSession.UsedPercent, 1);
         Assert.Equal(2, sonnet.UsedPercent, 1);
         Assert.Equal(5, allModels.UsedPercent, 1);
 
-        // PeriodDuration resolved from QuotaWindowDefinition via ChildProviderId
-        Assert.Equal(TimeSpan.FromHours(5), currentSession.PeriodDuration);  // Burst: 5h
-        Assert.Equal(TimeSpan.FromDays(7),  sonnet.PeriodDuration);          // ModelSpecific: 7d
-        Assert.Equal(TimeSpan.FromDays(7),  allModels.PeriodDuration);       // Rolling: 7d
+        // PeriodDuration resolved from the provider's Rolling QuotaWindowDefinition (same for all flat cards)
+        Assert.Equal(TimeSpan.FromDays(7), currentSession.PeriodDuration);
+        Assert.Equal(TimeSpan.FromDays(7), sonnet.PeriodDuration);
+        Assert.Equal(TimeSpan.FromDays(7), allModels.PeriodDuration);
     }
 }

@@ -562,6 +562,7 @@ public class CodexProvider : ProviderBase
                 CardId = "spark",
                 GroupId = this.ProviderId,
                 Name = "Spark",
+                WindowKind = WindowKind.ModelSpecific,
                 UsedPercent = sparkEffectiveUsed,
                 RequestsUsed = sparkEffectiveUsed,
                 RequestsAvailable = 100.0,

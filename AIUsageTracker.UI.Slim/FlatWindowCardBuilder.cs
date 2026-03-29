@@ -12,16 +12,21 @@ internal static class FlatWindowCardBuilder
 {
     internal static IReadOnlyList<ProviderUsage> BuildFlatWindowCards(AgentGroupedProviderUsage provider)
     {
+        ProviderMetadataCatalog.TryGet(provider.ProviderId, out var definition);
+        var showPrefix = definition?.FlatCardShowProviderPrefix == true;
+        var parentDisplayName = showPrefix ? ProviderMetadataCatalog.GetConfiguredDisplayName(provider.ProviderId) : null;
+
         var cards = new List<ProviderUsage>(provider.Models.Count);
         foreach (var model in provider.Models)
         {
             var modelState = AgentGroupedUsageValueResolver.ResolveModelEffectiveState(model, provider.IsQuotaBased);
+            var cardName = showPrefix ? $"{parentDisplayName} ({model.ModelName})" : model.ModelName;
 
             cards.Add(new ProviderUsage
             {
                 ProviderId = provider.ProviderId,
                 CardId = model.ModelId,
-                ProviderName = model.ModelName,
+                ProviderName = cardName,
                 AccountName = provider.AccountName,
                 IsAvailable = provider.IsAvailable,
                 PlanType = provider.PlanType,
@@ -47,8 +52,13 @@ internal static class FlatWindowCardBuilder
 
         if (string.Equals(providerId, definition.ProviderId, StringComparison.OrdinalIgnoreCase))
         {
-            return definition.QuotaWindows
-                .FirstOrDefault(window => window.Kind == WindowKind.Rolling && window.PeriodDuration.HasValue)
+            // Prefer a Rolling window; fall back to the longest available window.
+            return (definition.QuotaWindows
+                        .FirstOrDefault(window => window.Kind == WindowKind.Rolling && window.PeriodDuration.HasValue)
+                    ?? definition.QuotaWindows
+                        .Where(window => window.PeriodDuration.HasValue)
+                        .OrderByDescending(window => window.PeriodDuration)
+                        .FirstOrDefault())
                 ?.PeriodDuration;
         }
 

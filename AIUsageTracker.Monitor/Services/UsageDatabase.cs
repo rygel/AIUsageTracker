@@ -635,6 +635,26 @@ public class UsageDatabase : IUsageDatabase
                 {
                     usage.PlanType = usageDef.PlanType;
                     usage.IsQuotaBased = usageDef.IsQuotaBased;
+
+                    // Re-derive WindowKind from the provider's QuotaWindowDefinition so that
+                    // stale DB entries (NULL coalesced to None, or explicit Burst/Rolling that was
+                    // later removed by a provider update) are corrected without a DB migration.
+                    // Match by ChildProviderId — either the ProviderId itself (child providers such
+                    // as "codex.spark") or canonical+CardId combination (e.g. parent "X" with CardId
+                    // "Y" maps to ChildProviderId "X.Y").
+                    var childId = string.Equals(usage.ProviderId, usageDef.ProviderId, StringComparison.OrdinalIgnoreCase)
+                        && !string.IsNullOrWhiteSpace(usage.CardId)
+                            ? $"{usageDef.ProviderId}.{usage.CardId}"
+                            : usage.ProviderId;
+
+                    var windowMatch = usageDef.QuotaWindows.FirstOrDefault(w =>
+                        !string.IsNullOrWhiteSpace(w.ChildProviderId) &&
+                        string.Equals(w.ChildProviderId, childId, StringComparison.OrdinalIgnoreCase));
+
+                    if (windowMatch != null)
+                    {
+                        usage.WindowKind = windowMatch.Kind;
+                    }
                 }
 
                 usage.ProviderName = ProviderMetadataCatalog.ResolveDisplayLabel(usage.ProviderId ?? string.Empty, usage.ProviderName);

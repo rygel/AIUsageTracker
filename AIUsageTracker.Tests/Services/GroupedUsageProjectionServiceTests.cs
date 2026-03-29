@@ -78,4 +78,161 @@ public sealed class GroupedUsageProjectionServiceTests
         // Description must come from the most recent entry, not the stale successful one.
         Assert.Equal("HTTP 401: Unauthorized", provider.Description);
     }
+
+    [Fact]
+    public void Build_KimiWithWindowKindCards_ProjectsAsProviderDetailsNotModels()
+    {
+        // Kimi emits flat cards with CardId + WindowKind (Rolling/Burst).
+        // Because WindowKind != None, they must NOT be projected as Models (which would
+        // produce separate flat cards). They must flow through as ProviderDetails so the
+        // UI renders them as dual quota bars on a single parent card.
+        var usages = new[]
+        {
+            new ProviderUsage
+            {
+                ProviderId = "kimi-for-coding",
+                CardId = "weekly",
+                Name = "Weekly Limit",
+                WindowKind = WindowKind.Rolling,
+                IsAvailable = true,
+                IsQuotaBased = true,
+                PlanType = PlanType.Coding,
+                UsedPercent = 25,
+                RequestsUsed = 25,
+                RequestsAvailable = 100,
+                NextResetTime = DateTime.UtcNow.AddDays(5),
+                PeriodDuration = TimeSpan.FromDays(7),
+            },
+            new ProviderUsage
+            {
+                ProviderId = "kimi-for-coding",
+                CardId = "5-hour-limit",
+                Name = "5 Hour Limit",
+                WindowKind = WindowKind.Burst,
+                IsAvailable = true,
+                IsQuotaBased = true,
+                PlanType = PlanType.Coding,
+                UsedPercent = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 50,
+                NextResetTime = DateTime.UtcNow.AddHours(3),
+                PeriodDuration = TimeSpan.FromHours(5),
+            },
+        };
+
+        var snapshot = GroupedUsageProjectionService.Build(usages);
+
+        var provider = Assert.Single(snapshot.Providers);
+        Assert.Empty(provider.Models); // not flat model cards
+        Assert.Equal(2, provider.ProviderDetails.Count); // both appear as quota-window details
+        Assert.Contains(provider.ProviderDetails, d => d.WindowKind == WindowKind.Rolling);
+        Assert.Contains(provider.ProviderDetails, d => d.WindowKind == WindowKind.Burst);
+    }
+
+    [Fact]
+    public void Build_ClaudeCodeCards_ProjectsAllAsModels_WhenAllWindowKindNone()
+    {
+        // Claude Code cards all have WindowKind.None — each gets its own flat card in the UI.
+        var usages = new[]
+        {
+            new ProviderUsage
+            {
+                ProviderId = "claude-code",
+                CardId = "current-session",
+                Name = "Current Session",
+                WindowKind = WindowKind.None,
+                IsAvailable = true,
+                IsQuotaBased = true,
+                PlanType = PlanType.Usage,
+                UsedPercent = 14,
+            },
+            new ProviderUsage
+            {
+                ProviderId = "claude-code",
+                CardId = "sonnet",
+                Name = "Sonnet",
+                WindowKind = WindowKind.None,
+                IsAvailable = true,
+                IsQuotaBased = true,
+                PlanType = PlanType.Usage,
+                UsedPercent = 73,
+            },
+            new ProviderUsage
+            {
+                ProviderId = "claude-code",
+                CardId = "all-models",
+                Name = "All Models",
+                WindowKind = WindowKind.None,
+                IsAvailable = true,
+                IsQuotaBased = true,
+                PlanType = PlanType.Usage,
+                UsedPercent = 73,
+            },
+        };
+
+        var snapshot = GroupedUsageProjectionService.Build(usages);
+
+        var provider = Assert.Single(snapshot.Providers);
+        Assert.Equal(3, provider.Models.Count); // all three become flat model cards
+        Assert.Contains(provider.Models, m => m.ModelId == "current-session");
+        Assert.Contains(provider.Models, m => m.ModelId == "sonnet");
+        Assert.Contains(provider.Models, m => m.ModelId == "all-models");
+    }
+
+    [Fact]
+    public void Build_CodexWithWindowKindCards_ProjectsAsProviderDetailsNotModels()
+    {
+        // Codex is FlatWindowCards but all its cards have WindowKind set (none are WindowKind.None).
+        // When there are no WindowKind.None "model" cards, the group is treated as quota-window
+        // cards → ProviderDetails, so the UI renders a single "OpenAI (Codex)" card.
+        var usages = new[]
+        {
+            new ProviderUsage
+            {
+                ProviderId = "codex",
+                CardId = "burst",
+                Name = "5-hour quota",
+                WindowKind = WindowKind.Burst,
+                IsAvailable = true,
+                IsQuotaBased = true,
+                PlanType = PlanType.Coding,
+                UsedPercent = 40,
+                PeriodDuration = TimeSpan.FromHours(5),
+            },
+            new ProviderUsage
+            {
+                ProviderId = "codex",
+                CardId = "weekly",
+                Name = "Weekly quota",
+                WindowKind = WindowKind.Rolling,
+                IsAvailable = true,
+                IsQuotaBased = true,
+                PlanType = PlanType.Coding,
+                UsedPercent = 72,
+                PeriodDuration = TimeSpan.FromDays(7),
+            },
+            new ProviderUsage
+            {
+                ProviderId = "codex.spark",
+                CardId = "spark",
+                Name = "Spark",
+                WindowKind = WindowKind.ModelSpecific,
+                IsAvailable = true,
+                IsQuotaBased = true,
+                PlanType = PlanType.Coding,
+                UsedPercent = 28,
+                PeriodDuration = TimeSpan.FromDays(7),
+            },
+        };
+
+        var snapshot = GroupedUsageProjectionService.Build(usages);
+
+        var provider = Assert.Single(snapshot.Providers);
+        Assert.Equal("codex", provider.ProviderId);
+        Assert.Empty(provider.Models); // no WindowKind.None cards → no separate flat cards
+        Assert.Equal(3, provider.ProviderDetails.Count); // all appear as quota-window details
+        Assert.Contains(provider.ProviderDetails, d => d.WindowKind == WindowKind.Burst);
+        Assert.Contains(provider.ProviderDetails, d => d.WindowKind == WindowKind.Rolling);
+        Assert.Contains(provider.ProviderDetails, d => d.WindowKind == WindowKind.ModelSpecific);
+    }
 }
