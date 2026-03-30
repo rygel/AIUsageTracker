@@ -457,6 +457,16 @@ public partial class MainWindow : Window
         this.InitializeUpdateChecker();
     }
 
+    /// <summary>
+    /// Re-syncs UI controls from <see cref="_preferences"/> and re-renders all cards.
+    /// Used by the card catalog screenshot generator after applying each permutation.
+    /// </summary>
+    internal void ApplyPreferencesAndRerender()
+    {
+        this.ApplyDisplayModePreference();
+        this.RenderProviders();
+    }
+
     private void ApplyDisplayModePreference()
     {
         if (this.ShowUsedToggle != null)

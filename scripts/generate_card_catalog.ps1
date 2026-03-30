@@ -49,7 +49,7 @@ if ($existingProcesses) {
 }
 
 $screenshotsDir = if ($OutputDir) { $OutputDir } else { Join-Path $projectRoot "docs" }
-Directory.CreateDirectory($screenshotsDir) | Out-Null
+New-Item -ItemType Directory -Path $screenshotsDir -Force | Out-Null
 
 Write-Host "Capturing card catalog screenshots..." -ForegroundColor Cyan
 Write-Host "Output: $screenshotsDir\card-catalog\" -ForegroundColor Gray

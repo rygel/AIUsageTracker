@@ -267,13 +267,17 @@ public partial class App
         {
             var fileName = $"card_{permutation.Slug}.png";
             var outputPath = Path.Combine(catalogDir, fileName);
-            permutation.Apply(Preferences);
             logger.LogInformation("Capturing card catalog: {Slug}", permutation.Slug);
 
             var window = Host.Services.GetRequiredService<MainWindow>();
             try
             {
                 await window.PrepareForHeadlessScreenshotAsync(deterministic: true);
+
+                // Apply the permutation AFTER the fixture loads — the fixture resets
+                // preferences to defaults, so we must override afterwards.
+                permutation.Apply(Preferences);
+                window.ApplyPreferencesAndRerender();
                 await this.WaitForDispatcherIdleAsync(window);
                 RenderWindowContent(window, outputPath);
                 captured.Add((fileName, permutation.Label, permutation.Description));
