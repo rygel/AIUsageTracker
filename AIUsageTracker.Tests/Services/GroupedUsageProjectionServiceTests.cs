@@ -180,11 +180,10 @@ public sealed class GroupedUsageProjectionServiceTests
     }
 
     [Fact]
-    public void Build_CodexWithWindowKindCards_ProjectsSparkAsChildRow()
+    public void Build_CodexAndSpark_ProjectAsTwoIndependentProviders()
     {
-        // Codex uses DynamicChildProviderRows: burst+weekly stay in ProviderDetails
-        // (dual-bar capable on the parent card), spark (codex.spark) becomes a child
-        // row and appears as a separate card.
+        // Codex and Spark are independent providers. Each has its own burst+rolling
+        // windows and gets its own card with dual-bar support.
         var usages = new[]
         {
             new ProviderUsage
@@ -214,29 +213,42 @@ public sealed class GroupedUsageProjectionServiceTests
             new ProviderUsage
             {
                 ProviderId = "codex.spark",
-                CardId = "spark",
-                Name = "Spark",
-                WindowKind = WindowKind.ModelSpecific,
+                CardId = "spark.burst",
+                Name = "Spark 5-hour quota",
+                WindowKind = WindowKind.Burst,
                 IsAvailable = true,
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
-                UsedPercent = 28,
+                UsedPercent = 12,
+                PeriodDuration = TimeSpan.FromHours(5),
+            },
+            new ProviderUsage
+            {
+                ProviderId = "codex.spark",
+                CardId = "spark.weekly",
+                Name = "Spark weekly quota",
+                WindowKind = WindowKind.Rolling,
+                IsAvailable = true,
+                IsQuotaBased = true,
+                PlanType = PlanType.Coding,
+                UsedPercent = 8,
                 PeriodDuration = TimeSpan.FromDays(7),
             },
         };
 
         var snapshot = GroupedUsageProjectionService.Build(usages);
 
-        var provider = Assert.Single(snapshot.Providers);
-        Assert.Equal("codex", provider.ProviderId);
+        // Two separate providers, not one grouped provider.
+        Assert.Equal(2, snapshot.Providers.Count);
 
-        // Spark is a child provider → becomes a model row
-        Assert.Single(provider.Models);
-        Assert.Contains(provider.Models, m => m.ModelId == "codex.spark");
+        var codex = snapshot.Providers.Single(p => p.ProviderId == "codex");
+        Assert.Equal(2, codex.ProviderDetails.Count);
+        Assert.Contains(codex.ProviderDetails, d => d.WindowKind == WindowKind.Burst);
+        Assert.Contains(codex.ProviderDetails, d => d.WindowKind == WindowKind.Rolling);
 
-        // Burst + weekly stay as provider-level quota windows
-        Assert.Equal(2, provider.ProviderDetails.Count);
-        Assert.Contains(provider.ProviderDetails, d => d.WindowKind == WindowKind.Burst);
-        Assert.Contains(provider.ProviderDetails, d => d.WindowKind == WindowKind.Rolling);
+        var spark = snapshot.Providers.Single(p => p.ProviderId == "codex.spark");
+        Assert.Equal(2, spark.ProviderDetails.Count);
+        Assert.Contains(spark.ProviderDetails, d => d.WindowKind == WindowKind.Burst);
+        Assert.Contains(spark.ProviderDetails, d => d.WindowKind == WindowKind.Rolling);
     }
 }

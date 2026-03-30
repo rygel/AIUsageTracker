@@ -22,11 +22,6 @@ public class CodexProvider : ProviderBase
         PlanType.Coding,
         isQuotaBased: true)
     {
-        DisplayNameOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["codex.spark"] = "OpenAI (GPT-5.3 Codex Spark)",
-        },
-        FamilyMode = ProviderFamilyMode.DynamicChildProviderRows,
         DiscoveryEnvironmentVariables = new[] { "CODEX_API_KEY" },
         SettingsMode = ProviderSettingsMode.SessionAuthStatus,
         SessionStatusLabel = "OpenAI (Codex)",
@@ -51,9 +46,29 @@ public class CodexProvider : ProviderBase
         SettingsAdditionalProviderIds = new[] { "codex.spark" },
         QuotaWindows = new QuotaWindowDefinition[]
         {
-            new(WindowKind.Burst,         "5h",     ChildProviderId: "codex.burst",   PeriodDuration: TimeSpan.FromHours(5)),
-            new(WindowKind.Rolling,       "Weekly", ChildProviderId: "codex.weekly",  PeriodDuration: TimeSpan.FromDays(7)),
-            new(WindowKind.ModelSpecific, "Spark",  ChildProviderId: "codex.spark",   PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.Burst,   "5h",     PeriodDuration: TimeSpan.FromHours(5)),
+            new(WindowKind.Rolling, "Weekly", PeriodDuration: TimeSpan.FromDays(7)),
+        },
+    };
+
+    /// <summary>
+    /// Independent provider definition for the Spark model card.
+    /// Registered separately in the catalog so it gets its own card
+    /// with its own burst+rolling dual bars.
+    /// </summary>
+    public static ProviderDefinition SparkDefinition { get; } = new(
+        "codex.spark",
+        "OpenAI (GPT-5.3 Codex Spark)",
+        PlanType.Coding,
+        isQuotaBased: true)
+    {
+        IconAssetName = "openai",
+        BadgeColorHex = "#008B8B",
+        BadgeInitial = "AI",
+        QuotaWindows = new QuotaWindowDefinition[]
+        {
+            new(WindowKind.Burst,   "5h",     PeriodDuration: TimeSpan.FromHours(5)),
+            new(WindowKind.Rolling, "Weekly", PeriodDuration: TimeSpan.FromDays(7)),
         },
     };
 
