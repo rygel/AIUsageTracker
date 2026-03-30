@@ -36,6 +36,7 @@ public partial class MainWindow : Window
             MinWidth = 480,
             MinHeight = 320,
             Owner = this,
+            Topmost = this.Topmost,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Background = this.GetResourceBrush("CardBackground", Brushes.Black),
             Foreground = this.GetResourceBrush("PrimaryText", Brushes.White),
@@ -110,13 +111,13 @@ public partial class MainWindow : Window
             return;
         }
 
-        var result = MessageBox.Show(
+        var confirmResult = MessageBox.Show(
             $"Download and install version {this._latestUpdate.Version}?\n\nThe application will restart after installation.",
             "Confirm Update",
             MessageBoxButton.YesNo,
             MessageBoxImage.Question);
 
-        if (result != MessageBoxResult.Yes)
+        if (confirmResult != MessageBoxResult.Yes)
         {
             return;
         }
@@ -139,6 +140,7 @@ public partial class MainWindow : Window
                 Height = 150,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 Owner = this,
+                Topmost = this.Topmost,
                 ResizeMode = ResizeMode.NoResize,
                 Background = this.GetResourceBrush("Background", Brushes.Black),
                 Content = new StackPanel
@@ -161,20 +163,21 @@ public partial class MainWindow : Window
             progressWindow.Show();
 
             UiDiagnosticFileLog.Write($"[UPDATE] Starting download: {this._latestUpdate.DownloadUrl}");
-            var success = await this._updateChecker.DownloadAndInstallUpdateAsync(this._latestUpdate, progress);
+            var result = await this._updateChecker.DownloadAndInstallUpdateAsync(this._latestUpdate, progress);
             progressWindow.Close();
             progressWindow = null;
 
-            if (success)
+            if (result.Success)
             {
                 UiDiagnosticFileLog.Write("[UPDATE] Download and install succeeded, shutting down.");
                 Application.Current.Shutdown();
             }
             else
             {
-                UiDiagnosticFileLog.Write("[UPDATE] DownloadAndInstallUpdateAsync returned false.");
+                UiDiagnosticFileLog.Write($"[UPDATE] Failed: {result.FailureReason}");
                 MessageBox.Show(
                     $"Failed to download or install version {this._latestUpdate.Version}.\n\n" +
+                    $"Reason: {result.FailureReason}\n\n" +
                     $"Download URL: {this._latestUpdate.DownloadUrl}\n\n" +
                     "Please try again or download manually from the releases page.",
                     "Update Failed",
