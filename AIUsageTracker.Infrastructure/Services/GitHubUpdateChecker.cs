@@ -123,7 +123,7 @@ public class GitHubUpdateChecker
         }
     }
 
-    public async Task<bool> DownloadAndInstallUpdateAsync(AIUsageTracker.Core.Interfaces.UpdateInfo updateInfo, IProgress<double>? progress = null)
+    public async Task<UpdateInstallResult> DownloadAndInstallUpdateAsync(AIUsageTracker.Core.Interfaces.UpdateInfo updateInfo, IProgress<double>? progress = null)
     {
         try
         {
@@ -131,8 +131,7 @@ public class GitHubUpdateChecker
 
             if (string.IsNullOrEmpty(updateInfo.DownloadUrl))
             {
-                this._logger.LogWarning("No download URL available for update");
-                return false;
+                return UpdateInstallResult.Fail("No download URL available.");
             }
 
             var downloadPath = GetInstallerDownloadPath(updateInfo.Version);
@@ -140,18 +139,44 @@ public class GitHubUpdateChecker
             var downloadSucceeded = await this.DownloadInstallerAsync(updateInfo.DownloadUrl, downloadPath, progress).ConfigureAwait(false);
             if (!downloadSucceeded)
             {
-                this._logger.LogError("Download failed for {Url}", updateInfo.DownloadUrl);
-                return false;
+                return UpdateInstallResult.Fail($"Download failed — file not found at {downloadPath} after transfer.");
             }
 
             this._logger.LogInformation("Download succeeded ({Path}), launching installer", downloadPath);
-            return this.StartInstaller(downloadPath);
+            if (!this.StartInstaller(downloadPath))
+            {
+                return UpdateInstallResult.Fail($"Installer failed to launch from {downloadPath}. Check UAC or antivirus.");
+            }
+
+            return UpdateInstallResult.Ok();
+        }
+        catch (System.Net.Http.HttpRequestException ex)
+        {
+            this._logger.LogError(ex, "HTTP error during update download");
+            return UpdateInstallResult.Fail($"HTTP error: {ex.StatusCode} — {ex.Message}");
+        }
+        catch (TaskCanceledException ex)
+        {
+            this._logger.LogError(ex, "Download timed out");
+            return UpdateInstallResult.Fail($"Download timed out: {ex.Message}");
+        }
+        catch (System.IO.IOException ex)
+        {
+            this._logger.LogError(ex, "File system error during update");
+            return UpdateInstallResult.Fail($"File error: {ex.Message}");
         }
         catch (Exception ex)
         {
             this._logger.LogError(ex, "Error during download and install");
-            return false;
+            return UpdateInstallResult.Fail($"{ex.GetType().Name}: {ex.Message}");
         }
+    }
+
+    public readonly record struct UpdateInstallResult(bool Success, string FailureReason)
+    {
+        public static UpdateInstallResult Ok() => new(true, string.Empty);
+
+        public static UpdateInstallResult Fail(string reason) => new(false, reason);
     }
 
     /// <summary>
@@ -409,7 +434,6 @@ public class GitHubUpdateChecker
             FileName = installerPath,
             Arguments = "/CLOSEAPPLICATIONS /RESTARTAPPLICATIONS",
             UseShellExecute = true,
-            Verb = "runas", // Run as administrator
         };
 
         try
