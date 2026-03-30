@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [2.3.4-beta.17] - 2026-03-30
+
+### Fixed
+- **Installer download failed with file lock on move**: `DownloadInstallerAsync` used `using var` (declaration-scoped) for the `FileStream`, keeping the file handle open until end-of-method. `File.Move` then failed with an `IOException` because the `.partial` file was still locked. Switched to block-scoped `using` so the stream is disposed before the move.
+
+### Added
+- **Download-then-move regression test**: end-to-end test downloads a real appcast XML to a `.partial` temp file using the same `FileStream` block pattern, then moves it to the final path. Catches the exact bug: if someone reverts to `using var`, the file lock causes the move to fail.
+
 ## [2.3.4-beta.16] - 2026-03-30
 
 ### Changed
