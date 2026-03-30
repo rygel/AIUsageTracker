@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Xml.Linq;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Services;
+using AIUsageTracker.Tests.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AIUsageTracker.Tests.Integration;
@@ -392,6 +393,68 @@ public sealed class UpdatePipelineEndToEndTests : IDisposable
         Assert.True(firstAsset.TryGetProperty("name", out _), "Asset missing name");
         Assert.True(firstAsset.TryGetProperty("size", out _), "Asset missing size");
         Assert.True(firstAsset.TryGetProperty("browser_download_url", out _), "Asset missing browser_download_url");
+    }
+
+    // ── Download-then-move file lock regression ────────────────────────────
+    // This catches the exact bug where "using var" (declaration form) keeps
+    // the FileStream open until end-of-method, causing File.Move to fail
+    // with an IOException because the file is still locked.  The fix uses a
+    // "using block" so the stream is disposed before the move.
+
+    [Fact]
+    public async Task DownloadToPartialFile_ThenMove_Succeeds()
+    {
+        // Pick the smallest release asset we control — an appcast XML file.
+        var release = await this.FetchLatestBetaReleaseAsync();
+        if (!AssertNetworkAvailable(release))
+        {
+            return;
+        }
+
+        Assert.NotNull(release);
+
+        var tag = release!.Value.GetProperty("tag_name").GetString()!;
+        var appcastUrl = $"https://github.com/rygel/AIUsageTracker/releases/download/{tag}/appcast_beta.xml";
+
+        var tempDir = TestTempPaths.CreateDirectory("download-move-e2e");
+        var finalPath = Path.Combine(tempDir, "appcast_beta.xml");
+        var partialPath = $"{finalPath}.partial";
+
+        try
+        {
+            // Mirrors the exact pattern from GitHubUpdateChecker.DownloadInstallerAsync.
+            // If someone changes the block-scoped "using" back to "using var",
+            // the File.Move below will throw because the file handle is still open.
+            using (var response = await this._httpClient.GetAsync(appcastUrl, HttpCompletionOption.ResponseHeadersRead))
+            {
+                response.EnsureSuccessStatusCode();
+
+                using (var stream = await response.Content.ReadAsStreamAsync())
+                using (var fileStream = new FileStream(partialPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    var buffer = new byte[8192];
+                    int read;
+                    while ((read = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                    {
+                        await fileStream.WriteAsync(buffer, 0, read);
+                    }
+
+                    await fileStream.FlushAsync();
+                }
+            }
+
+            // This is the line that fails when the file stream is not properly disposed.
+            File.Move(partialPath, finalPath, overwrite: true);
+
+            Assert.True(File.Exists(finalPath), "Final file must exist after move.");
+            var content = await File.ReadAllTextAsync(finalPath);
+            Assert.True(content.Length > 0, "Downloaded file must have content.");
+            Assert.Contains("<enclosure", content, StringComparison.Ordinal);
+        }
+        finally
+        {
+            TestTempPaths.CleanupPath(tempDir);
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
