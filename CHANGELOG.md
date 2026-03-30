@@ -7,6 +7,7 @@
 ### Fixed
 - **OpenAI Codex showed dual-bar layout instead of 3 flat cards**: `BuildModels()` filtered flat model cards by `WindowKind == None`, but Codex uses `Burst`/`Rolling`/`ModelSpecific` — all cards fell through to `LegacyParentCardBuilder` which assembled a dual-bar. `FamilyMode.FlatWindowCards` is now checked first as an early return, projecting all cards as flat models regardless of `WindowKind`.
 - **Beta appcast files committed with missing enclosure length**: the `appcast_beta*.xml` files had placeholder content instead of real release items with installer sizes. All 4 beta appcast files now contain the actual 2.3.4-beta.11 release data with correct byte counts.
+- **Settings window silently reverted main window preference changes**: toggling "Show Used" on the main window and then changing "Pace-aware colours" in the already-open settings window overwrote "Show Used". The settings window was loading a separate `AppPreferences` from disk instead of using the shared in-memory instance.
 
 ### Added
 - **End-to-end appcast regression tests**: `AppcastXmlConsistencyTests` validates all 8 committed appcast files on every test run — non-zero installer length for beta feeds, URL/version/architecture consistency, default feed identical to x64, and Sparkle attribute correctness. `UpdateChannelConfigurationEndToEndTests` verifies `generate-appcast.sh` reads `INSTALLER_SIZE_*` env vars correctly. `verify-release-artifacts.ps1` now checks `length > 0` in the publish pipeline.
