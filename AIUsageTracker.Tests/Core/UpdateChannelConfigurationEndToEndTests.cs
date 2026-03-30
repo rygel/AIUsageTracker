@@ -75,9 +75,55 @@ public sealed class UpdateChannelConfigurationEndToEndTests : IDisposable
             version);
     }
 
+    // ── Installer size is populated from INSTALLER_SIZE_* env vars ───────────
+    // Regression guard: if env vars are provided (as they are in the CI publish pipeline),
+    // the generated enclosure length must equal the supplied size for every architecture.
+    // length="0" in a committed appcast means the publish pipeline failed to pass sizes.
+
+    [Theory]
+    [InlineData("2.2.28",       "stable", 10_000_000L, 9_500_000L,  9_800_000L)]
+    [InlineData("2.2.28-beta.5", "beta",  19_451_188L, 18_831_779L, 18_802_141L)]
+    public async Task GenerateAppcastScript_PopulatesInstallerLengthFromEnvVarsAsync(
+        string version, string channel, long x64Size, long x86Size, long arm64Size)
+    {
+        var workingDirectory = CreateScriptWorkspace(this._tempRoot);
+
+        var envVars = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["INSTALLER_SIZE_X64"] = x64Size.ToString(),
+            ["INSTALLER_SIZE_X86"] = x86Size.ToString(),
+            ["INSTALLER_SIZE_ARM64"] = arm64Size.ToString(),
+        };
+
+        var generated = await RunGenerateAppcastAsync(workingDirectory, version, channel, envVars);
+        if (!generated)
+        {
+            return;
+        }
+
+        var prefix = channel == "beta" ? "appcast_beta" : "appcast";
+        AssertInstallerLength(Path.Combine(workingDirectory, "appcast", $"{prefix}.xml"), x64Size);
+        AssertInstallerLength(Path.Combine(workingDirectory, "appcast", $"{prefix}_x64.xml"), x64Size);
+        AssertInstallerLength(Path.Combine(workingDirectory, "appcast", $"{prefix}_x86.xml"), x86Size);
+        AssertInstallerLength(Path.Combine(workingDirectory, "appcast", $"{prefix}_arm64.xml"), arm64Size);
+    }
+
     public void Dispose()
     {
         TestTempPaths.CleanupPath(this._tempRoot);
+    }
+
+    private static void AssertInstallerLength(string appcastFilePath, long expectedLength)
+    {
+        Assert.True(File.Exists(appcastFilePath), $"Missing generated appcast: {appcastFilePath}");
+        var document = XDocument.Load(appcastFilePath);
+        XNamespace sparkle = "http://www.andymatuschak.org/xml-namespaces/sparkle";
+        var enclosure = document.Root?.Element("channel")?.Element("item")?.Element("enclosure");
+        Assert.NotNull(enclosure);
+        var lengthStr = enclosure!.Attribute("length")?.Value;
+        Assert.False(string.IsNullOrEmpty(lengthStr), $"Missing length attribute in {appcastFilePath}.");
+        Assert.True(long.TryParse(lengthStr, out var actualLength), $"Non-numeric length '{lengthStr}' in {appcastFilePath}.");
+        Assert.Equal(expectedLength, actualLength);
     }
 
     private static void AssertFeed(
@@ -116,7 +162,14 @@ public sealed class UpdateChannelConfigurationEndToEndTests : IDisposable
         Assert.Equal(expectedShortVersion, enclosure.Attribute(sparkle + "shortVersionString")?.Value);
     }
 
-    private static async Task<bool> RunGenerateAppcastAsync(string workingDirectory, string version, string channel)
+    private static Task<bool> RunGenerateAppcastAsync(string workingDirectory, string version, string channel)
+        => RunGenerateAppcastAsync(workingDirectory, version, channel, envVars: null);
+
+    private static async Task<bool> RunGenerateAppcastAsync(
+        string workingDirectory,
+        string version,
+        string channel,
+        IReadOnlyDictionary<string, string>? envVars)
     {
         var startInfo = new ProcessStartInfo
         {
@@ -129,6 +182,14 @@ public sealed class UpdateChannelConfigurationEndToEndTests : IDisposable
         startInfo.ArgumentList.Add("./scripts/generate-appcast.sh");
         startInfo.ArgumentList.Add(version);
         startInfo.ArgumentList.Add(channel);
+
+        if (envVars != null)
+        {
+            foreach (var (key, value) in envVars)
+            {
+                startInfo.Environment[key] = value;
+            }
+        }
 
         using var process = Process.Start(startInfo);
         Assert.NotNull(process);

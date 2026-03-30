@@ -116,6 +116,17 @@ foreach ($entry in $appcastFiles) {
     Assert-True ($actualUrl -eq $expectedUrl) "Unexpected enclosure url in $($entry.Path). Expected '$expectedUrl', got '$actualUrl'."
     Assert-True ($actualShortVersion -eq $Version) "Unexpected sparkle:shortVersionString in $($entry.Path). Expected '$Version', got '$actualShortVersion'."
     Assert-True ($actualReleaseNotes -eq $expectedReleaseNotes) "Unexpected release notes link in $($entry.Path). Expected '$expectedReleaseNotes', got '$actualReleaseNotes'."
+
+    # Require a non-zero installer length when real artifacts are present.
+    # length="0" means the appcast was generated without the INSTALLER_SIZE_* env vars,
+    # which produces a feed that reports an incorrect download size to update clients.
+    if (-not $SkipArtifactChecks) {
+        $lengthStr = [string]$enclosure.GetAttribute("length")
+        $actualLength = [long]0
+        $parsedOk = [long]::TryParse($lengthStr, [ref]$actualLength)
+        Assert-True $parsedOk "Non-numeric enclosure length '$lengthStr' in $($entry.Path)."
+        Assert-True ($actualLength -gt 0) "Enclosure length must be > 0 in $($entry.Path) (got $actualLength). Pass real installer sizes via INSTALLER_SIZE_X64 / INSTALLER_SIZE_X86 / INSTALLER_SIZE_ARM64 when calling generate-appcast.sh."
+    }
 }
 
 if (-not $SkipArtifactChecks) {
