@@ -180,11 +180,11 @@ public sealed class GroupedUsageProjectionServiceTests
     }
 
     [Fact]
-    public void Build_CodexWithWindowKindCards_ProjectsAsFlatModels()
+    public void Build_CodexWithWindowKindCards_ProjectsSparkAsChildRow()
     {
-        // Codex is FlatWindowCards: each quota-window card (burst/rolling/spark) should be
-        // projected as a separate flat model card so the UI renders 3 independent single-bar
-        // cards instead of a single card with a dual-bar layout.
+        // Codex uses DynamicChildProviderRows: burst+weekly stay in ProviderDetails
+        // (dual-bar capable on the parent card), spark (codex.spark) becomes a child
+        // row and appears as a separate card.
         var usages = new[]
         {
             new ProviderUsage
@@ -229,9 +229,14 @@ public sealed class GroupedUsageProjectionServiceTests
 
         var provider = Assert.Single(snapshot.Providers);
         Assert.Equal("codex", provider.ProviderId);
-        Assert.Equal(3, provider.Models.Count); // FlatWindowCards → each window card becomes a model
-        Assert.Contains(provider.Models, m => m.ModelId == "burst");
-        Assert.Contains(provider.Models, m => m.ModelId == "weekly");
-        Assert.Contains(provider.Models, m => m.ModelId == "spark");
+
+        // Spark is a child provider → becomes a model row
+        Assert.Single(provider.Models);
+        Assert.Contains(provider.Models, m => m.ModelId == "codex.spark");
+
+        // Burst + weekly stay as provider-level quota windows
+        Assert.Equal(2, provider.ProviderDetails.Count);
+        Assert.Contains(provider.ProviderDetails, d => d.WindowKind == WindowKind.Burst);
+        Assert.Contains(provider.ProviderDetails, d => d.WindowKind == WindowKind.Rolling);
     }
 }

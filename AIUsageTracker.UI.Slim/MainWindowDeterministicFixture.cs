@@ -25,7 +25,7 @@ internal static class MainWindowDeterministicFixture
         {
             if (string.Equals(scenario.ProviderId, CodexProvider.StaticDefinition.ProviderId, StringComparison.OrdinalIgnoreCase))
             {
-                usages.AddRange(CreateCodexFlatCards(scenario, deterministicNow, scenario.MainWindowUsage!));
+                usages.AddRange(CreateCodexCards(scenario, deterministicNow, scenario.MainWindowUsage!));
             }
             else
             {
@@ -54,12 +54,13 @@ internal static class MainWindowDeterministicFixture
         };
     }
 
-    private static IEnumerable<ProviderUsage> CreateCodexFlatCards(
+    private static IEnumerable<ProviderUsage> CreateCodexCards(
         DeterministicProviderScenario scenario,
         DateTime deterministicNow,
         FixtureUsageScenario usageScenario)
     {
-        // Codex uses FlatWindowCards: burst (5h), weekly (7d), spark (7d).
+        // Codex uses DynamicChildProviderRows: burst+weekly stay on the parent
+        // card (dual-bar capable), spark is a separate child card.
         yield return new ProviderUsage
         {
             ProviderId = "codex",
