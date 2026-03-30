@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2.3.4-beta.15] - 2026-03-30
+
+### Fixed
+- **Update download failed silently — installer used unnecessary UAC elevation**: `Verb = "runas"` forced a UAC prompt even though the Inno Setup installer uses `PrivilegesRequired=lowest`. The UAC prompt was hidden behind the topmost main window, causing the install to fail silently. Removed the `runas` verb.
+- **Changelog and download progress windows hidden behind main window**: both now inherit `Topmost` from the main window.
+- **Update failure reason was invisible**: `DownloadAndInstallUpdateAsync` now returns `UpdateInstallResult` with a specific failure reason (HTTP status, timeout, file I/O, UAC rejection) shown in both the error dialog and the diagnostic log.
+
 ## [2.3.4-beta.14] - 2026-03-30
 
 ### Fixed
