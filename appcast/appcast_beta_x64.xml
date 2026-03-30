@@ -1,10 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
-        <title>AI Usage Tracker (Beta Channel - x64)</title>
+        <title>AI Usage Tracker (Beta Channel)</title>
         <link>https://github.com/rygel/AIUsageTracker/releases</link>
-        <description>Beta releases for x64 architecture.</description>
+        <description>Beta releases with latest features and improvements.</description>
         <language>en</language>
-        <!-- Beta releases will be added here -->
+        <item>
+            <title>Version 2.3.4-beta.11</title>
+            <sparkle:releaseNotesLink>https://github.com/rygel/AIUsageTracker/releases/tag/v2.3.4-beta.11</sparkle:releaseNotesLink>
+            <pubDate>Mon, 30 Mar 2026 00:14:52 +0000</pubDate>
+            <enclosure url="https://github.com/rygel/AIUsageTracker/releases/download/v2.3.4-beta.11/AIUsageTracker_Setup_v2.3.4-beta.11_win-x64.exe"
+                       sparkle:version="2.3.4.11"
+                       sparkle:shortVersionString="2.3.4-beta.11"
+                       sparkle:os="windows"
+                       length="19451188"
+                       type="application/octet-stream" />
+        </item>
     </channel>
 </rss>

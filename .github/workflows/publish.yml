@@ -64,7 +64,7 @@ jobs:
   generate-appcast:
     needs: publish
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 5
     permissions:
       contents: read
     steps:
@@ -86,11 +86,25 @@ jobs:
           echo "channel=$CHANNEL" >> $GITHUB_OUTPUT
           echo "Version: $VERSION, Channel: $CHANNEL"
 
+      - name: Download Win Installers (for file sizes)
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        with:
+          path: installers
+          pattern: AIUsageTracker-v${{ steps.extract.outputs.version }}-win-*
+          merge-multiple: true
+
       - name: Generate Appcast Files
         env:
           VERSION: ${{ steps.extract.outputs.version }}
           CHANNEL: ${{ steps.extract.outputs.channel }}
         run: |
+          INSTALLER_SIZE_X64=$(stat -c%s installers/AIUsageTracker_Setup_v${VERSION}_win-x64.exe 2>/dev/null || echo "0")
+          INSTALLER_SIZE_X86=$(stat -c%s installers/AIUsageTracker_Setup_v${VERSION}_win-x86.exe 2>/dev/null || echo "0")
+          INSTALLER_SIZE_ARM64=$(stat -c%s installers/AIUsageTracker_Setup_v${VERSION}_win-arm64.exe 2>/dev/null || echo "0")
+          echo "Installer sizes: x64=${INSTALLER_SIZE_X64} x86=${INSTALLER_SIZE_X86} arm64=${INSTALLER_SIZE_ARM64}"
+          INSTALLER_SIZE_X64="$INSTALLER_SIZE_X64" \
+          INSTALLER_SIZE_X86="$INSTALLER_SIZE_X86" \
+          INSTALLER_SIZE_ARM64="$INSTALLER_SIZE_ARM64" \
           bash scripts/generate-appcast.sh "$VERSION" "$CHANNEL"
 
       - name: Upload Appcast Artifacts

@@ -85,7 +85,15 @@ generate_appcast() {
     
     # Build download URL
     local download_url="${REPOSITORY_BASE_URL}/releases/download/v${VERSION}/AIUsageTracker_Setup_v${VERSION}_win-${arch}.exe"
-    
+
+    # Resolve installer file size from env vars set by the CI pipeline.
+    local installer_size="0"
+    case "$arch" in
+        x64)   installer_size="${INSTALLER_SIZE_X64:-0}" ;;
+        x86)   installer_size="${INSTALLER_SIZE_X86:-0}" ;;
+        arm64) installer_size="${INSTALLER_SIZE_ARM64:-0}" ;;
+    esac
+
     # Generate appcast XML
     cat > "$appcast_file" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -103,7 +111,7 @@ generate_appcast() {
                        sparkle:version="${sparkle_version}"
                        sparkle:shortVersionString="${VERSION}"
                        sparkle:os="windows"
-                       length="0"
+                       length="${installer_size}"
                        type="application/octet-stream" />
         </item>
     </channel>
