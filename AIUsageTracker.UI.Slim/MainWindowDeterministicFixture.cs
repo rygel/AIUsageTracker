@@ -21,9 +21,17 @@ internal static class MainWindowDeterministicFixture
                 new FixtureUsageScenario(40.0, 40, 100, "60.0% Remaining", 6)),
         };
 
-        usages.AddRange(DeterministicProviderScenario.Scenarios
-            .Where(scenario => scenario.MainWindowUsage != null)
-            .Select(scenario => CreateUsage(scenario, deterministicNow, scenario.MainWindowUsage!)));
+        foreach (var scenario in DeterministicProviderScenario.Scenarios.Where(s => s.MainWindowUsage != null))
+        {
+            if (string.Equals(scenario.ProviderId, CodexProvider.StaticDefinition.ProviderId, StringComparison.OrdinalIgnoreCase))
+            {
+                usages.AddRange(CreateCodexFlatCards(scenario, deterministicNow, scenario.MainWindowUsage!));
+            }
+            else
+            {
+                usages.Add(CreateUsage(scenario, deterministicNow, scenario.MainWindowUsage!));
+            }
+        }
 
         return new MainWindowDeterministicFixtureData
         {
@@ -43,6 +51,76 @@ internal static class MainWindowDeterministicFixture
             },
             LastMonitorUpdate = deterministicNow,
             Usages = usages,
+        };
+    }
+
+    private static IEnumerable<ProviderUsage> CreateCodexFlatCards(
+        DeterministicProviderScenario scenario,
+        DateTime deterministicNow,
+        FixtureUsageScenario usageScenario)
+    {
+        // Codex uses FlatWindowCards: burst (5h), weekly (7d), spark (7d).
+        yield return new ProviderUsage
+        {
+            ProviderId = "codex",
+            ProviderName = "OpenAI (Codex)",
+            CardId = "burst",
+            GroupId = "codex",
+            Name = "5-hour quota",
+            WindowKind = WindowKind.Burst,
+            IsAvailable = true,
+            IsQuotaBased = true,
+            PlanType = PlanType.Coding,
+            UsedPercent = usageScenario.UsedPercent,
+            RequestsUsed = usageScenario.UsedPercent,
+            RequestsAvailable = 100.0,
+            Description = $"{100.0 - usageScenario.UsedPercent:F0}% remaining | Plan: plus",
+            AccountName = string.Empty,
+            AuthSource = scenario.AuthSource,
+            NextResetTime = deterministicNow.AddHours(3),
+            PeriodDuration = TimeSpan.FromHours(5),
+        };
+
+        yield return new ProviderUsage
+        {
+            ProviderId = "codex",
+            ProviderName = "OpenAI (Codex)",
+            CardId = "weekly",
+            GroupId = "codex",
+            Name = "Weekly quota",
+            WindowKind = WindowKind.Rolling,
+            IsAvailable = true,
+            IsQuotaBased = true,
+            PlanType = PlanType.Coding,
+            UsedPercent = 72.0,
+            RequestsUsed = 72.0,
+            RequestsAvailable = 100.0,
+            Description = "28% remaining | Plan: plus",
+            AccountName = string.Empty,
+            AuthSource = scenario.AuthSource,
+            NextResetTime = deterministicNow.AddDays(4),
+            PeriodDuration = TimeSpan.FromDays(7),
+        };
+
+        yield return new ProviderUsage
+        {
+            ProviderId = "codex.spark",
+            ProviderName = "OpenAI (GPT-5.3 Codex Spark)",
+            CardId = "spark",
+            GroupId = "codex",
+            Name = "Spark",
+            WindowKind = WindowKind.ModelSpecific,
+            IsAvailable = true,
+            IsQuotaBased = true,
+            PlanType = PlanType.Coding,
+            UsedPercent = 12.0,
+            RequestsUsed = 12.0,
+            RequestsAvailable = 100.0,
+            Description = "88% remaining | Plan: plus",
+            AccountName = string.Empty,
+            AuthSource = scenario.AuthSource,
+            NextResetTime = deterministicNow.AddDays(5),
+            PeriodDuration = TimeSpan.FromDays(7),
         };
     }
 

@@ -61,9 +61,17 @@ internal sealed record DeterministicProviderScenario(
             MainWindowUsage: new(Description: "Connected"),
             SettingsWindowUsage: new()),
         new(
+            CodexProvider.StaticDefinition.ProviderId,
+            "codex-session",
+            ShowInTray: true,
+            AuthSource: "codex native",
+            MainWindowUsage: new(35.0, 35, 100, "65.0% Remaining | Plan: plus", 3),
+            SettingsWindowUsage: new(35.0, 0, 0, "65.0% Remaining", 3)),
+        new(
             OpenAIProvider.StaticDefinition.ProviderId,
             "sk-openai-demo",
             ShowInTray: true,
+            MainWindowUsage: new(37.0, 148, 400, "63.0% Remaining", 18),
             SettingsWindowUsage: new(37.0, 0, 0, "63.0% Remaining", 18),
             SettingsWindowHistory: new(31.1, 12.45, 40.0, "$12.45 / $40.00", new DateTime(2026, 2, 1, 12, 5, 0))),
         new(
