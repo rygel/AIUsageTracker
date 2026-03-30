@@ -103,14 +103,15 @@ internal static class MainWindowDeterministicFixture
             PeriodDuration = TimeSpan.FromDays(7),
         };
 
+        // Spark also emits burst + rolling so its card is dual-bar capable.
         yield return new ProviderUsage
         {
             ProviderId = "codex.spark",
             ProviderName = "OpenAI (GPT-5.3 Codex Spark)",
-            CardId = "spark",
+            CardId = "spark.burst",
             GroupId = "codex",
-            Name = "Spark",
-            WindowKind = WindowKind.ModelSpecific,
+            Name = "Spark 5-hour quota",
+            WindowKind = WindowKind.Burst,
             IsAvailable = true,
             IsQuotaBased = true,
             PlanType = PlanType.Coding,
@@ -118,6 +119,27 @@ internal static class MainWindowDeterministicFixture
             RequestsUsed = 12.0,
             RequestsAvailable = 100.0,
             Description = "88% remaining | Plan: plus",
+            AccountName = string.Empty,
+            AuthSource = scenario.AuthSource,
+            NextResetTime = deterministicNow.AddHours(4),
+            PeriodDuration = TimeSpan.FromHours(5),
+        };
+
+        yield return new ProviderUsage
+        {
+            ProviderId = "codex.spark",
+            ProviderName = "OpenAI (GPT-5.3 Codex Spark)",
+            CardId = "spark.weekly",
+            GroupId = "codex",
+            Name = "Spark weekly quota",
+            WindowKind = WindowKind.Rolling,
+            IsAvailable = true,
+            IsQuotaBased = true,
+            PlanType = PlanType.Coding,
+            UsedPercent = 8.0,
+            RequestsUsed = 8.0,
+            RequestsAvailable = 100.0,
+            Description = "92% remaining | Plan: plus",
             AccountName = string.Empty,
             AuthSource = scenario.AuthSource,
             NextResetTime = deterministicNow.AddDays(5),
