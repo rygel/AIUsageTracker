@@ -364,22 +364,24 @@ public class GitHubUpdateChecker
         var downloadedBytes = 0L;
         var buffer = new byte[8192];
 
-        using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
-        using var fileStream = new FileStream(partialDownloadPath, FileMode.Create, FileAccess.Write, FileShare.None);
-
-        int read;
-        while ((read = await stream.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false)) > 0)
+        using (var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false))
+        using (var fileStream = new FileStream(partialDownloadPath, FileMode.Create, FileAccess.Write, FileShare.None))
         {
-            await fileStream.WriteAsync(buffer, 0, read).ConfigureAwait(false);
-            downloadedBytes += read;
-            if (totalBytes > 0 && progress != null)
+            int read;
+            while ((read = await stream.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false)) > 0)
             {
-                var percentage = (double)downloadedBytes / totalBytes * 100;
-                progress.Report(percentage);
+                await fileStream.WriteAsync(buffer, 0, read).ConfigureAwait(false);
+                downloadedBytes += read;
+                if (totalBytes > 0 && progress != null)
+                {
+                    var percentage = (double)downloadedBytes / totalBytes * 100;
+                    progress.Report(percentage);
+                }
             }
+
+            await fileStream.FlushAsync().ConfigureAwait(false);
         }
 
-        await fileStream.FlushAsync().ConfigureAwait(false);
         File.Move(partialDownloadPath, downloadPath, overwrite: true);
         this._logger.LogInformation("Download completed successfully to {Path}", downloadPath);
 
