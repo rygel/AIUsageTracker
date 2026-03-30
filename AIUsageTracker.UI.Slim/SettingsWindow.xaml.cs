@@ -315,8 +315,16 @@ public partial class SettingsWindow : Window
         return string.IsNullOrWhiteSpace(normalized) ? $"tab{index + 1}" : normalized;
     }
 
-    private void SettingsWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    private async void SettingsWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        // Flush any pending auto-save so preferences are persisted to disk
+        // regardless of how the window closes (X button, Alt+F4, etc.).
+        this._autoSaveTimer.Stop();
+        if (this._hasPendingAutoSave)
+        {
+            await this.PersistAllSettingsAsync(showErrorDialog: false).ConfigureAwait(true);
+        }
+
         // Ensure the main window reloads preferences regardless of how the dialog closes
         // (Close button, X button, or Alt+F4). DialogResult can only be set before the
         // window actually closes, and only when shown via ShowDialog().
@@ -956,7 +964,7 @@ public partial class SettingsWindow : Window
 
     private void LayoutSetting_Changed(object sender, RoutedEventArgs e)
     {
-        if (!this.IsInitialized)
+        if (!this.IsInitialized || this._isLoadingSettings)
         {
             return;
         }
@@ -971,7 +979,7 @@ public partial class SettingsWindow : Window
 
     private void LayoutSetting_TextChanged(object sender, TextChangedEventArgs e)
     {
-        if (!this.IsInitialized)
+        if (!this.IsInitialized || this._isLoadingSettings)
         {
             return;
         }
