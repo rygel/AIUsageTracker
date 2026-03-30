@@ -117,8 +117,7 @@ public partial class SettingsWindow : Window
                            "Try clicking 'Refresh Data' or restarting the Monitor.";
             }
 
-            this._preferences = await this._preferencesStore.LoadAsync().ConfigureAwait(true);
-            App.Preferences = this._preferences;
+            this._preferences = App.Preferences;
             this._isPrivacyMode = this._preferences.IsPrivacyMode;
             App.SetPrivacyMode(this._isPrivacyMode);
             this.UpdatePrivacyButtonState();
