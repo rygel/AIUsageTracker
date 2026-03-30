@@ -8,6 +8,7 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.UI.Slim.Services;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.UI.Slim;
@@ -71,11 +72,13 @@ public partial class MainWindow : Window
         try
         {
             this._isUpdateCheckInProgress = true;
+            UiDiagnosticFileLog.Write("[UPDATE] Checking for updates...");
             this._latestUpdate = await this._updateChecker.CheckForUpdatesAsync();
 
             var latestVersion = this._latestUpdate?.Version;
             if (!string.IsNullOrWhiteSpace(latestVersion))
             {
+                UiDiagnosticFileLog.Write($"[UPDATE] New version available: {latestVersion} (download: {this._latestUpdate?.DownloadUrl})");
                 if (this.UpdateNotificationBanner != null && this.UpdateText != null)
                 {
                     this.UpdateText.Text = $"New version available: {latestVersion}";
@@ -84,11 +87,13 @@ public partial class MainWindow : Window
             }
             else if (this.UpdateNotificationBanner != null)
             {
+                UiDiagnosticFileLog.Write("[UPDATE] No updates available.");
                 this.UpdateNotificationBanner.Visibility = Visibility.Collapsed;
             }
         }
         catch (Exception ex)
         {
+            UiDiagnosticFileLog.Write($"[UPDATE] Check failed: {ex.Message}");
             this._logger.LogWarning(ex, "Update check failed");
         }
         finally
@@ -155,18 +160,23 @@ public partial class MainWindow : Window
             var progress = new Progress<double>(p => progressBar.Value = p);
             progressWindow.Show();
 
+            UiDiagnosticFileLog.Write($"[UPDATE] Starting download: {this._latestUpdate.DownloadUrl}");
             var success = await this._updateChecker.DownloadAndInstallUpdateAsync(this._latestUpdate, progress);
             progressWindow.Close();
             progressWindow = null;
 
             if (success)
             {
+                UiDiagnosticFileLog.Write("[UPDATE] Download and install succeeded, shutting down.");
                 Application.Current.Shutdown();
             }
             else
             {
+                UiDiagnosticFileLog.Write("[UPDATE] DownloadAndInstallUpdateAsync returned false.");
                 MessageBox.Show(
-                    "Failed to download or install the update. Please try again or download manually from the releases page.",
+                    $"Failed to download or install version {this._latestUpdate.Version}.\n\n" +
+                    $"Download URL: {this._latestUpdate.DownloadUrl}\n\n" +
+                    "Please try again or download manually from the releases page.",
                     "Update Failed",
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
@@ -175,6 +185,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             progressWindow?.Close();
+            UiDiagnosticFileLog.Write($"[UPDATE] Exception: {ex}");
             MessageBox.Show(
                 $"Update error: {ex.Message}",
                 "Update Error",

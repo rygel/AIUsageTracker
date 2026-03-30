@@ -136,12 +136,15 @@ public class GitHubUpdateChecker
             }
 
             var downloadPath = GetInstallerDownloadPath(updateInfo.Version);
+            this._logger.LogInformation("Downloading update from {Url} to {Path}", updateInfo.DownloadUrl, downloadPath);
             var downloadSucceeded = await this.DownloadInstallerAsync(updateInfo.DownloadUrl, downloadPath, progress).ConfigureAwait(false);
             if (!downloadSucceeded)
             {
+                this._logger.LogError("Download failed for {Url}", updateInfo.DownloadUrl);
                 return false;
             }
 
+            this._logger.LogInformation("Download succeeded ({Path}), launching installer", downloadPath);
             return this.StartInstaller(downloadPath);
         }
         catch (Exception ex)
