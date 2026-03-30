@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.3.4-beta.18] - 2026-03-30
+
+### Changed
+- **Test release**: verifies beta.17's in-app update fix (FileStream lock + no UAC) works end-to-end.
+
 ## [2.3.4-beta.17] - 2026-03-30
 
 ### Fixed
