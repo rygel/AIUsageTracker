@@ -11,6 +11,8 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using AIUsageTracker.Core.Exceptions;
+using AIUsageTracker.Core.Models;
+using AIUsageTracker.Infrastructure.Mappers;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Extensions;
@@ -199,38 +201,47 @@ public static class HttpRequestBuilderExtensions
 
     /// <summary>
     /// Maps HTTP status codes to specific ProviderException types.
+    /// Uses <see cref="HttpFailureMapper"/> for failure classification, then applies
+    /// provider-layer projection to produce the appropriate typed exception.
     /// </summary>
     private static ProviderException MapHttpStatusToException(
         string providerId,
         HttpResponseMessage response)
     {
-        var statusCode = (int)response.StatusCode;
+        var failure = HttpFailureMapper.ClassifyResponse(response);
+        var statusCode = failure.HttpStatus ?? (int)response.StatusCode;
 
-        return response.StatusCode switch
+        return failure.Classification switch
         {
-            HttpStatusCode.Unauthorized => new ProviderAuthenticationException(providerId),
-            HttpStatusCode.Forbidden => new ProviderException(
-                providerId,
-                "Access denied - check API key permissions",
-                ProviderErrorType.AuthorizationError,
-                statusCode),
-            HttpStatusCode.TooManyRequests => new ProviderRateLimitException(
-                providerId,
-                GetRetryAfter(response)),
-            HttpStatusCode.NotFound => new ProviderException(
-                providerId,
-                "API endpoint not found",
-                ProviderErrorType.InvalidResponseError,
-                statusCode),
-            _ when statusCode >= 500 => new ProviderServerException(
-                providerId,
-                statusCode,
-                $"Server error ({statusCode})"),
-            _ => new ProviderException(
-                providerId,
-                $"Request failed ({statusCode})",
-                ProviderErrorType.InvalidResponseError,
-                statusCode),
+            HttpFailureClassification.Authentication =>
+                new ProviderAuthenticationException(providerId),
+
+            HttpFailureClassification.Authorization =>
+                new ProviderException(
+                    providerId,
+                    "Access denied - check API key permissions",
+                    ProviderErrorType.AuthorizationError,
+                    statusCode),
+
+            HttpFailureClassification.RateLimit =>
+                new ProviderRateLimitException(providerId, GetRetryAfter(response)),
+
+            HttpFailureClassification.Server =>
+                new ProviderServerException(providerId, statusCode, $"Server error ({statusCode})"),
+
+            HttpFailureClassification.Client when response.StatusCode == HttpStatusCode.NotFound =>
+                new ProviderException(
+                    providerId,
+                    "API endpoint not found",
+                    ProviderErrorType.InvalidResponseError,
+                    statusCode),
+
+            _ =>
+                new ProviderException(
+                    providerId,
+                    $"Request failed ({statusCode})",
+                    ProviderErrorType.InvalidResponseError,
+                    statusCode),
         };
     }
 
