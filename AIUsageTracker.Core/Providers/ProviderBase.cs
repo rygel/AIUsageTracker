@@ -2,9 +2,9 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
-using AIUsageTracker.Core.Exceptions;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 
@@ -28,7 +28,7 @@ public abstract class ProviderBase : IProviderService
 
     protected IProviderDiscoveryService? DiscoveryService { get; }
 
-    public bool CanHandleProviderId(string providerId) => this.Definition.HandlesProviderId(providerId);
+    public virtual bool CanHandleProviderId(string providerId) => this.Definition.HandlesProviderId(providerId);
 
     public abstract Task<IEnumerable<ProviderUsage>> GetUsageAsync(
         ProviderConfig config,
@@ -72,7 +72,8 @@ public abstract class ProviderBase : IProviderService
         string description,
         int httpStatus = 0,
         string? authSource = null,
-        ProviderUsageState state = ProviderUsageState.Error)
+        ProviderUsageState state = ProviderUsageState.Error,
+        HttpFailureContext? failureContext = null)
     {
         return new ProviderUsage
         {
@@ -88,59 +89,46 @@ public abstract class ProviderBase : IProviderService
             UsedPercent = 0,
             RequestsUsed = 0,
             RequestsAvailable = 0,
+            FailureContext = failureContext,
         };
     }
 
-    protected ProviderUsage CreateUnavailableUsageFromStatus(
-        HttpResponseMessage response,
-        string? authSource = null)
+    protected ProviderUsage CreateUnavailableUsageWithIdentity(
+        string description,
+        string? accountName,
+        int httpStatus = 0,
+        string? authSource = null,
+        ProviderUsageState state = ProviderUsageState.Error,
+        HttpFailureContext? failureContext = null)
     {
-        var statusCode = (int)response.StatusCode;
-        var description = response.StatusCode switch
+        var usage = this.CreateUnavailableUsage(description, httpStatus, authSource, state, failureContext);
+        usage.AccountName = accountName ?? string.Empty;
+        return usage;
+    }
+
+    protected static string DescribeUnavailableStatus(HttpStatusCode statusCode)
+    {
+        var statusCodeValue = (int)statusCode;
+        return statusCode switch
         {
-            System.Net.HttpStatusCode.Unauthorized => $"Authentication failed ({statusCode})",
-            System.Net.HttpStatusCode.Forbidden => $"Access denied ({statusCode})",
-            _ when statusCode >= 500 => $"Server error ({statusCode})",
-            _ => $"Request failed ({statusCode})",
+            HttpStatusCode.Unauthorized => $"Authentication failed ({statusCodeValue})",
+            HttpStatusCode.Forbidden => $"Access denied ({statusCodeValue})",
+            _ when statusCodeValue >= 500 => $"Server error ({statusCodeValue})",
+            _ => $"Request failed ({statusCodeValue})",
         };
-
-        return this.CreateUnavailableUsage(description, statusCode, authSource);
     }
 
-    protected ProviderUsage CreateUnavailableUsageFromException(
+    protected static string DescribeUnavailableException(
         Exception ex,
-        string context = "Provider check failed",
-        string? authSource = null)
+        string context = "Provider check failed")
     {
-        var message = ex switch
+        return ex switch
         {
             HttpRequestException => "Connection failed - check network",
             TaskCanceledException => "Request timed out",
             InvalidOperationException => $"Invalid operation: {ex.Message}",
             _ => $"{context}: {ex.Message}",
         };
-
-        return this.CreateUnavailableUsage(message, 0, authSource);
     }
 
-    protected ProviderUsage CreateUnavailableUsageFromProviderException(
-        ProviderException ex,
-        string? authSource = null)
-    {
-        var description = ex.ErrorType switch
-        {
-            ProviderErrorType.AuthenticationError => $"Authentication failed ({ex.HttpStatusCode})",
-            ProviderErrorType.AuthorizationError => $"Access denied ({ex.HttpStatusCode})",
-            ProviderErrorType.NetworkError => "Connection failed - check network",
-            ProviderErrorType.TimeoutError => "Request timed out",
-            ProviderErrorType.RateLimitError => "Rate limit exceeded - please wait before retrying",
-            ProviderErrorType.ServerError => $"Server error ({ex.HttpStatusCode})",
-            ProviderErrorType.ConfigurationError => "Configuration error",
-            ProviderErrorType.DeserializationError => "Failed to parse response",
-            ProviderErrorType.InvalidResponseError => "Invalid response from provider",
-            _ => ex.Message,
-        };
-
-        return this.CreateUnavailableUsage(description, ex.HttpStatusCode ?? 0, authSource);
-    }
 }

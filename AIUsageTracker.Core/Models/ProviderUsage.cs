@@ -129,6 +129,15 @@ public class ProviderUsage
     public bool IsStale { get; set; }
 
     /// <summary>
+    /// Gets or sets structured failure context attached by the provider when an upstream HTTP or
+    /// transport failure occurred. Not stored in the database and never serialised — intended for
+    /// diagnostics, monitor resilience decisions, and future observability surfaces.
+    /// Null when the usage row represents a successful fetch or when failure context was not captured.
+    /// </summary>
+    [JsonIgnore]
+    public HttpFailureContext? FailureContext { get; set; }
+
+    /// <summary>
     /// Gets or sets companion quota-window flat cards for dual-bar rendering.
     /// Populated by the display adapter when the provider emits separate Burst/Rolling
     /// window cards alongside the root card. Not stored in the database — set in-memory
