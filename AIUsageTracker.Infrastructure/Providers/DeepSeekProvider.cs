@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Providers;
+using AIUsageTracker.Infrastructure.Mappers;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Providers;
@@ -69,19 +70,20 @@ public class DeepSeekProvider : ProviderBase
                 return new[]
                 {
                     new ProviderUsage
-                {
-                    ProviderId = this.ProviderId,
-                    ProviderName = this.Definition.DisplayName ?? this.ProviderId,
-                    IsAvailable = true, // Key exists, just failed request
-                    Description = $"API Error ({response.StatusCode})",
-                    PlanType = this.Definition.PlanType,
-                    IsQuotaBased = this.Definition.IsQuotaBased,
-                    HttpStatus = (int)response.StatusCode,
-                    UsedPercent = 0,
-                    RequestsUsed = 0,
-                    RequestsAvailable = 0,
-                    RawJson = content,
-                },
+                    {
+                        ProviderId = this.ProviderId,
+                        ProviderName = this.Definition.DisplayName ?? this.ProviderId,
+                        IsAvailable = true, // Key exists, just failed request
+                        Description = $"API Error ({response.StatusCode})",
+                        PlanType = this.Definition.PlanType,
+                        IsQuotaBased = this.Definition.IsQuotaBased,
+                        HttpStatus = (int)response.StatusCode,
+                        UsedPercent = 0,
+                        RequestsUsed = 0,
+                        RequestsAvailable = 0,
+                        RawJson = content,
+                        FailureContext = HttpFailureMapper.ClassifyResponse(response),
+                    },
                 };
             }
 
@@ -145,7 +147,7 @@ public class DeepSeekProvider : ProviderBase
         catch (Exception ex)
         {
             this._logger.LogError(ex, "DeepSeek check failed");
-            return new[] { this.CreateUnavailableUsageFromException(ex, "DeepSeek check failed") };
+            return new[] { this.CreateUnavailableUsage(DescribeUnavailableException(ex, "DeepSeek check failed"), failureContext: HttpFailureMapper.ClassifyException(ex)) };
         }
     }
 
