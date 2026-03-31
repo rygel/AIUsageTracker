@@ -43,6 +43,11 @@ public class CodexProvider : ProviderBase
         {
             ProviderEndpoints.OpenAI.ProfileClaimKey,
         },
+        FamilyMode = ProviderFamilyMode.FlatWindowCards,
+        DisplayNameOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["codex.spark"] = "OpenAI (GPT-5.3 Codex Spark)",
+        },
         SettingsAdditionalProviderIds = new[] { "codex.spark" },
         QuotaWindows = new QuotaWindowDefinition[]
         {
@@ -52,9 +57,9 @@ public class CodexProvider : ProviderBase
     };
 
     /// <summary>
-    /// Independent provider definition for the Spark model card.
-    /// Registered separately in the catalog so it gets its own card
-    /// with its own burst+rolling dual bars.
+    /// Metadata reference for the Spark model card. Not registered in the catalog
+    /// (codex.spark is a child of the codex definition via FlatWindowCards family mode).
+    /// Used internally by CodexProvider and as a metadata reference for tooling.
     /// </summary>
     public static ProviderDefinition SparkDefinition { get; } = new(
         "codex.spark",
@@ -267,17 +272,6 @@ public class CodexProvider : ProviderBase
         normalized = normalized.Replace('_', '-');
         normalized = normalized.Replace("  ", " ");
         return string.IsNullOrWhiteSpace(normalized) ? fallback : normalized;
-    }
-
-    private static DateTime? ResolveNextResetTime(double? primaryResetSeconds, double? sparkResetSeconds)
-    {
-        var resetSeconds = primaryResetSeconds ?? sparkResetSeconds;
-        if (!resetSeconds.HasValue || resetSeconds.Value <= 0)
-        {
-            return null;
-        }
-
-        return DateTime.UtcNow.AddSeconds(resetSeconds.Value).ToLocalTime();
     }
 
     private static double ResolveEffectiveUsedPercent(
@@ -498,13 +492,12 @@ public class CodexProvider : ProviderBase
         var sparkWindow = ExtractSparkWindow(root);
         var accountIdentity = ResolveAccountIdentity(root, jwtEmail, authIdentity, accountId);
 
-        var sparkEffectiveWeeklyForParent = sparkWindow.SecondaryUsedPercent ?? secondaryUsedPercent ?? 0.0;
         var effectiveSparkPercent = sparkWindow.HasWindowData
-            ? (double?)Math.Max(sparkWindow.PrimaryUsedPercent ?? 0.0, sparkEffectiveWeeklyForParent)
+            ? (double?)Math.Max(sparkWindow.PrimaryUsedPercent ?? 0.0, sparkWindow.SecondaryUsedPercent ?? 0.0)
             : null;
 
         // Primary card: 5-hour burst
-        var burstResetTime = ResolveNextResetTime(primaryResetSeconds, null);
+        var burstResetTime = ResolveResetTimeFromSeconds(primaryResetSeconds);
         var burstCard = new ProviderUsage
         {
             ProviderId = this.ProviderId,
@@ -568,7 +561,7 @@ public class CodexProvider : ProviderBase
         {
             var sparkDisplayName = StaticDefinition.DisplayNameOverrides.GetValueOrDefault("codex.spark", "OpenAI (GPT-5.3 Codex Spark)");
             var sparkBurstUsed = sparkWindow.PrimaryUsedPercent ?? 0.0;
-            var sparkBurstResetTime = ResolveNextResetTime(sparkWindow.PrimaryResetAfterSeconds, null);
+            var sparkBurstResetTime = ResolveResetTimeFromSeconds(sparkWindow.PrimaryResetAfterSeconds);
 
             usages.Add(new ProviderUsage
             {
@@ -593,8 +586,8 @@ public class CodexProvider : ProviderBase
                 HttpStatus = httpStatus,
             });
 
-            var sparkWeeklyUsed = sparkWindow.SecondaryUsedPercent ?? secondaryUsedPercent ?? 0.0;
-            var sparkWeeklyResetTime = ResolveResetTimeFromSeconds(sparkWindow.SecondaryResetAfterSeconds ?? secondaryResetSeconds);
+            var sparkWeeklyUsed = sparkWindow.SecondaryUsedPercent ?? 0.0;
+            var sparkWeeklyResetTime = ResolveResetTimeFromSeconds(sparkWindow.SecondaryResetAfterSeconds);
 
             usages.Add(new ProviderUsage
             {

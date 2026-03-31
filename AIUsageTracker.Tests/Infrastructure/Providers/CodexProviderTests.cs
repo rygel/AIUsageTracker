@@ -233,12 +233,12 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
     }
 
     [Fact]
-    public async Task GetUsageAsync_SparkDetail_UsesSecondaryWindowUsage_WhenSparkPrimaryWindowHasResetAsync()
+    public async Task GetUsageAsync_SparkCard_ShowsZeroUsed_WhenSparkHasNoOwnSecondaryWindowAsync()
     {
-        // When Spark 5h window resets (primaryUsed=0) but the shared weekly window is heavily
-        // used (secondaryUsed=98), the Spark detail must reflect the binding constraint (98%).
-        // Without this fix the Spark card shows "0% used" while the parent shows "98% used".
-        var tempDir = TestTempPaths.CreateDirectory("codex-test-spark-secondary-constraint");
+        // When Spark has only a primary_window (no secondary_window), the spark.weekly card
+        // must show 0% — no cross-window fallback to the main secondary_window.
+        // The main secondary_window (98%) belongs to the "weekly" card, not to spark.weekly.
+        var tempDir = TestTempPaths.CreateDirectory("codex-test-spark-no-secondary");
         var authPath = Path.Combine(tempDir, "auth.json");
         var token = CreateJwt("user@example.com", "plus");
 
@@ -268,7 +268,7 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
                         limit_name = "GPT-5.3-Codex-Spark",
                         rate_limit = new
                         {
-                            // Spark 5h window just reset — own quota is 0% used
+                            // Spark 5h window just reset — own quota is 0% used; no own secondary window
                             primary_window = new { used_percent = 0, reset_after_seconds = 18000 },
                         },
                     },
@@ -282,12 +282,12 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
         {
             var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
 
-            // Spark burst just reset (0%), but the weekly window is 98% used (falls back to
-            // main secondary_window since spark has no own secondary).
             var sparkBurst = Assert.Single(usages, usage => usage.ProviderId == "codex.spark" && usage.WindowKind == WindowKind.Burst);
             Assert.Equal(0, sparkBurst.UsedPercent, precision: 0);
+
+            // No cross-window fallback: spark.weekly shows 0% because spark has no own secondary window.
             var sparkWeekly = Assert.Single(usages, usage => usage.ProviderId == "codex.spark" && usage.WindowKind == WindowKind.Rolling);
-            Assert.Equal(98, sparkWeekly.UsedPercent, precision: 0);
+            Assert.Equal(0, sparkWeekly.UsedPercent, precision: 0);
         }
         finally
         {

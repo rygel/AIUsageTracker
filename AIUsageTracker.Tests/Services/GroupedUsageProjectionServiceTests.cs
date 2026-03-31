@@ -180,10 +180,11 @@ public sealed class GroupedUsageProjectionServiceTests
     }
 
     [Fact]
-    public void Build_CodexAndSpark_ProjectAsTwoIndependentProviders()
+    public void Build_CodexAndSpark_ProjectAsOneGroupWithFourFlatCards()
     {
-        // Codex and Spark are independent providers. Each has its own burst+rolling
-        // windows and gets its own card with dual-bar support.
+        // codex.spark is a child of codex (FlatWindowCards family mode).
+        // All 4 quota windows (burst, weekly, spark.burst, spark.weekly) are
+        // projected as flat model cards within the single "codex" group.
         var usages = new[]
         {
             new ProviderUsage
@@ -238,17 +239,13 @@ public sealed class GroupedUsageProjectionServiceTests
 
         var snapshot = GroupedUsageProjectionService.Build(usages);
 
-        // Two separate providers, not one grouped provider.
-        Assert.Equal(2, snapshot.Providers.Count);
-
-        var codex = snapshot.Providers.Single(p => p.ProviderId == "codex");
-        Assert.Equal(2, codex.ProviderDetails.Count);
-        Assert.Contains(codex.ProviderDetails, d => d.WindowKind == WindowKind.Burst);
-        Assert.Contains(codex.ProviderDetails, d => d.WindowKind == WindowKind.Rolling);
-
-        var spark = snapshot.Providers.Single(p => p.ProviderId == "codex.spark");
-        Assert.Equal(2, spark.ProviderDetails.Count);
-        Assert.Contains(spark.ProviderDetails, d => d.WindowKind == WindowKind.Burst);
-        Assert.Contains(spark.ProviderDetails, d => d.WindowKind == WindowKind.Rolling);
+        // One "codex" group containing all 4 flat window cards.
+        var codex = Assert.Single(snapshot.Providers);
+        Assert.Equal("codex", codex.ProviderId);
+        Assert.Equal(4, codex.Models.Count);
+        Assert.Contains(codex.Models, m => m.ModelId == "burst");
+        Assert.Contains(codex.Models, m => m.ModelId == "weekly");
+        Assert.Contains(codex.Models, m => m.ModelId == "spark.burst");
+        Assert.Contains(codex.Models, m => m.ModelId == "spark.weekly");
     }
 }

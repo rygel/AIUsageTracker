@@ -588,4 +588,60 @@ public class ProviderUsageProcessingPipelineTests
         var processed = Assert.Single(result.Usages);
         Assert.True(processed.IsStale);
     }
+
+    /// <summary>
+    /// Regression test for the bug introduced in commit 0090b52c.
+    /// codex.spark cards emitted by the codex provider must pass the authority stage
+    /// because codex (FlatWindowCards) handles codex.spark as a child via prefix match.
+    /// </summary>
+    [Fact]
+    public void Process_CodexSparkCard_PassesAuthorityViaCodexDefinition()
+    {
+        var sparkBurst = new ProviderUsage
+        {
+            ProviderId = "codex.spark",
+            ProviderName = "OpenAI (GPT-5.3 Codex Spark)",
+            CardId = "spark.burst",
+            GroupId = "codex",
+            Name = "Spark 5-hour quota",
+            WindowKind = WindowKind.Burst,
+            UsedPercent = 15,
+            IsAvailable = true,
+            IsQuotaBased = true,
+        };
+
+        // Active provider is "codex" — the codex API call emits both codex and codex.spark cards.
+        // codex.StaticDefinition (FlatWindowCards) handles codex.spark via prefix-based child match.
+        var result = this._pipeline.Process(
+            new[] { sparkBurst },
+            activeProviderIds: new[] { "codex" },
+            isPrivacyMode: false);
+
+        var processed = Assert.Single(result.Usages);
+        Assert.Equal("codex.spark", processed.ProviderId);
+        Assert.Equal(0, result.InactiveProviderFilteredCount);
+    }
+
+    [Fact]
+    public void Process_CodexSparkCard_IsRejectedWhenCodexNotActive()
+    {
+        var orphaned = new ProviderUsage
+        {
+            ProviderId = "codex.spark",
+            CardId = "spark.burst",
+            GroupId = "codex",
+            WindowKind = WindowKind.Burst,
+            IsAvailable = true,
+            UsedPercent = 15,
+        };
+
+        // Neither codex.spark nor codex is in the active set — card must be rejected.
+        var result = this._pipeline.Process(
+            new[] { orphaned },
+            activeProviderIds: new[] { "openai" },
+            isPrivacyMode: false);
+
+        Assert.Empty(result.Usages);
+        Assert.Equal(1, result.InactiveProviderFilteredCount);
+    }
 }
