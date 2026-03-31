@@ -243,7 +243,6 @@ public static class ProviderMetadataCatalog
             AntigravityProvider.StaticDefinition,
             ClaudeCodeProvider.StaticDefinition,
             CodexProvider.StaticDefinition,
-            CodexProvider.SparkDefinition,
             DeepSeekProvider.StaticDefinition,
             GeminiProvider.StaticDefinition,
             GitHubCopilotProvider.StaticDefinition,
