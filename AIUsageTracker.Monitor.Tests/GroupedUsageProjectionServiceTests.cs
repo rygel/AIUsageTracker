@@ -172,9 +172,10 @@ public sealed class GroupedUsageProjectionServiceTests
     }
 
     [Fact]
-    public void Build_CodexAndSpark_ProjectAsTwoIndependentProviders()
+    public void Build_CodexAndSpark_ProjectAsOneGroupWithFourFlatCards()
     {
-        // Codex and Spark are independent providers — each gets its own card.
+        // codex.spark is a child of codex (FlatWindowCards family mode).
+        // All 4 quota windows are projected as flat model cards within the single "codex" group.
         var usages = new[]
         {
             new ProviderUsage
@@ -229,13 +230,14 @@ public sealed class GroupedUsageProjectionServiceTests
 
         var snapshot = GroupedUsageProjectionService.Build(usages);
 
-        Assert.Equal(2, snapshot.Providers.Count);
-
-        var codex = snapshot.Providers.Single(p => p.ProviderId == "codex");
-        Assert.Equal(2, codex.ProviderDetails.Count);
-
-        var spark = snapshot.Providers.Single(p => p.ProviderId == "codex.spark");
-        Assert.Equal(2, spark.ProviderDetails.Count);
+        // One "codex" group containing all 4 flat window cards.
+        var codex = Assert.Single(snapshot.Providers);
+        Assert.Equal("codex", codex.ProviderId);
+        Assert.Equal(4, codex.Models.Count);
+        Assert.Contains(codex.Models, m => m.ModelId == "burst");
+        Assert.Contains(codex.Models, m => m.ModelId == "weekly");
+        Assert.Contains(codex.Models, m => m.ModelId == "spark.burst");
+        Assert.Contains(codex.Models, m => m.ModelId == "spark.weekly");
     }
 
     [Fact]

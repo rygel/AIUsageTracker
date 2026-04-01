@@ -83,8 +83,8 @@ public class ProviderResponseDeserializationTests
         // Act
         var usages = (await provider.GetUsageAsync(config)).ToList();
 
-        // Assert — flat cards: burst, weekly, spark
-        Assert.True(usages.Count >= 3, $"Expected at least 3 flat cards (burst, weekly, spark), got {usages.Count}");
+        // Assert — flat cards: burst, weekly, spark.burst, spark.weekly
+        Assert.True(usages.Count >= 4, $"Expected at least 4 flat cards (burst, weekly, spark.burst, spark.weekly), got {usages.Count}");
         Assert.All(usages, u => Assert.True(u.IsAvailable, $"Card {u.CardId} should be available"));
         Assert.All(usages, u => Assert.Equal(200, u.HttpStatus));
 
@@ -100,9 +100,12 @@ public class ProviderResponseDeserializationTests
         Assert.Equal(28.0, weeklyCard.UsedPercent, precision: 1);
         Assert.NotNull(weeklyCard.NextResetTime);
 
-        // Spark card (additional_rate_limits)
-        var sparkCard = usages.First(u => u.CardId == "spark");
-        Assert.Contains("Spark", sparkCard.ProviderName, StringComparison.OrdinalIgnoreCase);
+        // Spark cards (additional_rate_limits) — independent provider with burst+rolling
+        var sparkBurst = usages.First(u => u.CardId == "spark.burst");
+        Assert.Equal("codex.spark", sparkBurst.ProviderId);
+        Assert.Contains("Spark", sparkBurst.ProviderName, StringComparison.OrdinalIgnoreCase);
+        var sparkWeekly = usages.First(u => u.CardId == "spark.weekly");
+        Assert.Equal("codex.spark", sparkWeekly.ProviderId);
 
         // All cards share the same GroupId for visual grouping
         Assert.All(usages, u => Assert.Equal("codex", u.GroupId));
@@ -142,6 +145,56 @@ public class ProviderResponseDeserializationTests
 
         // No weekly card
         Assert.DoesNotContain(usages, u => u.CardId == "weekly");
+    }
+
+    /// <summary>
+    /// Codex provider: response where the main rate_limit windows have no reset_after_seconds
+    /// but the additional_rate_limits entry has its own reset times.
+    /// Verifies that burst and weekly cards have null reset time (no cross-window fallbacks),
+    /// while the additional card's own windows carry their reset times.
+    /// </summary>
+    [Fact]
+    public async Task CodexProvider_NoFallback_MainWindowCardsHaveNullResetTime_WhenMainWindowLacksIt()
+    {
+        var responseJson = """
+        {
+            "plan_type": "plus",
+            "rate_limit": {
+                "primary_window": { "used_percent": 30.0 },
+                "secondary_window": { "used_percent": 55.0 }
+            },
+            "additional_rate_limits": [
+                {
+                    "limit_name": "GPT-5.3-Codex-Spark",
+                    "model_name": "gpt-5.3-codex-spark",
+                    "rate_limit": {
+                        "primary_window": { "used_percent": 30.0, "reset_after_seconds": 9000 },
+                        "secondary_window": { "used_percent": 55.0, "reset_after_seconds": 518400 }
+                    }
+                }
+            ]
+        }
+        """;
+
+        var httpClient = CreateMockHttpClient(responseJson, HttpStatusCode.OK);
+        var provider = new CodexProvider(httpClient, NullLogger<CodexProvider>.Instance, authFilePath: "C:\\nonexistent\\auth.json");
+        var config = new ProviderConfig { ProviderId = "codex", ApiKey = TestApiKey3 };
+
+        var usages = (await provider.GetUsageAsync(config)).ToList();
+
+        // Main window cards must use only their own reset_after_seconds — no cross-window fallback.
+        var burstCard = usages.First(u => u.CardId == "burst");
+        Assert.Null(burstCard.NextResetTime);
+
+        var weeklyCard = usages.First(u => u.CardId == "weekly");
+        Assert.Null(weeklyCard.NextResetTime);
+
+        // Spark cards carry their own reset times from additional_rate_limits.
+        var sparkBurst = usages.First(u => u.CardId == "spark.burst");
+        Assert.NotNull(sparkBurst.NextResetTime);
+
+        var sparkWeekly = usages.First(u => u.CardId == "spark.weekly");
+        Assert.NotNull(sparkWeekly.NextResetTime);
     }
 
     /// <summary>
