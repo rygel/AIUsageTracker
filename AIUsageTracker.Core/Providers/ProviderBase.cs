@@ -106,6 +106,24 @@ public abstract class ProviderBase : IProviderService
         return usage;
     }
 
+    protected ProviderUsage CreateUnavailableUsageFromStatus(
+        HttpResponseMessage response,
+        string? authSource = null)
+    {
+        var statusCode = (int)response.StatusCode;
+        var description = DescribeUnavailableStatus(response.StatusCode);
+        return this.CreateUnavailableUsage(description, statusCode, authSource);
+    }
+
+    protected ProviderUsage CreateUnavailableUsageFromException(
+        Exception ex,
+        string context = "Provider check failed",
+        string? authSource = null)
+    {
+        var message = DescribeUnavailableException(ex, context);
+        return this.CreateUnavailableUsage(message, 0, authSource);
+    }
+
     protected static string DescribeUnavailableStatus(HttpStatusCode statusCode)
     {
         var statusCodeValue = (int)statusCode;
