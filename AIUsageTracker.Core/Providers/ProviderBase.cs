@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using AIUsageTracker.Core.Exceptions;
@@ -28,7 +29,7 @@ public abstract class ProviderBase : IProviderService
 
     protected IProviderDiscoveryService? DiscoveryService { get; }
 
-    public bool CanHandleProviderId(string providerId) => this.Definition.HandlesProviderId(providerId);
+    public virtual bool CanHandleProviderId(string providerId) => this.Definition.HandlesProviderId(providerId);
 
     public abstract Task<IEnumerable<ProviderUsage>> GetUsageAsync(
         ProviderConfig config,
@@ -72,7 +73,8 @@ public abstract class ProviderBase : IProviderService
         string description,
         int httpStatus = 0,
         string? authSource = null,
-        ProviderUsageState state = ProviderUsageState.Error)
+        ProviderUsageState state = ProviderUsageState.Error,
+        HttpFailureContext? failureContext = null)
     {
         return new ProviderUsage
         {
@@ -88,7 +90,21 @@ public abstract class ProviderBase : IProviderService
             UsedPercent = 0,
             RequestsUsed = 0,
             RequestsAvailable = 0,
+            FailureContext = failureContext,
         };
+    }
+
+    protected ProviderUsage CreateUnavailableUsageWithIdentity(
+        string description,
+        string? accountName,
+        int httpStatus = 0,
+        string? authSource = null,
+        ProviderUsageState state = ProviderUsageState.Error,
+        HttpFailureContext? failureContext = null)
+    {
+        var usage = this.CreateUnavailableUsage(description, httpStatus, authSource, state, failureContext);
+        usage.AccountName = accountName ?? string.Empty;
+        return usage;
     }
 
     protected ProviderUsage CreateUnavailableUsageFromStatus(
@@ -96,14 +112,7 @@ public abstract class ProviderBase : IProviderService
         string? authSource = null)
     {
         var statusCode = (int)response.StatusCode;
-        var description = response.StatusCode switch
-        {
-            System.Net.HttpStatusCode.Unauthorized => $"Authentication failed ({statusCode})",
-            System.Net.HttpStatusCode.Forbidden => $"Access denied ({statusCode})",
-            _ when statusCode >= 500 => $"Server error ({statusCode})",
-            _ => $"Request failed ({statusCode})",
-        };
-
+        var description = DescribeUnavailableStatus(response.StatusCode);
         return this.CreateUnavailableUsage(description, statusCode, authSource);
     }
 
@@ -112,14 +121,7 @@ public abstract class ProviderBase : IProviderService
         string context = "Provider check failed",
         string? authSource = null)
     {
-        var message = ex switch
-        {
-            HttpRequestException => "Connection failed - check network",
-            TaskCanceledException => "Request timed out",
-            InvalidOperationException => $"Invalid operation: {ex.Message}",
-            _ => $"{context}: {ex.Message}",
-        };
-
+        var message = DescribeUnavailableException(ex, context);
         return this.CreateUnavailableUsage(message, 0, authSource);
     }
 
@@ -143,4 +145,30 @@ public abstract class ProviderBase : IProviderService
 
         return this.CreateUnavailableUsage(description, ex.HttpStatusCode ?? 0, authSource);
     }
+
+    protected static string DescribeUnavailableStatus(HttpStatusCode statusCode)
+    {
+        var statusCodeValue = (int)statusCode;
+        return statusCode switch
+        {
+            HttpStatusCode.Unauthorized => $"Authentication failed ({statusCodeValue})",
+            HttpStatusCode.Forbidden => $"Access denied ({statusCodeValue})",
+            _ when statusCodeValue >= 500 => $"Server error ({statusCodeValue})",
+            _ => $"Request failed ({statusCodeValue})",
+        };
+    }
+
+    protected static string DescribeUnavailableException(
+        Exception ex,
+        string context = "Provider check failed")
+    {
+        return ex switch
+        {
+            HttpRequestException => "Connection failed - check network",
+            TaskCanceledException => "Request timed out",
+            InvalidOperationException => $"Invalid operation: {ex.Message}",
+            _ => $"{context}: {ex.Message}",
+        };
+    }
+
 }

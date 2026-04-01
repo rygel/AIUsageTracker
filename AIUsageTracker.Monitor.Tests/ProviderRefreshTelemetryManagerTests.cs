@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using AIUsageTracker.Core.Models;
 using AIUsageTracker.Monitor.Services;
 
 namespace AIUsageTracker.Monitor.Tests;
@@ -26,6 +27,7 @@ public class ProviderRefreshTelemetryManagerTests
         Assert.Null(snapshot.LastSuccessfulRefreshUtc);
         Assert.Null(snapshot.LastError);
         Assert.Empty(snapshot.ProviderDiagnostics);
+        Assert.Empty(snapshot.OpenCircuitsByClassification);
     }
 
     [Fact]
@@ -76,5 +78,53 @@ public class ProviderRefreshTelemetryManagerTests
         Assert.Equal(completedUtc, snapshot.LastRefreshCompletedUtc);
         Assert.Equal(completedUtc, snapshot.LastSuccessfulRefreshUtc);
         Assert.Null(snapshot.LastError);
+    }
+
+    // ── Phase 6: OpenCircuitsByClassification telemetry dimension ────────────
+
+    [Fact]
+    public void GetSnapshot_OpenCircuits_GroupedByClassification()
+    {
+        var diagnostics = new[]
+        {
+            new ProviderRefreshDiagnostic { ProviderId = "openai",    IsCircuitOpen = true,  LastFailureClassification = HttpFailureClassification.RateLimit },
+            new ProviderRefreshDiagnostic { ProviderId = "anthropic", IsCircuitOpen = true,  LastFailureClassification = HttpFailureClassification.Server },
+            new ProviderRefreshDiagnostic { ProviderId = "mistral",   IsCircuitOpen = true,  LastFailureClassification = HttpFailureClassification.RateLimit },
+            new ProviderRefreshDiagnostic { ProviderId = "deepseek",  IsCircuitOpen = false, LastFailureClassification = HttpFailureClassification.Network },
+        };
+
+        var snapshot = this._service.GetSnapshot(diagnostics);
+
+        Assert.Equal(2, snapshot.OpenCircuitsByClassification[HttpFailureClassification.RateLimit]);
+        Assert.Equal(1, snapshot.OpenCircuitsByClassification[HttpFailureClassification.Server]);
+        Assert.False(snapshot.OpenCircuitsByClassification.ContainsKey(HttpFailureClassification.Network));
+    }
+
+    [Fact]
+    public void GetSnapshot_NoOpenCircuits_ReturnsEmptyClassificationSummary()
+    {
+        var diagnostics = new[]
+        {
+            new ProviderRefreshDiagnostic { ProviderId = "openai", IsCircuitOpen = false, LastFailureClassification = HttpFailureClassification.Server },
+        };
+
+        var snapshot = this._service.GetSnapshot(diagnostics);
+
+        Assert.Empty(snapshot.OpenCircuitsByClassification);
+    }
+
+    [Fact]
+    public void GetSnapshot_OpenCircuitsWithoutContext_ExcludedFromClassificationSummary()
+    {
+        // Provider without FailureContext attached — backward compat path
+        var diagnostics = new[]
+        {
+            new ProviderRefreshDiagnostic { ProviderId = "legacy-provider", IsCircuitOpen = true, LastFailureClassification = null },
+        };
+
+        var snapshot = this._service.GetSnapshot(diagnostics);
+
+        // Circuit IS open but excluded from the summary since no classification is known
+        Assert.Empty(snapshot.OpenCircuitsByClassification);
     }
 }

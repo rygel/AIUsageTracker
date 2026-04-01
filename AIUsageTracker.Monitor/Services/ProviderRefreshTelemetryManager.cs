@@ -2,6 +2,8 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using AIUsageTracker.Core.Models;
+
 namespace AIUsageTracker.Monitor.Services;
 
 internal sealed class ProviderRefreshTelemetryManager
@@ -39,6 +41,11 @@ internal sealed class ProviderRefreshTelemetryManager
         var averageLatencyMs = refreshCount == 0 ? 0 : refreshTotalLatencyMs / (double)refreshCount;
         var errorRatePercent = refreshCount == 0 ? 0 : (refreshFailureCount / (double)refreshCount) * 100.0;
 
+        var openCircuitsByClassification = providerDiagnostics
+            .Where(d => d.IsCircuitOpen && d.LastFailureClassification.HasValue)
+            .GroupBy(d => d.LastFailureClassification!.Value)
+            .ToDictionary(g => g.Key, g => g.Count());
+
         return new RefreshTelemetrySnapshot
         {
             RefreshCount = refreshCount,
@@ -52,6 +59,7 @@ internal sealed class ProviderRefreshTelemetryManager
             LastSuccessfulRefreshUtc = lastSuccessfulRefreshUtc,
             LastError = lastRefreshError,
             ProviderDiagnostics = providerDiagnostics,
+            OpenCircuitsByClassification = openCircuitsByClassification,
         };
     }
 

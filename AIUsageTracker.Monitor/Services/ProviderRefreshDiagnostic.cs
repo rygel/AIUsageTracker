@@ -2,6 +2,8 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using AIUsageTracker.Core.Models;
+
 namespace AIUsageTracker.Monitor.Services;
 
 public sealed class ProviderRefreshDiagnostic
@@ -19,4 +21,11 @@ public sealed class ProviderRefreshDiagnostic
     public DateTime? CircuitOpenUntilUtc { get; init; }
 
     public int ConsecutiveFailures { get; init; }
+
+    /// <summary>
+    /// Gets the classification of the last recorded failure, when structured failure context
+    /// was attached by the provider. Null when the provider has not yet adopted FailureContext
+    /// or when the last refresh was successful.
+    /// </summary>
+    public HttpFailureClassification? LastFailureClassification { get; init; }
 }

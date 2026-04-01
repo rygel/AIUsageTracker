@@ -94,6 +94,7 @@ public class ProviderRefreshCircuitBreakerService
                     state.ConsecutiveFailures = 0;
                     state.CircuitOpenUntilUtc = null;
                     state.LastError = null;
+                    state.LastFailureContext = null;
                     state.LastSuccessfulRefreshUtc = now;
 
                     if (hadFailures)
@@ -106,10 +107,13 @@ public class ProviderRefreshCircuitBreakerService
 
                 state.ConsecutiveFailures++;
                 state.LastError = GetFailureMessage(providerUsages);
+                state.LastFailureContext = providerUsages
+                    .Select(u => u.FailureContext)
+                    .FirstOrDefault(fc => fc != null);
 
                 if (state.ConsecutiveFailures >= CircuitBreakerFailureThreshold)
                 {
-                    var backoffDelay = GetCircuitBreakerDelay(state.ConsecutiveFailures);
+                    var backoffDelay = GetCircuitBreakerDelay(state.ConsecutiveFailures, state.LastFailureContext);
                     state.CircuitOpenUntilUtc = now.Add(backoffDelay);
 
                     this._logger.LogWarning(
@@ -194,6 +198,7 @@ public class ProviderRefreshCircuitBreakerService
                     IsCircuitOpen = entry.Value.CircuitOpenUntilUtc.HasValue && entry.Value.CircuitOpenUntilUtc.Value > now,
                     CircuitOpenUntilUtc = entry.Value.CircuitOpenUntilUtc,
                     ConsecutiveFailures = entry.Value.ConsecutiveFailures,
+                    LastFailureClassification = entry.Value.LastFailureContext?.Classification,
                 })
                 .ToArray();
         }
@@ -268,8 +273,23 @@ public class ProviderRefreshCircuitBreakerService
         return "Provider returned no successful usage entries";
     }
 
-    private static TimeSpan GetCircuitBreakerDelay(int consecutiveFailures)
+    private static TimeSpan GetCircuitBreakerDelay(int consecutiveFailures, HttpFailureContext? failureContext = null)
     {
+        if (failureContext?.Classification == HttpFailureClassification.RateLimit)
+        {
+            // Honour server-supplied retry delay when available, capped at max backoff.
+            if (failureContext.RetryAfter.HasValue)
+            {
+                return failureContext.RetryAfter.Value < CircuitBreakerMaxBackoff
+                    ? failureContext.RetryAfter.Value
+                    : CircuitBreakerMaxBackoff;
+            }
+
+            // Rate limit without explicit RetryAfter: use base backoff — no exponential growth
+            // because the failure type is quota-based, not a sign of general provider instability.
+            return CircuitBreakerBaseBackoff;
+        }
+
         var backoffLevel = Math.Max(0, consecutiveFailures - CircuitBreakerFailureThreshold);
         var exponent = Math.Min(backoffLevel, 6);
         var seconds = CircuitBreakerBaseBackoff.TotalSeconds * Math.Pow(2, exponent);
@@ -287,5 +307,12 @@ public class ProviderRefreshCircuitBreakerService
         public DateTime? LastSuccessfulRefreshUtc { get; set; }
 
         public string? LastError { get; set; }
+
+        /// <summary>
+        /// Gets or sets the structured failure context from the most recent failed refresh,
+        /// when the provider attached one. Null for providers not yet adopting FailureContext.
+        /// Used to select classification-specific backoff policies.
+        /// </summary>
+        public HttpFailureContext? LastFailureContext { get; set; }
     }
 }

@@ -524,4 +524,69 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         Assert.False(string.IsNullOrWhiteSpace(value), $"Expected non-empty const field '{fieldName}' on type '{typeName}'.");
         return value!;
     }
+
+    // --- Phase 4: FailureContext attachment ---
+
+    [Fact]
+    public async Task GetUsageAsync_AllAccountsFail_AttachesFailureContextOnUnavailableRowAsync()
+    {
+        // Arrange: account exists but token refresh always fails (network error)
+        var tempDir = TestTempPaths.CreateDirectory("gemini-failure-context-test");
+        var accountsPath = Path.Combine(tempDir, "antigravity-accounts.json");
+
+        await File.WriteAllTextAsync(accountsPath, JsonSerializer.Serialize(new
+        {
+            accounts = new[]
+            {
+                new { email = "user@example.com", refreshToken = "rt", projectId = "proj1" },
+            },
+        }));
+
+        var provider = new GeminiProvider(this.HttpClient, this.Logger.Object, accountsPath, Path.Combine(tempDir, "oauth_creds_override.json"));
+
+        this.MessageHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .ThrowsAsync(new HttpRequestException("Connection refused"));
+
+        // Act
+        var result = await provider.GetUsageAsync(this.Config);
+        var usage = result.First();
+
+        // Output behavior is unchanged
+        Assert.False(usage.IsAvailable);
+        Assert.Equal(ProviderUsageState.Error, usage.State);
+        Assert.Contains("Failed to fetch quota", usage.Description, StringComparison.OrdinalIgnoreCase);
+
+        // FailureContext is now attached with the last captured exception classification
+        Assert.NotNull(usage.FailureContext);
+        Assert.Equal(HttpFailureClassification.Network, usage.FailureContext!.Classification);
+        Assert.True(usage.FailureContext.IsLikelyTransient);
+
+        TestTempPaths.CleanupPath(tempDir);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_AllAccountsFail_NoFailureContextWhenNoAccountsTried()
+    {
+        // Arrange: no accounts at all — FailureContext should be null (no HTTP failure occurred)
+        var tempDir = TestTempPaths.CreateDirectory("gemini-no-accounts-context-test");
+        var missingAccountsPath = Path.Combine(tempDir, "missing.json");
+        var missingOauthPath = Path.Combine(tempDir, "missing_oauth.json");
+
+        var provider = new GeminiProvider(this.HttpClient, this.Logger.Object, missingAccountsPath, missingOauthPath);
+
+        // Act
+        var result = await provider.GetUsageAsync(this.Config);
+        var usage = result.First();
+
+        // Output behavior: missing state, no failure context (no HTTP call was made)
+        Assert.False(usage.IsAvailable);
+        Assert.Equal(ProviderUsageState.Missing, usage.State);
+        Assert.Null(usage.FailureContext);
+
+        TestTempPaths.CleanupPath(tempDir);
+    }
 }

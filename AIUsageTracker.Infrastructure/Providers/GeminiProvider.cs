@@ -10,6 +10,7 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Providers;
+using AIUsageTracker.Infrastructure.Mappers;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Providers;
@@ -59,25 +60,13 @@ public class GeminiProvider : ProviderBase
     private readonly string? _geminiConfigDirectoryOverride;
     private readonly string? _currentDirectoryOverride;
 
-    public GeminiProvider(HttpClient httpClient, ILogger<GeminiProvider> logger)
-        : this(httpClient, logger, null, null, null, null)
-    {
-    }
-
-    // Constructor for testing
-    internal GeminiProvider(HttpClient httpClient, ILogger<GeminiProvider> logger, string? accountsPathOverride, string? oauthCredsPathOverride)
-        : this(httpClient, logger, accountsPathOverride, oauthCredsPathOverride, null, null)
-    {
-    }
-
-    // Constructor for testing
-    internal GeminiProvider(
+    public GeminiProvider(
         HttpClient httpClient,
         ILogger<GeminiProvider> logger,
-        string? accountsPathOverride,
-        string? oauthCredsPathOverride,
-        string? geminiConfigDirectoryOverride,
-        string? currentDirectoryOverride)
+        string? accountsPathOverride = null,
+        string? oauthCredsPathOverride = null,
+        string? geminiConfigDirectoryOverride = null,
+        string? currentDirectoryOverride = null)
     {
         this._httpClient = httpClient;
         this._logger = logger;
@@ -116,6 +105,7 @@ public class GeminiProvider : ProviderBase
         }
 
         var results = new List<ProviderUsage>();
+        HttpFailureContext? lastFailureContext = null;
 
         foreach (var account in accounts.Accounts)
         {
@@ -146,13 +136,14 @@ public class GeminiProvider : ProviderBase
             }
             catch (Exception ex)
             {
+                lastFailureContext = HttpFailureMapper.ClassifyException(ex);
                 this._logger.LogWarning(ex, "Failed to fetch Gemini quota for one account");
             }
         }
 
         if (!results.Any())
         {
-            return new[] { this.CreateUnavailableUsage("Failed to fetch quota for any account") };
+            return new[] { this.CreateUnavailableUsage("Failed to fetch quota for any account", failureContext: lastFailureContext) };
         }
 
         return results;

@@ -212,6 +212,85 @@ When creating or updating a provider:
 
 ---
 
+---
+
+## HTTP Failure and Error Model (2026-04-01)
+
+This section documents the converged HTTP failure/error model introduced as a staged
+multi-PR program. All phases are complete and the model is stable.
+
+### Shared classification model
+
+**Location**: `AIUsageTracker.Core/Models/`
+
+- **`HttpFailureClassification`** — enum classifying the *kind* of failure:
+  `Authentication`, `Authorization`, `RateLimit`, `Network`, `Timeout`,
+  `Server`, `Client`, `Deserialization`, `Unknown`.
+  `Unknown = 0` is the safe default.
+
+- **`HttpFailureContext`** — immutable record carrying structured failure detail:
+  classification, optional HTTP status, user-safe message, optional `RetryAfter`,
+  `IsLikelyTransient` flag, exception type name, and a diagnostic note.
+  Two factory methods cover the most common cases:
+  - `HttpFailureContext.FromHttpStatus(int)` — maps status codes to classification
+  - `HttpFailureContext.FromException(Exception, classification)` — captures exception type
+
+### Centralized HTTP mapper
+
+**Location**: `AIUsageTracker.Infrastructure/Mappers/HttpFailureMapper.cs`
+
+Single source of truth for classifying HTTP responses and exceptions:
+
+- `ClassifyResponse(HttpResponseMessage)` — produces `HttpFailureContext` from a non-success response,
+  including `RetryAfter` extraction for 429 responses.
+- `ClassifyException(Exception)` — maps `TaskCanceledException` → Timeout,
+  `HttpRequestException` → Network, `JsonException` → Deserialization.
+
+`HttpRequestBuilderExtensions.MapHttpStatusToException` delegates classification to
+`HttpFailureMapper` and then applies its own provider-layer projection (which typed
+exception to throw). Existing callers are unchanged.
+
+### Provider contract
+
+Providers always return `ProviderUsage` rows — they never throw to callers. The
+`IProviderService` interface documents this invariant explicitly.
+
+When a failure has structured context, providers **should** attach it via
+`ProviderUsage.FailureContext` (a `[JsonIgnore]` property, not stored in DB):
+
+```csharp
+// In a provider's GetUsageAsync, on HTTP error:
+return new[] { this.CreateUnavailableUsage(
+    description,
+    httpStatus: (int)response.StatusCode,
+    failureContext: HttpFailureMapper.ClassifyResponse(response)) };
+
+// On caught exception:
+return new[] { this.CreateUnavailableUsage(
+    DescribeUnavailableException(ex, "context"),
+    failureContext: HttpFailureMapper.ClassifyException(ex)) };
+```
+
+`DeepSeekProvider` and `GeminiProvider` are the pilot adopters. Other providers can
+adopt incrementally — the field is optional and the monitor layer is backward-compatible.
+
+### Circuit-breaker integration
+
+`ProviderRefreshCircuitBreakerService` uses `FailureContext` when choosing the backoff delay:
+
+| Classification | Behavior |
+|---|---|
+| `RateLimit` with `RetryAfter` | Uses server-supplied delay (capped at max backoff) |
+| `RateLimit` without `RetryAfter` | Uses base backoff (1 min), no exponential growth |
+| All others, or no context | Existing exponential backoff unchanged |
+
+`ProviderRefreshDiagnostic.LastFailureClassification` and
+`RefreshTelemetrySnapshot.OpenCircuitsByClassification` expose the classification
+in the diagnostics API so operators can see at a glance whether open circuits are
+caused by rate limits, auth failures, server errors, or network issues.
+
+---
+
 ## Benefits Summary
 
 - **174 lines** of duplicate code eliminated
