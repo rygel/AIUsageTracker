@@ -309,4 +309,169 @@ public class ProviderRefreshCircuitBreakerServiceTests
         var usages = this._service.CreateCircuitOpenUsages(configs);
         Assert.Empty(usages);
     }
+
+    // ── Phase 5: classification-aware backoff ─────────────────────────────────
+
+    [Fact]
+    public void UpdateProviderFailureStates_RateLimitWithRetryAfter_UsesRetryAfterAsBackoff()
+    {
+        var configs = new List<ProviderConfig> { new() { ProviderId = "openai" } };
+        var retryAfter = TimeSpan.FromMinutes(5);
+
+        var rateLimitUsage = new ProviderUsage
+        {
+            ProviderId = "openai",
+            IsAvailable = false,
+            HttpStatus = 429,
+            State = ProviderUsageState.Error,
+            Description = "Rate limited",
+            FailureContext = new HttpFailureContext
+            {
+                Classification = HttpFailureClassification.RateLimit,
+                HttpStatus = 429,
+                IsLikelyTransient = true,
+                RetryAfter = retryAfter,
+            },
+        };
+
+        for (var i = 0; i < 3; i++)
+        {
+            this._service.UpdateProviderFailureStates(configs, new[] { rateLimitUsage });
+        }
+
+        var diagnostic = Assert.Single(this._service.GetProviderDiagnostics());
+        Assert.True(diagnostic.IsCircuitOpen);
+
+        // Backoff should be ~5 min (the RetryAfter), not the default exponential 1 min
+        var remaining = diagnostic.CircuitOpenUntilUtc!.Value - DateTime.UtcNow;
+        Assert.True(remaining > TimeSpan.FromMinutes(4), $"Expected >4 min backoff, got {remaining.TotalMinutes:F1} min");
+        Assert.True(remaining <= TimeSpan.FromMinutes(5.1), $"Expected ≤5 min backoff, got {remaining.TotalMinutes:F1} min");
+    }
+
+    [Fact]
+    public void UpdateProviderFailureStates_RateLimitWithoutRetryAfter_UsesBaseBackoffNotExponential()
+    {
+        var configs = new List<ProviderConfig> { new() { ProviderId = "openai" } };
+
+        var rateLimitUsage = new ProviderUsage
+        {
+            ProviderId = "openai",
+            IsAvailable = false,
+            HttpStatus = 429,
+            State = ProviderUsageState.Error,
+            FailureContext = new HttpFailureContext
+            {
+                Classification = HttpFailureClassification.RateLimit,
+                HttpStatus = 429,
+                IsLikelyTransient = true,
+                RetryAfter = null,
+            },
+        };
+
+        // Trip with 5 failures — without rate-limit awareness this would be 4-min exponential backoff
+        for (var i = 0; i < 5; i++)
+        {
+            this._service.UpdateProviderFailureStates(configs, new[] { rateLimitUsage });
+        }
+
+        var diagnostic = Assert.Single(this._service.GetProviderDiagnostics());
+        Assert.True(diagnostic.IsCircuitOpen);
+
+        // Backoff should be base (1 min), NOT the exponential 4 min that 5 failures would normally produce
+        var remaining = diagnostic.CircuitOpenUntilUtc!.Value - DateTime.UtcNow;
+        Assert.True(remaining <= TimeSpan.FromMinutes(1.1), $"Expected ≤1 min base backoff, got {remaining.TotalMinutes:F1} min");
+    }
+
+    [Fact]
+    public void UpdateProviderFailureStates_NoFailureContext_UsesExistingExponentialBackoff()
+    {
+        var configs = new List<ProviderConfig> { new() { ProviderId = "openai" } };
+
+        var failedUsage = new ProviderUsage
+        {
+            ProviderId = "openai",
+            IsAvailable = false,
+            HttpStatus = 500,
+            State = ProviderUsageState.Error,
+            FailureContext = null, // no context — backward compat path
+        };
+
+        // At 5 failures, exponential backoff = base * 2^(5-3) = 1 min * 4 = 4 min
+        for (var i = 0; i < 5; i++)
+        {
+            this._service.UpdateProviderFailureStates(configs, new[] { failedUsage });
+        }
+
+        var diagnostic = Assert.Single(this._service.GetProviderDiagnostics());
+        Assert.True(diagnostic.IsCircuitOpen);
+
+        var remaining = diagnostic.CircuitOpenUntilUtc!.Value - DateTime.UtcNow;
+        Assert.True(remaining > TimeSpan.FromMinutes(3.5), $"Expected >3.5 min exponential backoff, got {remaining.TotalMinutes:F1} min");
+    }
+
+    [Fact]
+    public void GetProviderDiagnostics_ExposesLastFailureClassification_WhenContextAttached()
+    {
+        var configs = new List<ProviderConfig> { new() { ProviderId = "openai" } };
+
+        var rateLimitUsage = new ProviderUsage
+        {
+            ProviderId = "openai",
+            IsAvailable = false,
+            HttpStatus = 429,
+            State = ProviderUsageState.Error,
+            FailureContext = new HttpFailureContext
+            {
+                Classification = HttpFailureClassification.RateLimit,
+                HttpStatus = 429,
+            },
+        };
+
+        this._service.UpdateProviderFailureStates(configs, new[] { rateLimitUsage });
+
+        var diagnostic = Assert.Single(this._service.GetProviderDiagnostics());
+        Assert.Equal(HttpFailureClassification.RateLimit, diagnostic.LastFailureClassification);
+    }
+
+    [Fact]
+    public void GetProviderDiagnostics_LastFailureClassificationIsNull_WhenNoContextAttached()
+    {
+        var configs = new List<ProviderConfig> { new() { ProviderId = "openai" } };
+
+        this._service.UpdateProviderFailureStates(configs, Array.Empty<ProviderUsage>());
+
+        var diagnostic = Assert.Single(this._service.GetProviderDiagnostics());
+        Assert.Null(diagnostic.LastFailureClassification);
+    }
+
+    [Fact]
+    public void GetProviderDiagnostics_LastFailureClassificationClearsOnSuccess()
+    {
+        var configs = new List<ProviderConfig> { new() { ProviderId = "openai" } };
+
+        var failedUsage = new ProviderUsage
+        {
+            ProviderId = "openai",
+            IsAvailable = false,
+            HttpStatus = 500,
+            State = ProviderUsageState.Error,
+            FailureContext = new HttpFailureContext { Classification = HttpFailureClassification.Server },
+        };
+
+        this._service.UpdateProviderFailureStates(configs, new[] { failedUsage });
+
+        var successUsage = new ProviderUsage
+        {
+            ProviderId = "openai",
+            IsAvailable = true,
+            HttpStatus = 200,
+        };
+
+        this._service.UpdateProviderFailureStates(configs, new[] { successUsage });
+
+        var diagnostic = Assert.Single(this._service.GetProviderDiagnostics());
+        Assert.False(diagnostic.IsCircuitOpen);
+        // Classification is from previous failure state; null after reset
+        Assert.Null(diagnostic.LastFailureClassification);
+    }
 }
