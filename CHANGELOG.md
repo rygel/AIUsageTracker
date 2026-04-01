@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [2.3.4-beta.19] - 2026-04-01
+
+### Added
+- **HTTP failure classification model**: structured `HttpFailureClassification` enum and `HttpFailureContext` record provide a shared vocabulary for HTTP/network failure types across all providers (`Authentication`, `Authorization`, `RateLimit`, `Network`, `Timeout`, `Server`, `Client`, `Deserialization`).
+- **Centralized HTTP failure mapper**: `HttpFailureMapper` is the single source of truth for classifying HTTP responses and exceptions — used by `HttpRequestBuilderExtensions` and providers.
+- **Classification-aware circuit-breaker backoff**: rate-limited providers now use the server-supplied `Retry-After` delay instead of blind exponential backoff. Rate limits without `Retry-After` use flat base backoff (1 min) rather than escalating exponential growth.
+- **Operator diagnostics for open circuits**: `ProviderRefreshDiagnostic.LastFailureClassification` and `RefreshTelemetrySnapshot.OpenCircuitsByClassification` expose why circuits are open (auth failure, rate limit, server error, network issue).
+- **Provider contract formalized**: `IProviderService.GetUsageAsync` documents the no-throw contract and optional `FailureContext` attachment convention; `DeepSeekProvider` and `GeminiProvider` are pilot adopters.
+
 ## [2.3.4-beta.18] - 2026-03-30
 
 ### Changed

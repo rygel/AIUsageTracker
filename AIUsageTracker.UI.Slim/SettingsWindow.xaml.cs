@@ -781,16 +781,7 @@ public partial class SettingsWindow : Window
             this._preferences.StartMonitorWithWindows = startMonitor;
             this._preferences.StartUiWithWindows = startUi;
             WindowsStartupService.Apply(startMonitor, startUi);
-            var showUsedPercentages = this.ShowUsedPercentagesCheck.IsChecked ?? false;
-            this._preferences.ShowUsedPercentages = showUsedPercentages;
-            this._preferences.ShowUsagePerHour = this.ShowUsagePerHourCheck.IsChecked ?? false;
-            this._preferences.ShowDualQuotaBars = this.ShowDualQuotaBarsCheck.IsChecked ?? true;
-            if (this.DualQuotaBarWindowCombo?.SelectedValue is DualQuotaSingleBarMode dualMode)
-            {
-                this._preferences.DualQuotaSingleBarMode = dualMode;
-            }
-            this._preferences.EnablePaceAdjustment = this.EnablePaceAdjustmentCheck.IsChecked ?? true;
-            this._preferences.UseRelativeResetTime = this.UseRelativeResetTimeCheck.IsChecked ?? false;
+            this.ApplyDisplayPreferencesFromControls();
             if (this.ThemeCombo.SelectedValue is AppTheme appTheme)
             {
                 this._preferences.Theme = appTheme;
@@ -800,16 +791,6 @@ public partial class SettingsWindow : Window
             if (this.UpdateChannelCombo.SelectedValue is UpdateChannel channel)
             {
                 this._preferences.UpdateChannel = channel;
-            }
-
-            if (int.TryParse(this.YellowThreshold.Text, System.Globalization.CultureInfo.InvariantCulture, out var yellow))
-            {
-                this._preferences.ColorThresholdYellow = yellow;
-            }
-
-            if (int.TryParse(this.RedThreshold.Text, System.Globalization.CultureInfo.InvariantCulture, out var red))
-            {
-                this._preferences.ColorThresholdRed = red;
             }
 
             if (this.FontFamilyCombo.SelectedItem is string font)
@@ -846,13 +827,32 @@ public partial class SettingsWindow : Window
             }
 
             var failedConfigs = new List<string>();
+            var removedProviderIds = new List<string>();
             foreach (var config in this._configs)
             {
+                var behavior = ResolveProviderSettingsBehavior(
+                    config,
+                    this._usages.FirstOrDefault(u => string.Equals(u.ProviderId, config.ProviderId, StringComparison.OrdinalIgnoreCase)),
+                    isDerived: false);
+
+                if (behavior.InputMode == ProviderInputMode.StandardApiKey && string.IsNullOrWhiteSpace(config.ApiKey))
+                {
+                    await this._monitorService.RemoveConfigAsync(config.ProviderId);
+                    removedProviderIds.Add(config.ProviderId);
+                    continue;
+                }
+
                 var saved = await this._monitorService.SaveConfigAsync(config);
                 if (!saved)
                 {
                     failedConfigs.Add(config.ProviderId);
                 }
+            }
+
+            if (removedProviderIds.Count > 0)
+            {
+                this._configs.RemoveAll(c => removedProviderIds.Contains(c.ProviderId, StringComparer.OrdinalIgnoreCase));
+                this.PopulateProviders();
             }
 
             if (failedConfigs.Count > 0)
@@ -971,7 +971,7 @@ public partial class SettingsWindow : Window
 
         this.UpdateDualQuotaControlsState();
         this.ApplyNotificationControlsState();
-        this.SyncDisplayPreferencesFromControls();
+        this.ApplyDisplayPreferencesFromControls();
         this.ScheduleAutoSave();
         this.RenderCardPreview();
         this.NotifyMainWindowChanged();
@@ -984,17 +984,17 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        this.SyncDisplayPreferencesFromControls();
+        this.ApplyDisplayPreferencesFromControls();
         this.ScheduleAutoSave();
         this.RenderCardPreview();
         this.NotifyMainWindowChanged();
     }
 
     /// <summary>
-    /// Syncs display-related preferences from UI controls immediately so the card
-    /// designer preview reflects the current state without waiting for auto-save.
+    /// Applies display-related control values to preferences so both preview updates
+    /// and persisted saves use the same canonical settings path.
     /// </summary>
-    private void SyncDisplayPreferencesFromControls()
+    private void ApplyDisplayPreferencesFromControls()
     {
         this._preferences.ShowUsedPercentages = this.ShowUsedPercentagesCheck.IsChecked ?? false;
         this._preferences.ShowUsagePerHour = this.ShowUsagePerHourCheck.IsChecked ?? false;
