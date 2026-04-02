@@ -50,7 +50,17 @@ public partial class MainWindow : Window
         };
 
         changelogWindow.Content = viewer;
-        changelogWindow.ShowDialog();
+
+        this._isChangelogOpen = true;
+        try
+        {
+            changelogWindow.ShowDialog();
+        }
+        finally
+        {
+            this._isChangelogOpen = false;
+            this.EnsureAlwaysOnTop();
+        }
     }
 
     private static void OpenExternalUrl(string url)

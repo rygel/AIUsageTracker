@@ -90,7 +90,7 @@ public partial class MainWindow
 
     private void EnsureAlwaysOnTop()
     {
-        if (this._isSettingsDialogOpen || this._isTooltipOpen || !this._preferences.AlwaysOnTop || !this.IsVisible || this.WindowState == WindowState.Minimized)
+        if (this._isSettingsDialogOpen || this._isChangelogOpen || this._isTooltipOpen || !this._preferences.AlwaysOnTop || !this.IsVisible || this.WindowState == WindowState.Minimized)
         {
             return;
         }
@@ -136,7 +136,7 @@ public partial class MainWindow
 
     private void ReassertTopmostWithoutFocus()
     {
-        if (this._isSettingsDialogOpen || this._isTooltipOpen || !this._preferences.AlwaysOnTop || !this.IsVisible || this.WindowState == WindowState.Minimized)
+        if (this._isSettingsDialogOpen || this._isChangelogOpen || this._isTooltipOpen || !this._preferences.AlwaysOnTop || !this.IsVisible || this.WindowState == WindowState.Minimized)
         {
             return;
         }
