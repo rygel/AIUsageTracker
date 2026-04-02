@@ -130,8 +130,57 @@ public class ProviderUsagePersistenceServiceTests
             Times.Never);
     }
 
-    private ProviderUsagePersistenceService CreateService()
+    [Fact]
+    public async Task PersistUsageAndDynamicProvidersAsync_InvalidatesGroupedUsageCacheAfterHistoryWriteAsync()
     {
-        return new ProviderUsagePersistenceService(this._database.Object, NullLogger<ProviderUsagePersistenceService>.Instance);
+        this._database.SetupSequence(database => database.GetLatestHistoryAsync())
+            .ReturnsAsync(new List<ProviderUsage>
+            {
+                new()
+                {
+                    ProviderId = "openai",
+                    ProviderName = "OpenAI",
+                    IsAvailable = true,
+                    FetchedAt = DateTime.UtcNow.AddMinutes(-5),
+                },
+            })
+            .ReturnsAsync(new List<ProviderUsage>
+            {
+                new()
+                {
+                    ProviderId = "anthropic",
+                    ProviderName = "Anthropic",
+                    IsAvailable = true,
+                    FetchedAt = DateTime.UtcNow,
+                },
+            });
+
+        var groupedCache = new CachedGroupedUsageProjectionService(this._database.Object);
+        _ = await groupedCache.GetGroupedUsageAsync();
+
+        var service = this.CreateService(groupedCache);
+        var activeProviderIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var usages = new List<ProviderUsage>
+        {
+            new()
+            {
+                ProviderId = "anthropic",
+                ProviderName = "Anthropic",
+                AuthSource = "test",
+            },
+        };
+
+        await service.PersistUsageAndDynamicProvidersAsync(usages, activeProviderIds);
+        _ = await groupedCache.GetGroupedUsageAsync();
+
+        this._database.Verify(database => database.GetLatestHistoryAsync(), Times.Exactly(2));
+    }
+
+    private ProviderUsagePersistenceService CreateService(CachedGroupedUsageProjectionService? groupedUsageProjectionCache = null)
+    {
+        return new ProviderUsagePersistenceService(
+            this._database.Object,
+            NullLogger<ProviderUsagePersistenceService>.Instance,
+            groupedUsageProjectionCache);
     }
 }

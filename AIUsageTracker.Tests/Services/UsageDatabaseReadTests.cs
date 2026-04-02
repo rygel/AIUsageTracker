@@ -2,6 +2,8 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Reflection;
+
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Monitor.Services;
@@ -118,6 +120,37 @@ public sealed class UsageDatabaseReadTests : IDisposable
         var codex = Assert.Single(results, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal));
         Assert.False(codex.IsAvailable);
         Assert.Equal(503, codex.HttpStatus);
+    }
+
+    [Fact]
+    public async Task ReadMethods_DoNotBlockOnWriteSemaphoreAsync()
+    {
+        var db = await this.CreateDatabaseAsync();
+        await db.StoreHistoryAsync([MakeUsage("codex", fetchedAt: DateTime.UtcNow)]);
+
+        var semaphoreField = typeof(UsageDatabase).GetField("_semaphore", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(semaphoreField);
+        var writeSemaphore = Assert.IsType<SemaphoreSlim>(semaphoreField!.GetValue(db));
+
+        await writeSemaphore.WaitAsync();
+        try
+        {
+            var latestTask = db.GetLatestHistoryAsync();
+            var historyTask = db.GetHistoryAsync(limit: 1);
+            var emptyTask = db.IsHistoryEmptyAsync();
+            var readTasks = Task.WhenAll(latestTask, historyTask, emptyTask);
+
+            var completed = await Task.WhenAny(readTasks, Task.Delay(TimeSpan.FromSeconds(2)));
+
+            Assert.Same(readTasks, completed);
+            Assert.Single(await latestTask);
+            Assert.Single(await historyTask);
+            Assert.False(await emptyTask);
+        }
+        finally
+        {
+            writeSemaphore.Release();
+        }
     }
 
     // -------------------------------------------------------------------------

@@ -189,6 +189,17 @@ public sealed class UpdateChannelConfigurationEndToEndTests : IDisposable
             {
                 startInfo.Environment[key] = value;
             }
+
+            var wslenvKeys = string.Join(':', envVars.Keys.Select(key => $"{key}/u"));
+            if (!string.IsNullOrWhiteSpace(wslenvKeys))
+            {
+                var existingWslenv = startInfo.Environment.TryGetValue("WSLENV", out var existingValue)
+                    ? existingValue
+                    : string.Empty;
+                startInfo.Environment["WSLENV"] = string.IsNullOrWhiteSpace(existingWslenv)
+                    ? wslenvKeys
+                    : $"{existingWslenv}:{wslenvKeys}";
+            }
         }
 
         using var process = Process.Start(startInfo);

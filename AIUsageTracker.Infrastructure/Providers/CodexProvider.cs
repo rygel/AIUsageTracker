@@ -43,12 +43,8 @@ public class CodexProvider : ProviderBase
         {
             ProviderEndpoints.OpenAI.ProfileClaimKey,
         },
-        FamilyMode = ProviderFamilyMode.FlatWindowCards,
-        DisplayNameOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["codex.spark"] = "OpenAI (GPT-5.3 Codex Spark)",
-        },
-        SettingsAdditionalProviderIds = new[] { "codex.spark" },
+        FamilyMode = ProviderFamilyMode.Standalone,
+        CoReportedProviderIds = new[] { "codex.spark" },
         QuotaWindows = new QuotaWindowDefinition[]
         {
             new(WindowKind.Burst,   "5h",     PeriodDuration: TimeSpan.FromHours(5)),
@@ -57,9 +53,9 @@ public class CodexProvider : ProviderBase
     };
 
     /// <summary>
-    /// Metadata reference for the Spark model card. Not registered in the catalog
-    /// (codex.spark is a child of the codex definition via FlatWindowCards family mode).
-    /// Used internally by CodexProvider and as a metadata reference for tooling.
+    /// Standalone provider definition for the Spark sub-model.
+    /// Registered in the catalog so it is grouped independently from the main codex provider,
+    /// enabling a separate dual-bar card (5h burst + weekly rolling) in the main window.
     /// </summary>
     public static ProviderDefinition SparkDefinition { get; } = new(
         "codex.spark",
@@ -70,6 +66,15 @@ public class CodexProvider : ProviderBase
         IconAssetName = "openai",
         BadgeColorHex = "#008B8B",
         BadgeInitial = "AI",
+        FamilyMode = ProviderFamilyMode.Standalone,
+        ShowInSettings = true,
+        SettingsMode = ProviderSettingsMode.SessionAuthStatus,
+        SessionStatusLabel = "OpenAI (Codex)",
+        AuthIdentityCandidatePathTemplates = new[]
+        {
+            "%USERPROFILE%\\.codex\\auth.json",
+            "%APPDATA%\\codex\\auth.json",
+        },
         QuotaWindows = new QuotaWindowDefinition[]
         {
             new(WindowKind.Burst,   "5h",     PeriodDuration: TimeSpan.FromHours(5)),
@@ -504,7 +509,7 @@ public class CodexProvider : ProviderBase
             ProviderName = StaticDefinition.DisplayName,
             CardId = "burst",
             GroupId = this.ProviderId,
-            Name = "5-hour quota",
+            Name = "5h",
             WindowKind = WindowKind.Burst,
             UsedPercent = primaryUsedPercent,
             RequestsUsed = primaryUsedPercent,
@@ -537,7 +542,7 @@ public class CodexProvider : ProviderBase
                 ProviderName = StaticDefinition.DisplayName,
                 CardId = "weekly",
                 GroupId = this.ProviderId,
-                Name = "Weekly quota",
+                Name = "Weekly",
                 WindowKind = WindowKind.Rolling,
                 UsedPercent = secondaryUsedPercent.Value,
                 RequestsUsed = secondaryUsedPercent.Value,
@@ -569,7 +574,7 @@ public class CodexProvider : ProviderBase
                 ProviderName = sparkDisplayName,
                 CardId = "spark.burst",
                 GroupId = this.ProviderId,
-                Name = "Spark 5-hour quota",
+                Name = "5h",
                 WindowKind = WindowKind.Burst,
                 UsedPercent = sparkBurstUsed,
                 RequestsUsed = sparkBurstUsed,
@@ -595,7 +600,7 @@ public class CodexProvider : ProviderBase
                 ProviderName = sparkDisplayName,
                 CardId = "spark.weekly",
                 GroupId = this.ProviderId,
-                Name = "Spark weekly quota",
+                Name = "Weekly",
                 WindowKind = WindowKind.Rolling,
                 UsedPercent = sparkWeeklyUsed,
                 RequestsUsed = sparkWeeklyUsed,

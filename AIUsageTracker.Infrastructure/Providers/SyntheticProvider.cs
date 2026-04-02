@@ -115,7 +115,7 @@ public sealed class SyntheticProvider : ProviderBase
         catch (Exception ex)
         {
             this._logger.LogError(ex, "Synthetic provider check failed");
-            return new[] { this.CreateUnavailableUsageFromException(ex, authSource: config.AuthSource) };
+            return new[] { this.CreateUnavailableUsage(DescribeUnavailableException(ex), authSource: config.AuthSource) };
         }
     }
 

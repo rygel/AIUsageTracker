@@ -3,7 +3,6 @@
 // </copyright>
 
 using System.Net;
-using AIUsageTracker.Core.Exceptions;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Providers;
 using Xunit;
@@ -29,14 +28,15 @@ public class ProviderBaseTests
         public ProviderUsage TestCreateUnavailableUsage(string description, int httpStatus = 0)
             => this.CreateUnavailableUsage(description, httpStatus);
 
-        public ProviderUsage TestCreateUnavailableUsageFromStatus(HttpResponseMessage response)
-            => this.CreateUnavailableUsageFromStatus(response);
+        public ProviderUsage TestCreateUnavailableUsageWithIdentity(string description, string? accountName, int httpStatus = 0)
+            => this.CreateUnavailableUsageWithIdentity(description, accountName, httpStatus);
 
-        public ProviderUsage TestCreateUnavailableUsageFromException(Exception ex, string context = "Test context")
-            => this.CreateUnavailableUsageFromException(ex, context);
+        public string TestDescribeUnavailableStatus(HttpStatusCode statusCode)
+            => DescribeUnavailableStatus(statusCode);
 
-        public ProviderUsage TestCreateUnavailableUsageFromProviderException(ProviderException ex)
-            => this.CreateUnavailableUsageFromProviderException(ex);
+        public string TestDescribeUnavailableException(Exception ex, string context = "Test context")
+            => DescribeUnavailableException(ex, context);
+
     }
 
     private readonly TestProvider _provider = new();
@@ -54,50 +54,44 @@ public class ProviderBaseTests
         Assert.Equal(0, usage.UsedPercent);
     }
 
+    [Fact]
+    public void CreateUnavailableUsageWithIdentity_SetsAccountName()
+    {
+        var usage = this._provider.TestCreateUnavailableUsageWithIdentity("Error message", "user@example.com", 401);
+
+        Assert.Equal("user@example.com", usage.AccountName);
+        Assert.Equal("Error message", usage.Description);
+        Assert.Equal(401, usage.HttpStatus);
+    }
+
     [Theory]
     [InlineData(HttpStatusCode.Unauthorized, "Authentication failed (401)")]
     [InlineData(HttpStatusCode.Forbidden, "Access denied (403)")]
     [InlineData(HttpStatusCode.InternalServerError, "Server error (500)")]
     [InlineData(HttpStatusCode.BadRequest, "Request failed (400)")]
-    public void CreateUnavailableUsageFromStatus_MapsCodesToDescriptions(HttpStatusCode code, string expectedDescription)
+    public void DescribeUnavailableStatus_MapsCodesToDescriptions(HttpStatusCode code, string expectedDescription)
     {
-        using var response = new HttpResponseMessage(code);
-        var usage = this._provider.TestCreateUnavailableUsageFromStatus(response);
+        var description = this._provider.TestDescribeUnavailableStatus(code);
 
-        Assert.Equal(expectedDescription, usage.Description);
-        Assert.Equal((int)code, usage.HttpStatus);
+        Assert.Equal(expectedDescription, description);
     }
 
     [Fact]
-    public void CreateUnavailableUsageFromException_HandlesTimeouts()
+    public void DescribeUnavailableException_HandlesTimeouts()
     {
         var ex = new TaskCanceledException("Timeout");
-        var usage = this._provider.TestCreateUnavailableUsageFromException(ex);
+        var description = this._provider.TestDescribeUnavailableException(ex);
 
-        Assert.Contains("timed out", usage.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("timed out", description, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void CreateUnavailableUsageFromException_HandlesHttpRequestException()
+    public void DescribeUnavailableException_HandlesHttpRequestException()
     {
         var ex = new HttpRequestException("Network down");
-        var usage = this._provider.TestCreateUnavailableUsageFromException(ex);
+        var description = this._provider.TestDescribeUnavailableException(ex);
 
-        Assert.Contains("Connection failed", usage.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Connection failed", description, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Theory]
-    [InlineData(ProviderErrorType.AuthenticationError, "Authentication failed")]
-    [InlineData(ProviderErrorType.RateLimitError, "Rate limit exceeded")]
-    [InlineData(ProviderErrorType.TimeoutError, "Request timed out")]
-    [InlineData(ProviderErrorType.ServerError, "Server error")]
-    [InlineData(ProviderErrorType.DeserializationError, "Failed to parse response")]
-    public void CreateUnavailableUsageFromProviderException_MapsErrorTypes(ProviderErrorType type, string expectedSnippet)
-    {
-        var ex = new ProviderException("test-provider", "Original message", type, 400);
-        var usage = this._provider.TestCreateUnavailableUsageFromProviderException(ex);
-
-        Assert.Contains(expectedSnippet, usage.Description, StringComparison.Ordinal);
-        Assert.Equal(400, usage.HttpStatus);
-    }
 }
