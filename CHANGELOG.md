@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [2.3.4-beta.21] - 2026-04-02
+
+### Added
+- **Codex and Spark now show as dual-bar cards**: `codex` and `codex.spark` are standalone canonical providers, each rendering a compact dual-bar (5h burst + weekly rolling) that matches the Claude Code layout. The old flat four-card layout (burst + weekly × 2) is replaced by two independent dual-bar cards — one per provider.
+- **ETag caching for grouped usage endpoint**: the Monitor API `/usage/grouped` endpoint now emits `ETag` + `Cache-Control: private, max-age=5` response headers. Clients that send `If-None-Match` receive `304 Not Modified` when the usage data has not changed, eliminating redundant payload transfer on every polling cycle. `MonitorService` in the client library handles `304` transparently and returns the previous snapshot from an in-process cache.
+- **`CoReportedProviderIds` on provider definitions**: `ProviderDefinition.CoReportedProviderIds` declares additional provider IDs whose usage rows a parent provider co-emits. `ProviderMetadataCatalog.ExpandAcceptedUsageProviderIds` expands any active provider set with its co-reported IDs, so Spark cards pass the authority filter whenever Codex is active without requiring a shared family prefix.
+
+### Changed
+- **Codex/Spark card labels shortened**: quota-window card names changed from `"Codex 5-hour quota"` / `"Codex weekly quota"` / `"Spark 5-hour quota"` / `"Spark weekly quota"` to compact `"5h"` / `"Weekly"` labels — consistent with the dual-bar label style used by other window-based providers.
+
+### Fixed
+- **Polling no longer fires concurrently**: a new `_isPollingInProgress` flag in `MainWindow.Polling` prevents a second poll cycle from starting while the first is still in flight, avoiding race conditions during slow Monitor responses.
+
 ## [2.3.4-beta.20] - 2026-04-01
 
 ### Fixed
