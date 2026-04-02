@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.3.4-beta.20] - 2026-04-01
+
+### Fixed
+- **Clearing an API key now removes the provider**: wiping the API key text box and saving previously had no visible effect — the empty config was persisted and the provider card remained. The settings window now calls `RemoveConfigAsync` for standard API key providers with an empty key and immediately removes the card from the panel.
+
 ## [2.3.4-beta.19] - 2026-04-01
 
 ### Added
