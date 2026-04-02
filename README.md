@@ -1,6 +1,6 @@
 # <img src="AIUsageTracker.Web/wwwroot/favicon.png" width="32" height="32" valign="middle"> AI Usage Tracker
 
-![Version](https://img.shields.io/badge/version-2.3.4--beta.20--beta.19--beta.18--beta.17--beta.16--beta.15--beta.14--beta.13--beta.12--beta.11-orange)
+![Version](https://img.shields.io/badge/version-2.3.4--beta.21-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20|%20Linux%20-blue)
 ![Language](https://img.shields.io/badge/language-C%23%20|%20.NET-purple)
