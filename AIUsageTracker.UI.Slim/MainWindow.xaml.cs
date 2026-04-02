@@ -69,6 +69,7 @@ public partial class MainWindow : Window
     private bool _preferencesLoaded;
     private int _topmostRecoveryGeneration;
     private bool _isSettingsDialogOpen;
+    private bool _isChangelogOpen;
     private bool _isTooltipOpen;
 
     public MainWindow(
