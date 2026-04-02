@@ -1,6 +1,6 @@
 # TODO
 
-## Current Status (Updated: 2026-03-04)
+## Current Status
 
 ### Recently Completed
 - **Provider Exception Types** (P1): Created structured exception hierarchy with 8 specific exception types
@@ -11,8 +11,10 @@
 - **HTTP Retry Policy** (P1): Created `ResilientHttpClient` with Polly policies
 - **Provider Registration** (P2): Created `ProviderRegistrationExtensions.cs` with assembly scanning
 
-### Up Next
-All architecture streamlining tasks completed! See remaining feature backlog below.
+### Current Focus
+Architecture streamlining is largely complete. The main remaining architecture item is the high-risk HTTP failure and error-model convergence plan later in this document; the rest of this file tracks active feature, reliability, test, and CI backlog work.
+
+## Active Backlog
 
 ### UI Runtime Reliability Backlog (Added: 2026-03-21)
 - [ ] Slim UI multi-instance policy + guardrails (Priority: P1, Effort: M): Define supported behavior explicitly. Either enforce single-instance via named mutex (focus existing window and exit second launch) or allow multi-instance only in an explicit mode that prevents shared-state races (no preference writes, no monitor lifecycle ownership changes).
@@ -44,7 +46,7 @@ All architecture streamlining tasks completed! See remaining feature backlog bel
 
 ---
 
-## Feature Backlog
+### Feature Backlog
 
 - [x] Slim UI logging migration (Priority: P1, Effort: M): Replace ad-hoc `Debug.WriteLine`/`Console.WriteLine` diagnostics with `ILogger` (structured levels, timestamped output, centralized configuration).
 - [x] Monitor logging format unification (Priority: P1, Effort: S/M): Migrate Monitor `[DIAG]`/custom diagnostic output to `ILogger` with timestamped, structured logs so Monitor and Slim UI diagnostics use one consistent format.
@@ -61,7 +63,498 @@ All architecture streamlining tasks completed! See remaining feature backlog bel
 
 ---
 
-## CI/CD Improvements: Web Testing Infrastructure
+### Integration & E2E Test Gaps (Added: 2026-03-19)
+
+These gaps were identified after the `provider_history` dedup gate crashed in production with a Dapper `Int32`/`Int64` type mismatch — a bug class that only real-SQLite integration tests can catch.
+
+- [ ] **Read-path Dapper mapping tests** (Priority: P1, Effort: S): Add real-SQLite integration tests for `GetHistoryAsync`, `GetHistoryByProviderAsync`, and `GetRecentHistoryAsync` to verify Dapper positional-constructor type mapping for all columns.
+  - Motivation: Same `Int64` vs `Int32` mismatch that crashed the dedup gate could exist in any method that Dapper-maps a DB record.
+  - Location: `AIUsageTracker.Tests/Services/UsageDatabaseReadTests.cs` (new file)
+  - **In-progress**: `test/database-and-pipeline-integration`
+
+- [ ] **Full pipeline integration test** (Priority: P1, Effort: M): Inject real provider output through `ProviderUsageProcessingPipeline` → `StoreHistoryAsync` → `GetLatestHistoryAsync` and assert that what the UI sees matches the original provider data.
+  - Motivation: Validates the full data path end-to-end; a type or mapping regression anywhere would be caught.
+  - Location: `AIUsageTracker.Tests/Services/UsageDatabasePipelineTests.cs` (new file)
+  - **In-progress**: `test/database-and-pipeline-integration`
+
+- [ ] **Circuit-breaker write suppression test** (Priority: P2, Effort: M): Verify that a tripped circuit breaker (provider returning errors repeatedly) suppresses `StoreHistoryAsync` calls over multiple refresh cycles, and that history stays stable.
+  - Motivation: Circuit breaker state must propagate correctly all the way to DB writes, not just be visible in the ProviderUsage object.
+  - Location: `AIUsageTracker.Tests/Services/UsageDatabaseCircuitBreakerTests.cs` (new file)
+  - **In-progress**: `test/database-and-pipeline-integration`
+
+- [ ] **Stale-data detection E2E test** (Priority: P1, Effort: S): Store a row with `fetched_at` older than `StaleDataThreshold`, call `GetLatestHistoryAsync`, and assert `IsStale = true` with the correct description suffix.
+  - Motivation: The dedup gate changes `fetched_at` semantics (now "last confirmed current"); must verify stale detection still fires correctly.
+  - Location: `AIUsageTracker.Tests/Services/UsageDatabaseReadTests.cs` (new file, same class)
+  - **In-progress**: `test/database-and-pipeline-integration`
+
+---
+
+### CI/CD Pipeline Optimization Opportunities
+
+#### Phase 1 - Quick Wins (High Impact, Low Effort)
+
+- [x] Security scanning workflow (Priority: P1, Effort: S): Add dependency vulnerability scanning with `dotnet list package --vulnerable`
+  - Run on PR and scheduled basis
+  - Upload results to GitHub Security tab
+  - Benefit: Catch vulnerable dependencies before production
+
+- [x] Conditional workflow skipping (Priority: P1, Effort: S): Skip unnecessary workflows for documentation-only changes
+  - Use `paths-filter` or `paths-ignore` more aggressively
+  - Skip builds when only markdown files change
+  - Benefit: 30-40% reduction in CI minutes for docs PRs
+
+- [x] Cache optimization (Priority: P1, Effort: S): Add Playwright browser caching, Docker layer caching
+  - Cache `~/.cache/ms-playwright` separately
+  - Use `restore-keys` for fallback cache hits
+  - Benefit: Faster workflow execution
+
+- [x] Build artifact compression (Priority: P2, Effort: S): Compress artifacts before upload, reduce retention days
+  - Use `tar.gz` compression before upload
+  - Reduce retention from 7 to 3 days for non-release builds
+  - Benefit: Faster uploads, lower storage costs
+
+- [x] Add aggressive timeout safeguards (Priority: P1, Effort: S): Prevent runaway CI jobs
+  - All 12 workflows now have explicit timeout-minutes
+  - Reduced from default 6 hours to 2-15 minutes per job
+  - Documented timeout strategy at docs/CI_CD_TIMEOUTS.md
+  - Benefit: Prevents hung jobs, reduces CI cost waste
+
+#### Phase 2 - Medium Effort Improvements
+
+- [x] Code coverage reporting (Priority: P2, Effort: M): Add code coverage collection and reporting
+  - Use `dotnet test --collect:"XPlat Code Coverage"`
+  - Upload to Codecov or similar service
+  - Add coverage badges to README
+  - Benefit: Track coverage trends, ensure test quality
+
+- [x] PR size limit warning (Priority: P2, Effort: S): Warn on large PRs over 1000 lines
+  - Add workflow step to calculate diff stats
+  - Post comment on PR if too large
+  - Benefit: Encourage focused, reviewable PRs
+
+- [ ] Notification integration (Priority: P2, Effort: S): Add Slack/Discord notifications for failed builds
+  - Notify on main/develop branch failures only
+  - Include link to failed run and error summary
+  - Benefit: Faster incident response
+
+- [ ] Reusable workflow templates (Priority: P2, Effort: M): Create `reusable-test.yml` for common test patterns
+  - Parameterize test filter, timeout, OS
+  - Replace duplicated test job definitions
+  - Benefit: Single source of truth for test execution
+
+#### Phase 3 - Larger Projects
+
+- [x] Matrix builds for cross-platform testing (Priority: P3, Effort: M): Run tests on Windows, Ubuntu
+  - Test matrix: OS × platform
+  - Tests Core and Infrastructure on both Windows and Linux
+  - Skips Windows-specific tests on Linux (target framework mismatch)
+  - Benefit: Catch OS-specific bugs early
+
+- [x] Automated dependency updates (Priority: P3, Effort: M): Weekly automated PRs for dependency updates
+  - Runs weekly on Monday at 2 AM
+  - Checks for outdated NuGet packages
+  - Creates PR with dependency updates automatically
+  - Labels PRs with 'dependencies' and 'automated'
+  - Benefit: Keep dependencies current without manual work
+
+- [x] Build performance monitoring (Priority: P3, Effort: M): Track and alert on build time regressions
+  - GitHub-native solution using GitHub's built-in APIs (no external services)
+  - Compares PR build times against main branch baseline
+  - Posts performance report comments on PRs with visual indicators
+  - Alerts if build time increases >20%
+  - Shows metrics in job summary
+  - Benefit: Proactively detect performance regressions
+
+- [x] Full workflow refactoring (Priority: P3, Effort: L): Consolidate similar workflows, remove redundancies
+  - Merged test.yml and cross-platform-tests.yml into tests.yml
+  - Removed unused reusable-test.yml
+  - 5 parallel jobs with clear dependencies
+  - Unified trigger conditions
+  - Standardized naming and structure
+  - Updated build-performance-monitor.yml references
+  - Benefit: Easier maintenance, less confusion, clearer structure
+
+## Architecture Plans
+
+### Architecture Review Summary
+
+#### Overall assessment
+
+The project structure is strong:
+
+- `AIUsageTracker.Core` keeps contracts and domain models separate from platform concerns.
+- `AIUsageTracker.Infrastructure` owns provider and configuration implementation details.
+- `AIUsageTracker.Monitor` acts as the single authority for refresh, persistence, and API access.
+- `AIUsageTracker.UI.Slim`, `AIUsageTracker.Web`, and `AIUsageTracker.CLI` consume monitor data instead of talking to providers directly.
+
+That shape is a good fit for the product. The best next step is to optimize within the existing architecture instead of rewriting it.
+
+#### Strengths
+
+- Centralized monitor refresh flow reduces provider API hammering.
+- Provider metadata stays authoritative in code instead of being duplicated into the database.
+- Cached database data is served immediately on startup, with startup refresh intentionally constrained.
+- Grouped usage projections give the UI a stable, purpose-built read model.
+
+Key reference files:
+
+- `ARCHITECTURE.md`
+- `AIUsageTracker.Monitor\Program.cs`
+- `AIUsageTracker.Monitor\Services\ProviderRefreshService.cs`
+- `AIUsageTracker.Monitor\Services\UsageDatabase.cs`
+- `AIUsageTracker.Monitor\Services\GroupedUsageProjectionService.cs`
+
+#### Main hotspots identified
+
+1. Database contention
+   - `AIUsageTracker.Monitor\Services\UsageDatabase.cs` historically serialized all database operations through a single `SemaphoreSlim`, which was safe but became a mixed read/write bottleneck.
+
+2. Grouped usage cache freshness
+   - `AIUsageTracker.Monitor\Services\CachedGroupedUsageProjectionService.cs` cached grouped usage for 30 seconds, but invalidation was previously manual, risking stale grouped snapshots immediately after writes.
+
+3. Repeated grouped usage payload delivery
+   - `AIUsageTracker.Monitor\Endpoints\MonitorUsageEndpoints.cs` did not originally support conditional grouped usage responses, so frequent clients redownloaded the same payload.
+
+4. Duplicate Slim UI polling work
+   - `AIUsageTracker.UI.Slim\MainWindow.Polling.cs` had overlapping grouped usage fetch/render paths and could fetch equivalent data more than once per poll cycle.
+
+5. Duplicated architecture decisions and fallback layering
+   - some monitor/client/UI flows carried older fallback branches that added complexity without providing much current value.
+
+#### First implementation pass completed
+
+- Automatic grouped usage cache invalidation after persistence writes.
+- Conditional `ETag` / `304 Not Modified` support for grouped usage.
+- Slim UI polling cleanup to avoid duplicate fetch/render cycles and overlapping tick work.
+- First-pass cleanup of redundant grouped-usage fallback behavior in the monitor/UI path.
+- Read-only `UsageDatabase` paths no longer serialize behind the write semaphore, reducing unnecessary monitor/UI read contention.
+
+#### Follow-up direction
+
+- Improve database concurrency without destabilizing persistence.
+- Consider broader endpoint caching strategy beyond grouped usage.
+- Measure monitor startup cost after current improvements land.
+- Use the high-risk convergence plan later in this file for the remaining HTTP failure and error-model architecture work.
+
+### High-Risk Architectural Convergence Plan: HTTP Failure and Error Model
+
+Added after a deeper architecture review on 2026-03-31. This is not a cleanup pass item; it is a staged convergence plan for the error-handling architecture spanning provider HTTP calls, provider usage synthesis, monitor resilience, and monitor-client behavior.
+
+#### Why this is higher risk
+
+There are currently several related but distinct error layers:
+
+- `AIUsageTracker.Infrastructure\Extensions\HttpRequestBuilderExtensions.cs` classifies provider HTTP failures into typed `ProviderException` values.
+- Provider implementations and `AIUsageTracker.Core\Providers\ProviderBase` typically convert failures into `ProviderUsage` rows with `State`, `HttpStatus`, and user-facing `Description`.
+- `AIUsageTracker.Core\Services\ProviderManager` adds its own timeout/unexpected error synthesis when providers fail or overrun the request timeout.
+- `AIUsageTracker.Monitor\Services\ProviderRefreshCircuitBreakerService` and `ProviderConnectivityCheckService` interpret `ProviderUsage` again for resilience and connectivity decisions.
+- `AIUsageTracker.Core\MonitorClient\MonitorService` has separate retry/null/empty semantics for Monitor API failures, which are not provider failures at all.
+
+A direct unification is risky because these layers do not share the same responsibility:
+
+- provider layer decides how to interpret upstream API failures
+- monitor layer decides how to persist and back off
+- monitor client decides how to tolerate monitor unavailability
+- UI reads `ProviderUsage.Description` and `ProviderUsage.State` directly
+
+The right target is not “one error type everywhere.” The right target is:
+
+- one shared **failure-classification model**
+- separate **projection policies** for provider usage, monitor resilience, and monitor-client retry/display behavior
+
+#### Current architecture map
+
+##### Provider HTTP layer
+
+- `AIUsageTracker.Infrastructure\Extensions\HttpRequestBuilderExtensions.cs`
+  - `MapHttpStatusToException(...)`
+  - `SendGetBearerAsync(...)`
+  - maps HTTP status/timeout/network/deserialization failures into typed `ProviderException` values
+
+##### Provider usage synthesis layer
+
+- `AIUsageTracker.Core\Providers\ProviderBase.cs`
+  - `CreateUnavailableUsage(...)`
+  - `DescribeUnavailableStatus(...)`
+  - `DescribeUnavailableException(...)`
+- many provider implementations still manually map upstream failures into `ProviderUsage`
+
+##### Provider manager layer
+
+- `AIUsageTracker.Core\Services\ProviderManager.cs`
+  - `FetchSingleProviderUsageAsync(...)`
+  - `FetchProviderUsagesAsync(...)`
+  - `CreateTimeoutUsage(...)`
+  - `CreateArgumentErrorUsage(...)`
+  - `CreateUnexpectedErrorUsage(...)`
+
+This layer guarantees Monitor gets `ProviderUsage` rows even when a provider throws unexpectedly or times out.
+
+##### Monitor resilience layer
+
+- `AIUsageTracker.Monitor\Services\ProviderRefreshService.cs`
+- `AIUsageTracker.Monitor\Services\ProviderRefreshCircuitBreakerService.cs`
+- `AIUsageTracker.Monitor\Services\ProviderConnectivityCheckService.cs`
+
+This layer does not operate on exceptions. It operates on `ProviderUsage` rows and their fields such as:
+
+- `IsAvailable`
+- `HttpStatus`
+- `State`
+- `Description`
+
+##### Monitor client layer
+
+- `AIUsageTracker.Core\MonitorClient\MonitorService.cs`
+  - `GetUsageAsync()` retries Monitor API connectivity failures
+  - `GetGroupedUsageAsync()` returns `null` on endpoint failures
+  - `CheckProviderAsync()` returns a `MonitorActionResult`
+
+This layer is about **Monitor availability**, not provider availability.
+
+#### Semantics that intentionally diverge today
+
+These differences are real and should not be flattened casually:
+
+1. Provider HTTP failures are framework/integration failures.
+   - They happen during upstream calls.
+   - They may be retried, recovered, or translated by the provider.
+
+2. `ProviderUsage` failures are persisted product-facing state.
+   - They are stored in history.
+   - They are shown in UI.
+   - They drive diagnostics and circuit-breaker decisions.
+
+3. Circuit-breaker failures are operational decisions.
+   - They are not raw upstream failures.
+   - They represent “do not call this provider again yet.”
+
+4. Monitor-client failures are transport failures between UI/CLI/Web and the Monitor.
+   - They must preserve cached/offline behavior.
+   - They should not be conflated with provider errors.
+
+#### Target architecture
+
+The target architecture should introduce a shared failure-classification domain while keeping projection responsibilities separate.
+
+##### Shared domain to add
+
+Add a small, additive classification model in Core:
+
+- `HttpFailureClassification`
+  - Authentication
+  - Authorization
+  - RateLimit
+  - Network
+  - Timeout
+  - Server
+  - Client
+  - Deserialization
+  - Unknown
+
+- `HttpFailureContext`
+  - classification
+  - optional HTTP status
+  - user-safe message
+  - optional retry-after
+  - recoverability hint
+  - optional exception type name / diagnostic metadata
+
+This shared model should answer: **what kind of failure happened?**
+
+##### Separate projection policies to preserve
+
+Do not collapse these into one object:
+
+- provider projection: `HttpFailureContext -> ProviderUsage`
+- resilience projection: `HttpFailureContext or ProviderUsage -> circuit/backoff decision`
+- monitor-client projection: monitor transport failure -> retry / null / empty / warning behavior
+
+This preserves the current architectural boundaries while reducing duplicated reasoning.
+
+#### Phased rollout plan
+
+##### Phase 1: Foundation
+
+Goal: add shared failure classification types without changing runtime behavior.
+
+Files to add:
+
+- `AIUsageTracker.Core\Models\HttpFailureClassification.cs`
+- `AIUsageTracker.Core\Models\HttpFailureContext.cs`
+
+Likely additive touch points:
+
+- `AIUsageTracker.Core\Models\ProviderUsage.cs` with an optional non-serialized diagnostic property if needed later
+
+Tests:
+
+- new unit tests for classification model shape and defaults
+
+Rollback:
+
+- purely additive; safe to revert by removing new types
+
+##### Phase 2: Shared mapper
+
+Goal: centralize HTTP response/exception classification without changing existing provider or client behavior.
+
+Files:
+
+- add a shared mapper in Core or Infrastructure
+- refactor `AIUsageTracker.Infrastructure\Extensions\HttpRequestBuilderExtensions.cs` to classify through that mapper
+
+Important rule:
+
+- keep existing typed exception behavior working for current callers
+- this phase should classify, not redesign control flow
+
+Tests:
+
+- map 401/403/429/5xx/network/timeout/deserialization to expected classifications
+
+Rollback:
+
+- restore old inline mapping in `HttpRequestBuilderExtensions`
+
+##### Phase 3: Provider contract formalization
+
+Goal: formalize how providers should map upstream failures into `ProviderUsage`.
+
+Files:
+
+- `AIUsageTracker.Core\Interfaces\IProviderService.cs`
+- `AIUsageTracker.Core\Providers\ProviderBase.cs`
+
+Expected outcome:
+
+- document that providers should continue returning `ProviderUsage`
+- optionally allow providers to attach structured failure context for diagnostics
+- do not change `IProviderService` shape
+
+Tests:
+
+- contract-oriented tests around provider-base helpers and representative providers
+
+Rollback:
+
+- documentation and helper changes only
+
+##### Phase 4: Pilot provider adoption
+
+Goal: prove the model on a very small number of providers before any broad migration.
+
+Recommended pilot providers:
+
+- one simple HTTP API provider
+- one more complex provider with richer error behavior
+
+Good candidates:
+
+- `DeepSeekProvider`
+- `GeminiProvider`
+
+Do not refactor all providers at once.
+
+Tests:
+
+- targeted provider tests proving output behavior is unchanged
+- optional assertions for attached structured failure context
+
+Rollback:
+
+- revert only pilot providers
+
+##### Phase 5: Resilience and circuit-breaker enhancement
+
+Goal: teach the monitor resilience layer to use structured classification where available.
+
+Files:
+
+- `AIUsageTracker.Monitor\Services\ProviderRefreshCircuitBreakerService.cs`
+- `AIUsageTracker.Monitor\Services\ProviderConnectivityCheckService.cs`
+- possibly persistence/diagnostic surfaces if additive fields are useful
+
+Desired behavior:
+
+- shorter backoff for rate limits
+- clearer differentiation between auth failures, server failures, and network failures
+- richer diagnostics without changing current UI descriptions
+
+Tests:
+
+- circuit-breaker policy tests
+- connectivity check tests
+- backward-compatibility tests where failure context is absent
+
+Rollback:
+
+- revert to current `ProviderUsage`-only heuristics
+
+##### Phase 6: Observability and documentation
+
+Goal: document and surface the new model only after behavior is proven stable.
+
+Files:
+
+- `ARCHITECTURE.md`
+- `DESIGN.md`
+- monitor diagnostic/telemetry surfaces if needed
+
+Possible outputs:
+
+- structured telemetry dimensions by failure classification
+- richer diagnostic snapshots
+- developer guidance for future providers
+
+Tests:
+
+- telemetry/diagnostic assertions where appropriate
+
+Rollback:
+
+- remove additive observability hooks
+
+#### Invariants to preserve
+
+The following must stay true through all phases:
+
+1. `ProviderUsage.Description` remains the user-facing message source.
+2. `ProviderUsageState` semantics do not regress.
+3. No new exceptions leak to UI, CLI, or Web callers.
+4. Cached/offline behavior when the Monitor is unavailable remains unchanged.
+5. Startup behavior remains non-blocking and does not hammer providers.
+6. Existing telemetry remains backward-compatible; new dimensions must be additive.
+7. Existing DB reads/writes remain backward-compatible; schema changes, if any, must be additive.
+8. Provider-specific recovery logic remains provider-controlled.
+9. The Monitor client and provider HTTP layers remain separate concerns even if they share classification rules.
+
+#### Related convergence opportunities
+
+These are tightly coupled and should only be considered after the phases above start landing cleanly:
+
+- richer Monitor API diagnostic envelopes for provider failure summaries
+- provider-declared resilience metadata in `ProviderDefinition`
+- unified telemetry dimensions for failure classification across provider, monitor, and client layers
+
+#### Recommendation
+
+Treat this as a multi-PR architectural program, not a single refactor.
+
+The safest sequence is:
+
+1. add shared classification
+2. add mapper
+3. formalize provider contract
+4. pilot on 1-2 providers
+5. enhance circuit-breaker logic
+6. then expose observability/docs
+
+That gives convergence where it helps, while preserving the current behavior that the UI, monitor persistence, and resilience logic already depend on.
+
+## Completed Programs and Historical Plans
+
+### CI/CD Improvements: Web Testing Infrastructure
 
 - [x] Add Web project reference to Web.Tests project (Priority: P1, Effort: M)
   - Currently: Web.Tests does not reference AIUsageTracker.Web
@@ -108,7 +601,7 @@ All architecture streamlining tasks completed! See remaining feature backlog bel
 
 ---
 
-## Migration Plan: Provider-Owned Usage Details (Strict Contract)
+### Migration Plan: Provider-Owned Usage Details (Strict Contract)
 
 - [x] Freeze strict detail schema in Core (Priority: P1, Effort: S): Keep `ProviderUsageDetail.DetailType`, add `WindowKind` (`Primary`, `Secondary`, `Spark`, `None`), and define required-field rules for every emitted detail row.
 - [x] Make provider output the single source of truth (Priority: P1, Effort: M): Update all providers that emit `Details` to always set `DetailType`/`WindowKind`; treat missing or `Unknown` values as provider bugs.
@@ -120,7 +613,7 @@ All architecture streamlining tasks completed! See remaining feature backlog bel
 - [x] Legacy history strategy without runtime fallback (Priority: P2, Effort: S/M): Keep old rows as historical data, but do not add runtime backfill heuristics; optional one-off migration script only if needed.
 - [x] Document contract and implementation checklist (Priority: P2, Effort: S): Update docs with strict expectations, rollout steps, and provider implementation examples.
 
-## Resilience Plan: Monitor Startup and Port Binding
+### Resilience Plan: Monitor Startup and Port Binding
 
 - [x] Handle bind race at runtime (Priority: P1, Effort: M): Wrap startup bind in retry logic for `AddressInUseException`; on collision, select a new port and retry with bounded attempts and structured logs.
 - [x] Move monitor metadata write after successful bind (Priority: P1, Effort: S): Do not write `monitor.json` before the monitor is actually listening; publish PID/port only after startup succeeds.
@@ -132,11 +625,11 @@ All architecture streamlining tasks completed! See remaining feature backlog bel
 - [x] Add integration test for concurrent starts (Priority: P1, Effort: M): Trigger parallel start attempts and assert exactly one running monitor with valid `monitor.json`.
  - [x] Add regression test for stale metadata recovery (Priority: P2, Effort: S): Seed dead PID/old port in `monitor.json` and verify client reconnects without persistent stale-state warnings.
 
-## Architecture Streamlining Opportunities
+### Architecture Streamlining Opportunities
 
 Identified during code review on 2026-03-03. These are areas where the codebase has duplication or inconsistent patterns that could be streamlined.
 
-### High Priority Streamlining Tasks
+#### High Priority Streamlining Tasks
 
 - [x] Implement Provider SDK Pattern (Priority: P1, Effort: M): Centralize authentication discovery (environment variables, auth files) into a dedicated `ProviderDiscoveryService` and refactor `ProviderBase` to use it.
   - Benefit: Reduces boilerplate in concrete providers, standardizes auth resolution, simplifies adding new providers.
@@ -162,7 +655,7 @@ Identified during code review on 2026-03-03. These are areas where the codebase 
   - Benefit: Consistent resilience, centralized configuration, better reliability
   - **Completed**: Created `ResilientHttpClient` with Polly policies, retry (3 attempts, exponential backoff), circuit breaker (5 failures, 30s break), timeout. Integrated into Monitor and CLI.
 
-### Future Architectural Enhancements
+#### Future Architectural Enhancements
 
 - [x] Background Job Orchestration (Priority: P2, Effort: M): Introduce a formal internal job scheduler for periodic refreshes, data pruning, and maintenance tasks.
   - Benefit: Support for job prioritization (manual "Force Refresh" vs background), better concurrency control, and easier task management.
@@ -180,7 +673,7 @@ Identified during code review on 2026-03-03. These are areas where the codebase 
   - Location: Core components and infrastructure services.
   - **Completed**: Added `ActivitySource` spans for monitor lifecycle and refresh flows in `MonitorService`, `MonitorProcessService`, and `ProviderRefreshService` with outcome/status tags.
 
-### Medium Priority Streamlining Tasks
+#### Medium Priority Streamlining Tasks
 
 - [x] Consolidate Provider Registration (Priority: P2, Effort: S): Use assembly scanning to auto-register providers instead of manual registration in `Program.cs` files.
   - Current: Each provider manually registered in DI container
@@ -200,7 +693,7 @@ Identified during code review on 2026-03-03. These are areas where the codebase 
   - Benefit: Reduced test boilerplate, consistent test patterns
   - **Completed**: Created `ProviderTestBase<T>` and `HttpProviderTestBase<T>` base classes with common setup, logger, config, and HTTP mocking utilities.
 
-### Low Priority Streamlining Tasks
+#### Low Priority Streamlining Tasks
 
 - [x] Unify DateTime Handling (Priority: P3, Effort: S): Standardize on `DateTime.UtcNow` across all providers with extension methods for display conversion.
   - Current: Mix of `DateTime.Now`, `DateTime.UtcNow`, `DateTimeOffset`
@@ -218,163 +711,4 @@ Identified during code review on 2026-03-03. These are areas where the codebase 
   - Benefit: Cleaner codebase, faster builds, easier maintenance
   - **Completed**: Build shows no unused code warnings; existing code comments are purposeful documentation.
 
-### Code Duplication Analysis Summary
-
-**Provider Error Handling Duplication:**
-- ~~Found 70+ occurrences of `IsAvailable = false` across providers~~ ✅ Addressed with ProviderBase
-- ~~Found 15+ `CreateUnavailableUsage` methods with 90%+ identical code~~ ✅ Consolidated in ProviderBase
-- ~~Found 36+ generic `catch (Exception ex)` blocks without specific handling~~ ✅ Now mapped to specific ProviderException types
-
-**HTTP Client Duplication:**
-- ~~Found 29+ `private readonly HttpClient _httpClient` declarations~~ ✅ Now use ResilientHttpClient
-- ~~Each provider manages its own HttpClient lifecycle~~ ✅ Centralized via DI
-- ~~No centralized retry or resilience policies~~ ✅ Added Polly policies
-
-**Request Creation Duplication:**
-- ~~Found 15+ occurrences of `new HttpRequestMessage(HttpMethod.Get, url)`~~ ✅ Use HttpRequestBuilderExtensions
-- ~~Found 15+ Bearer token header setups~~ ✅ Centralized in CreateBearerRequest
-
-**Reset Time Parsing Duplication:**
-- ~~Found 10+ providers with custom reset time parsing logic~~ ✅ Use ResetTimeParser utility
-- ~~Multiple Unix timestamp conversion implementations~~ ✅ Centralized in ResetTimeParser
-
-**Test Setup Duplication:**
-- Found identical mock setup patterns in 15+ provider test files
-- HttpClient mocking, logger mocking repeated everywhere
-- **Status**: Partially addressed with ProviderTestBase, could be further improved
-
-### Recommended Implementation Order
-
-1. ~~**Provider Base Class**~~ - ✅ COMPLETED
-2. ~~**HTTP Retry Policy**~~ - ✅ COMPLETED  
-3. ~~**Provider Registration**~~ - ✅ COMPLETED
-4. ~~**Test Base Classes**~~ - ✅ COMPLETED
-5. ~~**Configuration Validation**~~ - ✅ COMPLETED
-6. ~~**DateTime & Logging**~~ - ✅ COMPLETED
-7. ~~**Dead Code Removal**~~ - ✅ COMPLETED
-8. ~~**Provider Exception Types**~~ - ✅ COMPLETED (P1 Task 3)
-9. ~~**HTTP Request Builder Extensions**~~ - ✅ COMPLETED (P2 Task 1)
-10. ~~**Shared Helper Utilities**~~ - ✅ COMPLETED (P2 Task 2)
-11. ~~**Magic String Constants**~~ - ✅ COMPLETED (P3 Task 1)
-
-## All Architecture Streamlining Tasks Completed! 🎉
-
-**Summary of Improvements:**
-- **174 lines of duplicate code eliminated** via ProviderBase
-- **15+ providers refactored** to use standardized patterns
-- **8 specific exception types** for targeted error handling
-- **4 standardized HTTP request methods** for consistent API calls
-- **10+ reset time parsing utilities** for consistent date handling
-- **3 constants files** with 250+ constants for endpoints, headers, and messages
-- **All 162 unit tests passing**
-
-## Integration & E2E Test Gaps (Added: 2026-03-19)
-
-These gaps were identified after the `provider_history` dedup gate crashed in production with a Dapper `Int32`/`Int64` type mismatch — a bug class that only real-SQLite integration tests can catch.
-
-- [ ] **Read-path Dapper mapping tests** (Priority: P1, Effort: S): Add real-SQLite integration tests for `GetHistoryAsync`, `GetHistoryByProviderAsync`, and `GetRecentHistoryAsync` to verify Dapper positional-constructor type mapping for all columns.
-  - Motivation: Same `Int64` vs `Int32` mismatch that crashed the dedup gate could exist in any method that Dapper-maps a DB record.
-  - Location: `AIUsageTracker.Tests/Services/UsageDatabaseReadTests.cs` (new file)
-  - **In-progress**: `test/database-and-pipeline-integration`
-
-- [ ] **Full pipeline integration test** (Priority: P1, Effort: M): Inject real provider output through `ProviderUsageProcessingPipeline` → `StoreHistoryAsync` → `GetLatestHistoryAsync` and assert that what the UI sees matches the original provider data.
-  - Motivation: Validates the full data path end-to-end; a type or mapping regression anywhere would be caught.
-  - Location: `AIUsageTracker.Tests/Services/UsageDatabasePipelineTests.cs` (new file)
-  - **In-progress**: `test/database-and-pipeline-integration`
-
-- [ ] **Circuit-breaker write suppression test** (Priority: P2, Effort: M): Verify that a tripped circuit breaker (provider returning errors repeatedly) suppresses `StoreHistoryAsync` calls over multiple refresh cycles, and that history stays stable.
-  - Motivation: Circuit breaker state must propagate correctly all the way to DB writes, not just be visible in the ProviderUsage object.
-  - Location: `AIUsageTracker.Tests/Services/UsageDatabaseCircuitBreakerTests.cs` (new file)
-  - **In-progress**: `test/database-and-pipeline-integration`
-
-- [ ] **Stale-data detection E2E test** (Priority: P1, Effort: S): Store a row with `fetched_at` older than `StaleDataThreshold`, call `GetLatestHistoryAsync`, and assert `IsStale = true` with the correct description suffix.
-  - Motivation: The dedup gate changes `fetched_at` semantics (now "last confirmed current"); must verify stale detection still fires correctly.
-  - Location: `AIUsageTracker.Tests/Services/UsageDatabaseReadTests.cs` (new file, same class)
-  - **In-progress**: `test/database-and-pipeline-integration`
-
 ---
-
-## CI/CD Pipeline Optimization Opportunities
-
-### Phase 1 - Quick Wins (High Impact, Low Effort)
-
-- [x] Security scanning workflow (Priority: P1, Effort: S): Add dependency vulnerability scanning with `dotnet list package --vulnerable`
-  - Run on PR and scheduled basis
-  - Upload results to GitHub Security tab
-  - Benefit: Catch vulnerable dependencies before production
-
-- [x] Conditional workflow skipping (Priority: P1, Effort: S): Skip unnecessary workflows for documentation-only changes
-  - Use `paths-filter` or `paths-ignore` more aggressively
-  - Skip builds when only markdown files change
-  - Benefit: 30-40% reduction in CI minutes for docs PRs
-
-- [x] Cache optimization (Priority: P1, Effort: S): Add Playwright browser caching, Docker layer caching
-  - Cache `~/.cache/ms-playwright` separately
-  - Use `restore-keys` for fallback cache hits
-  - Benefit: Faster workflow execution
-
-- [x] Build artifact compression (Priority: P2, Effort: S): Compress artifacts before upload, reduce retention days
-  - Use `tar.gz` compression before upload
-  - Reduce retention from 7 to 3 days for non-release builds
-  - Benefit: Faster uploads, lower storage costs
-
-- [x] Add aggressive timeout safeguards (Priority: P1, Effort: S): Prevent runaway CI jobs
-  - All 12 workflows now have explicit timeout-minutes
-  - Reduced from default 6 hours to 2-15 minutes per job
-  - Documented timeout strategy at docs/CI_CD_TIMEOUTS.md
-  - Benefit: Prevents hung jobs, reduces CI cost waste
-
-### Phase 2 - Medium Effort Improvements
-
-- [x] Code coverage reporting (Priority: P2, Effort: M): Add code coverage collection and reporting
-  - Use `dotnet test --collect:"XPlat Code Coverage"`
-  - Upload to Codecov or similar service
-  - Add coverage badges to README
-  - Benefit: Track coverage trends, ensure test quality
-
-- [x] PR size limit warning (Priority: P2, Effort: S): Warn on large PRs over 1000 lines
-  - Add workflow step to calculate diff stats
-  - Post comment on PR if too large
-  - Benefit: Encourage focused, reviewable PRs
-
-- [ ] Notification integration (Priority: P2, Effort: S): Add Slack/Discord notifications for failed builds
-  - Notify on main/develop branch failures only
-  - Include link to failed run and error summary
-  - Benefit: Faster incident response
-
-- [ ] Reusable workflow templates (Priority: P2, Effort: M): Create `reusable-test.yml` for common test patterns
-  - Parameterize test filter, timeout, OS
-  - Replace duplicated test job definitions
-  - Benefit: Single source of truth for test execution
-
-### Phase 3 - Larger Projects
-
-- [x] Matrix builds for cross-platform testing (Priority: P3, Effort: M): Run tests on Windows, Ubuntu
-  - Test matrix: OS × platform
-  - Tests Core and Infrastructure on both Windows and Linux
-  - Skips Windows-specific tests on Linux (target framework mismatch)
-  - Benefit: Catch OS-specific bugs early
-
-- [x] Automated dependency updates (Priority: P3, Effort: M): Weekly automated PRs for dependency updates
-  - Runs weekly on Monday at 2 AM
-  - Checks for outdated NuGet packages
-  - Creates PR with dependency updates automatically
-  - Labels PRs with 'dependencies' and 'automated'
-  - Benefit: Keep dependencies current without manual work
-
-- [x] Build performance monitoring (Priority: P3, Effort: M): Track and alert on build time regressions
-  - GitHub-native solution using GitHub's built-in APIs (no external services)
-  - Compares PR build times against main branch baseline
-  - Posts performance report comments on PRs with visual indicators
-  - Alerts if build time increases >20%
-  - Shows metrics in job summary
-  - Benefit: Proactively detect performance regressions
-
-- [x] Full workflow refactoring (Priority: P3, Effort: L): Consolidate similar workflows, remove redundancies
-  - Merged test.yml and cross-platform-tests.yml into tests.yml
-  - Removed unused reusable-test.yml
-  - 5 parallel jobs with clear dependencies
-  - Unified trigger conditions
-  - Standardized naming and structure
-  - Updated build-performance-monitor.yml references
-  - Benefit: Easier maintenance, less confusion, clearer structure

@@ -37,7 +37,7 @@ public sealed class UsageDatabasePipelineTests : IDisposable
     public async Task Pipeline_ProviderData_IsStoredAndRetrievedFaithfullyAsync()
     {
         var db = await this.CreateDatabaseAsync();
-        var fetchedAt = new DateTime(2026, 3, 19, 10, 0, 0, DateTimeKind.Utc);
+        var fetchedAt = DateTime.UtcNow.AddMinutes(-5);
 
         var originalUsage = new ProviderUsage
         {

@@ -91,6 +91,8 @@ public sealed class ProviderDefinition
 
     public IReadOnlyCollection<string> SettingsAdditionalProviderIds { get; init; } = Array.Empty<string>();
 
+    public IReadOnlyCollection<string> CoReportedProviderIds { get; init; } = Array.Empty<string>();
+
     public string? IconAssetName { get; init; }
 
     public string? BadgeColorHex { get; init; }

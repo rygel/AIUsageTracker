@@ -59,14 +59,18 @@ internal static class MainWindowDeterministicFixture
         DateTime deterministicNow,
         FixtureUsageScenario usageScenario)
     {
-        // Codex uses DynamicChildProviderRows: burst+weekly stay on the parent
-        // card (dual-bar capable), spark is a separate child card.
+        var codexProviderId = CodexProvider.StaticDefinition.ProviderId;
+        var codexDisplayName = CodexProvider.StaticDefinition.DisplayName;
+        var sparkProviderId = CodexProvider.SparkDefinition.ProviderId;
+        var sparkDisplayName = CodexProvider.SparkDefinition.DisplayName;
+
+        // provider-id-guardrail-allow: deterministic fixture uses provider metadata constants
         yield return new ProviderUsage
         {
-            ProviderId = "codex",
-            ProviderName = "OpenAI (Codex)",
+            ProviderId = codexProviderId,
+            ProviderName = codexDisplayName,
             CardId = "burst",
-            GroupId = "codex",
+            GroupId = codexProviderId,
             Name = "5-hour quota",
             WindowKind = WindowKind.Burst,
             IsAvailable = true,
@@ -84,10 +88,10 @@ internal static class MainWindowDeterministicFixture
 
         yield return new ProviderUsage
         {
-            ProviderId = "codex",
-            ProviderName = "OpenAI (Codex)",
+            ProviderId = codexProviderId,
+            ProviderName = codexDisplayName,
             CardId = "weekly",
-            GroupId = "codex",
+            GroupId = codexProviderId,
             Name = "Weekly quota",
             WindowKind = WindowKind.Rolling,
             IsAvailable = true,
@@ -106,10 +110,10 @@ internal static class MainWindowDeterministicFixture
         // Spark also emits burst + rolling so its card is dual-bar capable.
         yield return new ProviderUsage
         {
-            ProviderId = "codex.spark",
-            ProviderName = "OpenAI (GPT-5.3 Codex Spark)",
+            ProviderId = sparkProviderId,
+            ProviderName = sparkDisplayName,
             CardId = "spark.burst",
-            GroupId = "codex",
+            GroupId = sparkProviderId,
             Name = "Spark 5-hour quota",
             WindowKind = WindowKind.Burst,
             IsAvailable = true,
@@ -127,10 +131,10 @@ internal static class MainWindowDeterministicFixture
 
         yield return new ProviderUsage
         {
-            ProviderId = "codex.spark",
-            ProviderName = "OpenAI (GPT-5.3 Codex Spark)",
+            ProviderId = sparkProviderId,
+            ProviderName = sparkDisplayName,
             CardId = "spark.weekly",
-            GroupId = "codex",
+            GroupId = sparkProviderId,
             Name = "Spark weekly quota",
             WindowKind = WindowKind.Rolling,
             IsAvailable = true,

@@ -38,6 +38,8 @@ public class UsageDatabase : IUsageDatabase
     private readonly string _connectionString;
     private readonly ILogger<UsageDatabase> _logger;
     private readonly IAppPathProvider _pathProvider;
+    // Serialize writes/maintenance only. Read operations use independent connections so
+    // SQLite WAL can serve them concurrently with refresh writes.
     private readonly SemaphoreSlim _semaphore = new(1, 1);
 
     public UsageDatabase(ILogger<UsageDatabase> logger, IAppPathProvider pathProvider)
@@ -151,14 +153,31 @@ public class UsageDatabase : IUsageDatabase
         await connection.ExecuteAsync("PRAGMA foreign_keys = ON").ConfigureAwait(false);
     }
 
+    private async Task<SqliteConnection> OpenReadConnectionAsync()
+    {
+        var connection = new SqliteConnection(this._connectionString);
+        await connection.OpenAsync().ConfigureAwait(false);
+        return connection;
+    }
+
+    private async Task<SqliteConnection> OpenWriteConnectionAsync(bool enableForeignKeys = false)
+    {
+        var connection = new SqliteConnection(this._connectionString);
+        await connection.OpenAsync().ConfigureAwait(false);
+        if (enableForeignKeys)
+        {
+            await EnableForeignKeysAsync(connection).ConfigureAwait(false);
+        }
+
+        return connection;
+    }
+
     public async Task StoreProviderAsync(ProviderConfig config, string? friendlyName = null)
     {
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = new SqliteConnection(this._connectionString);
-            await connection.OpenAsync().ConfigureAwait(false);
-            await EnableForeignKeysAsync(connection).ConfigureAwait(false);
+            using var connection = await this.OpenWriteConnectionAsync(enableForeignKeys: true).ConfigureAwait(false);
 
             const string sql = @"
                 INSERT INTO providers (
@@ -212,9 +231,7 @@ public class UsageDatabase : IUsageDatabase
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = new SqliteConnection(this._connectionString);
-            await connection.OpenAsync().ConfigureAwait(false);
-            await EnableForeignKeysAsync(connection).ConfigureAwait(false);
+            using var connection = await this.OpenWriteConnectionAsync(enableForeignKeys: true).ConfigureAwait(false);
 
             const string providerUpsertSql = @"
                 INSERT INTO providers (
@@ -436,9 +453,7 @@ public class UsageDatabase : IUsageDatabase
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = new SqliteConnection(this._connectionString);
-            await connection.OpenAsync().ConfigureAwait(false);
-            await EnableForeignKeysAsync(connection).ConfigureAwait(false);
+            using var connection = await this.OpenWriteConnectionAsync(enableForeignKeys: true).ConfigureAwait(false);
 
             const string sql = @"
                 INSERT INTO raw_snapshots (provider_id, raw_json, http_status, fetched_at)
@@ -457,8 +472,7 @@ public class UsageDatabase : IUsageDatabase
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = new SqliteConnection(this._connectionString);
-            await connection.OpenAsync().ConfigureAwait(false);
+            using var connection = await this.OpenWriteConnectionAsync().ConfigureAwait(false);
 
             const string sql = "DELETE FROM raw_snapshots WHERE fetched_at < (strftime('%s', 'now') - 604800)";
             await connection.ExecuteAsync(sql).ConfigureAwait(false);
@@ -480,8 +494,7 @@ public class UsageDatabase : IUsageDatabase
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = new SqliteConnection(this._connectionString);
-            await connection.OpenAsync().ConfigureAwait(false);
+            using var connection = await this.OpenWriteConnectionAsync().ConfigureAwait(false);
 
             // Phase 1: rows in the 7–90 day window → keep last row per (provider, hour)
             const string downsampleHourly = @"
@@ -521,8 +534,7 @@ public class UsageDatabase : IUsageDatabase
 
                 // VACUUM must run outside a transaction and requires a separate connection.
                 await connection.CloseAsync().ConfigureAwait(false);
-                using var vacuumConnection = new SqliteConnection(this._connectionString);
-                await vacuumConnection.OpenAsync().ConfigureAwait(false);
+                using var vacuumConnection = await this.OpenWriteConnectionAsync().ConfigureAwait(false);
                 await vacuumConnection.ExecuteAsync("VACUUM").ConfigureAwait(false);
             }
             else
@@ -543,8 +555,7 @@ public class UsageDatabase : IUsageDatabase
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = new SqliteConnection(this._connectionString);
-            await connection.OpenAsync().ConfigureAwait(false);
+            using var connection = await this.OpenWriteConnectionAsync().ConfigureAwait(false);
             await connection.ExecuteAsync("PRAGMA optimize").ConfigureAwait(false);
         }
         finally
@@ -563,9 +574,7 @@ public class UsageDatabase : IUsageDatabase
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = new SqliteConnection(this._connectionString);
-            await connection.OpenAsync().ConfigureAwait(false);
-            await EnableForeignKeysAsync(connection).ConfigureAwait(false);
+            using var connection = await this.OpenWriteConnectionAsync(enableForeignKeys: true).ConfigureAwait(false);
 
             const string sql = @"
                 INSERT INTO reset_events (
@@ -591,13 +600,9 @@ public class UsageDatabase : IUsageDatabase
 
     public async Task<IReadOnlyList<ProviderUsage>> GetLatestHistoryAsync()
     {
-        await this._semaphore.WaitAsync().ConfigureAwait(false);
-        try
-        {
-            using var connection = new SqliteConnection(this._connectionString);
-            await connection.OpenAsync().ConfigureAwait(false);
+        using var connection = await this.OpenReadConnectionAsync().ConfigureAwait(false);
 
-            const string sql = @"
+        const string sql = @"
                 SELECT h.provider_id AS ProviderId,
                        COALESCE(NULLIF(p.provider_name, ''), h.provider_id) AS ProviderName,
                        h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
@@ -625,52 +630,44 @@ public class UsageDatabase : IUsageDatabase
                 )
                 ORDER BY h.provider_id, h.card_id";
 
-            var results = (await connection.QueryAsync<ProviderUsage>(sql).ConfigureAwait(false)).ToList();
+        var results = (await connection.QueryAsync<ProviderUsage>(sql).ConfigureAwait(false)).ToList();
 
-            await StampUsageRatesAsync(connection, results).ConfigureAwait(false);
+        await StampUsageRatesAsync(connection, results).ConfigureAwait(false);
 
-            var now = DateTime.UtcNow;
-            foreach (var usage in results)
+        var now = DateTime.UtcNow;
+        foreach (var usage in results)
+        {
+            var usageDef = ProviderMetadataCatalog.Find(usage.ProviderId ?? string.Empty);
+            if (usageDef != null)
             {
-                var usageDef = ProviderMetadataCatalog.Find(usage.ProviderId ?? string.Empty);
-                if (usageDef != null)
+                usage.PlanType = usageDef.PlanType;
+                usage.IsQuotaBased = usageDef.IsQuotaBased;
+
+                // provider-id-guardrail-allow: this comment explains matching against runtime provider ids
+                // Re-derive WindowKind from the provider's QuotaWindowDefinition so stale DB
+                // entries are corrected without a DB migration.
+                var childId = string.Equals(usage.ProviderId, usageDef.ProviderId, StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrWhiteSpace(usage.CardId)
+                        ? $"{usageDef.ProviderId}.{usage.CardId}"
+                        : usage.ProviderId;
+
+                var windowMatch = usageDef.QuotaWindows.FirstOrDefault(w =>
+                    !string.IsNullOrWhiteSpace(w.ChildProviderId) &&
+                    string.Equals(w.ChildProviderId, childId, StringComparison.OrdinalIgnoreCase));
+
+                if (windowMatch != null)
                 {
-                    usage.PlanType = usageDef.PlanType;
-                    usage.IsQuotaBased = usageDef.IsQuotaBased;
-
-                    // Re-derive WindowKind from the provider's QuotaWindowDefinition so that
-                    // stale DB entries (NULL coalesced to None, or explicit Burst/Rolling that was
-                    // later removed by a provider update) are corrected without a DB migration.
-                    // Match by ChildProviderId — either the ProviderId itself (child providers such
-                    // as "codex.spark") or canonical+CardId combination (e.g. parent "X" with CardId
-                    // "Y" maps to ChildProviderId "X.Y").
-                    var childId = string.Equals(usage.ProviderId, usageDef.ProviderId, StringComparison.OrdinalIgnoreCase)
-                        && !string.IsNullOrWhiteSpace(usage.CardId)
-                            ? $"{usageDef.ProviderId}.{usage.CardId}"
-                            : usage.ProviderId;
-
-                    var windowMatch = usageDef.QuotaWindows.FirstOrDefault(w =>
-                        !string.IsNullOrWhiteSpace(w.ChildProviderId) &&
-                        string.Equals(w.ChildProviderId, childId, StringComparison.OrdinalIgnoreCase));
-
-                    if (windowMatch != null)
-                    {
-                        usage.WindowKind = windowMatch.Kind;
-                    }
+                    usage.WindowKind = windowMatch.Kind;
                 }
-
-                usage.ProviderName = ProviderMetadataCatalog.ResolveDisplayLabel(usage.ProviderId ?? string.Empty, usage.ProviderName);
-
-                ApplyUpstreamResponseValidity(usage);
-                MarkStaleIfOutdated(usage, now);
             }
 
-            return results;
+            usage.ProviderName = ProviderMetadataCatalog.ResolveDisplayLabel(usage.ProviderId ?? string.Empty, usage.ProviderName);
+
+            ApplyUpstreamResponseValidity(usage);
+            MarkStaleIfOutdated(usage, now);
         }
-        finally
-        {
-            this._semaphore.Release();
-        }
+
+        return results;
     }
 
     /// <summary>
@@ -779,13 +776,10 @@ public class UsageDatabase : IUsageDatabase
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(limit, 10_000);
-        await this._semaphore.WaitAsync().ConfigureAwait(false);
-        try
-        {
-            using var connection = new SqliteConnection(this._connectionString);
-            await connection.OpenAsync().ConfigureAwait(false);
 
-            var sql = $@"
+        using var connection = await this.OpenReadConnectionAsync().ConfigureAwait(false);
+
+        var sql = $@"
                 SELECT h.provider_id AS ProviderId, p.provider_name AS ProviderName,
                        h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
                        h.requests_percentage AS UsedPercent, h.is_available AS IsAvailable,
@@ -800,32 +794,24 @@ public class UsageDatabase : IUsageDatabase
                 ORDER BY h.fetched_at DESC
                 LIMIT {limit}";
 
-            var results = (await connection.QueryAsync<ProviderUsage>(sql).ConfigureAwait(false)).ToList();
+        var results = (await connection.QueryAsync<ProviderUsage>(sql).ConfigureAwait(false)).ToList();
 
-            foreach (var usage in results)
-            {
-                ApplyUpstreamResponseValidity(usage);
-            }
-
-            return results;
-        }
-        finally
+        foreach (var usage in results)
         {
-            this._semaphore.Release();
+            ApplyUpstreamResponseValidity(usage);
         }
+
+        return results;
     }
 
     public async Task<IReadOnlyList<ProviderUsage>> GetHistoryByProviderAsync(string providerId, int limit = 100)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(limit, 10_000);
-        await this._semaphore.WaitAsync().ConfigureAwait(false);
-        try
-        {
-            using var connection = new SqliteConnection(this._connectionString);
-            await connection.OpenAsync().ConfigureAwait(false);
 
-            var sql = $@"
+        using var connection = await this.OpenReadConnectionAsync().ConfigureAwait(false);
+
+        var sql = $@"
                 SELECT h.provider_id AS ProviderId, p.provider_name AS ProviderName,
                        h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
                        h.requests_percentage AS UsedPercent, h.is_available AS IsAvailable,
@@ -841,32 +827,24 @@ public class UsageDatabase : IUsageDatabase
                 ORDER BY h.fetched_at DESC
                 LIMIT {limit}";
 
-            var results = (await connection.QueryAsync<ProviderUsage>(sql, new { ProviderId = providerId }).ConfigureAwait(false)).ToList();
+        var results = (await connection.QueryAsync<ProviderUsage>(sql, new { ProviderId = providerId }).ConfigureAwait(false)).ToList();
 
-            foreach (var usage in results)
-            {
-                ApplyUpstreamResponseValidity(usage);
-            }
-
-            return results;
-        }
-        finally
+        foreach (var usage in results)
         {
-            this._semaphore.Release();
+            ApplyUpstreamResponseValidity(usage);
         }
+
+        return results;
     }
 
     public async Task<IReadOnlyList<ProviderUsage>> GetRecentHistoryAsync(int countPerProvider)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(countPerProvider);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(countPerProvider, 10_000);
-        await this._semaphore.WaitAsync().ConfigureAwait(false);
-        try
-        {
-            using var connection = new SqliteConnection(this._connectionString);
-            await connection.OpenAsync().ConfigureAwait(false);
 
-            var sql = $@"
+        using var connection = await this.OpenReadConnectionAsync().ConfigureAwait(false);
+
+        var sql = $@"
                 WITH RankedHistory AS (
                     SELECT h.provider_id AS ProviderId, p.provider_name AS ProviderName,
                            h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
@@ -888,30 +866,21 @@ public class UsageDatabase : IUsageDatabase
                 WHERE pos <= @Count
                 ORDER BY ProviderId, FetchedAt DESC";
 
-            var results = (await connection.QueryAsync<ProviderUsage>(sql, new { Count = countPerProvider }).ConfigureAwait(false)).ToList();
+        var results = (await connection.QueryAsync<ProviderUsage>(sql, new { Count = countPerProvider }).ConfigureAwait(false)).ToList();
 
-            foreach (var usage in results)
-            {
-                ApplyUpstreamResponseValidity(usage);
-            }
-
-            return results;
-        }
-        finally
+        foreach (var usage in results)
         {
-            this._semaphore.Release();
+            ApplyUpstreamResponseValidity(usage);
         }
+
+        return results;
     }
 
     public async Task<IReadOnlyList<ResetEvent>> GetResetEventsAsync(string providerId, int limit = 50)
     {
-        await this._semaphore.WaitAsync().ConfigureAwait(false);
-        try
-        {
-            using var connection = new SqliteConnection(this._connectionString);
-            await connection.OpenAsync().ConfigureAwait(false);
+        using var connection = await this.OpenReadConnectionAsync().ConfigureAwait(false);
 
-            var sql = $@"
+        var sql = $@"
                 SELECT id AS Id, provider_id AS ProviderId, provider_name AS ProviderName,
                        previous_usage AS PreviousUsage, new_usage AS NewUsage,
                        reset_type AS ResetType, timestamp AS Timestamp
@@ -920,29 +889,15 @@ public class UsageDatabase : IUsageDatabase
                 ORDER BY timestamp DESC
                 LIMIT {limit}";
 
-            var results = await connection.QueryAsync<ResetEvent>(sql, new { ProviderId = providerId }).ConfigureAwait(false);
-            return results.ToList();
-        }
-        finally
-        {
-            this._semaphore.Release();
-        }
+        var results = await connection.QueryAsync<ResetEvent>(sql, new { ProviderId = providerId }).ConfigureAwait(false);
+        return results.ToList();
     }
 
     public async Task<bool> IsHistoryEmptyAsync()
     {
-        await this._semaphore.WaitAsync().ConfigureAwait(false);
-        try
-        {
-            using var connection = new SqliteConnection(this._connectionString);
-            await connection.OpenAsync().ConfigureAwait(false);
-            var count = await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM provider_history").ConfigureAwait(false);
-            return count == 0;
-        }
-        finally
-        {
-            this._semaphore.Release();
-        }
+        using var connection = await this.OpenReadConnectionAsync().ConfigureAwait(false);
+        var count = await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM provider_history").ConfigureAwait(false);
+        return count == 0;
     }
 
     public async Task SetProviderActiveAsync(string providerId, bool isActive)
@@ -950,8 +905,7 @@ public class UsageDatabase : IUsageDatabase
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = new SqliteConnection(this._connectionString);
-            await connection.OpenAsync().ConfigureAwait(false);
+            using var connection = await this.OpenWriteConnectionAsync().ConfigureAwait(false);
 
             await connection.ExecuteAsync(
                 "UPDATE providers SET is_active = @IsActive, updated_at = CURRENT_TIMESTAMP WHERE provider_id = @ProviderId",

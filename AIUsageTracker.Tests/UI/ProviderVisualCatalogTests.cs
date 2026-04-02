@@ -12,7 +12,7 @@ namespace AIUsageTracker.Tests.UI;
 public class ProviderVisualCatalogTests
 {
     [Theory]
-    [InlineData("codex.spark", "codex", "openai")]
+    [InlineData("codex.spark", "codex.spark", "openai")]
     [InlineData("antigravity.claude-opus", "antigravity", "google")]
     [InlineData("minimax-io", "minimax", "minimax")]
     [InlineData("zai-coding-plan", "zai-coding-plan", "zai")]

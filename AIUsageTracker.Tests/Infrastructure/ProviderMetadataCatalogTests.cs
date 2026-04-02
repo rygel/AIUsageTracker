@@ -20,10 +20,9 @@ public class ProviderMetadataCatalogTests
                 type.IsClass &&
                 !type.IsAbstract &&
                 typeof(IProviderService).IsAssignableFrom(type))
-            .Select(type => type.GetProperty(
-                "StaticDefinition",
-                BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy))
-            .Select(property => Assert.IsType<ProviderDefinition>(property?.GetValue(null)))
+            .SelectMany(type => type.GetProperties(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)
+                .Where(property => property.PropertyType == typeof(ProviderDefinition)))
+            .Select(property => Assert.IsType<ProviderDefinition>(property.GetValue(null)))
             .Select(definition => definition.ProviderId)
             .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -37,7 +36,7 @@ public class ProviderMetadataCatalogTests
     }
 
     [Theory]
-    [InlineData("codex.spark", "codex", "OpenAI (GPT-5.3 Codex Spark)")]
+    [InlineData("codex.spark", "codex.spark", "OpenAI (GPT-5.3 Codex Spark)")]
     [InlineData("gemini", "gemini-cli", "Google Gemini")]
     [InlineData("gemini-cli.hourly", "gemini-cli", "Gemini CLI (Hourly)")]
     [InlineData("gemini-cli.daily", "gemini-cli", "Gemini CLI (Daily)")]
@@ -121,7 +120,7 @@ public class ProviderMetadataCatalogTests
     }
 
     [Theory]
-    [InlineData("codex.spark", "codex")]
+    [InlineData("codex.spark", "codex.spark")]
     [InlineData("antigravity.claude-opus", "antigravity")]
     [InlineData("kimi", "kimi-for-coding")]
     [InlineData("minimax-io", "minimax")]
@@ -134,7 +133,7 @@ public class ProviderMetadataCatalogTests
 
     [Theory]
     [InlineData("gemini", "gemini-cli.hourly", true)]
-    [InlineData("codex", "codex.spark", true)]
+    [InlineData("codex", "codex.spark", false)]
     [InlineData("antigravity", "antigravity.gemini-3-flash", true)]
     [InlineData("openai", "openai.spark", false)]
     [InlineData("unknown-provider", "unknown-provider.child", false)]
@@ -145,7 +144,7 @@ public class ProviderMetadataCatalogTests
 
     [Theory]
     [InlineData("gemini-cli.hourly", true)]
-    [InlineData("codex.spark", true)]
+    [InlineData("codex.spark", false)]
     [InlineData("antigravity.gemini-3-flash", true)]
     [InlineData("gemini", false)]
     [InlineData("openai.spark", false)]
@@ -159,7 +158,7 @@ public class ProviderMetadataCatalogTests
     [Theory]
     [InlineData("antigravity", "antigravity.gemini-3-flash", true, "gemini-3-flash")]
     [InlineData("gemini", "gemini-cli.hourly", true, "hourly")]
-    [InlineData("codex", "codex.spark", true, "spark")]
+    [InlineData("codex", "codex.spark", false, "")]
     [InlineData("openai", "openai.spark", false, "")]
     public void TryGetChildProviderKey_UsesProviderDefinitions(
         string providerId,
@@ -347,7 +346,7 @@ public class ProviderMetadataCatalogTests
     }
 
     [Theory]
-    [InlineData("codex.spark", true)]
+    [InlineData("codex.spark", false)]
     [InlineData("codex", false)]
     [InlineData("openai", false)]
     public void IsVisibleDerivedProviderId_UsesProviderDefinitions(string providerId, bool expected)

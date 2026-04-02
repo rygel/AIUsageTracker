@@ -151,6 +151,61 @@ public class DialogOpenBehaviorTests
     }
 
     [Fact]
+    public Task SettingsWindow_DisplayControlsApplyToPreferencesThroughSinglePathAsync()
+    {
+        return RunInStaAsync(() =>
+        {
+            EnsureAppCreated();
+
+            var preferences = new AppPreferences
+            {
+                ShowUsedPercentages = false,
+                ShowUsagePerHour = false,
+                ShowDualQuotaBars = true,
+                DualQuotaSingleBarMode = DualQuotaSingleBarMode.Rolling,
+                EnablePaceAdjustment = true,
+                UseRelativeResetTime = false,
+                ColorThresholdYellow = 60,
+                ColorThresholdRed = 80,
+            };
+            var settingsWindow = (SettingsWindow)FormatterServices.GetUninitializedObject(typeof(SettingsWindow));
+            var dualModeCombo = new ComboBox
+            {
+                ItemsSource = new[]
+                {
+                    new { Value = DualQuotaSingleBarMode.Rolling },
+                    new { Value = DualQuotaSingleBarMode.Burst },
+                },
+                SelectedValuePath = "Value",
+                SelectedIndex = 1,
+            };
+
+            SetPrivateField(settingsWindow, "_preferences", preferences);
+            SetPrivateField(settingsWindow, "ShowUsedPercentagesCheck", new CheckBox { IsChecked = true });
+            SetPrivateField(settingsWindow, "ShowUsagePerHourCheck", new CheckBox { IsChecked = true });
+            SetPrivateField(settingsWindow, "ShowDualQuotaBarsCheck", new CheckBox { IsChecked = false });
+            SetPrivateField(settingsWindow, "DualQuotaBarWindowCombo", dualModeCombo);
+            SetPrivateField(settingsWindow, "EnablePaceAdjustmentCheck", new CheckBox { IsChecked = false });
+            SetPrivateField(settingsWindow, "UseRelativeResetTimeCheck", new CheckBox { IsChecked = true });
+            SetPrivateField(settingsWindow, "YellowThreshold", new TextBox { Text = "55" });
+            SetPrivateField(settingsWindow, "RedThreshold", new TextBox { Text = "85" });
+
+            InvokePrivateMethod(settingsWindow, "ApplyDisplayPreferencesFromControls");
+
+            Assert.True(preferences.ShowUsedPercentages);
+            Assert.True(preferences.ShowUsagePerHour);
+            Assert.False(preferences.ShowDualQuotaBars);
+            Assert.Equal(DualQuotaSingleBarMode.Burst, preferences.DualQuotaSingleBarMode);
+            Assert.False(preferences.EnablePaceAdjustment);
+            Assert.True(preferences.UseRelativeResetTime);
+            Assert.Equal(55, preferences.ColorThresholdYellow);
+            Assert.Equal(85, preferences.ColorThresholdRed);
+
+            return Task.CompletedTask;
+        });
+    }
+
+    [Fact]
     public Task OpenSettingsDialogAsync_WhenSettingsChanged_ReloadsEnablePaceAdjustmentFromStoreAsync()
     {
         return RunInStaAsync(async () =>

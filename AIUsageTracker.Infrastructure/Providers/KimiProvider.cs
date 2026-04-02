@@ -63,7 +63,7 @@ public class KimiProvider : ProviderBase
             if (!response.IsSuccessStatusCode)
             {
                 this._logger.LogWarning("Failed to fetch Kimi usage: {StatusCode}", response.StatusCode);
-                return new[] { this.CreateUnavailableUsageFromStatus(response, authSource: config.AuthSource) };
+                return new[] { this.CreateUnavailableUsage(DescribeUnavailableStatus(response.StatusCode), (int)response.StatusCode, authSource: config.AuthSource) };
             }
 
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -245,7 +245,7 @@ public class KimiProvider : ProviderBase
         catch (Exception ex)
         {
             this._logger.LogError(ex, "Kimi check failed");
-            return new[] { this.CreateUnavailableUsageFromException(ex, authSource: config.AuthSource) };
+            return new[] { this.CreateUnavailableUsage(DescribeUnavailableException(ex), authSource: config.AuthSource) };
         }
     }
 

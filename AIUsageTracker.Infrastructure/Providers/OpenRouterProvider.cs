@@ -81,7 +81,7 @@ public class OpenRouterProvider : ProviderBase
                     "OpenRouter credits API failed with status {StatusCode}. Response: {Response}",
                     response.StatusCode,
                     creditsResponseBody);
-                return new[] { this.CreateUnavailableUsageFromStatus(response) };
+                return new[] { this.CreateUnavailableUsage(DescribeUnavailableStatus(response.StatusCode), (int)response.StatusCode) };
             }
 
             try
@@ -118,9 +118,8 @@ public class OpenRouterProvider : ProviderBase
             this._logger.LogError(ex, "Exception while calling OpenRouter credits API");
             return new[]
             {
-                this.CreateUnavailableUsageFromException(
-                ex,
-                context: "Credits API call failed"),
+                this.CreateUnavailableUsage(
+                    DescribeUnavailableException(ex, "Credits API call failed")),
             };
         }
 

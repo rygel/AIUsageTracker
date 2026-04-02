@@ -180,18 +180,19 @@ public sealed class GroupedUsageProjectionServiceTests
     }
 
     [Fact]
-    public void Build_CodexAndSpark_ProjectAsOneGroupWithFourFlatCards()
+    public void Build_CodexAndSpark_ProjectAsTwoSeparateGroupsWithDualBarCards()
     {
-        // codex.spark is a child of codex (FlatWindowCards family mode).
-        // All 4 quota windows (burst, weekly, spark.burst, spark.weekly) are
-        // projected as flat model cards within the single "codex" group.
+        // codex and codex.spark are now standalone canonical providers (FamilyMode = Standalone).
+        // Each emits a Burst + Rolling pair, resulting in two separate groups.
+        // Neither group produces flat model cards — the window-kind cards populate ProviderDetails instead.
         var usages = new[]
         {
             new ProviderUsage
             {
                 ProviderId = "codex",
                 CardId = "burst",
-                Name = "5-hour quota",
+                GroupId = "codex",
+                Name = "5h",
                 WindowKind = WindowKind.Burst,
                 IsAvailable = true,
                 IsQuotaBased = true,
@@ -203,7 +204,8 @@ public sealed class GroupedUsageProjectionServiceTests
             {
                 ProviderId = "codex",
                 CardId = "weekly",
-                Name = "Weekly quota",
+                GroupId = "codex",
+                Name = "Weekly",
                 WindowKind = WindowKind.Rolling,
                 IsAvailable = true,
                 IsQuotaBased = true,
@@ -215,7 +217,8 @@ public sealed class GroupedUsageProjectionServiceTests
             {
                 ProviderId = "codex.spark",
                 CardId = "spark.burst",
-                Name = "Spark 5-hour quota",
+                GroupId = "codex.spark",
+                Name = "5h",
                 WindowKind = WindowKind.Burst,
                 IsAvailable = true,
                 IsQuotaBased = true,
@@ -227,7 +230,8 @@ public sealed class GroupedUsageProjectionServiceTests
             {
                 ProviderId = "codex.spark",
                 CardId = "spark.weekly",
-                Name = "Spark weekly quota",
+                GroupId = "codex.spark",
+                Name = "Weekly",
                 WindowKind = WindowKind.Rolling,
                 IsAvailable = true,
                 IsQuotaBased = true,
@@ -239,13 +243,19 @@ public sealed class GroupedUsageProjectionServiceTests
 
         var snapshot = GroupedUsageProjectionService.Build(usages);
 
-        // One "codex" group containing all 4 flat window cards.
-        var codex = Assert.Single(snapshot.Providers);
-        Assert.Equal("codex", codex.ProviderId);
-        Assert.Equal(4, codex.Models.Count);
-        Assert.Contains(codex.Models, m => m.ModelId == "burst");
-        Assert.Contains(codex.Models, m => m.ModelId == "weekly");
-        Assert.Contains(codex.Models, m => m.ModelId == "spark.burst");
-        Assert.Contains(codex.Models, m => m.ModelId == "spark.weekly");
+        // Two separate groups — each with no flat model cards and a pair of ProviderDetails entries.
+        Assert.Equal(2, snapshot.Providers.Count);
+
+        var codex = Assert.Single(snapshot.Providers, p => string.Equals(p.ProviderId, "codex", StringComparison.Ordinal));
+        Assert.Equal(0, codex.Models.Count);
+        Assert.Equal(2, codex.ProviderDetails.Count);
+        Assert.Contains(codex.ProviderDetails, d => d.CardId == "burst" && d.WindowKind == WindowKind.Burst);
+        Assert.Contains(codex.ProviderDetails, d => d.CardId == "weekly" && d.WindowKind == WindowKind.Rolling);
+
+        var spark = Assert.Single(snapshot.Providers, p => string.Equals(p.ProviderId, "codex.spark", StringComparison.Ordinal));
+        Assert.Equal(0, spark.Models.Count);
+        Assert.Equal(2, spark.ProviderDetails.Count);
+        Assert.Contains(spark.ProviderDetails, d => d.CardId == "spark.burst" && d.WindowKind == WindowKind.Burst);
+        Assert.Contains(spark.ProviderDetails, d => d.CardId == "spark.weekly" && d.WindowKind == WindowKind.Rolling);
     }
 }
