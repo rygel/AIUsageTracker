@@ -4,6 +4,7 @@
 
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Monitor.Services;
+using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
@@ -214,6 +215,29 @@ public class ProviderUsageProcessingPipelineTests
         var result = this._pipeline.Process(
             new[] { usage },
             new[] { "antigravity" },
+            isPrivacyMode: false);
+
+        Assert.Single(result.Usages);
+        Assert.Equal(0, result.InactiveProviderFilteredCount);
+    }
+
+    [Fact]
+    public void Process_WhenUsageIsCoReportedByActiveProvider_KeepsEntry()
+    {
+        var usage = new ProviderUsage
+        {
+            ProviderId = "codex.spark",
+            ProviderName = "OpenAI (GPT-5.3 Codex Spark)",
+            RequestsUsed = 12,
+            RequestsAvailable = 100,
+            UsedPercent = 12,
+            IsAvailable = true,
+        };
+
+        var activeProviderIds = ProviderMetadataCatalog.ExpandAcceptedUsageProviderIds(new[] { "codex" });
+        var result = this._pipeline.Process(
+            new[] { usage },
+            activeProviderIds.ToArray(),
             isPrivacyMode: false);
 
         Assert.Single(result.Usages);
@@ -592,7 +616,8 @@ public class ProviderUsageProcessingPipelineTests
     /// <summary>
     /// Regression test for the bug introduced in commit 0090b52c.
     /// codex.spark cards emitted by the codex provider must pass the authority stage
-    /// because codex (FlatWindowCards) handles codex.spark as a child via prefix match.
+    /// because codex.StaticDefinition declares codex.spark in CoReportedProviderIds,
+    /// and ExpandAcceptedUsageProviderIds includes co-reported IDs in the accepted set.
     /// </summary>
     [Fact]
     public void Process_CodexSparkCard_PassesAuthorityViaCodexDefinition()
@@ -603,7 +628,7 @@ public class ProviderUsageProcessingPipelineTests
             ProviderName = "OpenAI (GPT-5.3 Codex Spark)",
             CardId = "spark.burst",
             GroupId = "codex",
-            Name = "Spark 5-hour quota",
+            Name = "5h",
             WindowKind = WindowKind.Burst,
             UsedPercent = 15,
             IsAvailable = true,
@@ -611,10 +636,12 @@ public class ProviderUsageProcessingPipelineTests
         };
 
         // Active provider is "codex" — the codex API call emits both codex and codex.spark cards.
-        // codex.StaticDefinition (FlatWindowCards) handles codex.spark via prefix-based child match.
+        // codex.StaticDefinition.CoReportedProviderIds includes "codex.spark", so
+        // ExpandAcceptedUsageProviderIds("codex") also accepts "codex.spark" cards.
+        var expandedIds = ProviderMetadataCatalog.ExpandAcceptedUsageProviderIds(new[] { "codex" });
         var result = this._pipeline.Process(
             new[] { sparkBurst },
-            activeProviderIds: new[] { "codex" },
+            activeProviderIds: expandedIds,
             isPrivacyMode: false);
 
         var processed = Assert.Single(result.Usages);

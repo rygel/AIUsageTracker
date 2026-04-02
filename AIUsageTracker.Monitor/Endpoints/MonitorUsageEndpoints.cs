@@ -13,6 +13,8 @@ namespace AIUsageTracker.Monitor.Endpoints;
 
 internal static class MonitorUsageEndpoints
 {
+    private const string UsageCacheControlHeader = "private, max-age=5, must-revalidate";
+
     public static void Map(WebApplication app)
     {
         MapGetUsage(app);
@@ -24,8 +26,9 @@ internal static class MonitorUsageEndpoints
 
     private static void MapGetUsage(WebApplication app)
     {
-        app.MapGet(MonitorApiRoutes.Usage, async (UsageDatabase db, ILogger<Program> logger) =>
+        app.MapGet(MonitorApiRoutes.Usage, async (HttpResponse response, UsageDatabase db, ILogger<Program> logger) =>
         {
+            ApplyUsageCachingHeaders(response);
             var usage = await db.GetLatestHistoryAsync().ConfigureAwait(false);
 
             logger.LogDebug(
@@ -39,16 +42,23 @@ internal static class MonitorUsageEndpoints
 
     private static void MapGetGroupedUsage(WebApplication app)
     {
-        app.MapGet(MonitorApiRoutes.UsageGrouped, async (CachedGroupedUsageProjectionService projectionService, ILogger<Program> logger) =>
+        app.MapGet(MonitorApiRoutes.UsageGrouped, async (HttpRequest request, HttpResponse response, CachedGroupedUsageProjectionService projectionService, ILogger<Program> logger) =>
         {
-            var snapshot = await projectionService.GetGroupedUsageAsync().ConfigureAwait(false);
+            var cacheEntry = await projectionService.GetGroupedUsageWithMetadataAsync().ConfigureAwait(false);
+            ApplyUsageCachingHeaders(response, cacheEntry.ETag);
+
+            if (IsNotModified(request, cacheEntry.ETag))
+            {
+                logger.LogDebug("GET {Route} returning 304 Not Modified", MonitorApiRoutes.UsageGrouped);
+                return Results.StatusCode(StatusCodes.Status304NotModified);
+            }
 
             logger.LogDebug(
                 "GET {Route} returning {Count} grouped providers",
                 MonitorApiRoutes.UsageGrouped,
-                snapshot.Providers.Count);
+                cacheEntry.Snapshot.Providers.Count);
 
-            return Results.Ok(snapshot);
+            return Results.Ok(cacheEntry.Snapshot);
         });
     }
 
@@ -118,5 +128,43 @@ internal static class MonitorUsageEndpoints
             .ToArray();
 
         return parsed.Length == 0 ? null : parsed;
+    }
+
+    private static void ApplyUsageCachingHeaders(HttpResponse response, string? eTag = null)
+    {
+        response.Headers.CacheControl = UsageCacheControlHeader;
+
+        if (!string.IsNullOrWhiteSpace(eTag))
+        {
+            response.Headers.ETag = eTag;
+            response.Headers.Vary = "If-None-Match";
+        }
+    }
+
+    private static bool IsNotModified(HttpRequest request, string currentETag)
+    {
+        if (!request.Headers.TryGetValue("If-None-Match", out var headerValues))
+        {
+            return false;
+        }
+
+        foreach (var rawHeader in headerValues)
+        {
+            if (string.IsNullOrWhiteSpace(rawHeader))
+            {
+                continue;
+            }
+
+            foreach (var candidate in rawHeader.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (string.Equals(candidate, "*", StringComparison.Ordinal) ||
+                    string.Equals(candidate, currentETag, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

@@ -11,6 +11,7 @@ using System.Net.NetworkInformation;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using AIUsageTracker.Core.Helpers;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Providers;
 using AIUsageTracker.Infrastructure.Helpers;
@@ -521,7 +522,7 @@ public class AntigravityProvider : ProviderBase
         {
             var resolved = new[] { "name", "label", "title", "id", "sortName", "sort_name" }
                 .Where(key => sort.ExtensionData.TryGetValue(key, out _))
-                .Select(key => TryReadStringFromJsonElement(sort.ExtensionData[key]))
+                .Select(key => sort.ExtensionData[key].ReadString())
                 .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
             if (resolved != null)
@@ -564,7 +565,7 @@ public class AntigravityProvider : ProviderBase
         {
             var resolved = new[] { "name", "label", "title", "groupName", "displayName", "group_label", "group_name" }
                 .Where(key => group.ExtensionData.TryGetValue(key, out _))
-                .Select(key => TryReadStringFromJsonElement(group.ExtensionData[key]))
+                .Select(key => group.ExtensionData[key].ReadString())
                 .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
             if (resolved != null)
@@ -576,23 +577,6 @@ public class AntigravityProvider : ProviderBase
         return string.IsNullOrWhiteSpace(sortName)
             ? $"Group {index + 1}"
             : $"{sortName} Group {index + 1}";
-    }
-
-    private static string? TryReadStringFromJsonElement(JsonElement element)
-    {
-        if (element.ValueKind == JsonValueKind.String)
-        {
-            return element.GetString();
-        }
-
-        if (element.ValueKind == JsonValueKind.Object)
-        {
-            return new[] { "name", "label", "title", "displayName" }
-                .Select(key => element.TryGetProperty(key, out var nested) && nested.ValueKind == JsonValueKind.String ? nested.GetString() : null)
-                .FirstOrDefault(value => value != null);
-        }
-
-        return null;
     }
 
     private List<(int Pid, string Token, int? Port)> FindProcessInfos()

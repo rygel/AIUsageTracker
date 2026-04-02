@@ -111,6 +111,63 @@ public class MonitorServiceTests
     }
 
     [Fact]
+    public async Task GetGroupedUsageAsync_WhenSnapshotIsUnchanged_UsesCachedResponseOn304Async()
+    {
+        var requestHeaders = new List<string?>();
+        var snapshot = new AgentGroupedUsageSnapshot
+        {
+            ContractVersion = MonitorService.ExpectedApiContractVersion,
+            Providers = new[]
+            {
+                new AgentGroupedProviderUsage
+                {
+                    ProviderId = "openai",
+                    ProviderName = "OpenAI",
+                    IsAvailable = true,
+                },
+            },
+        };
+
+        var responseCount = 0;
+        this._mockHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .Returns<HttpRequestMessage, CancellationToken>((request, _) =>
+            {
+                requestHeaders.Add(request.Headers.IfNoneMatch.FirstOrDefault()?.ToString());
+                responseCount++;
+
+                if (responseCount == 1)
+                {
+                    var response = new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = JsonContent.Create(snapshot, options: new JsonSerializerOptions
+                        {
+                            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+                        }),
+                    };
+                    response.Headers.ETag = new System.Net.Http.Headers.EntityTagHeaderValue("\"grouped-usage-v1\"");
+                    return Task.FromResult(response);
+                }
+
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotModified));
+            });
+
+        var first = await this._service.GetGroupedUsageAsync();
+        var second = await this._service.GetGroupedUsageAsync();
+
+        Assert.NotNull(first);
+        Assert.NotNull(second);
+        Assert.Equal("openai", Assert.Single(second!.Providers).ProviderId);
+        Assert.Equal(2, requestHeaders.Count);
+        Assert.Null(requestHeaders[0]);
+        Assert.Equal("\"grouped-usage-v1\"", requestHeaders[1]);
+        this.VerifyPath("/api/usage/grouped");
+    }
+
+    [Fact]
     public async Task GetUsageAsync_RevalidatesEndpointBeforeRequestAsync()
     {
         var tempDirectory = this.CreateTempDirectory();

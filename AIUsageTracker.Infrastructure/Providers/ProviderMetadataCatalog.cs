@@ -181,6 +181,32 @@ public static class ProviderMetadataCatalog
             .ToList();
     }
 
+    public static IReadOnlySet<string> ExpandAcceptedUsageProviderIds(IEnumerable<string> providerIds)
+    {
+        ArgumentNullException.ThrowIfNull(providerIds);
+
+        var expanded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var providerId in providerIds.Where(id => !string.IsNullOrWhiteSpace(id)))
+        {
+            expanded.Add(providerId);
+            var definition = Find(providerId);
+            if (definition == null)
+            {
+                continue;
+            }
+
+            foreach (var coReportedProviderId in definition.CoReportedProviderIds)
+            {
+                if (!string.IsNullOrWhiteSpace(coReportedProviderId))
+                {
+                    expanded.Add(coReportedProviderId);
+                }
+            }
+        }
+
+        return expanded;
+    }
+
     public static bool ShouldPersistProviderId(string providerId)
     {
         if (string.IsNullOrWhiteSpace(providerId))
@@ -243,6 +269,7 @@ public static class ProviderMetadataCatalog
             AntigravityProvider.StaticDefinition,
             ClaudeCodeProvider.StaticDefinition,
             CodexProvider.StaticDefinition,
+            CodexProvider.SparkDefinition,
             DeepSeekProvider.StaticDefinition,
             GeminiProvider.StaticDefinition,
             GitHubCopilotProvider.StaticDefinition,

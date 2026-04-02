@@ -2,18 +2,24 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+
 using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 
 namespace AIUsageTracker.Monitor.Services;
 
-internal sealed class CachedGroupedUsageProjectionService
+public sealed class CachedGroupedUsageProjectionService
 {
     private static readonly TimeSpan CacheDuration = TimeSpan.FromSeconds(30);
 
     private readonly IUsageDatabase _database;
     private readonly object _lock = new();
     private AgentGroupedUsageSnapshot? _cachedSnapshot;
+    private string? _cachedETag;
     private DateTime _cacheTimestamp = DateTime.MinValue;
 
     public CachedGroupedUsageProjectionService(IUsageDatabase database)
@@ -23,24 +29,34 @@ internal sealed class CachedGroupedUsageProjectionService
 
     public async Task<AgentGroupedUsageSnapshot> GetGroupedUsageAsync()
     {
+        var entry = await this.GetGroupedUsageWithMetadataAsync().ConfigureAwait(false);
+        return entry.Snapshot;
+    }
+
+    internal async Task<GroupedUsageCacheEntry> GetGroupedUsageWithMetadataAsync()
+    {
         lock (this._lock)
         {
-            if (this._cachedSnapshot != null && DateTime.UtcNow - this._cacheTimestamp < CacheDuration)
+            if (this._cachedSnapshot != null &&
+                this._cachedETag != null &&
+                DateTime.UtcNow - this._cacheTimestamp < CacheDuration)
             {
-                return this._cachedSnapshot;
+                return new GroupedUsageCacheEntry(this._cachedSnapshot, this._cachedETag);
             }
         }
 
         var usage = await this._database.GetLatestHistoryAsync().ConfigureAwait(false);
         var snapshot = GroupedUsageProjectionService.Build(usage);
+        var eTag = CreateUsageETag(usage);
 
         lock (this._lock)
         {
             this._cachedSnapshot = snapshot;
+            this._cachedETag = eTag;
             this._cacheTimestamp = DateTime.UtcNow;
         }
 
-        return snapshot;
+        return new GroupedUsageCacheEntry(snapshot, eTag);
     }
 
     public void Invalidate()
@@ -48,7 +64,36 @@ internal sealed class CachedGroupedUsageProjectionService
         lock (this._lock)
         {
             this._cachedSnapshot = null;
+            this._cachedETag = null;
             this._cacheTimestamp = DateTime.MinValue;
         }
     }
+
+    private static string CreateUsageETag(IReadOnlyList<ProviderUsage> usages)
+    {
+        var payload = usages.Select(usage => new
+        {
+            usage.ProviderId,
+            usage.CardId,
+            usage.GroupId,
+            usage.ParentProviderId,
+            usage.WindowKind,
+            usage.ModelName,
+            usage.Name,
+            usage.IsAvailable,
+            usage.RequestsUsed,
+            usage.RequestsAvailable,
+            usage.UsedPercent,
+            usage.HttpStatus,
+            usage.Description,
+            usage.FetchedAt,
+            usage.NextResetTime,
+        });
+
+        var json = JsonSerializer.Serialize(payload);
+        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(json));
+        return $"\"{Convert.ToHexString(hashBytes)}\"";
+    }
+
+    internal sealed record GroupedUsageCacheEntry(AgentGroupedUsageSnapshot Snapshot, string ETag);
 }

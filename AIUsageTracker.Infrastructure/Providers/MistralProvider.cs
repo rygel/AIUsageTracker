@@ -84,12 +84,12 @@ public class MistralProvider : ProviderBase
                         HttpStatus = (int)response.StatusCode,
                     },
                 }
-                : new[] { this.CreateUnavailableUsageFromStatus(response) };
+                : new[] { this.CreateUnavailableUsage(DescribeUnavailableStatus(response.StatusCode), (int)response.StatusCode) };
         }
         catch (Exception ex)
         {
             this._logger.LogError(ex, "Failed to verify Mistral API key");
-            return new[] { this.CreateUnavailableUsageFromException(ex, "Failed to verify Mistral API key") };
+            return new[] { this.CreateUnavailableUsage(DescribeUnavailableException(ex, "Failed to verify Mistral API key")) };
         }
     }
 }

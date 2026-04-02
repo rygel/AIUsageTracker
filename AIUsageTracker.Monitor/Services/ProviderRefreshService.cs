@@ -173,11 +173,8 @@ public class ProviderRefreshService : BackgroundService
         string? refreshError = null;
         this._refreshTelemetryManager.RecordRefreshAttemptStarted(DateTime.UtcNow);
 
-        if (this.ProviderManager == null)
+        if (this.TryGetProviderManagerForRefresh(refreshStopwatch, refreshActivity) == null)
         {
-            this._logger.LogWarning("ProviderManager not ready");
-            this._refreshTelemetryManager.RecordRefreshTelemetry(refreshStopwatch.Elapsed, false, "ProviderManager not ready");
-            refreshActivity?.SetStatus(ActivityStatusCode.Error, "ProviderManager not ready");
             return;
         }
 
@@ -185,11 +182,9 @@ public class ProviderRefreshService : BackgroundService
         try
         {
             await this.EnsureProviderManagerConcurrencyAsync().ConfigureAwait(false);
-            if (this.ProviderManager == null)
+            var providerManager = this.TryGetProviderManagerForRefresh(refreshStopwatch, refreshActivity);
+            if (providerManager == null)
             {
-                this._logger.LogWarning("ProviderManager not ready");
-                this._refreshTelemetryManager.RecordRefreshTelemetry(refreshStopwatch.Elapsed, false, "ProviderManager not ready");
-                refreshActivity?.SetStatus(ActivityStatusCode.Error, "ProviderManager not ready");
                 return;
             }
 
@@ -225,7 +220,13 @@ public class ProviderRefreshService : BackgroundService
             IReadOnlyList<ProviderUsage>? refreshedUsages = null;
             if (refreshableConfigs.Count > 0 || circuitSkippedConfigs.Count > 0)
             {
-                refreshedUsages = await this.RefreshAndStoreProviderDataAsync(configs, refreshableConfigs, circuitSkippedConfigs, cancellationToken).ConfigureAwait(false);
+                refreshedUsages = await this.RefreshAndStoreProviderDataAsync(
+                        providerManager,
+                        configs,
+                        refreshableConfigs,
+                        circuitSkippedConfigs,
+                        cancellationToken)
+                    .ConfigureAwait(false);
             }
             else
             {
@@ -260,16 +261,12 @@ public class ProviderRefreshService : BackgroundService
     }
 
     private async Task<IReadOnlyList<ProviderUsage>> RefreshAndStoreProviderDataAsync(
+        ProviderManager providerManager,
         IList<ProviderConfig> allConfigs,
         IList<ProviderConfig> refreshableConfigs,
         IList<ProviderConfig> circuitSkippedConfigs,
         CancellationToken cancellationToken = default)
     {
-        if (this.ProviderManager == null)
-        {
-            throw new InvalidOperationException("ProviderManager not initialized");
-        }
-
         // Fetch live usage for providers whose circuit is closed.
         IEnumerable<ProviderUsage> usages = Enumerable.Empty<ProviderUsage>();
         if (refreshableConfigs.Count > 0)
@@ -282,7 +279,7 @@ public class ProviderRefreshService : BackgroundService
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray();
 
-            usages = await this.ProviderManager.GetAllUsageAsync(
+            usages = await providerManager.GetAllUsageAsync(
                 forceRefresh: true,
                 progressCallback: _ => { },
                 includeProviderIds: providerIdsToQuery,
@@ -310,6 +307,9 @@ public class ProviderRefreshService : BackgroundService
         {
             activeProviderIds.Add(skipped.ProviderId);
         }
+
+        activeProviderIds = ProviderMetadataCatalog.ExpandAcceptedUsageProviderIds(activeProviderIds)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         var prefs = await this._configService.GetPreferencesAsync().ConfigureAwait(false);
 
@@ -363,7 +363,7 @@ public class ProviderRefreshService : BackgroundService
     {
         if (this.ProviderManager == null)
         {
-            return (false, "ProviderManager not initialized", 503);
+            return ProviderManagerNotInitialized();
         }
 
         try
@@ -372,12 +372,13 @@ public class ProviderRefreshService : BackgroundService
             try
             {
                 await this.EnsureProviderManagerConcurrencyAsync().ConfigureAwait(false);
-                if (this.ProviderManager == null)
+                var providerManager = this.ProviderManager;
+                if (providerManager == null)
                 {
-                    return (false, "ProviderManager not initialized", 503);
+                    return ProviderManagerNotInitialized();
                 }
 
-                var usages = await this.ProviderManager.GetUsageAsync(providerId, cancellationToken).ConfigureAwait(false);
+                var usages = await providerManager.GetUsageAsync(providerId, cancellationToken).ConfigureAwait(false);
                 return await this._connectivityCheckService.EvaluateAsync(providerId, usages).ConfigureAwait(false);
             }
             finally
@@ -399,6 +400,26 @@ public class ProviderRefreshService : BackgroundService
     }
 
     private ProviderManager? ProviderManager => this._providerManagerLifecycle.CurrentManager;
+
+    private static (bool Success, string Message, int Status) ProviderManagerNotInitialized()
+    {
+        return (false, "ProviderManager not initialized", 503);
+    }
+
+    private ProviderManager? TryGetProviderManagerForRefresh(Stopwatch refreshStopwatch, Activity? refreshActivity)
+    {
+        var providerManager = this.ProviderManager;
+        if (providerManager != null)
+        {
+            return providerManager;
+        }
+
+        const string error = "ProviderManager not ready";
+        this._logger.LogWarning(error);
+        this._refreshTelemetryManager.RecordRefreshTelemetry(refreshStopwatch.Elapsed, false, error);
+        refreshActivity?.SetStatus(ActivityStatusCode.Error, error);
+        return null;
+    }
 
     private async Task<int> GetConfiguredMaxConcurrentProviderRequestsAsync()
     {

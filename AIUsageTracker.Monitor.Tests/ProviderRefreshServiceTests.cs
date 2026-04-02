@@ -535,6 +535,16 @@ public class ProviderRefreshServiceTests
         }
     }
 
+    [Fact]
+    public async Task CheckProviderAsync_WhenProviderManagerMissing_ReturnsServiceUnavailableAsync()
+    {
+        var (success, message, status) = await this._service.CheckProviderAsync("codex");
+
+        Assert.False(success);
+        Assert.Equal("ProviderManager not initialized", message);
+        Assert.Equal(503, status);
+    }
+
     private static PipelinePrivacyScenario CreatePipelinePrivacyScenario()
     {
         var files = CreatePipelineTestFiles();

@@ -312,7 +312,7 @@ public class ProviderManager : IDisposable
         Action<ProviderUsage>? progressCallback,
         CancellationToken cancellationToken = default)
     {
-        var provider = this._providers.FirstOrDefault(p => p.Definition.HandlesProviderId(config.ProviderId));
+        var provider = this._providers.FirstOrDefault(p => p.CanHandleProviderId(config.ProviderId));
         var defaults = this.ResolveDefaults(config.ProviderId, provider);
 
         if (provider == null)

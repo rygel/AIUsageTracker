@@ -11,13 +11,16 @@ namespace AIUsageTracker.Monitor.Services;
 public sealed class ProviderUsagePersistenceService
 {
     private readonly IUsageDatabase _database;
+    private readonly CachedGroupedUsageProjectionService? _groupedUsageProjectionCache;
     private readonly ILogger<ProviderUsagePersistenceService> _logger;
 
     public ProviderUsagePersistenceService(
         IUsageDatabase database,
-        ILogger<ProviderUsagePersistenceService> logger)
+        ILogger<ProviderUsagePersistenceService> logger,
+        CachedGroupedUsageProjectionService? groupedUsageProjectionCache = null)
     {
         this._database = database;
+        this._groupedUsageProjectionCache = groupedUsageProjectionCache;
         this._logger = logger;
     }
 
@@ -61,6 +64,7 @@ public sealed class ProviderUsagePersistenceService
     internal async Task StoreUsageHistoryAndSnapshotsAsync(List<ProviderUsage> filteredUsages)
     {
         await this._database.StoreHistoryAsync(filteredUsages).ConfigureAwait(false);
+        this._groupedUsageProjectionCache?.Invalidate();
         this._logger.LogDebug("Stored {Count} provider histories", filteredUsages.Count);
 
         foreach (var usage in filteredUsages.Where(u => !string.IsNullOrEmpty(u.RawJson)))

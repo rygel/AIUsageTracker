@@ -4,7 +4,9 @@
 
 using System.Diagnostics;
 using System.Globalization;
+using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
@@ -31,6 +33,9 @@ public class MonitorService : IMonitorService
     private long _refreshErrorCount;
     private long _refreshTotalLatencyMs;
     private long _refreshLastLatencyMs;
+    private readonly object _groupedUsageCacheLock = new();
+    private AgentGroupedUsageSnapshot? _cachedGroupedUsageSnapshot;
+    private string? _cachedGroupedUsageETag;
 
     private readonly HttpClient _httpClient;
     private readonly JsonSerializerOptions _jsonOptions;
@@ -229,10 +234,76 @@ public class MonitorService : IMonitorService
     public async Task<AgentGroupedUsageSnapshot?> GetGroupedUsageAsync()
     {
         await this.RefreshPortAsync().ConfigureAwait(false);
-        return await this.GetFromMonitorJsonAsync<AgentGroupedUsageSnapshot>(
-            MonitorApiRoutes.UsageGrouped,
-            nameof(this.GetGroupedUsageAsync),
-            UsageRequestTimeoutSeconds).ConfigureAwait(false);
+
+        try
+        {
+            using var requestTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(UsageRequestTimeoutSeconds));
+            using var request = new HttpRequestMessage(HttpMethod.Get, this.BuildMonitorUrl(MonitorApiRoutes.UsageGrouped));
+
+            var cachedETag = this.GetCachedGroupedUsageETag();
+            if (!string.IsNullOrWhiteSpace(cachedETag) &&
+                EntityTagHeaderValue.TryParse(cachedETag, out var entityTag))
+            {
+                request.Headers.IfNoneMatch.Add(entityTag);
+            }
+
+            using var response = await this._httpClient
+                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, requestTimeout.Token)
+                .ConfigureAwait(false);
+
+            if (response.StatusCode == HttpStatusCode.NotModified)
+            {
+                var cachedSnapshot = this.GetCachedGroupedUsageSnapshot();
+                if (cachedSnapshot != null)
+                {
+                    return cachedSnapshot;
+                }
+
+                this._logger?.LogWarning(
+                    "GetGroupedUsageAsync received 304 without a cached snapshot from {AgentUrl}",
+                    this.AgentUrl);
+                return null;
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                this._logger?.LogWarning(
+                    "GetGroupedUsageAsync returned status {StatusCode} from {AgentUrl}",
+                    (int)response.StatusCode,
+                    this.AgentUrl);
+                return null;
+            }
+
+            var snapshot = await this.ReadMonitorResponseJsonAsync<AgentGroupedUsageSnapshot>(
+                response,
+                nameof(this.GetGroupedUsageAsync)).ConfigureAwait(false);
+
+            if (snapshot != null)
+            {
+                this.CacheGroupedUsageSnapshot(snapshot, response.Headers.ETag?.ToString());
+            }
+
+            return snapshot;
+        }
+        catch (TaskCanceledException ex)
+        {
+            this._logger?.LogWarning(
+                ex,
+                "{Operation} timeout after {TimeoutSeconds}s at {Url}",
+                nameof(this.GetGroupedUsageAsync),
+                UsageRequestTimeoutSeconds,
+                this.BuildMonitorUrl(MonitorApiRoutes.UsageGrouped));
+            return null;
+        }
+        catch (Exception ex)
+        {
+            this._logger?.LogWarning(
+                ex,
+                "{Operation} failed at {Url}",
+                nameof(this.GetGroupedUsageAsync),
+                this.BuildMonitorUrl(MonitorApiRoutes.UsageGrouped));
+            return null;
+        }
     }
 
     /// <inheritdoc/>
@@ -623,25 +694,29 @@ public class MonitorService : IMonitorService
 
     private void RecordUsageTelemetry(TimeSpan duration, bool success)
     {
-        var latencyMs = (long)Math.Max(0, duration.TotalMilliseconds);
-        Interlocked.Increment(ref this._usageRequestCount);
-        Interlocked.Add(ref this._usageTotalLatencyMs, latencyMs);
-        Interlocked.Exchange(ref this._usageLastLatencyMs, latencyMs);
-        if (!success)
-        {
-            Interlocked.Increment(ref this._usageErrorCount);
-        }
+        RecordTelemetry(duration, success, ref this._usageRequestCount, ref this._usageTotalLatencyMs, ref this._usageLastLatencyMs, ref this._usageErrorCount);
     }
 
     private void RecordRefreshTelemetry(TimeSpan duration, bool success)
     {
+        RecordTelemetry(duration, success, ref this._refreshRequestCount, ref this._refreshTotalLatencyMs, ref this._refreshLastLatencyMs, ref this._refreshErrorCount);
+    }
+
+    private static void RecordTelemetry(
+        TimeSpan duration,
+        bool success,
+        ref long requestCount,
+        ref long totalLatencyMs,
+        ref long lastLatencyMs,
+        ref long errorCount)
+    {
         var latencyMs = (long)Math.Max(0, duration.TotalMilliseconds);
-        Interlocked.Increment(ref this._refreshRequestCount);
-        Interlocked.Add(ref this._refreshTotalLatencyMs, latencyMs);
-        Interlocked.Exchange(ref this._refreshLastLatencyMs, latencyMs);
+        Interlocked.Increment(ref requestCount);
+        Interlocked.Add(ref totalLatencyMs, latencyMs);
+        Interlocked.Exchange(ref lastLatencyMs, latencyMs);
         if (!success)
         {
-            Interlocked.Increment(ref this._refreshErrorCount);
+            Interlocked.Increment(ref errorCount);
         }
     }
 
@@ -716,6 +791,31 @@ public class MonitorService : IMonitorService
     private string BuildMonitorUrl(string relativePath)
     {
         return $"{this.AgentUrl}{relativePath}";
+    }
+
+    private void CacheGroupedUsageSnapshot(AgentGroupedUsageSnapshot snapshot, string? eTag)
+    {
+        lock (this._groupedUsageCacheLock)
+        {
+            this._cachedGroupedUsageSnapshot = snapshot;
+            this._cachedGroupedUsageETag = eTag;
+        }
+    }
+
+    private AgentGroupedUsageSnapshot? GetCachedGroupedUsageSnapshot()
+    {
+        lock (this._groupedUsageCacheLock)
+        {
+            return this._cachedGroupedUsageSnapshot;
+        }
+    }
+
+    private string? GetCachedGroupedUsageETag()
+    {
+        lock (this._groupedUsageCacheLock)
+        {
+            return this._cachedGroupedUsageETag;
+        }
     }
 
     private async Task<T?> GetFromMonitorJsonAsync<T>(string relativePath, string operationName, int? timeoutSeconds = null)

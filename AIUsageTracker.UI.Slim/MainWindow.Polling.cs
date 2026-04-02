@@ -43,15 +43,7 @@ public partial class MainWindow : Window
 
             if (hasLatestUsages)
             {
-                lock (this._dataLock)
-                {
-                    this._usages = latestUsages.ToList();
-                }
-
-                this.RenderProviders();
-                this._lastMonitorUpdate = now;
-                this.ShowStatus($"{now:HH:mm:ss}", StatusType.Success);
-                _ = this.UpdateTrayIconsAsync();
+                this.ApplyFetchedUsages(latestUsages, now);
             }
             else if (hasCurrentUsages)
             {
@@ -106,24 +98,17 @@ public partial class MainWindow : Window
                 return;
             }
 
-            // Poll monitor for fresh data
+            this._isPollingInProgress = true;
             try
             {
                 var usages = await this.GetUsageForDisplayAsync();
 
-                // Show all providers from monitor (filtering already done in database)
                 if (usages.Any())
                 {
-                    // Fresh data received - update UI
-                    await this.Dispatcher.InvokeAsync(async () =>
-                    {
-                        await this.FetchDataAsync();
-                    });
+                    this.ApplyFetchedUsages(usages, DateTime.Now);
                 }
                 else
                 {
-                    // Empty data - try to trigger a refresh if cooldown has passed
-                    // This handles cases where Monitor restarted or hasn't completed its background refresh
                     var refreshDecision = MainWindowRuntimeLogic.CreatePollingRefreshDecision(
                         this._lastRefreshTrigger,
                         DateTime.Now,
@@ -148,12 +133,12 @@ public partial class MainWindow : Window
                             refreshDecision.SecondsSinceLastRefresh);
                     }
 
-                    // Wait a moment and retry getting data
                     await Task.Delay(1000);
-                    await this.Dispatcher.InvokeAsync(async () =>
+                    var refreshedUsages = await this.GetUsageForDisplayAsync();
+                    if (refreshedUsages.Any())
                     {
-                        await this.FetchDataAsync(" (refreshed)");
-                    });
+                        this.ApplyFetchedUsages(refreshedUsages, DateTime.Now, " (refreshed)");
+                    }
 
                     bool hasCurrentUsages;
                     lock (this._dataLock)
@@ -222,6 +207,10 @@ public partial class MainWindow : Window
                 {
                     this._pollingTimer.Interval = StartupPollingInterval;
                 }
+            }
+            finally
+            {
+                this._isPollingInProgress = false;
             }
         };
 
@@ -302,25 +291,7 @@ public partial class MainWindow : Window
             var usages = await this.GetUsageForDisplayAsync();
             if (usages.Any())
             {
-                var now = DateTime.Now;
-                var successStatusMessage = $"{now:HH:mm:ss}{statusSuffix}";
-                var switchToNormalInterval = this._pollingTimer != null
-                    && this._pollingTimer.Interval != NormalPollingInterval;
-
-                lock (this._dataLock)
-                {
-                    this._usages = usages.ToList();
-                }
-
-                this.RenderProviders();
-                this._lastMonitorUpdate = now;
-                this.ShowStatus(successStatusMessage, StatusType.Success);
-                _ = this.UpdateTrayIconsAsync();
-
-                if (switchToNormalInterval && this._pollingTimer != null)
-                {
-                    this._pollingTimer.Interval = NormalPollingInterval;
-                }
+                this.ApplyFetchedUsages(usages, DateTime.Now, statusSuffix);
             }
         }
         catch (Exception ex)
@@ -333,8 +304,25 @@ public partial class MainWindow : Window
         }
     }
 
-    private string FormatMonitorOfflineStatus()
+    private void ApplyFetchedUsages(IReadOnlyList<ProviderUsage> usages, DateTime now, string statusSuffix = "")
     {
-        return MainWindowRuntimeLogic.FormatMonitorOfflineStatus(this._lastMonitorUpdate, DateTime.Now);
+        var switchToNormalInterval = this._pollingTimer != null
+            && this._pollingTimer.Interval != NormalPollingInterval;
+
+        lock (this._dataLock)
+        {
+            this._usages = usages.ToList();
+        }
+
+        this.RenderProviders();
+        this._lastMonitorUpdate = now;
+        this.ShowStatus($"{now:HH:mm:ss}{statusSuffix}", StatusType.Success);
+        _ = this.UpdateTrayIconsAsync();
+
+        if (switchToNormalInterval && this._pollingTimer != null)
+        {
+            this._pollingTimer.Interval = NormalPollingInterval;
+        }
     }
+
 }

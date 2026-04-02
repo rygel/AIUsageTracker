@@ -33,9 +33,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
-          persist-credentials: false
 
       - name: Validate Version Format
         env:
@@ -139,23 +138,27 @@ jobs:
             fi
           fi
 
-      - name: Success Summary
+      - name: Create and Push Tag
         env:
           INPUT_VERSION: ${{ inputs.version }}
           INPUT_CHANNEL: ${{ inputs.channel }}
+          HAS_RELEASE_PAT: ${{ secrets.RELEASE_PAT != '' }}
         run: |
-          echo "=========================================="
-          echo "Release $INPUT_VERSION ($INPUT_CHANNEL) prepared successfully!"
-          echo "=========================================="
-          echo ""
-          echo "Repository rules block GitHub Actions from creating release tags."
-          echo "Create the tag manually with maintainer credentials:"
-          echo "  git tag -a v$INPUT_VERSION -m \"Release $INPUT_VERSION ($INPUT_CHANNEL)\""
-          echo "  git push origin v$INPUT_VERSION"
-          echo ""
-          echo "Next steps:"
-          echo "1. If skip_file_updates=false, wait for the version bump commit on the target branch"
-          echo "2. Create and push tag v$INPUT_VERSION with maintainer credentials"
-          echo "3. The Publish & Distribute workflow will trigger from the tag push"
-          echo "4. Check the Actions tab for build and release progress"
-          echo ""
+          version="$INPUT_VERSION"
+          channel="$INPUT_CHANNEL"
+
+          if [ "$HAS_RELEASE_PAT" != "true" ]; then
+            echo "⚠️  RELEASE_PAT secret not configured — cannot push tag automatically."
+            echo "Create the tag manually with maintainer credentials:"
+            echo "  git tag -a v$version -m \"Release $version ($channel)\""
+            echo "  git push origin v$version"
+            exit 0
+          fi
+
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+          # Tag the current HEAD of the checked-out branch (main for releases)
+          git tag -a "v$version" -m "Release $version ($channel)"
+          git push origin "v$version"
+          echo "✓ Tagged and pushed v$version — Publish & Distribute will trigger automatically"
