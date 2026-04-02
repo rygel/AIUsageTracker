@@ -37,4 +37,6 @@ public interface IUsageDatabase
     Task<bool> IsHistoryEmptyAsync();
 
     Task SetProviderActiveAsync(string providerId, bool isActive);
+
+    Task DeleteProviderAsync(string providerId);
 }

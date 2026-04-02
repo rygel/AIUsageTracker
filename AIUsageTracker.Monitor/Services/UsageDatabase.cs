@@ -916,4 +916,27 @@ public class UsageDatabase : IUsageDatabase
             this._semaphore.Release();
         }
     }
+
+    public async Task DeleteProviderAsync(string providerId)
+    {
+        await this._semaphore.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            using var connection = await this.OpenWriteConnectionAsync(enableForeignKeys: false).ConfigureAwait(false);
+
+            var param = new { ProviderId = providerId };
+            await connection.ExecuteAsync(
+                "DELETE FROM provider_history WHERE lower(provider_id) = lower(@ProviderId)", param).ConfigureAwait(false);
+            await connection.ExecuteAsync(
+                "DELETE FROM raw_snapshots WHERE lower(provider_id) = lower(@ProviderId)", param).ConfigureAwait(false);
+            await connection.ExecuteAsync(
+                "DELETE FROM reset_events WHERE lower(provider_id) = lower(@ProviderId)", param).ConfigureAwait(false);
+            await connection.ExecuteAsync(
+                "DELETE FROM providers WHERE lower(provider_id) = lower(@ProviderId)", param).ConfigureAwait(false);
+        }
+        finally
+        {
+            this._semaphore.Release();
+        }
+    }
 }
