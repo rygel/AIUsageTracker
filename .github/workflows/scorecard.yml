@@ -18,18 +18,23 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Required by scorecard-action for OIDC token issuance and SARIF upload.
+# Top-level permission must be read-only; write permissions are declared at
+# the job level so Scorecard's API validation passes (it rejects workflows
+# where any top-level permission is set to "write").
 permissions:
   contents: read
-  security-events: write
-  id-token: write
-  actions: read
 
 jobs:
   analyze:
     name: Scorecard Analysis
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Job-level permissions are accepted by the Scorecard API.
+    permissions:
+      contents: read
+      security-events: write
+      id-token: write
+      actions: read
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
