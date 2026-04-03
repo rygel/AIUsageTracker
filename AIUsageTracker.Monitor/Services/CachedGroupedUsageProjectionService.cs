@@ -9,6 +9,7 @@ using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Infrastructure.Providers;
 
 namespace AIUsageTracker.Monitor.Services;
 
@@ -17,14 +18,16 @@ public sealed class CachedGroupedUsageProjectionService
     private static readonly TimeSpan CacheDuration = TimeSpan.FromSeconds(30);
 
     private readonly IUsageDatabase _database;
+    private readonly IConfigService _configService;
     private readonly object _lock = new();
     private AgentGroupedUsageSnapshot? _cachedSnapshot;
     private string? _cachedETag;
     private DateTime _cacheTimestamp = DateTime.MinValue;
 
-    public CachedGroupedUsageProjectionService(IUsageDatabase database)
+    public CachedGroupedUsageProjectionService(IUsageDatabase database, IConfigService configService)
     {
         this._database = database;
+        this._configService = configService;
     }
 
     public async Task<AgentGroupedUsageSnapshot> GetGroupedUsageAsync()
@@ -45,7 +48,13 @@ public sealed class CachedGroupedUsageProjectionService
             }
         }
 
-        var usage = await this._database.GetLatestHistoryAsync().ConfigureAwait(false);
+        var allUsage = await this._database.GetLatestHistoryAsync().ConfigureAwait(false);
+        var activeConfigs = await this._configService.GetConfigsAsync().ConfigureAwait(false);
+        var activeIds = ProviderMetadataCatalog.ExpandAcceptedUsageProviderIds(
+            activeConfigs.Select(c => c.ProviderId));
+        var usage = allUsage
+            .Where(u => activeIds.Contains(u.ProviderId ?? string.Empty))
+            .ToList();
         var snapshot = GroupedUsageProjectionService.Build(usage);
         var eTag = CreateUsageETag(usage);
 

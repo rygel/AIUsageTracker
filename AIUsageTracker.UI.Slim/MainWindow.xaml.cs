@@ -16,7 +16,6 @@ using System.Windows.Threading;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
-using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Infrastructure.Services;
 using AIUsageTracker.UI.Slim.Services;
 using AIUsageTracker.UI.Slim.ViewModels;
@@ -628,17 +627,6 @@ public partial class MainWindow : Window
             this._isPrivacyMode = this._preferences.IsPrivacyMode;
             App.SetPrivacyMode(this._isPrivacyMode);
             this._preferencesLoaded = true;
-
-            // Drop usages for providers that are no longer configured so their
-            // cards disappear immediately — before the next poll cycle completes.
-            var activeConfigs = await this._monitorService.GetConfigsAsync();
-            var activeIds = ProviderMetadataCatalog.ExpandAcceptedUsageProviderIds(
-                activeConfigs.Select(c => c.ProviderId));
-            lock (this._dataLock)
-            {
-                this._usages.RemoveAll(u =>
-                    !activeIds.Contains(u.ProviderId ?? string.Empty));
-            }
 
             this.ApplyPreferencesFromSettings();
             await this.InitializeAsync();

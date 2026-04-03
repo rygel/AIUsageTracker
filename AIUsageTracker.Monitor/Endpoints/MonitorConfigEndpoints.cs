@@ -48,7 +48,7 @@ internal static class MonitorConfigEndpoints
             return Results.Ok(new { message = "Config saved", refreshQueued });
         });
 
-        app.MapDelete(MonitorApiRoutes.ConfigByProviderTemplate, async (string providerId, IConfigService configService, ILogger<Program> logger) =>
+        app.MapDelete(MonitorApiRoutes.ConfigByProviderTemplate, async (string providerId, IConfigService configService, CachedGroupedUsageProjectionService projectionService, ILogger<Program> logger) =>
         {
             if (string.IsNullOrWhiteSpace(providerId))
             {
@@ -57,6 +57,7 @@ internal static class MonitorConfigEndpoints
 
             logger.LogDebug("DELETE {Route}: {ProviderId}", MonitorApiRoutes.ConfigByProviderTemplate, providerId);
             await configService.RemoveConfigAsync(providerId).ConfigureAwait(false);
+            projectionService.Invalidate();
             return Results.Ok(new { message = "Config removed" });
         });
 
