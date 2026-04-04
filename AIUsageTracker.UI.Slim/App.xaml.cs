@@ -163,7 +163,11 @@ public partial class App : Application
         services.AddSingleton<MonitorLauncher>();
         services.AddSingleton<IMonitorService, MonitorService>();
         services.AddSingleton<MonitorLifecycleService>();
-        services.AddSingleton<GitHubUpdateChecker>();
+        services.AddSingleton<GitHubUpdateChecker>(sp =>
+            new GitHubUpdateChecker(
+                sp.GetRequiredService<ILogger<GitHubUpdateChecker>>(),
+                sp.GetRequiredService<HttpClient>(),
+                Preferences.UpdateChannel));
         services.AddSingleton<Func<UpdateChannel, GitHubUpdateChecker>>(sp => channel =>
             new GitHubUpdateChecker(
                 sp.GetRequiredService<ILogger<GitHubUpdateChecker>>(),

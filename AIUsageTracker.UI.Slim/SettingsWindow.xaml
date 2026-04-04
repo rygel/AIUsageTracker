@@ -928,6 +928,14 @@
                             <TextBlock x:Name="UpdateCheckStatus" VerticalAlignment="Center"
                                        Margin="12,0,0,0" FontSize="11"
                                        Foreground="{DynamicResource SecondaryText}"/>
+                            <Button x:Name="DownloadUpdateBtn" Content="Download &amp; Install"
+                                    Click="DownloadUpdateBtn_Click"
+                                    Visibility="Collapsed"
+                                    Padding="12,4" Height="26" Margin="8,0,0,0"
+                                    Background="{DynamicResource AccentColor}"
+                                    Foreground="{DynamicResource AccentForeground}"
+                                    BorderBrush="{DynamicResource AccentColor}"
+                                    Cursor="Hand"/>
                         </StackPanel>
                     </StackPanel>
                 </TabItem>

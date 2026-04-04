@@ -44,6 +44,8 @@ public partial class SettingsWindow : Window
     private bool _isDeterministicScreenshotMode;
     private bool _isLoadingSettings;
     private bool _hasPendingAutoSave;
+    private UpdateInfo? _pendingUpdate;
+    private GitHubUpdateChecker? _pendingUpdateChecker;
 
     public SettingsWindow(
         IMonitorService monitorService,
@@ -934,6 +936,9 @@ public partial class SettingsWindow : Window
         this.CheckForUpdatesBtn.IsEnabled = false;
         this.UpdateCheckStatus.Text = "Checking...";
         this.UpdateCheckStatus.Foreground = (Brush)this.FindResource("SecondaryText");
+        this.DownloadUpdateBtn.Visibility = Visibility.Collapsed;
+        this._pendingUpdate = null;
+        this._pendingUpdateChecker = null;
 
         try
         {
@@ -945,6 +950,9 @@ public partial class SettingsWindow : Window
             {
                 this.UpdateCheckStatus.Text = $"New version available: {update.Version}";
                 this.UpdateCheckStatus.Foreground = (Brush)this.FindResource("ProgressBarGreen");
+                this._pendingUpdate = update;
+                this._pendingUpdateChecker = checker;
+                this.DownloadUpdateBtn.Visibility = Visibility.Visible;
             }
             else
             {
@@ -958,6 +966,106 @@ public partial class SettingsWindow : Window
         }
         finally
         {
+            this.CheckForUpdatesBtn.IsEnabled = true;
+        }
+    }
+
+#pragma warning disable VSTHRD100
+    private async void DownloadUpdateBtn_Click(object sender, RoutedEventArgs e)
+#pragma warning restore VSTHRD100
+    {
+        if (this._pendingUpdate == null || this._pendingUpdateChecker == null)
+        {
+            return;
+        }
+
+        var confirmResult = MessageBox.Show(
+            $"Download and install version {this._pendingUpdate.Version}?\n\nThe application will restart after installation.",
+            "Confirm Update",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (confirmResult != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        this.DownloadUpdateBtn.IsEnabled = false;
+        this.CheckForUpdatesBtn.IsEnabled = false;
+        this.UpdateCheckStatus.Text = "Downloading...";
+        Window? progressWindow = null;
+
+        try
+        {
+            var progressBar = new ProgressBar
+            {
+                Height = 20,
+                Minimum = 0,
+                Maximum = 100,
+            };
+
+            progressWindow = new Window
+            {
+                Title = "Downloading Update",
+                Width = 400,
+                Height = 150,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = this,
+                ResizeMode = ResizeMode.NoResize,
+                Background = (Brush)this.FindResource("Background"),
+                Content = new StackPanel
+                {
+                    Margin = new Thickness(20),
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = $"Downloading version {this._pendingUpdate.Version}...",
+                            Margin = new Thickness(0, 0, 0, 10),
+                            Foreground = (Brush)this.FindResource("PrimaryText"),
+                        },
+                        progressBar,
+                    },
+                },
+            };
+
+            var progress = new Progress<double>(p => progressBar.Value = p);
+            progressWindow.Show();
+
+            var result = await this._pendingUpdateChecker.DownloadAndInstallUpdateAsync(this._pendingUpdate, progress);
+            progressWindow.Close();
+            progressWindow = null;
+
+            if (result.Success)
+            {
+                Application.Current.Shutdown();
+            }
+            else
+            {
+                MessageBox.Show(
+                    $"Failed to download or install version {this._pendingUpdate.Version}.\n\n" +
+                    $"Reason: {result.FailureReason}\n\n" +
+                    "Please try again or download manually from the releases page.",
+                    "Update Failed",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                this.UpdateCheckStatus.Text = "Update failed.";
+            }
+        }
+        catch (Exception ex)
+        {
+            progressWindow?.Close();
+            this._logger.LogWarning(ex, "Download update failed");
+            MessageBox.Show(
+                $"Update error: {ex.Message}",
+                "Update Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            this.UpdateCheckStatus.Text = "Update failed.";
+        }
+        finally
+        {
+            this.DownloadUpdateBtn.IsEnabled = true;
             this.CheckForUpdatesBtn.IsEnabled = true;
         }
     }
