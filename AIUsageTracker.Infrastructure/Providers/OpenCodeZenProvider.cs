@@ -13,7 +13,7 @@ namespace AIUsageTracker.Infrastructure.Providers;
 
 public class OpenCodeZenProvider : ProviderBase
 {
-    private const string ProviderDisplayName = "OpenCode Zen";
+    private const string ProviderDisplayName = "OpenCode";
     private const string DefaultCliCommand = "opencode";
     private static readonly TimeSpan DefaultCliTimeout = TimeSpan.FromSeconds(20);
     private static readonly Regex[] CleanupPatterns =
@@ -79,11 +79,6 @@ public class OpenCodeZenProvider : ProviderBase
         isQuotaBased: false)
     {
         SettingsMode = ProviderSettingsMode.AutoDetectedStatus,
-        AdditionalHandledProviderIds = new[] { "opencode-go" },
-        DisplayNameOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["opencode-go"] = "Opencode Go",
-        },
         IsTooltipOnly = true,
     };
 

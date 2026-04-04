@@ -278,6 +278,7 @@ public static class ProviderMetadataCatalog
             MistralProvider.StaticDefinition,
             OpenAIProvider.StaticDefinition,
             OpenCodeZenProvider.StaticDefinition,
+            OpenCodeProvider.StaticDefinition,
             OpenRouterProvider.StaticDefinition,
             SyntheticProvider.StaticDefinition,
             XiaomiProvider.StaticDefinition,

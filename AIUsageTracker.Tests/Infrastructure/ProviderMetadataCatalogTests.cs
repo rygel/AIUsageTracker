@@ -43,7 +43,7 @@ public class ProviderMetadataCatalogTests
     [InlineData("kimi", "kimi-for-coding", "Kimi for Coding")]
     [InlineData("minimax-io", "minimax", "Minimax (International)")]
     [InlineData("minimax-global", "minimax", "Minimax (International)")]
-    [InlineData("opencode-go", "opencode-zen", "Opencode Go")]
+    [InlineData("opencode-go", "opencode-go", "OpenCode Go")]
     [InlineData("zai", "zai-coding-plan", "Z.AI")]
     public void Find_UsesProviderDefinitionsForAliases(string providerId, string expectedDefinitionId, string expectedDisplayName)
     {
@@ -124,7 +124,7 @@ public class ProviderMetadataCatalogTests
     [InlineData("antigravity.claude-opus", "antigravity")]
     [InlineData("kimi", "kimi-for-coding")]
     [InlineData("minimax-io", "minimax")]
-    [InlineData("opencode-go", "opencode-zen")]
+    [InlineData("opencode-go", "opencode-go")]
     [InlineData("unknown-provider", "unknown-provider")]
     public void GetCanonicalProviderId_UsesProviderDefinitions(string providerId, string expectedCanonicalId)
     {
