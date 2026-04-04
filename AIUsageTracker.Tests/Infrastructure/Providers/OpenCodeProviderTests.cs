@@ -129,18 +129,18 @@ public class OpenCodeProviderTests : HttpProviderTestBase<OpenCodeProvider>
     }
 
     [Fact]
-    public async Task GetUsageAsync_NotFoundTextBody_ReturnsUnavailableAsync()
+    public async Task GetUsageAsync_NotFoundTextBody_ReturnsEmptyAsync()
     {
+        // API returns 200 with "Not Found" text for unsupported account types.
+        // Provider should silently hide — no error card.
         this.SetupHttpResponse(CreditsUrl, new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent("Not Found"),
         });
 
         var result = await this._provider.GetUsageAsync(this.Config);
-        var usage = result.Single();
 
-        Assert.False(usage.IsAvailable);
-        Assert.Contains("not available", usage.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(result);
     }
 
     [Fact]

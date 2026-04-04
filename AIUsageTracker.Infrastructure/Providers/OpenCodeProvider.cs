@@ -95,15 +95,14 @@ public class OpenCodeProvider : ProviderBase
                 return new[] { this.CreateUnavailableUsage(DescribeUnavailableStatus(response.StatusCode), httpStatus) };
             }
 
-            // Guard against 200 with non-JSON body (observed in opencode-bar)
+            // Guard against 200 with non-JSON body (observed in opencode-bar).
+            // Silently return empty — the credits endpoint isn't available for this
+            // account type, so don't clutter the UI with an error card.
             if (responseBody.Contains("Not Found", StringComparison.OrdinalIgnoreCase) &&
                 !responseBody.TrimStart().StartsWith('{'))
             {
-                this._logger.LogWarning("OpenCode credits API returned 200 with non-JSON body: {Response}", responseBody);
-                return new[]
-                {
-                    this.CreateUnavailableUsage("Credits API not available for this account", httpStatus),
-                };
+                this._logger.LogDebug("OpenCode credits API not available for this account (200 with non-JSON body)");
+                return Array.Empty<ProviderUsage>();
             }
 
             var creditsResponse = DeserializeJsonOrDefault<OpenCodeCreditsResponse>(responseBody);
