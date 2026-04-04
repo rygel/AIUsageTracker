@@ -674,10 +674,30 @@ public class OpenCodeZenProvider : ProviderBase
                 return null;
             }
 
-            var output = await process.StandardOutput.ReadLineAsync().ConfigureAwait(false);
+            // On Windows, `where` returns multiple lines (e.g. opencode, opencode.cmd).
+            // The extensionless file is a bash shim that Process.Start can't execute.
+            // Pick the .cmd or .exe variant; fall back to first line on non-Windows.
+            var allOutput = await process.StandardOutput.ReadToEndAsync().ConfigureAwait(false);
             using var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(2));
             await process.WaitForExitAsync(cancellationTokenSource.Token).ConfigureAwait(false);
-            return process.ExitCode == 0 && !string.IsNullOrWhiteSpace(output) ? output.Trim() : null;
+
+            if (process.ExitCode != 0 || string.IsNullOrWhiteSpace(allOutput))
+            {
+                return null;
+            }
+
+            var lines = allOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            if (OperatingSystem.IsWindows())
+            {
+                // Prefer .cmd then .exe — these are executable via Process.Start
+                var executable = lines.FirstOrDefault(l =>
+                    l.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase) ||
+                    l.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
+                return executable ?? lines.FirstOrDefault();
+            }
+
+            return lines.FirstOrDefault();
         }
         catch
         {
