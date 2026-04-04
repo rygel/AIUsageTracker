@@ -53,6 +53,7 @@ public partial class MainWindow : Window
     private List<ProviderUsage> _usages = new();
     private List<ProviderConfig> _configs = new();
     private bool _isPrivacyMode = App.IsPrivacyMode;
+    private readonly EventHandler<PrivacyChangedEventArgs> _privacyChangedHandler;
     private bool _isLoading;
     private DateTime _lastMonitorUpdate = DateTime.MinValue;
     private DateTime _lastRefreshTrigger = DateTime.MinValue;
@@ -142,6 +143,7 @@ public partial class MainWindow : Window
         this._preferencesStore = preferencesStore;
         this._viewModel = viewModel;
         this.DataContext = this._viewModel;
+        this._privacyChangedHandler = this.OnPrivacyChanged;
 
         this._updateCheckTimer = new DispatcherTimer
         {
@@ -174,10 +176,10 @@ public partial class MainWindow : Window
         this._alwaysOnTopTimer.Start();
 
         this.SourceInitialized += this.OnSourceInitialized;
-        PrivacyChangedWeakEventManager.AddHandler(this.OnPrivacyChanged);
+        PrivacyChangedWeakEventManager.AddHandler(this._privacyChangedHandler);
         this.Closed += (s, e) =>
         {
-            PrivacyChangedWeakEventManager.RemoveHandler(this.OnPrivacyChanged);
+            PrivacyChangedWeakEventManager.RemoveHandler(this._privacyChangedHandler);
             this._updateCheckTimer.Stop();
             this._alwaysOnTopTimer.Stop();
             this.SourceInitialized -= this.OnSourceInitialized;
