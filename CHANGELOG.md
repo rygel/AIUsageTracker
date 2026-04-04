@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2.3.4-beta.23] - 2026-04-04
+
+### Fixed
+- **Synthetic provider no longer reappears after key deletion**: the grouped usage projection now filters history rows by active provider configs at the Monitor layer, so deleted providers vanish immediately without waiting for poll expiry. Historical data is preserved in the database.
+- **Privacy eye button no longer silently breaks**: the `PrivacyChangedWeakEventManager` delegate is now stored in a `readonly` field on `MainWindow`, preventing GC from collecting the weak-referenced handler and silently disconnecting the privacy toggle.
+- **OpenCode Zen/Go provider now correctly parses CLI output**: three parsing bugs fixed — `RegexOptions.ExplicitCapture` prevented all regex captures from working (cost, sessions, messages always showed 0), token counts with K/M/B suffixes were not parsed, and description formatting was culture-dependent.
+
 ## [2.3.4-beta.21] - 2026-04-02
 
 ### Added
