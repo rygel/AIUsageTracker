@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Reflection;
 using AIUsageTracker.UI.Slim;
 using AIUsageTracker.UI.Slim.Services;
 
@@ -77,6 +78,46 @@ public class PrivacyChangedWeakEventManagerTests
             PrivacyChangedWeakEventManager.RemoveHandler(handler);
             App.SetPrivacyMode(originalPrivacyMode);
         }
+    }
+
+    /// <summary>
+    /// Structural regression: every class that registers with PrivacyChangedWeakEventManager
+    /// MUST store the delegate in a field to prevent GC from collecting the weak reference.
+    /// This test scans the UI assembly for any class that has an OnPrivacyChanged method
+    /// and verifies it also declares a _privacyChangedHandler field.
+    /// </summary>
+    [Fact]
+    public void AllPrivacySubscribers_MustStoreHandlerInField_ToPreventGcCollection()
+    {
+        var uiAssembly = typeof(MainWindow).Assembly;
+        var violations = new List<string>();
+
+        foreach (var type in uiAssembly.GetTypes())
+        {
+            var hasOnPrivacyChanged = type.GetMethod(
+                "OnPrivacyChanged",
+                BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public) != null;
+
+            if (!hasOnPrivacyChanged)
+            {
+                continue;
+            }
+
+            var hasHandlerField = type.GetField(
+                "_privacyChangedHandler",
+                BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public) != null;
+
+            if (!hasHandlerField)
+            {
+                violations.Add(type.FullName ?? type.Name);
+            }
+        }
+
+        Assert.True(
+            violations.Count == 0,
+            $"These classes have OnPrivacyChanged but no _privacyChangedHandler field " +
+            $"(delegates passed to PrivacyChangedWeakEventManager.AddHandler will be GC'd): " +
+            string.Join(", ", violations));
     }
 
     [Fact]
