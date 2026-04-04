@@ -3,6 +3,7 @@
 // </copyright>
 
 using System.Net;
+using System.Net.Http.Headers;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Tests.Infrastructure;
@@ -22,12 +23,19 @@ public class OpenCodeProviderTests : HttpProviderTestBase<OpenCodeProvider>
         this.Config.ApiKey = "sk-test-key";
     }
 
+    private static StringContent JsonContent(string json)
+    {
+        var content = new StringContent(json, System.Text.Encoding.UTF8);
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+        return content;
+    }
+
     [Fact]
     public async Task GetUsageAsync_ValidResponse_ReturnsCreditsUsageAsync()
     {
         this.SetupHttpResponse(CreditsUrl, new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = new StringContent("""
+            Content = JsonContent("""
                 {
                     "data": {
                         "total_credits": 100.0,
@@ -57,7 +65,7 @@ public class OpenCodeProviderTests : HttpProviderTestBase<OpenCodeProvider>
     {
         this.SetupHttpResponse(CreditsUrl, new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = new StringContent("""
+            Content = JsonContent("""
                 {
                     "data": {
                         "total_credits": 50.0,
@@ -82,7 +90,7 @@ public class OpenCodeProviderTests : HttpProviderTestBase<OpenCodeProvider>
     {
         this.SetupHttpResponse(CreditsUrl, new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = new StringContent("""
+            Content = JsonContent("""
                 {
                     "data": {
                         "total_credits": 0.0,
@@ -129,13 +137,26 @@ public class OpenCodeProviderTests : HttpProviderTestBase<OpenCodeProvider>
     }
 
     [Fact]
-    public async Task GetUsageAsync_NotFoundTextBody_ReturnsEmptyAsync()
+    public async Task GetUsageAsync_NonJsonContentType_ReturnsEmptyAsync()
     {
-        // API returns 200 with "Not Found" text for unsupported account types.
-        // Provider should silently hide — no error card.
+        // API returns 200 with text/plain "Not Found" for unsupported accounts.
+        // Provider detects non-JSON Content-Type and silently hides.
         this.SetupHttpResponse(CreditsUrl, new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = new StringContent("Not Found"),
+            Content = new StringContent("Not Found", System.Text.Encoding.UTF8, "text/plain"),
+        });
+
+        var result = await this._provider.GetUsageAsync(this.Config);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_HtmlContentType_ReturnsEmptyAsync()
+    {
+        this.SetupHttpResponse(CreditsUrl, new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("<html>Error</html>", System.Text.Encoding.UTF8, "text/html"),
         });
 
         var result = await this._provider.GetUsageAsync(this.Config);
@@ -148,7 +169,7 @@ public class OpenCodeProviderTests : HttpProviderTestBase<OpenCodeProvider>
     {
         this.SetupHttpResponse(CreditsUrl, new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = new StringContent("{}"),
+            Content = JsonContent("{}"),
         });
 
         var result = await this._provider.GetUsageAsync(this.Config);
@@ -163,7 +184,7 @@ public class OpenCodeProviderTests : HttpProviderTestBase<OpenCodeProvider>
     {
         this.SetupHttpResponse(CreditsUrl, new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = new StringContent("""
+            Content = JsonContent("""
                 {
                     "data": {
                         "total_credits": 200.0,
