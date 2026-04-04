@@ -2,11 +2,12 @@
 
 ## [Unreleased]
 
-## [2.3.4-beta.22] - 2026-04-02
+## [2.3.4-beta.23] - 2026-04-04
 
 ### Fixed
-- **Changelog window no longer hidden behind main window**: the topmost recovery scheduler (which fires Win32 `SetWindowPos(HWND_TOPMOST)` 250 ms and 2 s after the main window loses focus) now checks a `_isChangelogOpen` flag and skips reassertion while the changelog dialog is open, matching the existing `_isSettingsDialogOpen` guard.
-- **Removed provider card disappears immediately after settings close**: closing settings after deleting a provider key now filters `_usages` (the in-memory list that drives all card rendering) against the current active configs. Cards for unconfigured providers vanish on the next render cycle without waiting for the next poll, and without touching any database rows.
+- **Synthetic provider no longer reappears after key deletion**: the grouped usage projection now filters history rows by active provider configs at the Monitor layer, so deleted providers vanish immediately without waiting for poll expiry. Historical data is preserved in the database.
+- **Privacy eye button no longer silently breaks**: the `PrivacyChangedWeakEventManager` delegate is now stored in a `readonly` field on `MainWindow`, preventing GC from collecting the weak-referenced handler and silently disconnecting the privacy toggle.
+- **OpenCode Zen/Go provider now correctly parses CLI output**: three parsing bugs fixed — `RegexOptions.ExplicitCapture` prevented all regex captures from working (cost, sessions, messages always showed 0), token counts with K/M/B suffixes were not parsed, and description formatting was culture-dependent.
 
 ## [2.3.4-beta.21] - 2026-04-02
 

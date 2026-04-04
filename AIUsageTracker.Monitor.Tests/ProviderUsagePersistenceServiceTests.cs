@@ -155,7 +155,13 @@ public class ProviderUsagePersistenceServiceTests
                 },
             });
 
-        var groupedCache = new CachedGroupedUsageProjectionService(this._database.Object);
+        var configService = new Mock<IConfigService>();
+        configService.Setup(s => s.GetConfigsAsync()).ReturnsAsync(new List<ProviderConfig>
+        {
+            new() { ProviderId = "openai" },
+            new() { ProviderId = "anthropic" },
+        });
+        var groupedCache = new CachedGroupedUsageProjectionService(this._database.Object, configService.Object);
         _ = await groupedCache.GetGroupedUsageAsync();
 
         var service = this.CreateService(groupedCache);

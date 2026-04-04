@@ -16,7 +16,6 @@ using System.Windows.Threading;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
-using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Infrastructure.Services;
 using AIUsageTracker.UI.Slim.Services;
 using AIUsageTracker.UI.Slim.ViewModels;
@@ -54,6 +53,7 @@ public partial class MainWindow : Window
     private List<ProviderUsage> _usages = new();
     private List<ProviderConfig> _configs = new();
     private bool _isPrivacyMode = App.IsPrivacyMode;
+    private readonly EventHandler<PrivacyChangedEventArgs> _privacyChangedHandler;
     private bool _isLoading;
     private DateTime _lastMonitorUpdate = DateTime.MinValue;
     private DateTime _lastRefreshTrigger = DateTime.MinValue;
@@ -143,6 +143,7 @@ public partial class MainWindow : Window
         this._preferencesStore = preferencesStore;
         this._viewModel = viewModel;
         this.DataContext = this._viewModel;
+        this._privacyChangedHandler = this.OnPrivacyChanged;
 
         this._updateCheckTimer = new DispatcherTimer
         {
@@ -175,10 +176,10 @@ public partial class MainWindow : Window
         this._alwaysOnTopTimer.Start();
 
         this.SourceInitialized += this.OnSourceInitialized;
-        PrivacyChangedWeakEventManager.AddHandler(this.OnPrivacyChanged);
+        PrivacyChangedWeakEventManager.AddHandler(this._privacyChangedHandler);
         this.Closed += (s, e) =>
         {
-            PrivacyChangedWeakEventManager.RemoveHandler(this.OnPrivacyChanged);
+            PrivacyChangedWeakEventManager.RemoveHandler(this._privacyChangedHandler);
             this._updateCheckTimer.Stop();
             this._alwaysOnTopTimer.Stop();
             this.SourceInitialized -= this.OnSourceInitialized;
@@ -628,17 +629,6 @@ public partial class MainWindow : Window
             this._isPrivacyMode = this._preferences.IsPrivacyMode;
             App.SetPrivacyMode(this._isPrivacyMode);
             this._preferencesLoaded = true;
-
-            // Drop usages for providers that are no longer configured so their
-            // cards disappear immediately — before the next poll cycle completes.
-            var activeConfigs = await this._monitorService.GetConfigsAsync();
-            var activeIds = ProviderMetadataCatalog.ExpandAcceptedUsageProviderIds(
-                activeConfigs.Select(c => c.ProviderId));
-            lock (this._dataLock)
-            {
-                this._usages.RemoveAll(u =>
-                    !activeIds.Contains(u.ProviderId ?? string.Empty));
-            }
 
             this.ApplyPreferencesFromSettings();
             await this.InitializeAsync();

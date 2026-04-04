@@ -168,7 +168,7 @@ public class OpenCodeZenProvider : ProviderBase
             IsQuotaBased = false,
             PlanType = PlanType.Usage,
             IsAvailable = true,
-            Description = $"${totalCost:F2} ({sessions} sessions, {messages} msgs, {days} days){metricsDescription}",
+            Description = string.Create(CultureInfo.InvariantCulture, $"${totalCost:F2} ({sessions} sessions, {messages} msgs, {days} days){metricsDescription}"),
             AuthSource = config.AuthSource,
             RawJson = rawOutput,
             HttpStatus = 200,
@@ -177,8 +177,8 @@ public class OpenCodeZenProvider : ProviderBase
 
     private static string BuildMetricsDescription(string cleaned)
     {
-        var inputTokens = ParseValue<double>(cleaned, @"Input\s+([0-9.,KM]+)");
-        var outputTokens = ParseValue<double>(cleaned, @"Output\s+([0-9.,KM]+)");
+        var inputTokens = ExtractTokenCount(cleaned, @"Input\s+([0-9.,KMB]+)");
+        var outputTokens = ExtractTokenCount(cleaned, @"Output\s+([0-9.,KMB]+)");
         var avgCostPerDay = ParseValue<double>(cleaned, @"Avg Cost/Day\s+\$([0-9.]+)");
 
         var parts = new List<string>();
@@ -194,7 +194,7 @@ public class OpenCodeZenProvider : ProviderBase
 
         if (avgCostPerDay > 0)
         {
-            parts.Add($"Avg/day:${avgCostPerDay:F2}");
+            parts.Add(string.Create(CultureInfo.InvariantCulture, $"Avg/day:${avgCostPerDay:F2}"));
         }
 
         return parts.Count > 0 ? " | " + string.Join(" | ", parts) : string.Empty;
@@ -211,13 +211,25 @@ public class OpenCodeZenProvider : ProviderBase
         return cleaned;
     }
 
+    private static double ExtractTokenCount(string input, string pattern)
+    {
+        var match = Regex.Match(
+            input,
+            pattern,
+            RegexOptions.CultureInvariant | RegexOptions.NonBacktracking,
+            TimeSpan.FromSeconds(1));
+        return match.Success && match.Groups.Count > 1
+            ? ParseTokenCount(match.Groups[1].Value)
+            : 0;
+    }
+
     private static T ParseValue<T>(string input, string pattern)
         where T : struct
     {
         var match = Regex.Match(
             input,
             pattern,
-            RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture | RegexOptions.NonBacktracking,
+            RegexOptions.CultureInvariant | RegexOptions.NonBacktracking,
             TimeSpan.FromSeconds(1));
         if (match.Success && match.Groups.Count > 1)
         {
