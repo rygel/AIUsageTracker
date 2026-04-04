@@ -188,7 +188,7 @@ public class ConfigService : IConfigService
                 discovered.Count,
                 discoveredWithKeys.Count);
 
-            // Merge discovered with existing
+            // Merge discovered with existing — only add providers that actually have keys
             foreach (var newConfig in discovered)
             {
                 var existingConfig = existing.FirstOrDefault(c =>
@@ -196,12 +196,15 @@ public class ConfigService : IConfigService
 
                 if (existingConfig == null)
                 {
+                    // Never create empty skeleton configs for providers without keys
+                    if (string.IsNullOrWhiteSpace(newConfig.ApiKey))
+                    {
+                        continue;
+                    }
+
                     existing.Add(newConfig);
                     this._logger.LogInformation("Found: {ProviderId}", newConfig.ProviderId);
-                    if (!string.IsNullOrWhiteSpace(newConfig.ApiKey))
-                    {
-                        addedWithKeys.Add($"{newConfig.ProviderId} ({newConfig.AuthSource ?? "unknown"})");
-                    }
+                    addedWithKeys.Add($"{newConfig.ProviderId} ({newConfig.AuthSource ?? "unknown"})");
                 }
                 else if (string.IsNullOrEmpty(existingConfig.ApiKey) && !string.IsNullOrEmpty(newConfig.ApiKey))
                 {
