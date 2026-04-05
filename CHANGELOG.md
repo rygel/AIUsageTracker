@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+## [2.3.4-beta.27] - 2026-04-05
+
+### Fixed
+- **Deleted provider card no longer persists in main window**: clearing a StandardApiKey provider's API key (e.g. Synthetic) now hides the card from the main window immediately. Missing-state cards for StandardApiKey providers are filtered by `PrepareForMainWindow`. Session/external auth providers (GitHub Copilot, Codex) still show their authentication status.
+- **ETag cache invalidated after config changes**: `MonitorService.InvalidateGroupedUsageCache()` is called after saving or removing provider configs in settings, so the main window fetches fresh data instead of stale 304 responses.
+- **Preferences survive concurrent file access**: `PreferencesStore.LoadAsync` uses `FileShare.ReadWrite` so reads succeed when the Monitor holds the file open. Errors are surfaced via MessageBox instead of silently falling back to defaults — fixes "Show Used" resetting after recompilation.
+- **kill-all.ps1 matches compiled process name**: added `AIUsageTracker` to the target list (previously only matched `AIUsageTracker.UI.Slim`).
+
+### Changed
+- **`.editorconfig` prefix typo fixed**: all `dot_diagnostic.*` entries corrected to `dotnet_diagnostic.*`. ~40 analyzer rules were silently disabled since the file was created. Six rules are now enforced at error/warning with zero violations:
+  - **CA1031** (warning): 170 generic `catch (Exception)` blocks narrowed to specific types across Core, Infrastructure, Monitor, and UI.Slim. Unexpected exceptions now propagate.
+  - **CA1062** (error): 67 null parameter guards added across all projects.
+  - **CA1307** (error): 48 explicit `StringComparison.Ordinal` additions.
+  - **CA2016** (error): 23 `CancellationToken` forwarding fixes in provider HTTP calls.
+  - **CA2254** (error): 9 structured logging template fixes.
+  - **VSTHRD111** (warning): 89 explicit `.ConfigureAwait(true)` in UI code, `.ConfigureAwait(false)` verified in all library code.
+- **Architecture guardrail tests**: `ConfigureAwaitGuardrailTests` now enforces both directions — UI code cannot use `ConfigureAwait(false)`, library code cannot use `ConfigureAwait(true)`.
+- **CLAUDE.md added**: documents build workflow (`scripts/kill-all.ps1`), architecture, data flow, settings modes, and lists analyzer rules that must never be weakened.
+- **ADR-005 and ADR-006 added**: document the main window card filtering decision and the kill-all.ps1 fix.
+
 ## [2.3.4-beta.26] - 2026-04-04
 
 ### Added
