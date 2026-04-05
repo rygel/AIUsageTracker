@@ -218,7 +218,7 @@ public class AntigravityProvider : ProviderBase
                 }
                 catch (Exception ex)
                 {
-                    this._logger.LogWarning(ex, $"Failed to check Antigravity PID {info.Pid}");
+                    this._logger.LogWarning(ex, "Failed to check Antigravity PID {Pid}", info.Pid);
                 }
             }
 
