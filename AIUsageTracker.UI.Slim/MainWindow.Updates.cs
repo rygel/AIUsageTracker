@@ -84,7 +84,7 @@ public partial class MainWindow : Window
         {
             this._isUpdateCheckInProgress = true;
             UiDiagnosticFileLog.Write("[UPDATE] Checking for updates...");
-            this._latestUpdate = await this._updateChecker.CheckForUpdatesAsync();
+            this._latestUpdate = await this._updateChecker.CheckForUpdatesAsync().ConfigureAwait(true);
 
             var latestVersion = this._latestUpdate?.Version;
             if (!string.IsNullOrWhiteSpace(latestVersion))
@@ -173,7 +173,7 @@ public partial class MainWindow : Window
             progressWindow.Show();
 
             UiDiagnosticFileLog.Write($"[UPDATE] Starting download: {this._latestUpdate.DownloadUrl}");
-            var result = await this._updateChecker.DownloadAndInstallUpdateAsync(this._latestUpdate, progress);
+            var result = await this._updateChecker.DownloadAndInstallUpdateAsync(this._latestUpdate, progress).ConfigureAwait(true);
             progressWindow.Close();
             progressWindow = null;
 

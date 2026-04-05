@@ -82,9 +82,9 @@ public partial class SettingsWindow : Window
     {
         try
         {
-            await this._monitorService.RefreshPortAsync();
-            await this._monitorService.RefreshAgentInfoAsync();
-            await this.LoadDataAsync();
+            await this._monitorService.RefreshPortAsync().ConfigureAwait(true);
+            await this._monitorService.RefreshAgentInfoAsync().ConfigureAwait(true);
+            await this.LoadDataAsync().ConfigureAwait(true);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -165,16 +165,16 @@ public partial class SettingsWindow : Window
         }
         else
         {
-            await this.LoadDataAsync();
+            await this.LoadDataAsync().ConfigureAwait(true);
         }
 
-        await this.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+        await this.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle).Task.ConfigureAwait(true);
         this.UpdateLayout();
     }
 
     internal async Task<IReadOnlyList<string>> CaptureHeadlessTabScreenshotsAsync(string outputDirectory)
     {
-        await this.PrepareForHeadlessScreenshotAsync(deterministic: true);
+        await this.PrepareForHeadlessScreenshotAsync(deterministic: true).ConfigureAwait(true);
 
         var capturedFiles = new List<string>();
         if (this.MainTabControl.Items.Count == 0)
@@ -188,11 +188,11 @@ public partial class SettingsWindow : Window
         for (var index = 0; index < this.MainTabControl.Items.Count; index++)
         {
             this.MainTabControl.SelectedIndex = index;
-            await this.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            await this.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle).Task.ConfigureAwait(true);
 
             var header = (this.MainTabControl.Items[index] as TabItem)?.Header?.ToString();
             this.ApplyHeadlessCaptureWindowSize(header);
-            await this.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            await this.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle).Task.ConfigureAwait(true);
             this.UpdateLayout();
 
             var tabSlug = this.BuildTabSlug(header, index);
@@ -202,7 +202,7 @@ public partial class SettingsWindow : Window
         }
 
         this.MainTabControl.SelectedIndex = 0;
-        await this.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+        await this.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle).Task.ConfigureAwait(true);
         this.UpdateLayout();
 
         return capturedFiles;
@@ -355,7 +355,7 @@ public partial class SettingsWindow : Window
         try
         {
             this._autoSaveTimer.Stop();
-            await this.PersistAllSettingsAsync(showErrorDialog: false);
+            await this.PersistAllSettingsAsync(showErrorDialog: false).ConfigureAwait(true);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -431,7 +431,7 @@ public partial class SettingsWindow : Window
     private async Task<bool> SaveUiPreferencesAsync(bool showErrorDialog = false)
     {
         App.Preferences = this._preferences;
-        var saved = await this._preferencesStore.SaveAsync(this._preferences);
+        var saved = await this._preferencesStore.SaveAsync(this._preferences).ConfigureAwait(true);
         if (!saved)
         {
             this._logger.LogWarning("Failed to save Slim UI preferences");
@@ -678,7 +678,7 @@ public partial class SettingsWindow : Window
             var newPrivacyMode = !this._isPrivacyMode;
             this._preferences.IsPrivacyMode = newPrivacyMode;
             App.SetPrivacyMode(newPrivacyMode);
-            await this.SaveUiPreferencesAsync();
+            await this.SaveUiPreferencesAsync().ConfigureAwait(true);
             this.SettingsChanged = true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -695,7 +695,7 @@ public partial class SettingsWindow : Window
             this.ScanBtn.IsEnabled = false;
             this.ScanBtn.Content = "Scanning...";
 
-            var scanResult = await this._monitorService.ScanForKeysAsync();
+            var scanResult = await this._monitorService.ScanForKeysAsync().ConfigureAwait(true);
 
             if (scanResult.Count > 0)
             {
@@ -704,7 +704,7 @@ public partial class SettingsWindow : Window
                     "Scan Complete",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
-                await this.LoadDataAsync();
+                await this.LoadDataAsync().ConfigureAwait(true);
             }
             else
             {
@@ -735,13 +735,13 @@ public partial class SettingsWindow : Window
         try
         {
             // Trigger refresh on agent
-            await this._monitorService.TriggerRefreshAsync();
+            await this._monitorService.TriggerRefreshAsync().ConfigureAwait(true);
 
             // Wait a moment for refresh to complete
-            await Task.Delay(2000);
+            await Task.Delay(2000).ConfigureAwait(true);
 
             // Reload data
-            await this.LoadDataAsync();
+            await this.LoadDataAsync().ConfigureAwait(true);
 
             MessageBox.Show(
                 "Data refreshed successfully.",
@@ -766,7 +766,7 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        await this._autoSaveSemaphore.WaitAsync();
+        await this._autoSaveSemaphore.WaitAsync().ConfigureAwait(true);
         try
         {
             if (!this._hasPendingAutoSave && !showErrorDialog)
@@ -822,7 +822,7 @@ public partial class SettingsWindow : Window
             this._preferences.QuietHoursStart = this.NormalizeQuietHour(this.QuietHoursStartBox.Text, "22:00");
             this._preferences.QuietHoursEnd = this.NormalizeQuietHour(this.QuietHoursEndBox.Text, "07:00");
 
-            var prefsSaved = await this.SaveUiPreferencesAsync(showErrorDialog);
+            var prefsSaved = await this.SaveUiPreferencesAsync(showErrorDialog).ConfigureAwait(true);
             if (!prefsSaved)
             {
                 return;
@@ -839,12 +839,12 @@ public partial class SettingsWindow : Window
 
                 if (behavior.InputMode == ProviderInputMode.StandardApiKey && string.IsNullOrWhiteSpace(config.ApiKey))
                 {
-                    await this._monitorService.RemoveConfigAsync(config.ProviderId);
+                    await this._monitorService.RemoveConfigAsync(config.ProviderId).ConfigureAwait(true);
                     removedProviderIds.Add(config.ProviderId);
                     continue;
                 }
 
-                var saved = await this._monitorService.SaveConfigAsync(config);
+                var saved = await this._monitorService.SaveConfigAsync(config).ConfigureAwait(true);
                 if (!saved)
                 {
                     failedConfigs.Add(config.ProviderId);
@@ -889,7 +889,7 @@ public partial class SettingsWindow : Window
         try
         {
             this._autoSaveTimer.Stop();
-            await this.PersistAllSettingsAsync(showErrorDialog: false);
+            await this.PersistAllSettingsAsync(showErrorDialog: false).ConfigureAwait(true);
             this.DialogResult = true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -948,7 +948,7 @@ public partial class SettingsWindow : Window
         {
             var channel = this._preferences.UpdateChannel;
             var checker = this._createUpdateChecker(channel);
-            var update = await checker.CheckForUpdatesAsync();
+            var update = await checker.CheckForUpdatesAsync().ConfigureAwait(true);
 
             if (update != null && !string.IsNullOrWhiteSpace(update.Version))
             {
@@ -1036,7 +1036,7 @@ public partial class SettingsWindow : Window
             var progress = new Progress<double>(p => progressBar.Value = p);
             progressWindow.Show();
 
-            var result = await this._pendingUpdateChecker.DownloadAndInstallUpdateAsync(this._pendingUpdate, progress);
+            var result = await this._pendingUpdateChecker.DownloadAndInstallUpdateAsync(this._pendingUpdate, progress).ConfigureAwait(true);
             progressWindow.Close();
             progressWindow = null;
 
@@ -1209,7 +1209,7 @@ public partial class SettingsWindow : Window
                 return;
             }
 
-            var result = await this._monitorService.SendTestNotificationDetailedAsync();
+            var result = await this._monitorService.SendTestNotificationDetailedAsync().ConfigureAwait(true);
             this.NotificationTestStatusText.Text = result.Message;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

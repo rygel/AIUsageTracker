@@ -26,10 +26,10 @@ public partial class MainWindow : Window
             this.ShowStatus("Refreshing...", StatusType.Info);
 
             // Trigger refresh on monitor
-            await this._monitorService.TriggerRefreshAsync();
+            await this._monitorService.TriggerRefreshAsync().ConfigureAwait(true);
 
             // Get updated usage data
-            var latestUsages = await this.GetUsageForDisplayAsync();
+            var latestUsages = await this.GetUsageForDisplayAsync().ConfigureAwait(true);
             var now = DateTime.Now;
             var hasLatestUsages = latestUsages.Any();
             bool hasCurrentUsages = false;
@@ -66,7 +66,7 @@ public partial class MainWindow : Window
 
     private async Task<IReadOnlyList<ProviderUsage>> GetUsageForDisplayAsync()
     {
-        var groupedSnapshot = await this._monitorService.GetGroupedUsageAsync();
+        var groupedSnapshot = await this._monitorService.GetGroupedUsageAsync().ConfigureAwait(true);
         if (groupedSnapshot == null)
         {
             this._logger.LogWarning("Grouped usage snapshot is unavailable.");
@@ -101,7 +101,7 @@ public partial class MainWindow : Window
             this._isPollingInProgress = true;
             try
             {
-                var usages = await this.GetUsageForDisplayAsync();
+                var usages = await this.GetUsageForDisplayAsync().ConfigureAwait(true);
 
                 if (usages.Any())
                 {
@@ -119,7 +119,7 @@ public partial class MainWindow : Window
                         this._lastRefreshTrigger = DateTime.Now;
                         try
                         {
-                            await this._monitorService.TriggerRefreshAsync();
+                            await this._monitorService.TriggerRefreshAsync().ConfigureAwait(true);
                         }
                         catch (Exception ex) when (ex is not OperationCanceledException)
                         {
@@ -133,8 +133,8 @@ public partial class MainWindow : Window
                             refreshDecision.SecondsSinceLastRefresh);
                     }
 
-                    await Task.Delay(1000);
-                    var refreshedUsages = await this.GetUsageForDisplayAsync();
+                    await Task.Delay(1000).ConfigureAwait(true);
+                    var refreshedUsages = await this.GetUsageForDisplayAsync().ConfigureAwait(true);
                     if (refreshedUsages.Any())
                     {
                         this.ApplyFetchedUsages(refreshedUsages, DateTime.Now, " (refreshed)");
@@ -289,7 +289,7 @@ public partial class MainWindow : Window
         this._isPollingInProgress = true;
         try
         {
-            var usages = await this.GetUsageForDisplayAsync();
+            var usages = await this.GetUsageForDisplayAsync().ConfigureAwait(true);
             if (usages.Any())
             {
                 this.ApplyFetchedUsages(usages, DateTime.Now, statusSuffix);

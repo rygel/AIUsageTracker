@@ -86,7 +86,7 @@ public partial class App : Application
             return;
         }
 
-        await Host.StartAsync();
+        await Host.StartAsync().ConfigureAwait(true);
         base.OnStartup(e);
 
         if (e.Args.Contains("--test", StringComparer.OrdinalIgnoreCase) &&
@@ -118,7 +118,7 @@ public partial class App : Application
         var preferencesStore = Host.Services.GetRequiredService<UiPreferencesStore>();
         try
         {
-            Preferences = await preferencesStore.LoadAsync();
+            Preferences = await preferencesStore.LoadAsync().ConfigureAwait(true);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -153,7 +153,7 @@ public partial class App : Application
 
         using (_host)
         {
-            await Host.StopAsync();
+            await Host.StopAsync().ConfigureAwait(true);
         }
 
         this._singleInstanceLockService?.Release();

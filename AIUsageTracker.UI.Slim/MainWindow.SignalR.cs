@@ -27,7 +27,7 @@ public partial class MainWindow : Window
                 await this.Dispatcher.InvokeAsync(() =>
                 {
                     this.ShowStatus("Monitor refreshing...", StatusType.Info);
-                });
+                }).Task.ConfigureAwait(true);
             });
 
             this._hubConnection.On("UsageUpdated", async () =>
@@ -35,11 +35,11 @@ public partial class MainWindow : Window
                 this._logger.LogInformation("SignalR: Received UsageUpdated event");
                 await this.Dispatcher.InvokeAsync(async () =>
                 {
-                    await this.FetchDataAsync(" (real-time)");
-                });
+                    await this.FetchDataAsync(" (real-time)").ConfigureAwait(true);
+                }).Task.ConfigureAwait(true);
             });
 
-            await this._hubConnection.StartAsync();
+            await this._hubConnection.StartAsync().ConfigureAwait(true);
             this._logger.LogInformation("SignalR connection established");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

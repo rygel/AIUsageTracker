@@ -31,7 +31,7 @@ dotnet_diagnostic.VSTHRD105.severity = warning
 dotnet_diagnostic.VSTHRD110.severity = warning
 # TODO: fix violations then promote to error (was inert due to dot_diagnostic prefix typo)
 dotnet_diagnostic.VSTHRD109.severity = suggestion
-dotnet_diagnostic.VSTHRD111.severity = suggestion
+dotnet_diagnostic.VSTHRD111.severity = warning
 dotnet_diagnostic.VSTHRD200.severity = suggestion
 dotnet_diagnostic.CA2016.severity = error
 dotnet_diagnostic.CA2254.severity = error
@@ -94,6 +94,9 @@ dotnet_diagnostic.MA0011.severity = warning
 dotnet_diagnostic.MA0016.severity = warning
 dotnet_diagnostic.MA0002.severity = warning
 dotnet_diagnostic.MA0009.severity = warning
+# Test code has no sync context — ConfigureAwait is irrelevant
+dotnet_diagnostic.VSTHRD111.severity = none
+
 
 [AIUsageTracker.Web/Pages/*.cshtml.cs]
 # Razor PageModel files intentionally use route-based filenames

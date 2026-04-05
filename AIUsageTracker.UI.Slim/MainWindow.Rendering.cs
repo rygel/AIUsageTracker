@@ -211,7 +211,7 @@ public partial class MainWindow : Window
                 setCollapsed(newState);
                 container.Visibility = newState ? Visibility.Collapsed : Visibility.Visible;
                 toggleText.Text = newState ? "\u25B6" : "\u25BC";
-                await this.SaveUiPreferencesAsync();
+                await this.SaveUiPreferencesAsync().ConfigureAwait(true);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -337,7 +337,7 @@ public partial class MainWindow : Window
         }
 
         this.ApplyPreferencesFromSettings();
-        await this.InitializeAsync();
+        await this.InitializeAsync().ConfigureAwait(true);
     }
 
     private ToolTip CreateTopmostAwareToolTip(FrameworkElement placementTarget, object content)

@@ -211,7 +211,7 @@ public partial class InfoDialog : Window
             App.SetPrivacyMode(this._isPrivacyMode);
 
             // App.PrivacyChanged event will handle UI update
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(true);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -220,7 +220,7 @@ public partial class InfoDialog : Window
     }
 
 #pragma warning disable VSTHRD100 // XAML click handlers must be async void wrappers.
-    private async void PrivacyBtn_Click(object sender, RoutedEventArgs e) => await this.PrivacyBtn_ClickAsync(sender, e);
+    private async void PrivacyBtn_Click(object sender, RoutedEventArgs e) => await this.PrivacyBtn_ClickAsync(sender, e).ConfigureAwait(true);
 #pragma warning restore VSTHRD100
 
     private void ConfigDir_Click(object sender, RoutedEventArgs e)

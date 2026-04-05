@@ -15,8 +15,8 @@ public partial class SettingsWindow
     {
         try
         {
-            await this._monitorService.RefreshPortAsync();
-            var csv = await this._monitorService.ExportDataAsync("csv");
+            await this._monitorService.RefreshPortAsync().ConfigureAwait(true);
+            var csv = await this._monitorService.ExportDataAsync("csv").ConfigureAwait(true);
             if (string.IsNullOrEmpty(csv))
             {
                 MessageBox.Show(
@@ -36,7 +36,7 @@ public partial class SettingsWindow
 
             if (dialog.ShowDialog() == true)
             {
-                await File.WriteAllTextAsync(dialog.FileName, csv);
+                await File.WriteAllTextAsync(dialog.FileName, csv).ConfigureAwait(true);
                 MessageBox.Show(
                     $"Exported to {dialog.FileName}",
                     "Export Complete",
@@ -58,8 +58,8 @@ public partial class SettingsWindow
     {
         try
         {
-            await this._monitorService.RefreshPortAsync();
-            var json = await this._monitorService.ExportDataAsync("json");
+            await this._monitorService.RefreshPortAsync().ConfigureAwait(true);
+            var json = await this._monitorService.ExportDataAsync("json").ConfigureAwait(true);
             if (string.Equals(json, "[]", StringComparison.Ordinal) || string.IsNullOrEmpty(json))
             {
                 MessageBox.Show(
@@ -79,7 +79,7 @@ public partial class SettingsWindow
 
             if (dialog.ShowDialog() == true)
             {
-                await File.WriteAllTextAsync(dialog.FileName, json);
+                await File.WriteAllTextAsync(dialog.FileName, json).ConfigureAwait(true);
                 MessageBox.Show(
                     $"Exported to {dialog.FileName}",
                     "Export Complete",
@@ -145,7 +145,7 @@ public partial class SettingsWindow
     {
         try
         {
-            var history = await this._monitorService.GetHistoryAsync(100);
+            var history = await this._monitorService.GetHistoryAsync(100).ConfigureAwait(true);
             this.HistoryDataGrid.ItemsSource = history;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -158,7 +158,7 @@ public partial class SettingsWindow
     {
         try
         {
-            var history = await this._monitorService.GetHistoryAsync(100);
+            var history = await this._monitorService.GetHistoryAsync(100).ConfigureAwait(true);
             this.HistoryDataGrid.ItemsSource = history;
 
             if (history.Count == 0)
