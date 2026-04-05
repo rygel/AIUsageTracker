@@ -218,7 +218,7 @@ public class AntigravityProvider : ProviderBase
                 }
                 catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or InvalidOperationException or IOException)
                 {
-                    this._logger.LogWarning(ex, $"Failed to check Antigravity PID {info.Pid}");
+                    this._logger.LogWarning(ex, "Failed to check Antigravity PID {Pid}", info.Pid);
                 }
             }
 
