@@ -86,35 +86,8 @@ public partial class App : Application
             return;
         }
 
-        await Host.StartAsync().ConfigureAwait(true);
-        base.OnStartup(e);
-
-        if (e.Args.Contains("--test", StringComparer.OrdinalIgnoreCase) &&
-            e.Args.Contains("--screenshot", StringComparer.OrdinalIgnoreCase))
-        {
-            this.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-            _ = this.RunHeadlessScreenshotCaptureAsync(e.Args);
-            return;
-        }
-
-        // Fire monitor warmup IMMEDIATELY — runs in parallel with preferences load,
-        // theme apply, tray icon init, and the expensive MainWindow InitializeComponent.
-        // By the time the window is shown, the monitor should already be running.
-        MonitorWarmupTask = Task.Run(async () =>
-        {
-            try
-            {
-                var lifecycle = Host.Services.GetRequiredService<MonitorLifecycleService>();
-                return await lifecycle.EnsureAgentRunningAsync().ConfigureAwait(false); // ui-thread-guardrail-allow: Task.Run thread pool
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                Host.Services.GetRequiredService<ILogger<App>>()
-                    .LogWarning(ex, "Background monitor warmup failed");
-                return false;
-            }
-        });
-
+        // Load preferences BEFORE Host.StartAsync() so DI singletons
+        // (e.g. GitHubUpdateChecker) capture the correct UpdateChannel.
         var preferencesStore = Host.Services.GetRequiredService<UiPreferencesStore>();
         try
         {
@@ -131,6 +104,35 @@ public partial class App : Application
                 MessageBoxImage.Warning);
             Preferences = new AppPreferences();
         }
+
+        await Host.StartAsync().ConfigureAwait(true);
+        base.OnStartup(e);
+
+        if (e.Args.Contains("--test", StringComparer.OrdinalIgnoreCase) &&
+            e.Args.Contains("--screenshot", StringComparer.OrdinalIgnoreCase))
+        {
+            this.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            _ = this.RunHeadlessScreenshotCaptureAsync(e.Args);
+            return;
+        }
+
+        // Fire monitor warmup IMMEDIATELY — runs in parallel with
+        // theme apply, tray icon init, and the expensive MainWindow InitializeComponent.
+        // By the time the window is shown, the monitor should already be running.
+        MonitorWarmupTask = Task.Run(async () =>
+        {
+            try
+            {
+                var lifecycle = Host.Services.GetRequiredService<MonitorLifecycleService>();
+                return await lifecycle.EnsureAgentRunningAsync().ConfigureAwait(false); // ui-thread-guardrail-allow: Task.Run thread pool
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Host.Services.GetRequiredService<ILogger<App>>()
+                    .LogWarning(ex, "Background monitor warmup failed");
+                return false;
+            }
+        });
 
         ApplyTheme(Preferences.Theme);
         IsPrivacyMode = Preferences.IsPrivacyMode;
