@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Configuration;
@@ -63,7 +64,7 @@ public class ConfigService : IConfigService
             Volatile.Write(ref this._cachedConfigs, configs);
             return configs;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             this._logger.LogError(ex, "Failed to load configs: {Message}", ex.Message);
             MonitorInfoPersistence.ReportError($"Config load failed: {ex.Message}", this._pathProvider, this._logger);
@@ -144,7 +145,7 @@ public class ConfigService : IConfigService
             Volatile.Write(ref this._cachedPreferences, prefs);
             return prefs;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             this._logger.LogError(ex, "Failed to load preferences: {Message}", ex.Message);
             return new AppPreferences();
@@ -250,7 +251,7 @@ public class ConfigService : IConfigService
             Volatile.Write(ref this._cachedConfigs, null);
             return discovered.ToList();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             this._logger.LogError(ex, "Failed to scan for keys: {Message}", ex.Message);
             return new List<ProviderConfig>();

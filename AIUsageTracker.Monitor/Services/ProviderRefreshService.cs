@@ -3,6 +3,7 @@
 // </copyright>
 
 using System.Diagnostics;
+using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Services;
@@ -243,7 +244,7 @@ public class ProviderRefreshService : BackgroundService
 
             await this._refreshNotificationService.NotifyUsageUpdatedAsync(refreshedUsages).ConfigureAwait(false);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or IOException)
         {
             this._logger.LogError(ex, "Refresh failed: {Message}", ex.Message);
             MonitorInfoPersistence.ReportError($"Refresh failed: {ex.Message}", this._pathProvider, this._logger);
@@ -386,7 +387,7 @@ public class ProviderRefreshService : BackgroundService
                 this._refreshSemaphore.Release();
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or IOException)
         {
             this._logger.LogError(ex, "Provider connectivity check failed for {ProviderId}", providerId);
             return (false, ex.Message, 500);

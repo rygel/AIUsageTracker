@@ -96,7 +96,7 @@ public class UsageAlertsService
                 await this.SendResetNotificationAsync(usage).ConfigureAwait(false);
                 this._logger.LogInformation("{ProviderId} reset: {Reason}", usage.ProviderId, resetReason);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is IOException or InvalidOperationException)
             {
                 this._logger.LogWarning(ex, "Reset check failed for {ProviderId}: {Message}", usage.ProviderId, ex.Message);
             }
