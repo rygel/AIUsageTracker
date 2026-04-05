@@ -30,6 +30,9 @@ public class UsageAlertsService
 
     public void CheckUsageAlerts(IReadOnlyList<ProviderUsage> usages, AppPreferences prefs, IReadOnlyList<ProviderConfig> configs)
     {
+        ArgumentNullException.ThrowIfNull(prefs);
+        ArgumentNullException.ThrowIfNull(usages);
+
         if (!prefs.EnableNotifications || !prefs.NotifyOnUsageThreshold || IsInQuietHours(prefs))
         {
             return;
@@ -61,6 +64,8 @@ public class UsageAlertsService
 
     public async Task DetectResetEventsAsync(IReadOnlyList<ProviderUsage> currentUsages)
     {
+        ArgumentNullException.ThrowIfNull(currentUsages);
+
         this._logger.LogDebug("Checking for reset events...");
 
         var allHistory = await this._database.GetRecentHistoryAsync(2).ConfigureAwait(false);

@@ -20,6 +20,8 @@ public class ImportService
 
     public async Task<(int Imported, int Skipped, List<string> Errors)> ImportHistoryAsync(Stream stream, string format)
     {
+        ArgumentNullException.ThrowIfNull(format);
+
         var imported = 0;
         var skipped = 0;
         var errors = new List<string>();

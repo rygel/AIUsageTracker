@@ -44,6 +44,8 @@ public class OpenRouterProvider : ProviderBase
     /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
         this._logger.LogDebug("Starting OpenRouter usage fetch for provider {ProviderId}", config.ProviderId);
 
         if (string.IsNullOrEmpty(config.ApiKey))

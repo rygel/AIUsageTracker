@@ -211,6 +211,8 @@ public static class ResetTimeParser
     /// <returns>The soonest valid reset time, or null if none found.</returns>
     public static DateTime? GetSoonest(params DateTime?[] resetTimes)
     {
+        ArgumentNullException.ThrowIfNull(resetTimes);
+
         DateTime? soonest = null;
 
         foreach (var rt in resetTimes)

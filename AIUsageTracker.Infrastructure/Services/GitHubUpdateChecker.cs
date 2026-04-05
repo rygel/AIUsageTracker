@@ -55,6 +55,8 @@ public class GitHubUpdateChecker
 
     public static string GetAppcastUrl(string architecture, bool isBeta)
     {
+        ArgumentNullException.ThrowIfNull(architecture);
+
         var normalizedArchitecture = architecture.ToLowerInvariant() switch
         {
             "arm" => "arm64",
@@ -126,6 +128,8 @@ public class GitHubUpdateChecker
 
     public async Task<UpdateInstallResult> DownloadAndInstallUpdateAsync(AIUsageTracker.Core.Interfaces.UpdateInfo updateInfo, IProgress<double>? progress = null)
     {
+        ArgumentNullException.ThrowIfNull(updateInfo);
+
         try
         {
             this._logger.LogInformation("Starting download and install for version {Version}", updateInfo.Version);

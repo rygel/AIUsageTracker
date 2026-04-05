@@ -49,6 +49,8 @@ public class ZaiProvider : ProviderBase
     /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
         if (string.IsNullOrEmpty(config.ApiKey))
         {
             throw new ArgumentException("API Key not found for Z.AI provider.", nameof(config));

@@ -82,6 +82,8 @@ public sealed class HttpFailureContext
     /// </summary>
     public static HttpFailureContext FromException(Exception exception, HttpFailureClassification classification, string userMessage = "")
     {
+        ArgumentNullException.ThrowIfNull(exception);
+
         return new HttpFailureContext
         {
             Classification = classification,

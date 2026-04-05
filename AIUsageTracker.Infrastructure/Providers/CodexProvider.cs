@@ -108,6 +108,8 @@ public class CodexProvider : ProviderBase
 
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
         string? knownAccountIdentity = null;
         try
         {

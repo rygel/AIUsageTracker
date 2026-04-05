@@ -25,6 +25,8 @@ public static class MonitorJsonSerializer
     /// </summary>
     public static void Configure(JsonSerializerOptions options)
     {
+        ArgumentNullException.ThrowIfNull(options);
+
         options.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
         options.PropertyNameCaseInsensitive = true;
         options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower));

@@ -26,6 +26,7 @@ public sealed class UpdateChannelConfigurationEndToEndTests : IDisposable
         bool isBeta,
         string expectedTitle)
     {
+        ArgumentNullException.ThrowIfNull(version);
         var workingDirectory = CreateScriptWorkspace(this._tempRoot);
 
         var generated = await RunGenerateAppcastAsync(workingDirectory, version, isBeta ? "beta" : "stable");

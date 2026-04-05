@@ -45,6 +45,8 @@ public sealed class SyntheticProvider : ProviderBase
         Action<ProviderUsage>? progressCallback = null,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
         if (string.IsNullOrWhiteSpace(config.ApiKey))
         {
             return new[] { this.CreateUnavailableUsage("API Key missing", 401, config.AuthSource, state: ProviderUsageState.Missing) };

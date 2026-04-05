@@ -259,6 +259,8 @@ public static class ProviderMetadataCatalog
 
     public static void NormalizeCanonicalConfigurations(IList<ProviderConfig> configs)
     {
+        ArgumentNullException.ThrowIfNull(configs);
+
         NormalizeConfigOwnership(configs);
     }
 

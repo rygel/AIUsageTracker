@@ -11,6 +11,8 @@ public static class UpdateMapper
 {
     public static AppCastItem ToAppCastItem(CoreUpdateInfo info)
     {
+        ArgumentNullException.ThrowIfNull(info);
+
         return new AppCastItem
         {
             Version = info.Version.StartsWith("v", StringComparison.Ordinal) ? info.Version[1..] : info.Version,

@@ -55,6 +55,8 @@ public class MinimaxProvider : ProviderBase
     /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
         var providerLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId);
 
         if (string.IsNullOrEmpty(config.ApiKey))

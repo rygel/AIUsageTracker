@@ -62,6 +62,8 @@ public class OpenCodeProvider : ProviderBase
         Action<ProviderUsage>? progressCallback = null,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
         var apiKey = config.ApiKey;
         if (string.IsNullOrEmpty(apiKey) && this.DiscoveryService != null)
         {

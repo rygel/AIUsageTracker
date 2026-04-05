@@ -101,6 +101,7 @@ public class MockProviderService : IProviderService
 
     public Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(config);
         if (this.UsageHandler != null)
         {
             return this.UsageHandler(config);

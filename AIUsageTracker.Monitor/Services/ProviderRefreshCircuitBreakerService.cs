@@ -27,6 +27,8 @@ public class ProviderRefreshCircuitBreakerService
 
     public IList<ProviderConfig> GetRefreshableConfigs(IList<ProviderConfig> activeConfigs, bool forceAll)
     {
+        ArgumentNullException.ThrowIfNull(activeConfigs);
+
         if (forceAll || activeConfigs.Count == 0)
         {
             return activeConfigs;
@@ -64,6 +66,8 @@ public class ProviderRefreshCircuitBreakerService
 
     public void UpdateProviderFailureStates(IList<ProviderConfig> queriedConfigs, IReadOnlyCollection<ProviderUsage> usages)
     {
+        ArgumentNullException.ThrowIfNull(queriedConfigs);
+
         if (queriedConfigs.Count == 0)
         {
             return;
@@ -145,6 +149,8 @@ public class ProviderRefreshCircuitBreakerService
     /// <returns></returns>
     public IReadOnlyList<ProviderUsage> CreateCircuitOpenUsages(IEnumerable<ProviderConfig> skippedConfigs)
     {
+        ArgumentNullException.ThrowIfNull(skippedConfigs);
+
         var result = new List<ProviderUsage>();
         lock (this._providerFailureLock)
         {

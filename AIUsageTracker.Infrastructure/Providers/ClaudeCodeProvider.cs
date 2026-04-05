@@ -73,6 +73,8 @@ public class ClaudeCodeProvider : ProviderBase
     /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
         // Check if API key is configured
         if (string.IsNullOrEmpty(config.ApiKey))
         {

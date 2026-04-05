@@ -17,6 +17,8 @@ public class Program
 {
     public static int Main(string[] args)
     {
+        ArgumentNullException.ThrowIfNull(args);
+
         if (args.Length > 0 && string.Equals(args[0], "export", StringComparison.Ordinal))
         {
             var exportPath = ValidateFixturePath(args.Length > 1 ? args[1] : "test-fixtures/provider-data.json");

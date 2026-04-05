@@ -23,6 +23,8 @@ public static class HttpFailureMapper
     /// </summary>
     public static HttpFailureContext ClassifyResponse(HttpResponseMessage response)
     {
+        ArgumentNullException.ThrowIfNull(response);
+
         var statusCode = (int)response.StatusCode;
         var context = HttpFailureContext.FromHttpStatus(statusCode);
 

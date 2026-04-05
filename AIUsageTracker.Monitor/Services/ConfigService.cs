@@ -78,6 +78,7 @@ public class ConfigService : IConfigService
 
     public async Task SaveConfigAsync(ProviderConfig config)
     {
+        ArgumentNullException.ThrowIfNull(config);
         try
         {
             var configs = (await this._configLoader.LoadConfigAsync().ConfigureAwait(false)).ToList();

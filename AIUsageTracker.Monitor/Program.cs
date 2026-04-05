@@ -328,12 +328,14 @@ public class Program
     // Compatibility wrapper kept for tests and external callers.
     public static void SaveMonitorInfo(int port, bool debug, ILogger logger, IAppPathProvider pathProvider, string? startupStatus = null)
     {
+        ArgumentNullException.ThrowIfNull(pathProvider);
         MonitorInfoPersistence.SaveMonitorInfo(port, debug, logger, pathProvider, startupStatus);
     }
 
     // Compatibility wrapper kept for tests and external callers.
     public static void ReportError(string message, IAppPathProvider pathProvider, ILogger? logger = null)
     {
+        ArgumentNullException.ThrowIfNull(pathProvider);
         MonitorInfoPersistence.ReportError(message, pathProvider, logger);
     }
 }

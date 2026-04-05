@@ -8,6 +8,8 @@ public static class AuthPathTemplateResolver
 {
     public static string Resolve(string pathTemplate, string userProfileRoot)
     {
+        ArgumentNullException.ThrowIfNull(pathTemplate);
+
         var appDataRoot = Path.Combine(userProfileRoot, "AppData", "Roaming");
         var localAppDataRoot = Path.Combine(userProfileRoot, "AppData", "Local");
 

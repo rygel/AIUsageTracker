@@ -49,6 +49,7 @@ public static class CloseWindowBehavior
     /// <returns>True if the window should close on click; otherwise, false.</returns>
     public static bool GetCloseOnClick(Button button)
     {
+        ArgumentNullException.ThrowIfNull(button);
         return (bool)button.GetValue(CloseOnClickProperty);
     }
 
@@ -59,6 +60,7 @@ public static class CloseWindowBehavior
     /// <param name="value">True to close the window on click; otherwise, false.</param>
     public static void SetCloseOnClick(Button button, bool value)
     {
+        ArgumentNullException.ThrowIfNull(button);
         button.SetValue(CloseOnClickProperty, value);
     }
 
@@ -69,6 +71,7 @@ public static class CloseWindowBehavior
     /// <returns>True if the window should hide on click; otherwise, false.</returns>
     public static bool GetHideOnClick(Button button)
     {
+        ArgumentNullException.ThrowIfNull(button);
         return (bool)button.GetValue(HideOnClickProperty);
     }
 
@@ -79,6 +82,7 @@ public static class CloseWindowBehavior
     /// <param name="value">True to hide the window on click; otherwise, false.</param>
     public static void SetHideOnClick(Button button, bool value)
     {
+        ArgumentNullException.ThrowIfNull(button);
         button.SetValue(HideOnClickProperty, value);
     }
 

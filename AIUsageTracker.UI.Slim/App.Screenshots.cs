@@ -22,6 +22,8 @@ public partial class App
 
     public static void RenderWindowContent(Window window, string outputPath)
     {
+        ArgumentNullException.ThrowIfNull(window);
+
         if (window.Content is not FrameworkElement root)
         {
             throw new InvalidOperationException("Window content is not a FrameworkElement.");
