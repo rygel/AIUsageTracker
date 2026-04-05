@@ -140,7 +140,7 @@ internal static class AuthDiagnosticsSnapshotBuilder
 
             return "gte-7d";
         }
-        catch
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             logger?.LogDebug(
                 "Auth diagnostics token age calculation failed for provider {ProviderId} and source {AuthSource}.",

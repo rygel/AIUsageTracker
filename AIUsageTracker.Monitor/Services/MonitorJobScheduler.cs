@@ -220,7 +220,7 @@ public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobSchedule
                 {
                     break;
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     Interlocked.Increment(ref this._failedJobs);
                     Activity.Current?.SetStatus(ActivityStatusCode.Error, ex.Message);
@@ -266,7 +266,7 @@ public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobSchedule
             {
                 await Task.WhenAll(recurringTasks).ConfigureAwait(false);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 this._logger.LogDebug(ex, "Recurring scheduler loops ended with cancellation/error.");
             }
@@ -315,7 +315,7 @@ public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobSchedule
                 {
                     // Normal shutdown path.
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     this._logger.LogError(ex, "Recurring job loop failed for {JobName}", registration.Name);
                 }

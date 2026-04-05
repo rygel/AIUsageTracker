@@ -45,7 +45,7 @@ internal static class MonitorInfoPersistence
 
             File.WriteAllText(infoPath, json);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             logger.LogError(ex, "Failed to write monitor info to {MonitorInfoPath}", infoPath);
         }
