@@ -42,6 +42,8 @@ public class JsonConfigLoader : IConfigLoader
 
     public async Task SaveConfigAsync(IEnumerable<ProviderConfig> configs)
     {
+        ArgumentNullException.ThrowIfNull(configs);
+
         var authPath = this.GetTrackerConfigPath();
         var providersPath = this.GetProvidersConfigPath();
 

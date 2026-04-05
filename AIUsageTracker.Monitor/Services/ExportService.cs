@@ -20,6 +20,8 @@ public class ExportService
 
     public async Task<(byte[] Content, string ContentType, string FileName)> ExportAsync(string format, int days)
     {
+        ArgumentNullException.ThrowIfNull(format);
+
         // Limit days to reasonable range
         if (days < 1)
         {

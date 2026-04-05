@@ -18,6 +18,8 @@ public class Program
 {
     public static async Task Main(string[] args)
     {
+        ArgumentNullException.ThrowIfNull(args);
+
         using var serviceProvider = CreateServiceProvider();
 
         // Ensure Agent is running

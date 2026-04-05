@@ -14,6 +14,26 @@ Run tests (capped at 4 cores per global CLAUDE.md):
 dotnet test AIUsageTracker.Tests/AIUsageTracker.Tests.csproj -T 4
 ```
 
+## Analyzer Rules — Do Not Weaken
+
+The following `.editorconfig` rules are enforced at `error` severity with zero violations.
+**Never lower their severity, add suppressions, or work around them.**
+Fix the underlying code instead.
+
+| Rule | Severity | What it enforces |
+|------|----------|-----------------|
+| CA1031 | warning | No catching general `Exception` — use specific types |
+| CA1062 | error | Validate public method parameters for null |
+| CA1307 | error | Explicit `StringComparison` on all string operations |
+| CA2016 | error | Forward `CancellationToken` to async methods |
+| CA2254 | error | Use structured logging templates, not interpolation |
+
+If a new violation appears, fix it before pushing. Do not:
+- Change severity to `suggestion` or `none`
+- Add `#pragma warning disable`
+- Add `[SuppressMessage]` attributes
+- Raise analyzer thresholds to make CI pass
+
 ## Architecture
 
 - **AIUsageTracker.UI.Slim** — WPF main window + settings dialog (net8.0-windows)

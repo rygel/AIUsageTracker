@@ -22,6 +22,8 @@ public sealed class ProviderDiscoveryService : IProviderDiscoveryService
 
     public async Task<ProviderAuthData?> DiscoverAuthAsync(ProviderAuthDiscoverySpec discoverySpec)
     {
+        ArgumentNullException.ThrowIfNull(discoverySpec);
+
         // 1. Check environment variables
         foreach (var envVar in discoverySpec.DiscoveryEnvironmentVariables)
         {

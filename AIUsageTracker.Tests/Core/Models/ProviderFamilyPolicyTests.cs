@@ -35,6 +35,7 @@ public sealed class ProviderFamilyPolicyTests
         ProviderFamilyMode familyMode,
         bool expected)
     {
+        ArgumentNullException.ThrowIfNull(candidateProviderId);
         var handledProviderIds = new[] { candidateProviderId.Split('.')[0] };
 
         Assert.Equal(expected, ProviderFamilyPolicy.IsChildProviderId(handledProviderIds, candidateProviderId, familyMode));

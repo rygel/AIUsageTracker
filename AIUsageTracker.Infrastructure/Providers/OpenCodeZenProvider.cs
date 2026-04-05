@@ -94,6 +94,8 @@ public class OpenCodeZenProvider : ProviderBase
         Action<ProviderUsage>? progressCallback = null,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
         var cliPath = await this.ResolveCliPathAsync().ConfigureAwait(false);
         if (cliPath == null)
         {

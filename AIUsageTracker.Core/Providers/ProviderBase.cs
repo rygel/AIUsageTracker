@@ -111,6 +111,8 @@ public abstract class ProviderBase : IProviderService
         HttpResponseMessage response,
         string? authSource = null)
     {
+        ArgumentNullException.ThrowIfNull(response);
+
         var statusCode = (int)response.StatusCode;
         var description = DescribeUnavailableStatus(response.StatusCode);
         return this.CreateUnavailableUsage(description, statusCode, authSource);
@@ -129,6 +131,8 @@ public abstract class ProviderBase : IProviderService
         ProviderException ex,
         string? authSource = null)
     {
+        ArgumentNullException.ThrowIfNull(ex);
+
         var description = ex.ErrorType switch
         {
             ProviderErrorType.AuthenticationError => $"Authentication failed ({ex.HttpStatusCode})",
@@ -162,6 +166,8 @@ public abstract class ProviderBase : IProviderService
         Exception ex,
         string context = "Provider check failed")
     {
+        ArgumentNullException.ThrowIfNull(ex);
+
         return ex switch
         {
             HttpRequestException => "Connection failed - check network",

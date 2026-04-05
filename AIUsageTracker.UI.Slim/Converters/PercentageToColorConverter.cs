@@ -30,6 +30,8 @@ public class PercentageToColorConverter : IMultiValueConverter
     /// <returns>A SolidColorBrush representing the appropriate color.</returns>
     public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
     {
+        ArgumentNullException.ThrowIfNull(values);
+
         if (values.Length < 3 ||
             values[0] is not double percentage ||
             values[1] is not int yellowThreshold ||

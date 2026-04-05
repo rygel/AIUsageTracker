@@ -102,6 +102,8 @@ public static class HttpRequestBuilderExtensions
         ILogger? logger = null,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(httpClient);
+
         if (string.IsNullOrWhiteSpace(url))
         {
             throw new ArgumentException("URL cannot be null or empty", nameof(url));

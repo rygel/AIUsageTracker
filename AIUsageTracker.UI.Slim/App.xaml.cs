@@ -76,6 +76,8 @@ public partial class App : Application
 #pragma warning disable VSTHRD100 // WPF Application lifecycle overrides require async void signatures
     protected override async void OnStartup(StartupEventArgs e)
     {
+        ArgumentNullException.ThrowIfNull(e);
+
         this._singleInstanceLockService = Host.Services.GetRequiredService<SingleInstanceLockService>();
         if (!this._singleInstanceLockService.TryAcquire())
         {

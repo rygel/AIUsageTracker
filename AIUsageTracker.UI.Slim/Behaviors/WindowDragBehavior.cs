@@ -35,6 +35,7 @@ public static class WindowDragBehavior
     /// <returns>True if drag is enabled; otherwise, false.</returns>
     public static bool GetEnableDrag(DependencyObject element)
     {
+        ArgumentNullException.ThrowIfNull(element);
         return (bool)element.GetValue(EnableDragProperty);
     }
 
@@ -45,6 +46,7 @@ public static class WindowDragBehavior
     /// <param name="value">True to enable drag; otherwise, false.</param>
     public static void SetEnableDrag(DependencyObject element, bool value)
     {
+        ArgumentNullException.ThrowIfNull(element);
         element.SetValue(EnableDragProperty, value);
     }
 

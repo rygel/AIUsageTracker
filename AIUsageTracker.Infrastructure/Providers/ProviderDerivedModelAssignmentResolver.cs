@@ -13,6 +13,8 @@ public static class ProviderDerivedModelAssignmentResolver
         string canonicalProviderId,
         IReadOnlyList<AgentGroupedModelUsage> orderedModels)
     {
+        ArgumentNullException.ThrowIfNull(orderedModels);
+
         if (string.IsNullOrWhiteSpace(canonicalProviderId) ||
             orderedModels.Count == 0)
         {

@@ -30,7 +30,7 @@ public class AntigravityProvider : ProviderBase
     private DateTime _lastProcessCheck = DateTime.MinValue;
 
     public AntigravityProvider(ILogger<AntigravityProvider> logger, IHttpClientFactory httpClientFactory)
-        : this(httpClientFactory.CreateClient("LocalhostClient"), logger)
+        : this((httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory))).CreateClient("LocalhostClient"), logger)
     {
     }
 
@@ -66,6 +66,8 @@ public class AntigravityProvider : ProviderBase
     /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
         var results = new List<ProviderUsage>();
 
         try

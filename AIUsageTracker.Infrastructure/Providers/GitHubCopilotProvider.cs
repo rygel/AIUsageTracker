@@ -53,6 +53,8 @@ public class GitHubCopilotProvider : ProviderBase
 
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
         var token = this.ResolveToken(config);
         if (string.IsNullOrEmpty(token) && this.DiscoveryService != null)
         {

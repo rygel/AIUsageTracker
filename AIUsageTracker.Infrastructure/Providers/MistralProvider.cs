@@ -47,6 +47,8 @@ public class MistralProvider : ProviderBase
     /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
         var apiKey = config.ApiKey;
 
         if (string.IsNullOrEmpty(apiKey) && this.DiscoveryService != null)

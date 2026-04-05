@@ -36,6 +36,8 @@ public class FileLogger : ILogger
         Exception? exception,
         Func<TState, Exception?, string> formatter)
     {
+        ArgumentNullException.ThrowIfNull(formatter);
+
         if (!this.IsEnabled(logLevel))
         {
             return;

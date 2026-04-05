@@ -20,6 +20,8 @@ public static class ProviderFamilyPolicy
         IReadOnlyCollection<string> visibleDerivedProviderIds,
         ProviderFamilyMode familyMode)
     {
+        ArgumentNullException.ThrowIfNull(visibleDerivedProviderIds);
+
         return visibleDerivedProviderIds.Count > 0 ||
                familyMode == ProviderFamilyMode.DynamicChildProviderRows;
     }

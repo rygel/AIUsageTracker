@@ -61,6 +61,8 @@ public sealed class ProviderRefreshConfigLoadingService
 
     public async Task PersistConfiguredProvidersAsync(IEnumerable<ProviderConfig> configs)
     {
+        ArgumentNullException.ThrowIfNull(configs);
+
         foreach (var config in configs)
         {
             await this._database.StoreProviderAsync(config).ConfigureAwait(false);

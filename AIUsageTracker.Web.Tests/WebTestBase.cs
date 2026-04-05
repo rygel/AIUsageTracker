@@ -44,6 +44,7 @@ public abstract class WebTestBase
 
     protected static async Task<string> ReadBodyAsync(HttpResponseMessage response)
     {
+        ArgumentNullException.ThrowIfNull(response);
         return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
     }
 
@@ -51,6 +52,7 @@ public abstract class WebTestBase
         HttpHeaders headers,
         string cookieName)
     {
+        ArgumentNullException.ThrowIfNull(headers);
         if (!headers.TryGetValues("Set-Cookie", out var cookies))
         {
             return false;
