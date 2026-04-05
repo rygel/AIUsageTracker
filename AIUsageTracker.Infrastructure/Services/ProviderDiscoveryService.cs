@@ -50,7 +50,7 @@ public sealed class ProviderDiscoveryService : IProviderDiscoveryService
                     return authData with { SourcePath = path };
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
             {
                 this._logger.LogDebug(ex, "Failed to read auth file for {ProviderId} at {Path}", discoverySpec.ProviderId, path);
             }

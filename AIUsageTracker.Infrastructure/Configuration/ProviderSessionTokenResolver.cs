@@ -58,7 +58,7 @@ internal sealed class ProviderSessionTokenResolver
                     $"{this._sourcePrefix}: {path}");
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             this._logger.LogDebug(ex, "Session token discovery failed for provider {ProviderId}", this._discoverySpec.ProviderId);
         }

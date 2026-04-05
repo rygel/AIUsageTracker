@@ -112,7 +112,7 @@ public sealed class SyntheticProvider : ProviderBase
                 },
             };
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             this._logger.LogError(ex, "Synthetic provider check failed");
             return new[] { this.CreateUnavailableUsage(DescribeUnavailableException(ex), authSource: config.AuthSource) };

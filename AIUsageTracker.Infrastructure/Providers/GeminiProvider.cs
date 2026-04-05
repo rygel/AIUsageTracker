@@ -134,7 +134,7 @@ public class GeminiProvider : ProviderBase
 
                 results.AddRange(modelQuotaCards);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
             {
                 lastFailureContext = HttpFailureMapper.ClassifyException(ex);
                 this._logger.LogWarning(ex, "Failed to fetch Gemini quota for one account");
@@ -173,7 +173,7 @@ public class GeminiProvider : ProviderBase
             var json = File.ReadAllText(path);
             return JsonSerializer.Deserialize<AntigravityAccounts>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             this._logger.LogError(ex, "Failed to load antigravity-accounts.json");
             return null;
@@ -231,7 +231,7 @@ public class GeminiProvider : ProviderBase
                 },
             };
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             this._logger.LogError(ex, "Failed to load Gemini CLI auth files");
             return null;
@@ -311,7 +311,7 @@ public class GeminiProvider : ProviderBase
 
             return fallbackProjectId;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             this._logger.LogError(ex, "Failed to load Gemini projects.json");
             return null;
@@ -334,7 +334,7 @@ public class GeminiProvider : ProviderBase
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             return accounts?.Active;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             this._logger.LogWarning(ex, "Failed to parse google_accounts.json");
             return null;
@@ -363,7 +363,7 @@ public class GeminiProvider : ProviderBase
                 return emailElement.GetString();
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is FormatException or JsonException)
         {
             this._logger.LogDebug(ex, "Failed to extract email from Gemini id_token");
         }
@@ -402,7 +402,7 @@ public class GeminiProvider : ProviderBase
                     string.Equals(clientId, GeminiPluginClientId, StringComparison.Ordinal) ? "plugin" : "cli");
                 return await this.DoRefreshTokenAsync(refreshToken, clientId, clientSecret).ConfigureAwait(false);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
             {
                 lastException = ex;
                 this._logger.LogWarning(ex, "Gemini token refresh failed with client {ClientId}", clientId);
@@ -461,7 +461,7 @@ public class GeminiProvider : ProviderBase
                 }
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or FormatException)
         {
             this._logger.LogDebug(ex, "Failed to inspect Gemini oauth creds for client-id preference");
         }

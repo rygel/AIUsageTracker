@@ -161,7 +161,7 @@ public class CodexProvider : ProviderBase
                 var httpStatus = (int)response.StatusCode;
                 return this.BuildUsages(jsonDoc.RootElement, email, jwtPlanType, authIdentity, accountId, content, httpStatus);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is JsonException or InvalidOperationException or KeyNotFoundException)
             {
                 this._logger.LogWarning(ex, "Failed to parse Codex usage data. Raw response: {RawResponse}", content.Substring(0, Math.Min(2000, content.Length)));
                 return new[] { this.CreateUnavailableUsageWithIdentity("Failed to parse Codex usage data", knownAccountIdentity) };
@@ -172,7 +172,7 @@ public class CodexProvider : ProviderBase
             this._logger.LogWarning(ex, "Failed to parse Codex native usage response");
             return new[] { this.CreateUnavailableUsageWithIdentity("Invalid Codex usage response format", knownAccountIdentity) };
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException or UnauthorizedAccessException)
         {
             this._logger.LogWarning(ex, "Codex native usage lookup failed");
             return new[] { this.CreateUnavailableUsageWithIdentity($"Codex native lookup failed: {ex.Message}", knownAccountIdentity) };
@@ -640,7 +640,7 @@ public class CodexProvider : ProviderBase
                     return auth;
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
             {
                 this._logger.LogDebug(ex, "Failed to read Codex auth file at {Path}", path);
             }

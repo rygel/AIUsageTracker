@@ -102,7 +102,7 @@ public class XiaomiProvider : ProviderBase
             },
             };
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             this._logger.LogError(ex, "Failed to fetch Xiaomi usage");
             return new[]

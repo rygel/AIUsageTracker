@@ -112,7 +112,7 @@ public class OpenAIProvider : ProviderBase
         {
             return await this.GetNativeUsageAsync(accessToken, accountId).ConfigureAwait(false);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             this._logger.LogError(ex, "OpenAI session check failed");
             return new[] { this.CreateUnavailableUsage(DescribeUnavailableException(ex)) };
@@ -286,7 +286,7 @@ public class OpenAIProvider : ProviderBase
                 },
             };
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             this._logger.LogError(ex, "OpenAI API key validation failed");
             return new[]

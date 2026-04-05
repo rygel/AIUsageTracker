@@ -86,7 +86,7 @@ public class MistralProvider : ProviderBase
                 }
                 : new[] { this.CreateUnavailableUsage(DescribeUnavailableStatus(response.StatusCode), (int)response.StatusCode) };
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             this._logger.LogError(ex, "Failed to verify Mistral API key");
             return new[] { this.CreateUnavailableUsage(DescribeUnavailableException(ex, "Failed to verify Mistral API key")) };

@@ -242,7 +242,7 @@ public class KimiProvider : ProviderBase
 
             return flatCards;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
             this._logger.LogError(ex, "Kimi check failed");
             return new[] { this.CreateUnavailableUsage(DescribeUnavailableException(ex), authSource: config.AuthSource) };

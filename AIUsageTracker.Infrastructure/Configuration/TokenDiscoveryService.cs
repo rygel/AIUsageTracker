@@ -219,7 +219,7 @@ public class TokenDiscoveryService
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
             {
                 this._logger.LogDebug(ex, "Failed to parse Kilo Code secrets from {Path}", kiloSecretsPath);
             }
@@ -233,7 +233,7 @@ public class TokenDiscoveryService
             await this.DiscoverRooStateTokensAsync(configs).ConfigureAwait(false);
             await this.DiscoverStandaloneRooTokensAsync(configs).ConfigureAwait(false);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             this._logger.LogDebug(ex, "Roo Code token discovery failed");
         }
@@ -260,7 +260,7 @@ public class TokenDiscoveryService
                     "Discovered in Roo Code state",
                     AuthSource.FromRooPath(stateFile));
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
             {
                 this._logger.LogDebug(ex, "Failed to parse Roo Code state file {Path}", stateFile);
             }
@@ -294,7 +294,7 @@ public class TokenDiscoveryService
                     AuthSource.FromRooPath(secretsPath));
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             this._logger.LogDebug(ex, "Failed to parse Roo secrets from {Path}", secretsPath);
         }
@@ -324,7 +324,7 @@ public class TokenDiscoveryService
         {
             this.AddRooTokens(configs, RooTokenConfigParser.Parse(rooJson), description, source);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is JsonException)
         {
             this._logger.LogDebug(ex, "Failed to parse Roo config during token discovery");
         }

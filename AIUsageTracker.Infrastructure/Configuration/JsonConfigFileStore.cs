@@ -28,7 +28,7 @@ internal static class JsonConfigFileStore
                 json,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             logger.LogDebug(ex, failureMessage, path);
             return null;
@@ -47,7 +47,7 @@ internal static class JsonConfigFileStore
             var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
             return JsonSerializer.Deserialize<T>(json);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             logger.LogDebug(ex, failureMessage, path);
             return default;

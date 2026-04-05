@@ -127,7 +127,7 @@ public class GitHubCopilotProvider : ProviderBase
             state.IsAvailable = false;
             state.State = ProviderUsageState.Error;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is TaskCanceledException or System.Text.Json.JsonException)
         {
             this._logger.LogError(ex, "Failed to fetch GitHub profile");
             state.Description = $"Error: {ex.Message}";
@@ -346,7 +346,7 @@ public class GitHubCopilotProvider : ProviderBase
                 state.Description = BuildAuthenticatedDescription(state.Username, null);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {
             this._logger.LogDebug(ex, "Failed to resolve GitHub Copilot plan name");
             state.Description = BuildAuthenticatedDescription(state.Username, null);
@@ -459,7 +459,7 @@ public class GitHubCopilotProvider : ProviderBase
                 }
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {
             this._logger.LogDebug(ex, "Failed to parse GitHub Copilot quota snapshot");
         }

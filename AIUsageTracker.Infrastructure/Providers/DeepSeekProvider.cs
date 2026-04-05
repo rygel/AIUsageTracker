@@ -144,7 +144,7 @@ public class DeepSeekProvider : ProviderBase
 
             return flatCards;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             this._logger.LogError(ex, "DeepSeek check failed");
             return new[] { this.CreateUnavailableUsage(DescribeUnavailableException(ex, "DeepSeek check failed"), failureContext: HttpFailureMapper.ClassifyException(ex)) };

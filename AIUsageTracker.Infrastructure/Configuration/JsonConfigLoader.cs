@@ -303,7 +303,7 @@ public class JsonConfigLoader : IConfigLoader
                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
                    ?? new List<AIModelConfig>();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is JsonException)
         {
             this._logger.LogDebug(ex, "Failed to parse model configuration for provider {ProviderId} from {Path}", providerId, path);
             return new List<AIModelConfig>();

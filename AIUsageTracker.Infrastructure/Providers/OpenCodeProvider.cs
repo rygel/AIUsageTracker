@@ -156,7 +156,7 @@ public class OpenCodeProvider : ProviderBase
                 },
             };
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {
             this._logger.LogWarning(ex, "OpenCode credits API call failed");
             return new[]

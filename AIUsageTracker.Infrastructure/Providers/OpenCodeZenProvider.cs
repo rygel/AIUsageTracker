@@ -114,7 +114,7 @@ public class OpenCodeZenProvider : ProviderBase
             var output = await this.RunCliAsync(cliPath).ConfigureAwait(false);
             return new[] { this.ParseOutput(output, config) };
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException or TimeoutException)
         {
             this._logger.LogWarning("OpenCode CLI failed: {Message}", ex.Message);
             return new[]
@@ -507,7 +507,7 @@ public class OpenCodeZenProvider : ProviderBase
                     process.Kill(entireProcessTree: true);
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
             {
                 this._logger.LogDebug(ex, "Failed to kill timed-out OpenCode CLI process");
             }
@@ -598,7 +598,7 @@ public class OpenCodeZenProvider : ProviderBase
                 return false;
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
         {
             this._logger.LogDebug("IsInPath check failed: {Message}", ex.Message);
             return false;
@@ -642,7 +642,7 @@ public class OpenCodeZenProvider : ProviderBase
                 }
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
         {
             this._logger.LogDebug("Login shell discovery failed: {Message}", ex.Message);
         }
@@ -694,7 +694,7 @@ public class OpenCodeZenProvider : ProviderBase
 
             return lines.FirstOrDefault();
         }
-        catch
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
         {
             return null;
         }

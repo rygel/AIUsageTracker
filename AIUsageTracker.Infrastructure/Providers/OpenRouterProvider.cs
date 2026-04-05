@@ -88,7 +88,7 @@ public class OpenRouterProvider : ProviderBase
             {
                 creditsData = System.Text.Json.JsonSerializer.Deserialize<OpenRouterCreditsResponse>(creditsResponseBody);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is System.Text.Json.JsonException)
             {
                 this._logger.LogError(ex, "Failed to deserialize OpenRouter credits response. Raw response: {Response}", creditsResponseBody);
                 return new[]
@@ -113,7 +113,7 @@ public class OpenRouterProvider : ProviderBase
                 creditsData.Data.TotalCredits,
                 creditsData.Data.TotalUsage);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {
             this._logger.LogError(ex, "Exception while calling OpenRouter credits API");
             return new[]
@@ -149,7 +149,7 @@ public class OpenRouterProvider : ProviderBase
                 {
                     keyData = System.Text.Json.JsonSerializer.Deserialize<OpenRouterKeyResponse>(keyResponseBody);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is System.Text.Json.JsonException)
                 {
                     this._logger.LogWarning(ex, "Failed to deserialize OpenRouter key response. Response: {Response}", keyResponseBody);
                 }
@@ -206,7 +206,7 @@ public class OpenRouterProvider : ProviderBase
                     keyResponseBody);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {
             this._logger.LogWarning(ex, "Exception while calling OpenRouter key API - continuing with credits data only");
         }
