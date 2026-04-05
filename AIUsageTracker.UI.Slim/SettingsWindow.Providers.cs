@@ -678,7 +678,7 @@ public partial class SettingsWindow
                 return icoImage;
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is System.IO.IOException or InvalidOperationException or NotSupportedException)
         {
             this._logger.LogDebug(ex, "Failed to load provider icon for {ProviderId}", providerId);
         }

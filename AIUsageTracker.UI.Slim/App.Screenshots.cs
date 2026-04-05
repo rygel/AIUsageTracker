@@ -182,7 +182,7 @@ public partial class App
             await this.CaptureSettingsScreenshotsAsync(screenshotsDir);
             this.CaptureInfoScreenshot(Path.Combine(screenshotsDir, "screenshot_info_privacy.png"));
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogError(ex, "Headless screenshot capture failed");
             Environment.ExitCode = 1;

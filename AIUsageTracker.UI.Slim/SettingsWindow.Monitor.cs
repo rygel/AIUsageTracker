@@ -37,7 +37,7 @@ public partial class SettingsWindow
                 portText.Text = port.ToString(System.Globalization.CultureInfo.InvariantCulture);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogWarning(ex, "Failed to update monitor status");
             if (this.MonitorStatusText != null)
@@ -100,7 +100,7 @@ public partial class SettingsWindow
                 {
                     process.Kill();
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     this._logger.LogDebug(ex, "Failed to terminate monitor process {ProcessId}", process.Id);
                 }
@@ -126,7 +126,7 @@ public partial class SettingsWindow
                     MessageBoxImage.Error);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             MessageBox.Show(
                 $"Failed to restart Monitor: {ex.Message}",
@@ -154,7 +154,7 @@ public partial class SettingsWindow
                 MessageBoxButton.OK,
                 this.GetHealthCheckIcon(isRunning, healthSnapshot));
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             MessageBox.Show(
                 $"Failed to check health: {ex.Message}",
@@ -338,7 +338,7 @@ public partial class SettingsWindow
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             MessageBox.Show(
                 $"Failed to export diagnostics bundle: {ex.Message}",

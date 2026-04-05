@@ -63,7 +63,7 @@ public partial class MainWindow
             {
                 processName = Process.GetProcessById((int)processId).ProcessName;
             }
-            catch
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
             {
                 processName = "unavailable";
             }

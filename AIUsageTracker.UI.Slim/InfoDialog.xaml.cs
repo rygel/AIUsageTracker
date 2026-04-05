@@ -110,7 +110,7 @@ public partial class InfoDialog : Window
                 ? FormatFileSize(dbInfo.Length)
                 : "not found";
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
         {
             this._logger.LogWarning(ex, "Could not read database file size");
             this.DatabaseSizeText.Text = "unavailable";
@@ -213,7 +213,7 @@ public partial class InfoDialog : Window
             // App.PrivacyChanged event will handle UI update
             await Task.CompletedTask;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "PrivacyBtn_ClickAsync failed");
         }
@@ -236,7 +236,7 @@ public partial class InfoDialog : Window
                     UseShellExecute = true,
                 });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
             {
                 this._logger.LogWarning(ex, "Failed to open config directory");
             }
@@ -256,7 +256,7 @@ public partial class InfoDialog : Window
                     UseShellExecute = true,
                 });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
             {
                 this._logger.LogWarning(ex, "Failed to open data directory");
             }

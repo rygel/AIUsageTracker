@@ -86,7 +86,7 @@ public partial class SettingsWindow : Window
             await this._monitorService.RefreshAgentInfoAsync();
             await this.LoadDataAsync();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "Settings load failed");
             MessageBox.Show(
@@ -137,7 +137,7 @@ public partial class SettingsWindow : Window
             loadError = $"Failed to connect to Monitor: {ex.Message}\n\n" +
                        "Ensure the Monitor is running and accessible.";
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             loadError = $"Failed to load settings: {ex.Message}";
         }
@@ -357,7 +357,7 @@ public partial class SettingsWindow : Window
             this._autoSaveTimer.Stop();
             await this.PersistAllSettingsAsync(showErrorDialog: false);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "AutoSaveTimer_Tick failed");
         }
@@ -681,7 +681,7 @@ public partial class SettingsWindow : Window
             await this.SaveUiPreferencesAsync();
             this.SettingsChanged = true;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "PrivacyBtn_Click failed");
             MessageBox.Show($"Failed to update privacy mode: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -715,7 +715,7 @@ public partial class SettingsWindow : Window
                     MessageBoxImage.Information);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             MessageBox.Show(
                 $"Failed to scan for keys: {ex.Message}",
@@ -749,7 +749,7 @@ public partial class SettingsWindow : Window
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             MessageBox.Show(
                 $"Failed to refresh data: {ex.Message}",
@@ -892,7 +892,7 @@ public partial class SettingsWindow : Window
             await this.PersistAllSettingsAsync(showErrorDialog: false);
             this.DialogResult = true;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "CancelBtn_Click failed");
             MessageBox.Show(
@@ -963,7 +963,7 @@ public partial class SettingsWindow : Window
                 this.UpdateCheckStatus.Text = "You're up to date.";
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogWarning(ex, "Manual update check failed");
             this.UpdateCheckStatus.Text = "Check failed. Try again later.";
@@ -1056,7 +1056,7 @@ public partial class SettingsWindow : Window
                 this.UpdateCheckStatus.Text = "Update failed.";
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             progressWindow?.Close();
             this._logger.LogWarning(ex, "Download update failed");
@@ -1212,7 +1212,7 @@ public partial class SettingsWindow : Window
             var result = await this._monitorService.SendTestNotificationDetailedAsync();
             this.NotificationTestStatusText.Text = result.Message;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "SendTestNotificationBtn_Click failed");
             this.NotificationTestStatusText.Text = $"Error: {ex.Message}";

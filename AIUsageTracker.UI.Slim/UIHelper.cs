@@ -19,7 +19,7 @@ internal static class UIHelper
                 return brush;
             }
         }
-        catch
+        catch (Exception ex) when (ex is InvalidOperationException or System.Windows.Markup.XamlParseException)
         {
             // Design-time or resource not found
         }

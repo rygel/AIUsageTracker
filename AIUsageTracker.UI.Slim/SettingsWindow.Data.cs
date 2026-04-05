@@ -44,7 +44,7 @@ public partial class SettingsWindow
                     MessageBoxImage.Information);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             MessageBox.Show(
                 $"Export failed: {ex.Message}",
@@ -87,7 +87,7 @@ public partial class SettingsWindow
                     MessageBoxImage.Information);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             MessageBox.Show(
                 $"Export failed: {ex.Message}",
@@ -131,7 +131,7 @@ public partial class SettingsWindow
                 }
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             MessageBox.Show(
                 $"Backup failed: {ex.Message}",
@@ -148,7 +148,7 @@ public partial class SettingsWindow
             var history = await this._monitorService.GetHistoryAsync(100);
             this.HistoryDataGrid.ItemsSource = history;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogWarning(ex, "Failed to load history");
         }
@@ -170,7 +170,7 @@ public partial class SettingsWindow
                     MessageBoxImage.Information);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             MessageBox.Show(
                 $"Failed to load history: {ex.Message}",

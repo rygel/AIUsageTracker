@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -72,7 +73,7 @@ internal sealed class WpfProviderIconService
                     return this.MakeIconElement(imageSource);
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException)
             {
                 this._logger.LogWarning(
                     ex,

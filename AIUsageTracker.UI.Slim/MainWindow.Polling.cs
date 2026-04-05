@@ -54,7 +54,7 @@ public partial class MainWindow : Window
                 this.ShowErrorState("No provider data available.\n\nMonitor may still be initializing.");
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this.ShowErrorState($"Refresh failed: {ex.Message}");
         }
@@ -121,7 +121,7 @@ public partial class MainWindow : Window
                         {
                             await this._monitorService.TriggerRefreshAsync();
                         }
-                        catch (Exception ex)
+                        catch (Exception ex) when (ex is not OperationCanceledException)
                         {
                             this._logger.LogWarning(ex, "TriggerRefreshAsync failed during polling retry");
                         }
@@ -175,7 +175,7 @@ public partial class MainWindow : Window
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 this._logger.LogWarning(ex, "Polling loop error");
                 bool hasOldData;
@@ -267,7 +267,7 @@ public partial class MainWindow : Window
 
             app.UpdateProviderTrayIcons(usagesCopy, configsCopy, this._preferences);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this.LogDiagnostic($"[DIAGNOSTIC] UpdateTrayIconsAsync failed: {ex.Message}");
         }
@@ -295,7 +295,7 @@ public partial class MainWindow : Window
                 this.ApplyFetchedUsages(usages, DateTime.Now, statusSuffix);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogWarning(ex, "FetchDataAsync failed");
         }

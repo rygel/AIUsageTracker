@@ -42,7 +42,7 @@ public partial class MainWindow : Window
             await this._hubConnection.StartAsync();
             this._logger.LogInformation("SignalR connection established");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogWarning(ex, "Failed to initialize SignalR connection. Falling back to polling only.");
         }

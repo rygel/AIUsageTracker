@@ -166,7 +166,7 @@ public partial class MainWindow : Window
             {
                 await this.CheckForUpdatesAsync();
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 this._logger.LogError(ex, "UpdateCheckTimer_Tick failed");
             }
@@ -205,7 +205,7 @@ public partial class MainWindow : Window
                 await this.InitializeAsync();
                 _ = this.CheckForUpdatesAsync();
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 this._logger.LogError(ex, "Window_Loaded failed");
             }
@@ -218,7 +218,7 @@ public partial class MainWindow : Window
             {
                 await this.SaveWindowPositionAsync();
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 this._logger.LogError(ex, "LocationChanged handler failed");
             }
@@ -229,7 +229,7 @@ public partial class MainWindow : Window
             {
                 await this.SaveWindowPositionAsync();
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 this._logger.LogError(ex, "SizeChanged handler failed");
             }
@@ -398,7 +398,7 @@ public partial class MainWindow : Window
                 await this._monitorService.RefreshPortAsync();
                 await this.FetchDataAsync();
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 this.LogDiagnostic($"[DIAGNOSTIC] Monitor startup failed: {ex.Message}");
                 this.ShowErrorState($"Monitor startup failed: {ex.Message}");
@@ -418,7 +418,7 @@ public partial class MainWindow : Window
 
             this.ShowStatus("Connected", StatusType.Success);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this.ShowErrorState($"Initialization failed: {ex.Message}");
         }
@@ -586,7 +586,7 @@ public partial class MainWindow : Window
         {
             await this.RefreshDataAsync();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "RefreshBtn_Click failed");
             this.ShowStatus("Refresh failed", StatusType.Error);
@@ -599,7 +599,7 @@ public partial class MainWindow : Window
         {
             await this.OpenSettingsDialogAsync();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "SettingsBtn_Click failed");
             this.ShowStatus("Settings failed", StatusType.Error);
@@ -681,7 +681,7 @@ public partial class MainWindow : Window
         {
             await this._browserService.OpenWebUIAsync();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "Failed to open Web UI");
             MessageBox.Show(
@@ -701,7 +701,7 @@ public partial class MainWindow : Window
             App.SetPrivacyMode(newPrivacyMode);
             await this.SaveUiPreferencesAsync();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "PrivacyBtn_Click failed");
         }
@@ -733,7 +733,7 @@ public partial class MainWindow : Window
 
             await this.SaveUiPreferencesAsync();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "AlwaysOnTop_Checked failed");
         }
@@ -754,7 +754,7 @@ public partial class MainWindow : Window
             // Refresh the display to show used% vs remaining%
             this.RenderProviders();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "ShowUsedToggle_Checked failed");
         }
@@ -852,7 +852,7 @@ public partial class MainWindow : Window
                 }
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "MonitorToggleBtn_Click failed");
             this.ShowStatus("Monitor toggle failed", StatusType.Error);

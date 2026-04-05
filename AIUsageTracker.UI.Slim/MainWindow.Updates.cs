@@ -102,7 +102,7 @@ public partial class MainWindow : Window
                 this.UpdateNotificationBanner.Visibility = Visibility.Collapsed;
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             UiDiagnosticFileLog.Write($"[UPDATE] Check failed: {ex.Message}");
             this._logger.LogWarning(ex, "Update check failed");
@@ -195,7 +195,7 @@ public partial class MainWindow : Window
                     MessageBoxImage.Error);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             progressWindow?.Close();
             UiDiagnosticFileLog.Write($"[UPDATE] Exception: {ex}");

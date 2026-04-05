@@ -42,7 +42,7 @@ public class BrowserService : IBrowserService
                 UseShellExecute = true,
             });
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
         {
             this._logger.LogError(ex, "Failed to open URL: {Url}", url);
         }

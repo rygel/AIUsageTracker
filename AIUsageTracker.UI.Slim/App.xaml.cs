@@ -105,7 +105,7 @@ public partial class App : Application
                 var lifecycle = Host.Services.GetRequiredService<MonitorLifecycleService>();
                 return await lifecycle.EnsureAgentRunningAsync().ConfigureAwait(false); // ui-thread-guardrail-allow: Task.Run thread pool
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 Host.Services.GetRequiredService<ILogger<App>>()
                     .LogWarning(ex, "Background monitor warmup failed");
@@ -118,7 +118,7 @@ public partial class App : Application
         {
             Preferences = await preferencesStore.LoadAsync();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             var logger = Host.Services.GetRequiredService<ILogger<App>>();
             logger.LogError(ex, "Failed to load preferences from disk");
