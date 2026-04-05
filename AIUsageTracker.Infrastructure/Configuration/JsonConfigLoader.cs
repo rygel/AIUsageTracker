@@ -191,8 +191,7 @@ public class JsonConfigLoader : IConfigLoader
     {
         var rawConfigs = await JsonConfigFileStore.ReadJsonElementMapAsync(
             path,
-            this._logger,
-            "Failed to process config file {Path}").ConfigureAwait(false);
+            this._logger).ConfigureAwait(false);
 
         if (rawConfigs == null)
         {
@@ -376,8 +375,7 @@ public class JsonConfigLoader : IConfigLoader
     {
         return await JsonConfigFileStore.ReadAsync<Dictionary<string, object>>(
                    path,
-                   this._logger,
-                   $"Failed to load existing {payloadDescription} from {{Path}}; continuing with a clean export payload")
+                   this._logger)
                .ConfigureAwait(false)
                ?? new Dictionary<string, object>(StringComparer.Ordinal);
     }

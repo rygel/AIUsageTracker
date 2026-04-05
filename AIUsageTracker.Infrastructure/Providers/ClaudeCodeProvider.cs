@@ -379,7 +379,7 @@ public class ClaudeCodeProvider : ProviderBase
             var rateLimitHeaders = this.ExtractRateLimitInfo(testResponse.Headers);
 
             // Log response for debugging
-            this._logger.LogDebug($"Claude API test call: Status={testResponse.StatusCode}, RPM={rateLimitHeaders.RequestsRemaining}/{rateLimitHeaders.RequestsLimit}");
+            this._logger.LogDebug("Claude API test call: Status={StatusCode}, RPM={RequestsRemaining}/{RequestsLimit}", testResponse.StatusCode, rateLimitHeaders.RequestsRemaining, rateLimitHeaders.RequestsLimit);
 
             // Even if the request fails (e.g., 429 rate limited), we can still get rate limit headers
             if (rateLimitHeaders.RequestsLimit > 0)
@@ -517,7 +517,7 @@ public class ClaudeCodeProvider : ProviderBase
 
                 if (process.ExitCode != 0)
                 {
-                    this._logger.LogWarning($"Claude Code CLI failed: {error}");
+                    this._logger.LogWarning("Claude Code CLI failed: {Error}", error);
 
                     // CLI failed, but key is configured - show as available
                     return new[]
