@@ -73,7 +73,57 @@ public class ConfigureAwaitGuardrailTests
         Assert.True(
             violations.Count == 0,
             $"ConfigureAwait(false) in WPF UI code-behind causes UI thread deadlocks.{Environment.NewLine}" +
+            $"Use ConfigureAwait(true) in UI code-behind to satisfy VSTHRD111 while preserving UI thread affinity.{Environment.NewLine}" +
             $"Use ConfigureAwait(false) only in Core/Infrastructure library code, never in .xaml.cs or Window partial classes.{Environment.NewLine}" +
+            string.Join(Environment.NewLine, violations));
+    }
+
+    [Fact]
+    public void LibraryCode_MustNotUse_ConfigureAwaitTrue()
+    {
+        // Library code (Core, Infrastructure, Monitor) should always use ConfigureAwait(false),
+        // never ConfigureAwait(true) — they have no UI thread affinity.
+        var libraryProjects = new[] { "AIUsageTracker.Core", "AIUsageTracker.Infrastructure", "AIUsageTracker.Monitor" };
+        var violations = new List<string>();
+
+        foreach (var projectName in libraryProjects)
+        {
+            var projectDir = FindProjectDirectory(projectName);
+            if (projectDir == null)
+            {
+                continue;
+            }
+
+            var csFiles = Directory.GetFiles(projectDir, "*.cs", SearchOption.AllDirectories)
+                .Where(f => !f.Contains("obj", StringComparison.Ordinal) && !f.Contains("bin", StringComparison.Ordinal))
+                .ToList();
+
+            foreach (var file in csFiles)
+            {
+                var lines = File.ReadAllLines(file);
+                var fileName = Path.GetFileName(file);
+
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    var line = lines[i];
+                    if (line.Contains("ConfigureAwait(true)", StringComparison.Ordinal))
+                    {
+                        var trimmed = line.TrimStart();
+                        if (trimmed.StartsWith("//") || trimmed.StartsWith("*"))
+                        {
+                            continue;
+                        }
+
+                        violations.Add($"{projectName}/{fileName}:{i + 1}: ConfigureAwait(true) in library code");
+                    }
+                }
+            }
+        }
+
+        Assert.True(
+            violations.Count == 0,
+            $"Library code must use ConfigureAwait(false), not ConfigureAwait(true).{Environment.NewLine}" +
+            $"ConfigureAwait(true) is only appropriate in UI code-behind (MainWindow, SettingsWindow, InfoDialog).{Environment.NewLine}" +
             string.Join(Environment.NewLine, violations));
     }
 
