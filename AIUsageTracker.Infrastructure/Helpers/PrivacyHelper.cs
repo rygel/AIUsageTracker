@@ -38,9 +38,9 @@ public static partial class PrivacyHelper
         }
 
         // 2. Surgical masking for accountName if provided
-        if (!string.IsNullOrEmpty(accountName) && result.Contains(accountName))
+        if (!string.IsNullOrEmpty(accountName) && result.Contains(accountName, StringComparison.Ordinal))
         {
-            result = result.Replace(accountName, MaskString(accountName));
+            result = result.Replace(accountName, MaskString(accountName), StringComparison.Ordinal);
         }
 
         // 3. If no surgical targets were found and it's JUST a string that might be sensitive (like a username itself)
@@ -78,7 +78,7 @@ public static partial class PrivacyHelper
         {
             var userName = System.IO.Path.GetFileName(userProfile);
             var maskedUser = MaskString(userName);
-            return path.Replace(userProfile, userProfile.Replace(userName, maskedUser));
+            return path.Replace(userProfile, userProfile.Replace(userName, maskedUser, StringComparison.Ordinal), StringComparison.Ordinal);
         }
 
         // Fallback: generic mask but keep filename
@@ -103,7 +103,7 @@ public static partial class PrivacyHelper
             return input;
         }
 
-        var atIndex = input.IndexOf('@');
+        var atIndex = input.IndexOf("@", StringComparison.Ordinal);
         if (atIndex > 0 && atIndex < input.Length - 1)
         {
             var localPart = input[..atIndex];

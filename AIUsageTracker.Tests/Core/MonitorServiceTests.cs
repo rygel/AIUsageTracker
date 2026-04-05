@@ -913,7 +913,7 @@ public class MonitorServiceTests
             ItExpr.Is<HttpRequestMessage>(req =>
                 req.RequestUri != null &&
                 req.RequestUri.AbsolutePath == path &&
-                queryParts.All(qp => req.RequestUri.Query.Contains(qp))),
+                queryParts.All(qp => req.RequestUri.Query.Contains(qp, StringComparison.Ordinal))),
             ItExpr.IsAny<CancellationToken>());
     }
 

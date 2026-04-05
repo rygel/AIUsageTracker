@@ -659,7 +659,7 @@ public class GeminiProvider : ProviderBase
             return "(unknown)";
         }
 
-        var atIndex = email.IndexOf('@');
+        var atIndex = email.IndexOf("@", StringComparison.Ordinal);
         if (atIndex <= 0)
         {
             return "***";

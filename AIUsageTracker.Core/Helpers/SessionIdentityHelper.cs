@@ -149,6 +149,6 @@ public static class SessionIdentityHelper
 
     public static bool IsEmailLike(string? value)
     {
-        return !string.IsNullOrWhiteSpace(value) && value.Contains('@');
+        return !string.IsNullOrWhiteSpace(value) && value.Contains('@', StringComparison.Ordinal);
     }
 }

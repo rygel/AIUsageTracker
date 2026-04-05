@@ -107,7 +107,7 @@ public sealed class MonitorStartupPathTests : IDisposable
     {
         var path = MonitorLauncher.GetCanonicalMonitorInfoFilePath();
 
-        Assert.EndsWith("AIUsageTracker" + Path.DirectorySeparatorChar + "monitor.json", path);
+        Assert.EndsWith("AIUsageTracker" + Path.DirectorySeparatorChar + "monitor.json", path, StringComparison.Ordinal);
     }
 
     [Fact]

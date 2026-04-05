@@ -16,7 +16,7 @@ dotnet_diagnostic.IDE0009.severity = warning
 dotnet_diagnostic.CA1031.severity = warning
 # TODO: fix violations then promote to error (was inert due to dot_diagnostic prefix typo)
 dotnet_diagnostic.CA1062.severity = suggestion
-dotnet_diagnostic.CA1307.severity = warning
+dotnet_diagnostic.CA1307.severity = error
 dotnet_diagnostic.CA1309.severity = warning
 dotnet_diagnostic.CA1725.severity = suggestion
 dotnet_diagnostic.CA2208.severity = warning

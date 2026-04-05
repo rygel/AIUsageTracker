@@ -923,7 +923,7 @@ public class AntigravityProvider : ProviderBase
 
     private (string ChildId, string ChildName) ResolveChildIdentity(string modelName, ProviderConfig config)
     {
-        var childId = $"{this.ProviderId}.{modelName.ToLowerInvariant().Replace(" ", "-")}";
+        var childId = $"{this.ProviderId}.{modelName.ToLowerInvariant().Replace(" ", "-", StringComparison.Ordinal)}";
         var childName = "Antigravity " + modelName;
 
         if (config.Models == null || !config.Models.Any())

@@ -23,7 +23,7 @@ public class ConfigureAwaitGuardrailTests
 
         // Scan all .xaml.cs files and partial class files for MainWindow/SettingsWindow/InfoDialog
         var uiCodeBehindFiles = Directory.GetFiles(uiSlimDir, "*.cs", SearchOption.AllDirectories)
-            .Where(f => !f.Contains("obj") && !f.Contains("bin"))
+            .Where(f => !f.Contains("obj", StringComparison.Ordinal) && !f.Contains("bin", StringComparison.Ordinal))
             .Where(f =>
                 f.EndsWith(".xaml.cs", StringComparison.OrdinalIgnoreCase) ||
                 Path.GetFileName(f).StartsWith("MainWindow.", StringComparison.OrdinalIgnoreCase) ||
@@ -41,7 +41,7 @@ public class ConfigureAwaitGuardrailTests
             for (int i = 0; i < lines.Length; i++)
             {
                 var line = lines[i];
-                if (line.Contains("ConfigureAwait(false)"))
+                if (line.Contains("ConfigureAwait(false)", StringComparison.Ordinal))
                 {
                     // Allow if it's in a comment
                     var trimmed = line.TrimStart();
@@ -55,7 +55,7 @@ public class ConfigureAwaitGuardrailTests
                     var isInTaskRun = false;
                     for (int j = i; j >= Math.Max(0, i - 10); j--)
                     {
-                        if (lines[j].Contains("Task.Run"))
+                        if (lines[j].Contains("Task.Run", StringComparison.Ordinal))
                         {
                             isInTaskRun = true;
                             break;

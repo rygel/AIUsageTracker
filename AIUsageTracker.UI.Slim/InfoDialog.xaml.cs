@@ -175,7 +175,7 @@ public partial class InfoDialog : Window
         }
 
         var normalized = informationalVersion.Split('+')[0];
-        var dashIndex = normalized.IndexOf('-');
+        var dashIndex = normalized.IndexOf("-", StringComparison.Ordinal);
         if (dashIndex < 0 || dashIndex >= normalized.Length - 1)
         {
             return null;

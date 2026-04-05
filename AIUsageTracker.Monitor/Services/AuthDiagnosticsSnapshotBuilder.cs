@@ -28,7 +28,7 @@ internal static class AuthDiagnosticsSnapshotBuilder
 
     private static string ExtractFallbackPath(string authSource)
     {
-        var separatorIndex = authSource.IndexOf(':');
+        var separatorIndex = authSource.IndexOf(":", StringComparison.Ordinal);
         if (separatorIndex < 0 || separatorIndex == authSource.Length - 1)
         {
             return string.Empty;
@@ -40,7 +40,7 @@ internal static class AuthDiagnosticsSnapshotBuilder
             return string.Empty;
         }
 
-        return candidate.Contains('\\') || candidate.Contains('/')
+        return candidate.Contains("\\", StringComparison.Ordinal) || candidate.Contains("/", StringComparison.Ordinal)
             ? candidate
             : string.Empty;
     }
@@ -55,7 +55,7 @@ internal static class AuthDiagnosticsSnapshotBuilder
         if (AuthSource.IsEnvironment(authSource))
         {
             var variableSegment = authSource[4..].Trim();
-            var equalIndex = variableSegment.IndexOf('=');
+            var equalIndex = variableSegment.IndexOf("=", StringComparison.Ordinal);
             if (equalIndex >= 0)
             {
                 variableSegment = variableSegment[..equalIndex].Trim();
@@ -75,7 +75,7 @@ internal static class AuthDiagnosticsSnapshotBuilder
             return authSource;
         }
 
-        var separatorIndex = authSource.IndexOf(':');
+        var separatorIndex = authSource.IndexOf(":", StringComparison.Ordinal);
         if (separatorIndex < 0)
         {
             return fileName;

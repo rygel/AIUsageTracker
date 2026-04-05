@@ -275,7 +275,7 @@ public class CodexProvider : ProviderBase
 
         var normalized = raw.Trim();
         normalized = normalized.Replace('_', '-');
-        normalized = normalized.Replace("  ", " ");
+        normalized = normalized.Replace("  ", " ", StringComparison.Ordinal);
         return string.IsNullOrWhiteSpace(normalized) ? fallback : normalized;
     }
 

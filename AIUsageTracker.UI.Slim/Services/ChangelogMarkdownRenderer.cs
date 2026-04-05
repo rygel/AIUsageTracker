@@ -55,7 +55,7 @@ internal sealed class ChangelogMarkdownRenderer
             return document;
         }
 
-        var lines = markdown.Replace("\r\n", "\n").Split('\n');
+        var lines = markdown.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
         var inCodeBlock = false;
         var codeBuilder = new StringBuilder();
 

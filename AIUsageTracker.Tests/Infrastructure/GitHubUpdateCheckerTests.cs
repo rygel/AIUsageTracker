@@ -57,7 +57,7 @@ public class GitHubUpdateCheckerTests
 
         // Verify the URL still exists (method is used for stable-channel path),
         // but document the known limitation so a future change to fix it is visible.
-        Assert.Contains("appcast_beta_x64.xml", url);
+        Assert.Contains("appcast_beta_x64.xml", url, StringComparison.Ordinal);
 
         // The beta update check path bypasses this URL entirely — it uses the
         // GitHub Releases API directly. Regression: if a future refactor makes
@@ -72,8 +72,8 @@ public class GitHubUpdateCheckerTests
     public void GetAppcastUrl_StableChannel_UsesStableAppcastFile()
     {
         var url = GitHubUpdateChecker.GetAppcastUrl("x64", isBeta: false);
-        Assert.Contains("appcast_x64.xml", url);
-        Assert.DoesNotContain("beta", url);
+        Assert.Contains("appcast_x64.xml", url, StringComparison.Ordinal);
+        Assert.DoesNotContain("beta", url, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -85,7 +85,7 @@ public class GitHubUpdateCheckerTests
     public void GetAppcastUrl_ArchitectureNormalisation_CorrectFile(string arch, string expectedFile)
     {
         var url = GitHubUpdateChecker.GetAppcastUrl(arch, isBeta: false);
-        Assert.Contains(expectedFile, url);
+        Assert.Contains(expectedFile, url, StringComparison.Ordinal);
     }
 
     // ── GetAppcastUrlForCurrentArchitecture (used by stable channel only) ────
@@ -115,7 +115,7 @@ public class GitHubUpdateCheckerTests
         // We cannot control the running assembly's version in a unit test, so we
         // verify the contract: the result must not contain a '+' suffix.
         var version = GitHubUpdateChecker.GetCurrentInformationalVersion();
-        Assert.DoesNotContain("+", version);
+        Assert.DoesNotContain("+", version, StringComparison.Ordinal);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

@@ -56,11 +56,11 @@ public class ThemeApplicationTests
             var xamlContent = File.ReadAllText(xamlPath);
 
             // Check that Background uses DynamicResource, not a hardcoded color
-            if (!xamlContent.Contains("Background=\"{DynamicResource"))
+            if (!xamlContent.Contains("Background=\"{DynamicResource", StringComparison.Ordinal))
             {
                 // Check if it's set to Transparent (acceptable) or inherits
-                if (xamlContent.Contains("Background=\"Transparent\"") ||
-                    !xamlContent.Contains("Background="))
+                if (xamlContent.Contains("Background=\"Transparent\"", StringComparison.Ordinal) ||
+                    !xamlContent.Contains("Background=", StringComparison.Ordinal))
                 {
                     continue; // Transparent or inherited is OK
                 }
@@ -91,7 +91,7 @@ public class ThemeApplicationTests
 
         var violations = new List<string>();
         var csFiles = Directory.GetFiles(uiSlimDir, "*.cs", SearchOption.AllDirectories)
-            .Where(f => !f.Contains("obj") && !f.Contains("bin"));
+            .Where(f => !f.Contains("obj", StringComparison.Ordinal) && !f.Contains("bin", StringComparison.Ordinal));
 
         foreach (var file in csFiles)
         {
@@ -108,19 +108,19 @@ public class ThemeApplicationTests
                     continue;
                 }
 
-                if (line.Contains("new Window") && !line.Contains("WindowInteropHelper"))
+                if (line.Contains("new Window", StringComparison.Ordinal) && !line.Contains("WindowInteropHelper", StringComparison.Ordinal))
                 {
                     // Check if Background is set from resources within ~10 lines
                     var contextEnd = Math.Min(i + 15, lines.Length);
                     var context = string.Join("\n", lines[i..contextEnd]);
 
-                    if (!context.Contains("Background") ||
-                        (!context.Contains("DynamicResource") &&
-                         !context.Contains("FindResource") &&
-                         !context.Contains("Resources[") &&
-                         !context.Contains("res[") &&
-                         !context.Contains("GetResourceBrush") &&
-                         !context.Contains("UIHelper.")))
+                    if (!context.Contains("Background", StringComparison.Ordinal) ||
+                        (!context.Contains("DynamicResource", StringComparison.Ordinal) &&
+                         !context.Contains("FindResource", StringComparison.Ordinal) &&
+                         !context.Contains("Resources[", StringComparison.Ordinal) &&
+                         !context.Contains("res[", StringComparison.Ordinal) &&
+                         !context.Contains("GetResourceBrush", StringComparison.Ordinal) &&
+                         !context.Contains("UIHelper.", StringComparison.Ordinal)))
                     {
                         violations.Add($"{fileName}:{i + 1}: creates Window without theme Background");
                     }
@@ -250,7 +250,7 @@ public class ThemeApplicationTests
 
         var name = windowType.Name + ".xaml";
         var files = Directory.GetFiles(dir, name, SearchOption.AllDirectories)
-            .Where(f => !f.Contains("obj") && !f.Contains("bin"))
+            .Where(f => !f.Contains("obj", StringComparison.Ordinal) && !f.Contains("bin", StringComparison.Ordinal))
             .ToList();
         return files.FirstOrDefault();
     }
