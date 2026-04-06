@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.3.4-beta.28] - 2026-04-06
+
+### Added
+- **Subscription expiration notifications**: providers can now report an `Expired` state when a subscription or plan has lapsed. The provider card displays an orange "Expired" badge with a warning-tone status line. A system tray notification fires when expiration is detected (controlled by the new `NotifyOnSubscriptionExpired` preference, enabled by default). SyntheticProvider uses the new state when the API returns an empty response indicating no active subscription.
+
 ## [2.3.4-beta.27] - 2026-04-05
 
 ### Fixed

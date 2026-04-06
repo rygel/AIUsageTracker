@@ -14,6 +14,8 @@ public interface INotificationService
 
     void ShowQuotaExceeded(string providerName, string details);
 
+    void ShowSubscriptionExpired(string providerName);
+
     void Initialize();
 
     void Unregister();

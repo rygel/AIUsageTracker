@@ -78,10 +78,12 @@ public sealed class SyntheticProvider : ProviderBase
             using var document = JsonDocument.Parse(content);
             if (!TryResolveUsage(document.RootElement, out var total, out var used, out var resetRaw))
             {
-                var noQuotaDescription = IsEmptyObject(document.RootElement)
-                    ? "No active subscription"
-                    : "Response missing quota fields (total/used/reset)";
-                return new[] { this.CreateUnavailableUsage(noQuotaDescription, (int)response.StatusCode, config.AuthSource) };
+                if (IsEmptyObject(document.RootElement))
+                {
+                    return new[] { this.CreateUnavailableUsage("No active subscription", (int)response.StatusCode, config.AuthSource, state: ProviderUsageState.Expired) };
+                }
+
+                return new[] { this.CreateUnavailableUsage("Response missing quota fields (total/used/reset)", (int)response.StatusCode, config.AuthSource) };
             }
 
             var remainingPercent = Math.Clamp(((total - used) / total) * 100.0, 0, 100);

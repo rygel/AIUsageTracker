@@ -46,6 +46,7 @@ internal static partial class MainWindowRuntimeLogic
         var isConsoleCheck = usage.State == ProviderUsageState.ConsoleCheck;
         var isError = usage.State == ProviderUsageState.Error;
         var isUnknown = usage.State == ProviderUsageState.Unknown;
+        var isExpired = usage.State == ProviderUsageState.Expired;
         var isStatusOnlyProvider = usage.IsStatusOnly;
         var remainingPercent = usage.RemainingPercent;
         var usedPercent = usage.UsedPercent;
@@ -90,6 +91,7 @@ internal static partial class MainWindowRuntimeLogic
             isUnknown,
             isError,
             isConsoleCheck,
+            isExpired,
             shouldHaveProgress,
             usedPercent,
             remainingPercent,
@@ -131,6 +133,7 @@ internal static partial class MainWindowRuntimeLogic
         bool isUnknown,
         bool isError,
         bool isConsoleCheck,
+        bool isExpired,
         bool shouldHaveProgress,
         double usedPercent,
         double remainingPercent,
@@ -152,6 +155,28 @@ internal static partial class MainWindowRuntimeLogic
                 StatusText: description,
                 StatusTone: ProviderCardStatusTone.Missing,
                 PaceColor: paceColor,
+                IsStale: isStale);
+            return true;
+        }
+
+        if (isExpired)
+        {
+            var expiredText = string.IsNullOrWhiteSpace(description)
+                ? "Subscription expired"
+                : description;
+
+            presentation = new ProviderCardPresentation(
+                IsMissing: false,
+                IsUnknown: false,
+                IsError: false,
+                ShouldHaveProgress: false,
+                SuppressSingleResetTime: false,
+                UsedPercent: usedPercent,
+                RemainingPercent: remainingPercent,
+                StatusText: expiredText,
+                StatusTone: ProviderCardStatusTone.Warning,
+                PaceColor: paceColor,
+                IsExpired: true,
                 IsStale: isStale);
             return true;
         }
@@ -447,6 +472,7 @@ internal sealed record ProviderCardPresentation(
     ProviderCardStatusTone StatusTone,
     PaceColorResult PaceColor,
     DualBarData? DualBar = null,
+    bool IsExpired = false,
     bool IsStale = false)
 {
     public bool HasDualBuckets => this.DualBar != null;

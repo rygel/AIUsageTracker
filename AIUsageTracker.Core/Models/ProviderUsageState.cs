@@ -28,4 +28,7 @@ public enum ProviderUsageState
 
     /// <summary>Provider is configured but returned no usable data (e.g. empty response).</summary>
     Unavailable = 5,
+
+    /// <summary>Subscription or plan has expired. The provider may still respond but quota is gone.</summary>
+    Expired = 6,
 }

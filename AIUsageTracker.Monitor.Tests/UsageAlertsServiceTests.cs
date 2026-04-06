@@ -190,6 +190,55 @@ public class UsageAlertsServiceTests
     }
 
     [Fact]
+    public void CheckUsageAlerts_ExpiredSubscription_TriggersExpiredNotification()
+    {
+        var prefs = new AppPreferences { EnableNotifications = true, NotifyOnSubscriptionExpired = true };
+        var configs = new List<ProviderConfig>
+        {
+            new ProviderConfig { ProviderId = "synthetic", EnableNotifications = true },
+        };
+        var usages = new List<ProviderUsage>
+        {
+            new ProviderUsage
+            {
+                ProviderId = "synthetic",
+                ProviderName = "Synthetic.new",
+                IsAvailable = false,
+                State = ProviderUsageState.Expired,
+            },
+        };
+
+        this._service.CheckUsageAlerts(usages, prefs, configs);
+
+        this._mockNotificationService.Verify(n => n.ShowSubscriptionExpired("Synthetic.new"), Times.Once);
+        this._mockNotificationService.Verify(n => n.ShowUsageAlert(It.IsAny<string>(), It.IsAny<double>()), Times.Never);
+    }
+
+    [Fact]
+    public void CheckUsageAlerts_ExpiredSubscription_DoesNotTrigger_WhenPreferenceDisabled()
+    {
+        var prefs = new AppPreferences { EnableNotifications = true, NotifyOnSubscriptionExpired = false };
+        var configs = new List<ProviderConfig>
+        {
+            new ProviderConfig { ProviderId = "synthetic", EnableNotifications = true },
+        };
+        var usages = new List<ProviderUsage>
+        {
+            new ProviderUsage
+            {
+                ProviderId = "synthetic",
+                ProviderName = "Synthetic.new",
+                IsAvailable = false,
+                State = ProviderUsageState.Expired,
+            },
+        };
+
+        this._service.CheckUsageAlerts(usages, prefs, configs);
+
+        this._mockNotificationService.Verify(n => n.ShowSubscriptionExpired(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
     public void CheckUsageAlertsAsync_QuietHoursAlwaysEnabled_DoesNotTrigger()
     {
         var prefs = new AppPreferences

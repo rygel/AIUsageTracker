@@ -363,5 +363,44 @@ public sealed class ProviderCardPresentationCatalogTests
         Assert.Equal(ProviderCardStatusTone.Error, presentation.StatusTone);
         Assert.True(presentation.IsError);
     }
+
+    [Fact]
+    public void Create_ShowsWarningTone_ForExpiredSubscription()
+    {
+        var usage = new ProviderUsage
+        {
+            ProviderId = "synthetic",
+            IsAvailable = false,
+            State = ProviderUsageState.Expired,
+            Description = "No active subscription",
+        };
+
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
+
+        Assert.Equal(ProviderCardStatusTone.Warning, presentation.StatusTone);
+        Assert.True(presentation.IsExpired);
+        Assert.False(presentation.IsError);
+        Assert.False(presentation.IsMissing);
+        Assert.False(presentation.ShouldHaveProgress);
+        Assert.Equal("No active subscription", presentation.StatusText);
+    }
+
+    [Fact]
+    public void Create_ShowsFallbackText_ForExpiredSubscriptionWithEmptyDescription()
+    {
+        var usage = new ProviderUsage
+        {
+            ProviderId = "synthetic",
+            IsAvailable = false,
+            State = ProviderUsageState.Expired,
+            Description = string.Empty,
+        };
+
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
+
+        Assert.Equal(ProviderCardStatusTone.Warning, presentation.StatusTone);
+        Assert.True(presentation.IsExpired);
+        Assert.Equal("Subscription expired", presentation.StatusText);
+    }
 }
 

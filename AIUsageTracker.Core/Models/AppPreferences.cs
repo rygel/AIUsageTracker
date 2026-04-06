@@ -72,6 +72,8 @@ public class AppPreferences
 
     public bool NotifyOnProviderErrors { get; set; } = false;
 
+    public bool NotifyOnSubscriptionExpired { get; set; } = true;
+
     public bool EnableQuietHours { get; set; } = false;
 
     public string QuietHoursStart { get; set; } = "22:00";

@@ -33,7 +33,7 @@ public class UsageAlertsService
         ArgumentNullException.ThrowIfNull(prefs);
         ArgumentNullException.ThrowIfNull(usages);
 
-        if (!prefs.EnableNotifications || !prefs.NotifyOnUsageThreshold || IsInQuietHours(prefs))
+        if (!prefs.EnableNotifications || IsInQuietHours(prefs))
         {
             return;
         }
@@ -42,6 +42,17 @@ public class UsageAlertsService
         {
             var config = configs.FirstOrDefault(c => c.ProviderId.Equals(usage.ProviderId, StringComparison.OrdinalIgnoreCase));
             if (config == null || !config.EnableNotifications)
+            {
+                continue;
+            }
+
+            if (usage.State == ProviderUsageState.Expired && prefs.NotifyOnSubscriptionExpired)
+            {
+                this._notificationService.ShowSubscriptionExpired(usage.ProviderName);
+                continue;
+            }
+
+            if (!prefs.NotifyOnUsageThreshold)
             {
                 continue;
             }
