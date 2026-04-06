@@ -220,6 +220,74 @@ public sealed class ProviderKeyDeletionEndToEndTests
     }
 
     // ───────────────────────────────────────────────────────────
+    //  Expired state: subscription lapsed but key still present
+    // ───────────────────────────────────────────────────────────
+
+    [Fact]
+    public void MainWindow_ShowsExpiredState_ForStandardApiKeyProviders()
+    {
+        // Expired means key exists but subscription lapsed — card must stay visible
+        var usages = new List<ProviderUsage>
+        {
+            CreateUsage("synthetic", isAvailable: false, state: ProviderUsageState.Expired, description: "No active subscription"),
+        };
+
+        var items = MainWindowRuntimeLogic.PrepareForMainWindow(usages);
+
+        Assert.Contains(items, item => item.ProviderId == "synthetic");
+    }
+
+    [Fact]
+    public void MainWindow_ExpiredCard_RendersWarningTone()
+    {
+        var usage = CreateUsage("synthetic", isAvailable: false, state: ProviderUsageState.Expired, description: "No active subscription");
+
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
+
+        Assert.True(presentation.IsExpired);
+        Assert.Equal(ProviderCardStatusTone.Warning, presentation.StatusTone);
+        Assert.Equal("No active subscription", presentation.StatusText);
+        Assert.False(presentation.ShouldHaveProgress);
+    }
+
+    [Fact]
+    public void MainWindow_HidesMissing_ButShowsExpired_ForSameProvider()
+    {
+        // Missing = key deleted → hidden. Expired = key present, sub lapsed → visible.
+        var missingUsages = new List<ProviderUsage>
+        {
+            CreateUsage("synthetic", isAvailable: false, state: ProviderUsageState.Missing, description: "API Key missing"),
+        };
+        var expiredUsages = new List<ProviderUsage>
+        {
+            CreateUsage("synthetic", isAvailable: false, state: ProviderUsageState.Expired, description: "No active subscription"),
+        };
+
+        var missingItems = MainWindowRuntimeLogic.PrepareForMainWindow(missingUsages);
+        var expiredItems = MainWindowRuntimeLogic.PrepareForMainWindow(expiredUsages);
+
+        Assert.DoesNotContain(missingItems, item => item.ProviderId == "synthetic");
+        Assert.Contains(expiredItems, item => item.ProviderId == "synthetic");
+    }
+
+    // ───────────────────────────────────────────────────────────
+    //  External auth source warning on key removal
+    // ───────────────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("Env: SYNTHETIC_API_KEY", true)]
+    [InlineData("Roo Code: C:\\Users\\user\\.roo\\secrets.json", true)]
+    [InlineData("Kilo Code Roo Config", true)]
+    [InlineData("Config: configs.json", false)]
+    [InlineData("", false)]
+    public void ExternalAuthSourceDetection_IdentifiesExternalSources(string authSource, bool shouldWarn)
+    {
+        var isExternal = AuthSource.IsRooOrKilo(authSource) || AuthSource.IsEnvironment(authSource);
+
+        Assert.Equal(shouldWarn, isExternal);
+    }
+
+    // ───────────────────────────────────────────────────────────
     //  Provider behavior with empty key
     // ───────────────────────────────────────────────────────────
 

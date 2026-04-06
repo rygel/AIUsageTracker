@@ -102,7 +102,7 @@ public class SyntheticProviderTests : HttpProviderTestBase<SyntheticProvider>
     }
 
     [Fact]
-    public async Task GetUsageAsync_EmptyJsonObject_ReturnsNoActiveSubscriptionAsync()
+    public async Task GetUsageAsync_EmptyJsonObject_ReturnsExpiredStateAsync()
     {
         // Arrange — API returns {} when subscription is expired/inactive
         this.SetupHttpResponse("https://api.synthetic.new/v2/quotas", new HttpResponseMessage
@@ -117,6 +117,7 @@ public class SyntheticProviderTests : HttpProviderTestBase<SyntheticProvider>
         // Assert
         var usage = result.Single();
         Assert.False(usage.IsAvailable);
+        Assert.Equal(ProviderUsageState.Expired, usage.State);
         Assert.Equal("No active subscription", usage.Description);
     }
 }

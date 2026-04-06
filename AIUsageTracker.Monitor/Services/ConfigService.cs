@@ -178,6 +178,8 @@ public class ConfigService : IConfigService
         {
             var discovered = await this._tokenDiscovery.DiscoverTokensAsync().ConfigureAwait(false);
             var existing = (await this._configLoader.LoadConfigAsync().ConfigureAwait(false)).ToList();
+            var prefs = await this.GetPreferencesAsync().ConfigureAwait(false);
+            var suppressed = new HashSet<string>(prefs.SuppressedProviderIds, StringComparer.OrdinalIgnoreCase);
             var discoveredWithKeys = discovered
                 .Where(config => !string.IsNullOrWhiteSpace(config.ApiKey))
                 .ToList();
@@ -193,6 +195,13 @@ public class ConfigService : IConfigService
             // Merge discovered with existing — only add providers that actually have keys
             foreach (var newConfig in discovered)
             {
+                // Skip providers the user deliberately removed via Settings.
+                if (suppressed.Contains(newConfig.ProviderId))
+                {
+                    this._logger.LogDebug("Skipping suppressed provider: {ProviderId}", newConfig.ProviderId);
+                    continue;
+                }
+
                 var existingConfig = existing.FirstOrDefault(c =>
                     c.ProviderId.Equals(newConfig.ProviderId, StringComparison.OrdinalIgnoreCase));
 
