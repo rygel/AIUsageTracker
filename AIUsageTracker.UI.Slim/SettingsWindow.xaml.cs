@@ -839,9 +839,22 @@ public partial class SettingsWindow : Window
 
                 if (behavior.InputMode == ProviderInputMode.StandardApiKey && string.IsNullOrWhiteSpace(config.ApiKey))
                 {
+                    // Suppress re-discovery so the scanner won't re-add the key
+                    // from external sources (Roo Code, Kilo Code, env vars).
+                    if (!this._preferences.SuppressedProviderIds.Contains(config.ProviderId, StringComparer.OrdinalIgnoreCase))
+                    {
+                        this._preferences.SuppressedProviderIds.Add(config.ProviderId);
+                    }
+
                     await this._monitorService.RemoveConfigAsync(config.ProviderId).ConfigureAwait(true);
                     removedProviderIds.Add(config.ProviderId);
                     continue;
+                }
+
+                // If the user re-adds a key, un-suppress so future scans can update it.
+                if (this._preferences.SuppressedProviderIds.Contains(config.ProviderId, StringComparer.OrdinalIgnoreCase))
+                {
+                    this._preferences.SuppressedProviderIds.Remove(config.ProviderId);
                 }
 
                 var saved = await this._monitorService.SaveConfigAsync(config).ConfigureAwait(true);
