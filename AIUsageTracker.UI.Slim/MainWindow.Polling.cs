@@ -133,13 +133,6 @@ public partial class MainWindow : Window
                             refreshDecision.SecondsSinceLastRefresh);
                     }
 
-                    await Task.Delay(1000).ConfigureAwait(true);
-                    var refreshedUsages = await this.GetUsageForDisplayAsync().ConfigureAwait(true);
-                    if (refreshedUsages.Any())
-                    {
-                        this.ApplyFetchedUsages(refreshedUsages, DateTime.Now, " (refreshed)");
-                    }
-
                     bool hasCurrentUsages;
                     lock (this._dataLock)
                     {

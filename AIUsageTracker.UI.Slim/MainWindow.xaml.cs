@@ -203,7 +203,11 @@ public partial class MainWindow : Window
             try
             {
                 await this.InitializeAsync().ConfigureAwait(true);
-                _ = this.CheckForUpdatesAsync();
+                _ = this.CheckForUpdatesAsync().ContinueWith(
+                    t => this._logger.LogError(t.Exception, "CheckForUpdatesAsync failed unhandled"),
+                    CancellationToken.None,
+                    TaskContinuationOptions.OnlyOnFaulted,
+                    TaskScheduler.Default);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

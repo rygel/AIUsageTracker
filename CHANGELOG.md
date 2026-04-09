@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [2.3.4-beta.29] - 2026-04-09
+
+### Fixed
+- **Deleted API key no longer reappears after restart**: `SuppressedProviderIds` is now persisted to disk after key deletion. Previously the suppression was written to memory after the preferences file was saved, so removed keys (e.g. Synthetic) would reappear on next startup if originally discovered from an environment variable or Roo/Kilo Code config file.
+- **CLI `set-key` accepts key via stdin**: running `act set-key <provider-id>` without a key argument now prompts securely via stdin instead of requiring the key as a command-line argument (which is visible in process listings and logs). The 3-argument form (`act set-key <provider-id> <key>`) is preserved for scripting.
+- **CORS restricted to required methods and headers**: Monitor's CORS policy now uses `WithMethods("GET", "POST", "DELETE")` and `WithHeaders("Content-Type", "Authorization", "X-Requested-With")` instead of `AllowAnyMethod`/`AllowAnyHeader`.
+- **ConfigService rejects unknown provider IDs**: `SaveConfigAsync` now validates the provider ID against `ProviderMetadataCatalog` and throws `ArgumentException` for unknown IDs, preventing orphan config entries.
+
+### Changed
+- **Fire-and-forget exceptions logged**: unhandled exceptions from `CheckForUpdatesAsync` are now captured via `ContinueWith(OnlyOnFaulted)` and logged via `ILogger`, instead of being silently swallowed.
+
+### Performance
+- **Redundant polling fetch removed**: the 1-second delay + second `GetUsageForDisplayAsync` call in the UI polling tick has been removed. The next normal poll cycle handles the follow-up, eliminating unnecessary latency.
+
 ## [2.3.4-beta.28] - 2026-04-06
 
 ### Added

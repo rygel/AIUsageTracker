@@ -868,6 +868,14 @@ public partial class SettingsWindow : Window
             // fetches fresh data reflecting config changes instead of a stale 304.
             this._monitorService.InvalidateGroupedUsageCache();
 
+            // SuppressedProviderIds was updated in the loop above (after the initial
+            // SaveUiPreferencesAsync call). Re-save preferences so the suppression list
+            // is actually persisted — otherwise re-discovery on next startup re-adds the key.
+            if (removedProviderIds.Count > 0)
+            {
+                await this._preferencesStore.SaveAsync(this._preferences).ConfigureAwait(true);
+            }
+
             if (removedProviderIds.Count > 0)
             {
                 this._configs.RemoveAll(c => removedProviderIds.Contains(c.ProviderId, StringComparer.OrdinalIgnoreCase));
