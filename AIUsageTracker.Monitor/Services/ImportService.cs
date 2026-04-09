@@ -5,6 +5,7 @@
 using System.Globalization;
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
+using Microsoft.Data.Sqlite;
 
 namespace AIUsageTracker.Monitor.Services;
 
@@ -19,6 +20,8 @@ public class ImportService
 
     public async Task<(int Imported, int Skipped, List<string> Errors)> ImportHistoryAsync(Stream stream, string format)
     {
+        ArgumentNullException.ThrowIfNull(format);
+
         var imported = 0;
         var skipped = 0;
         var errors = new List<string>();
@@ -40,7 +43,7 @@ public class ImportService
                             await this._database.StoreHistoryAsync(new[] { item }).ConfigureAwait(false);
                             imported++;
                         }
-                        catch (Exception ex)
+                        catch (Exception ex) when (ex is IOException or JsonException or InvalidOperationException or SqliteException)
                         {
                             errors.Add($"Failed to import item for provider {item.ProviderId}: {ex.Message}");
                             skipped++;
@@ -48,7 +51,7 @@ public class ImportService
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is IOException or JsonException)
             {
                 errors.Add($"Failed to parse JSON: {ex.Message}");
             }
@@ -94,14 +97,14 @@ public class ImportService
                         await this._database.StoreHistoryAsync(new[] { usage }).ConfigureAwait(false);
                         imported++;
                     }
-                    catch (Exception ex)
+                    catch (Exception ex) when (ex is IOException or JsonException or InvalidOperationException or SqliteException or FormatException)
                     {
                         errors.Add($"Failed to import CSV line: {ex.Message}");
                         skipped++;
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is IOException or InvalidOperationException)
             {
                 errors.Add($"Failed to parse CSV: {ex.Message}");
             }

@@ -36,7 +36,11 @@ internal static class UiDiagnosticFileLog
                 File.AppendAllText(logFile, logLine);
             }
         }
-        catch (Exception ex)
+        catch (IOException ex)
+        {
+            Debug.WriteLine($"[UiDiagnosticFileLog] Failed to write diagnostic entry: {ex.Message}");
+        }
+        catch (UnauthorizedAccessException ex)
         {
             Debug.WriteLine($"[UiDiagnosticFileLog] Failed to write diagnostic entry: {ex.Message}");
         }
@@ -73,7 +77,16 @@ internal static class UiDiagnosticFileLog
                     File.Delete(file);
                 }
             }
-            catch (Exception ex)
+            catch (IOException ex)
+            {
+                Debug.WriteLine(
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        "[UiDiagnosticFileLog] Failed pruning '{0}': {1}",
+                        file,
+                        ex.Message));
+            }
+            catch (UnauthorizedAccessException ex)
             {
                 Debug.WriteLine(
                     string.Format(

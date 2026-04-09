@@ -38,25 +38,12 @@ public class PreferencesStore : IPreferencesStore
             return new AppPreferences();
         }
 
-        try
-        {
-            var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
-            return AppPreferences.Deserialize(json);
-        }
-        catch (JsonException ex)
-        {
-            this._logger.LogWarning(ex, "Failed to parse preferences");
-        }
-        catch (IOException ex)
-        {
-            this._logger.LogWarning(ex, "Failed to read preferences");
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            this._logger.LogWarning(ex, "Access denied reading preferences");
-        }
-
-        return new AppPreferences();
+        // Use FileShare.ReadWrite so the read succeeds even when the monitor
+        // or a previous app instance holds the file open for writing.
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var reader = new StreamReader(stream);
+        var json = await reader.ReadToEndAsync().ConfigureAwait(false);
+        return AppPreferences.Deserialize(json);
     }
 
     public async Task<bool> SaveAsync(AppPreferences preferences)

@@ -45,6 +45,8 @@ public sealed class SyntheticProvider : ProviderBase
         Action<ProviderUsage>? progressCallback = null,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
         if (string.IsNullOrWhiteSpace(config.ApiKey))
         {
             return new[] { this.CreateUnavailableUsage("API Key missing", 401, config.AuthSource, state: ProviderUsageState.Missing) };
@@ -58,8 +60,8 @@ public sealed class SyntheticProvider : ProviderBase
         {
             using var request = CreateBearerRequest(HttpMethod.Get, endpoint, config.ApiKey);
 
-            using var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
-            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            using var response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -76,10 +78,12 @@ public sealed class SyntheticProvider : ProviderBase
             using var document = JsonDocument.Parse(content);
             if (!TryResolveUsage(document.RootElement, out var total, out var used, out var resetRaw))
             {
-                var noQuotaDescription = IsEmptyObject(document.RootElement)
-                    ? "No active subscription"
-                    : "Response missing quota fields (total/used/reset)";
-                return new[] { this.CreateUnavailableUsage(noQuotaDescription, (int)response.StatusCode, config.AuthSource) };
+                if (IsEmptyObject(document.RootElement))
+                {
+                    return new[] { this.CreateUnavailableUsage("No active subscription", (int)response.StatusCode, config.AuthSource, state: ProviderUsageState.Expired) };
+                }
+
+                return new[] { this.CreateUnavailableUsage("Response missing quota fields (total/used/reset)", (int)response.StatusCode, config.AuthSource) };
             }
 
             var remainingPercent = Math.Clamp(((total - used) / total) * 100.0, 0, 100);
@@ -112,7 +116,7 @@ public sealed class SyntheticProvider : ProviderBase
                 },
             };
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             this._logger.LogError(ex, "Synthetic provider check failed");
             return new[] { this.CreateUnavailableUsage(DescribeUnavailableException(ex), authSource: config.AuthSource) };

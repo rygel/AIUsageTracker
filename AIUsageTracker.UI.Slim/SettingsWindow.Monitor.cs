@@ -37,7 +37,7 @@ public partial class SettingsWindow
                 portText.Text = port.ToString(System.Globalization.CultureInfo.InvariantCulture);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogWarning(ex, "Failed to update monitor status");
             if (this.MonitorStatusText != null)
@@ -100,13 +100,13 @@ public partial class SettingsWindow
                 {
                     process.Kill();
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     this._logger.LogDebug(ex, "Failed to terminate monitor process {ProcessId}", process.Id);
                 }
             }
 
-            await Task.Delay(1000);
+            await Task.Delay(1000).ConfigureAwait(true);
 
             // Restart agent
             if (await this._monitorLifecycleService.EnsureAgentRunningAsync().ConfigureAwait(true))
@@ -126,7 +126,7 @@ public partial class SettingsWindow
                     MessageBoxImage.Error);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             MessageBox.Show(
                 $"Failed to restart Monitor: {ex.Message}",
@@ -145,7 +145,7 @@ public partial class SettingsWindow
         try
         {
             var (isRunning, port) = await this._monitorLifecycleService.IsAgentRunningWithPortAsync().ConfigureAwait(true);
-            var healthSnapshot = await this._monitorService.GetHealthSnapshotAsync();
+            var healthSnapshot = await this._monitorService.GetHealthSnapshotAsync().ConfigureAwait(true);
             var status = isRunning ? "Running" : "Not Running";
 
             MessageBox.Show(
@@ -154,7 +154,7 @@ public partial class SettingsWindow
                 MessageBoxButton.OK,
                 this.GetHealthCheckIcon(isRunning, healthSnapshot));
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             MessageBox.Show(
                 $"Failed to check health: {ex.Message}",
@@ -233,12 +233,12 @@ public partial class SettingsWindow
     {
         try
         {
-            await this._monitorService.RefreshPortAsync();
-            await this._monitorService.RefreshAgentInfoAsync();
+            await this._monitorService.RefreshPortAsync().ConfigureAwait(true);
+            await this._monitorService.RefreshAgentInfoAsync().ConfigureAwait(true);
 
             var (isRunning, port) = await this._monitorLifecycleService.IsAgentRunningWithPortAsync().ConfigureAwait(true);
-            var healthSnapshot = await this._monitorService.GetHealthSnapshotAsync();
-            var diagnosticsSnapshot = await this._monitorService.GetDiagnosticsSnapshotAsync();
+            var healthSnapshot = await this._monitorService.GetHealthSnapshotAsync().ConfigureAwait(true);
+            var diagnosticsSnapshot = await this._monitorService.GetDiagnosticsSnapshotAsync().ConfigureAwait(true);
             var healthDetails = this.SerializeBundlePayload(
                 healthSnapshot,
                 "Health payload unavailable.");
@@ -331,14 +331,14 @@ public partial class SettingsWindow
                 }
             }
 
-            await File.WriteAllTextAsync(saveDialog.FileName, bundle.ToString());
+            await File.WriteAllTextAsync(saveDialog.FileName, bundle.ToString()).ConfigureAwait(true);
             MessageBox.Show(
                 $"Diagnostics bundle saved to:\n{saveDialog.FileName}",
                 "Export Complete",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             MessageBox.Show(
                 $"Failed to export diagnostics bundle: {ex.Message}",

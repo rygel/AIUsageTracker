@@ -20,6 +20,8 @@ public class ExportService
 
     public async Task<(byte[] Content, string ContentType, string FileName)> ExportAsync(string format, int days)
     {
+        ArgumentNullException.ThrowIfNull(format);
+
         // Limit days to reasonable range
         if (days < 1)
         {
@@ -71,9 +73,9 @@ public class ExportService
             return string.Empty;
         }
 
-        if (field.Contains(",") || field.Contains("\"") || field.Contains("\n"))
+        if (field.Contains(",", StringComparison.Ordinal) || field.Contains("\"", StringComparison.Ordinal) || field.Contains("\n", StringComparison.Ordinal))
         {
-            return $"\"{field.Replace("\"", "\"\"")}\"";
+            return $"\"{field.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
         }
 
         return field;

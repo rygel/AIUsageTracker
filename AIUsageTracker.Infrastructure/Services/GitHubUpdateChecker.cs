@@ -55,6 +55,8 @@ public class GitHubUpdateChecker
 
     public static string GetAppcastUrl(string architecture, bool isBeta)
     {
+        ArgumentNullException.ThrowIfNull(architecture);
+
         var normalizedArchitecture = architecture.ToLowerInvariant() switch
         {
             "arm" => "arm64",
@@ -117,7 +119,7 @@ public class GitHubUpdateChecker
             this._logger.LogDebug("No updates available or already on latest version");
             return null;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             this._logger.LogWarning(ex, "Failed to check for updates via NetSparkle appcast");
             return null;
@@ -126,6 +128,8 @@ public class GitHubUpdateChecker
 
     public async Task<UpdateInstallResult> DownloadAndInstallUpdateAsync(AIUsageTracker.Core.Interfaces.UpdateInfo updateInfo, IProgress<double>? progress = null)
     {
+        ArgumentNullException.ThrowIfNull(updateInfo);
+
         try
         {
             this._logger.LogInformation("Starting download and install for version {Version}", updateInfo.Version);
@@ -166,7 +170,7 @@ public class GitHubUpdateChecker
             this._logger.LogError(ex, "File system error during update");
             return UpdateInstallResult.Fail($"File error: {ex.Message}");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
         {
             this._logger.LogError(ex, "Error during download and install");
             return UpdateInstallResult.Fail($"{ex.GetType().Name}: {ex.Message}");
@@ -421,7 +425,7 @@ public class GitHubUpdateChecker
 
             return string.Empty;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             this._logger.LogWarning(ex, "Failed to fetch release notes from GitHub API");
             return string.Empty;
@@ -451,7 +455,7 @@ public class GitHubUpdateChecker
             this._logger.LogInformation("Installer started successfully from {Path} (PID {ProcessId}).", installerPath, process.Id);
             return true;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
         {
             this._logger.LogError(ex, "Failed to start installer from {Path}", installerPath);
             return false;

@@ -207,6 +207,19 @@ internal sealed class ProviderCardRenderer
                 isChild),
             Dock.Left);
 
+        if (presentation.IsExpired)
+        {
+            AddDockedElement(
+                contentPanel,
+                this.CreateDockedTextBlock(
+                    "Expired",
+                    fontSize: 9,
+                    foreground: Brushes.Orange,
+                    fontWeight: FontWeights.SemiBold,
+                    margin: new Thickness(6, 0, 0, 0)),
+                Dock.Right);
+        }
+
         if (presentation.IsStale)
         {
             // Add visible "Stale" badge before the provider name

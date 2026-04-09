@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.ComponentModel;
 using System.Diagnostics;
 using AIUsageTracker.Core.Models;
 using Microsoft.Extensions.Logging;
@@ -55,7 +56,7 @@ internal static class MonitorLauncherProcessController
             MonitorService.LogDiagnostic($"Monitor process started via '{launchTarget}' (PID {process.Id}).");
             return true;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is InvalidOperationException or Win32Exception or IOException)
         {
             MonitorService.LogDiagnostic($"Failed to launch Monitor via '{launchTarget}': {ex.Message}");
             return false;
@@ -95,7 +96,7 @@ internal static class MonitorLauncherProcessController
 
             return false;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is InvalidOperationException or Win32Exception or IOException)
         {
             logger?.LogWarning(ex, "Failed to stop Agent");
             return false;
@@ -154,7 +155,7 @@ internal static class MonitorLauncherProcessController
         {
             return true;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is InvalidOperationException or Win32Exception or IOException)
         {
             MonitorService.LogDiagnostic($"Failed to stop process {processId}: {ex.Message}");
             return false;
@@ -267,7 +268,7 @@ internal static class MonitorLauncherProcessController
         {
             return true;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is Win32Exception or IOException)
         {
             MonitorService.LogDiagnostic($"Failed to stop process {process.Id}: {ex.Message}");
             return false;

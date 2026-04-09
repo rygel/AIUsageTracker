@@ -50,6 +50,8 @@ public class KimiProvider : ProviderBase
 
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
         if (string.IsNullOrEmpty(config.ApiKey))
         {
             return new[] { this.CreateUnavailableUsage("API Key missing", authSource: config.AuthSource, state: ProviderUsageState.Missing) };
@@ -59,14 +61,14 @@ public class KimiProvider : ProviderBase
         {
             var request = CreateBearerRequest(HttpMethod.Get, "https://api.kimi.com/coding/v1/usages", config.ApiKey);
 
-            var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
+            var response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 this._logger.LogWarning("Failed to fetch Kimi usage: {StatusCode}", response.StatusCode);
                 return new[] { this.CreateUnavailableUsage(DescribeUnavailableStatus(response.StatusCode), (int)response.StatusCode, authSource: config.AuthSource) };
             }
 
-            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             KimiUsageResponse? data;
             try
             {
@@ -242,7 +244,7 @@ public class KimiProvider : ProviderBase
 
             return flatCards;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
             this._logger.LogError(ex, "Kimi check failed");
             return new[] { this.CreateUnavailableUsage(DescribeUnavailableException(ex), authSource: config.AuthSource) };

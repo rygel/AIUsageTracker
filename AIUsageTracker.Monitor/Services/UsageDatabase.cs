@@ -174,6 +174,8 @@ public class UsageDatabase : IUsageDatabase
 
     public async Task StoreProviderAsync(ProviderConfig config, string? friendlyName = null)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {

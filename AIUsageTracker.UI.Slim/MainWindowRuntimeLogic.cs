@@ -143,7 +143,21 @@ internal static partial class MainWindowRuntimeLogic
             .Where(usage =>
             {
                 var id = usage.ProviderId ?? string.Empty;
-                return (ProviderMetadataCatalog.Find(id)?.ShowInMainWindow ?? false) && !hiddenSet.Contains(id);
+                var definition = ProviderMetadataCatalog.Find(id);
+                if (definition == null || !definition.ShowInMainWindow || hiddenSet.Contains(id))
+                {
+                    return false;
+                }
+
+                // Hide Missing-state cards for StandardApiKey providers.
+                // These show "API Key missing" which is not actionable in the main window.
+                if (usage.State == ProviderUsageState.Missing &&
+                    definition.SettingsMode == ProviderSettingsMode.StandardApiKey)
+                {
+                    return false;
+                }
+
+                return true;
             })
             .GroupBy(usage => $"{usage.ProviderId ?? string.Empty}::{usage.CardId ?? string.Empty}", StringComparer.OrdinalIgnoreCase)
             .Select(SelectPreferredUsage)

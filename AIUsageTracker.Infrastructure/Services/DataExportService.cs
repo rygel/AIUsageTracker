@@ -36,12 +36,12 @@ public class DataExportService : IDataExportService
             foreach (var row in history)
             {
                 var isAvail = row.IsAvailable ? 1 : 0;
-                sb.AppendFormat(CultureInfo.InvariantCulture, "\"{0}\",\"{1}\",{2},{3},{4},{5},\"{6}\",\"{7:O}\",\"{8:O}\"\r\n", row.ProviderId, row.ProviderName, row.RequestsUsed, row.RequestsAvailable, row.UsedPercent, isAvail, row.Description?.Replace("\"", "\"\""), row.FetchedAt, row.NextResetTime?.ToString("O"));
+                sb.AppendFormat(CultureInfo.InvariantCulture, "\"{0}\",\"{1}\",{2},{3},{4},{5},\"{6}\",\"{7:O}\",\"{8:O}\"\r\n", row.ProviderId, row.ProviderName, row.RequestsUsed, row.RequestsAvailable, row.UsedPercent, isAvail, row.Description?.Replace("\"", "\"\"", StringComparison.Ordinal), row.FetchedAt, row.NextResetTime?.ToString("O"));
             }
 
             return sb.ToString();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or JsonException or FormatException)
         {
             this._logger.LogError(ex, "Error exporting to CSV");
             return string.Empty;
@@ -55,7 +55,7 @@ public class DataExportService : IDataExportService
             var history = await this._repository.GetAllHistoryForExportAsync(limit: 10000).ConfigureAwait(false);
             return JsonSerializer.Serialize(history, new JsonSerializerOptions { WriteIndented = true });
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or JsonException or FormatException)
         {
             this._logger.LogError(ex, "Error exporting to JSON");
             return "[]";
@@ -73,7 +73,7 @@ public class DataExportService : IDataExportService
 
             return await File.ReadAllBytesAsync(this._dbPath).ConfigureAwait(false);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             this._logger.LogError(ex, "Error creating database backup");
             return null;

@@ -62,6 +62,8 @@ public class OpenCodeProvider : ProviderBase
         Action<ProviderUsage>? progressCallback = null,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
         var apiKey = config.ApiKey;
         if (string.IsNullOrEmpty(apiKey) && this.DiscoveryService != null)
         {
@@ -156,7 +158,7 @@ public class OpenCodeProvider : ProviderBase
                 },
             };
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {
             this._logger.LogWarning(ex, "OpenCode credits API call failed");
             return new[]

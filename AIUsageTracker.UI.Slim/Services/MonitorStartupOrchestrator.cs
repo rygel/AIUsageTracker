@@ -62,7 +62,7 @@ public sealed class MonitorStartupOrchestrator
 
             return new MonitorStartupOrchestrationResult(IsSuccess: true, IsLaunchFailure: false);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "Startup orchestration failed");
             return new MonitorStartupOrchestrationResult(IsSuccess: false, IsLaunchFailure: false);
@@ -112,7 +112,7 @@ public sealed class MonitorStartupOrchestrator
             MonitorService.LogDiagnostic("Monitor restarted successfully after version mismatch.");
             return true;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "Error during monitor version mismatch restart");
             return false;

@@ -32,6 +32,8 @@ public class PrivacyMaskConverter : IMultiValueConverter
     /// <returns>The original value or a masked string.</returns>
     public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
     {
+        ArgumentNullException.ThrowIfNull(values);
+
         if (values.Length < 2)
         {
             return values.Length > 0 ? values[0]?.ToString() ?? string.Empty : string.Empty;

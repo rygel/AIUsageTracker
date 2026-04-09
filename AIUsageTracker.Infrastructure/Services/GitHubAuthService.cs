@@ -129,7 +129,7 @@ public class GitHubAuthService : IGitHubAuthService
 
             return null;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             this._logger.LogError(ex, "Error polling for token");
             return null;
@@ -207,7 +207,7 @@ public class GitHubAuthService : IGitHubAuthService
                 return this._cachedUsername;
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             this._logger.LogError(ex, "Error fetching GitHub username");
         }
@@ -245,7 +245,7 @@ public class GitHubAuthService : IGitHubAuthService
                     return token;
                 }
             }
-            catch
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 // Keep auth loading resilient; provider handles auth failures.
             }
@@ -284,7 +284,7 @@ public class GitHubAuthService : IGitHubAuthService
                 {
                     process.Kill(entireProcessTree: true);
                 }
-                catch
+                catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
                 {
                     // Ignore kill failures; token discovery is best-effort.
                 }
@@ -312,7 +312,7 @@ public class GitHubAuthService : IGitHubAuthService
 
             return token;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
         {
             logger.LogDebug(ex, "GitHub CLI token discovery failed");
             return null;
@@ -337,7 +337,7 @@ public class GitHubAuthService : IGitHubAuthService
                     return username;
                 }
             }
-            catch
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 // Keep auth loading resilient; provider handles auth failures.
             }

@@ -41,7 +41,7 @@ public abstract class ProviderTestBase<TProvider>
             providerTypeName = providerTypeName[..^8];
         }
 
-        return providerTypeName.ToLowerInvariant().Replace(" ", "-");
+        return providerTypeName.ToLowerInvariant().Replace(" ", "-", StringComparison.Ordinal);
     }
 
     protected static string LoadFixture(string fileName)

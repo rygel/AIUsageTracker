@@ -91,7 +91,7 @@ public partial class MainViewModel : BaseViewModel
             this.LastRefreshTime = DateTime.Now;
             this.StatusMessage = results.Any() ? "Data updated" : "No active providers found";
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "Failed to refresh data in MainViewModel");
             this.StatusMessage = "Connection failed";
@@ -119,7 +119,7 @@ public partial class MainViewModel : BaseViewModel
         {
             await this._browserService.OpenWebUIAsync().ConfigureAwait(true);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "Failed to open Web UI");
             this.StatusMessage = "Failed to open Web UI";
@@ -151,7 +151,7 @@ public partial class MainViewModel : BaseViewModel
                 await this.RefreshDataAsync().ConfigureAwait(true);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "Failed to open settings");
             this.StatusMessage = "Failed to open settings";

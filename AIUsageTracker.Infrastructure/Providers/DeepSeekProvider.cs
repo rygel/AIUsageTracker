@@ -45,6 +45,8 @@ public class DeepSeekProvider : ProviderBase
 
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
         if (string.IsNullOrEmpty(config.ApiKey))
         {
             return new[]
@@ -60,8 +62,8 @@ public class DeepSeekProvider : ProviderBase
             var request = CreateBearerRequest(HttpMethod.Get, "https://api.deepseek.com/user/balance", config.ApiKey);
             request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 
-            var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
-            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -144,7 +146,7 @@ public class DeepSeekProvider : ProviderBase
 
             return flatCards;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             this._logger.LogError(ex, "DeepSeek check failed");
             return new[] { this.CreateUnavailableUsage(DescribeUnavailableException(ex, "DeepSeek check failed"), failureContext: HttpFailureMapper.ClassifyException(ex)) };

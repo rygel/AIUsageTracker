@@ -121,7 +121,7 @@ public static class MonitorApiContractEvaluator
             normalized = normalized[1..];
         }
 
-        if (normalized.IndexOf('.') < 0)
+        if (normalized.IndexOf('.', StringComparison.Ordinal) < 0)
         {
             if (!int.TryParse(normalized, NumberStyles.None, CultureInfo.InvariantCulture, out var majorOnly))
             {

@@ -73,6 +73,8 @@ public class ClaudeCodeProvider : ProviderBase
     /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
         // Check if API key is configured
         if (string.IsNullOrEmpty(config.ApiKey))
         {
@@ -118,7 +120,7 @@ public class ClaudeCodeProvider : ProviderBase
                 return oauthUsages;
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             this._logger.LogDebug(ex, "OAuth usage endpoint not available, trying rate limit headers");
         }
@@ -135,7 +137,7 @@ public class ClaudeCodeProvider : ProviderBase
                     return new[] { apiUsage };
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
             {
                 this._logger.LogWarning(ex, "Failed to get Claude usage from API, falling back to CLI");
             }
@@ -240,7 +242,7 @@ public class ClaudeCodeProvider : ProviderBase
             this._logger.LogDebug("Re-read fresh OAuth token from credentials file ({Length} chars)", token.Length);
             return token;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             this._logger.LogDebug(ex, "Failed to re-read OAuth token from credentials file");
             return null;
@@ -379,7 +381,7 @@ public class ClaudeCodeProvider : ProviderBase
             var rateLimitHeaders = this.ExtractRateLimitInfo(testResponse.Headers);
 
             // Log response for debugging
-            this._logger.LogDebug($"Claude API test call: Status={testResponse.StatusCode}, RPM={rateLimitHeaders.RequestsRemaining}/{rateLimitHeaders.RequestsLimit}");
+            this._logger.LogDebug("Claude API test call: Status={StatusCode}, RPM={RequestsRemaining}/{RequestsLimit}", testResponse.StatusCode, rateLimitHeaders.RequestsRemaining, rateLimitHeaders.RequestsLimit);
 
             // Even if the request fails (e.g., 429 rate limited), we can still get rate limit headers
             if (rateLimitHeaders.RequestsLimit > 0)
@@ -425,7 +427,7 @@ public class ClaudeCodeProvider : ProviderBase
             // No rate limit headers found
             return null;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             this._logger.LogError(ex, "Error calling Anthropic API");
             return null;
@@ -517,7 +519,7 @@ public class ClaudeCodeProvider : ProviderBase
 
                 if (process.ExitCode != 0)
                 {
-                    this._logger.LogWarning($"Claude Code CLI failed: {error}");
+                    this._logger.LogWarning("Claude Code CLI failed: {Error}", error);
 
                     // CLI failed, but key is configured - show as available
                     return new[]
@@ -539,7 +541,7 @@ public class ClaudeCodeProvider : ProviderBase
 
                 return new[] { this.ParseCliOutput(output) };
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
             {
                 this._logger.LogError(ex, "Failed to run Claude Code CLI");
 

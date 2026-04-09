@@ -23,6 +23,8 @@ public partial class App
         IReadOnlyList<ProviderConfig> configs,
         AppPreferences? prefs = null)
     {
+        ArgumentNullException.ThrowIfNull(configs);
+
         var yellowThreshold = prefs?.ColorThresholdYellow ?? 60;
         var redThreshold = prefs?.ColorThresholdRed ?? 80;
         var enablePaceAdjustment = prefs?.EnablePaceAdjustment ?? true;

@@ -82,7 +82,7 @@ public class CodexAuthService
                     return auth;
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
             {
                 this._logger.LogDebug(ex, "Failed to read Codex auth file at {Path}", path);
             }

@@ -42,6 +42,8 @@ public class JsonConfigLoader : IConfigLoader
 
     public async Task SaveConfigAsync(IEnumerable<ProviderConfig> configs)
     {
+        ArgumentNullException.ThrowIfNull(configs);
+
         var authPath = this.GetTrackerConfigPath();
         var providersPath = this.GetProvidersConfigPath();
 
@@ -191,8 +193,7 @@ public class JsonConfigLoader : IConfigLoader
     {
         var rawConfigs = await JsonConfigFileStore.ReadJsonElementMapAsync(
             path,
-            this._logger,
-            "Failed to process config file {Path}").ConfigureAwait(false);
+            this._logger).ConfigureAwait(false);
 
         if (rawConfigs == null)
         {
@@ -303,7 +304,7 @@ public class JsonConfigLoader : IConfigLoader
                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
                    ?? new List<AIModelConfig>();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is JsonException)
         {
             this._logger.LogDebug(ex, "Failed to parse model configuration for provider {ProviderId} from {Path}", providerId, path);
             return new List<AIModelConfig>();
@@ -376,8 +377,7 @@ public class JsonConfigLoader : IConfigLoader
     {
         return await JsonConfigFileStore.ReadAsync<Dictionary<string, object>>(
                    path,
-                   this._logger,
-                   $"Failed to load existing {payloadDescription} from {{Path}}; continuing with a clean export payload")
+                   this._logger)
                .ConfigureAwait(false)
                ?? new Dictionary<string, object>(StringComparer.Ordinal);
     }

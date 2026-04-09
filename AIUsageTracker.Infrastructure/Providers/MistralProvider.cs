@@ -47,6 +47,8 @@ public class MistralProvider : ProviderBase
     /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
         var apiKey = config.ApiKey;
 
         if (string.IsNullOrEmpty(apiKey) && this.DiscoveryService != null)
@@ -65,8 +67,8 @@ public class MistralProvider : ProviderBase
         {
             var request = CreateBearerRequest(HttpMethod.Get, "https://api.mistral.ai/v1/models", apiKey);
 
-            var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
-            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
             return response.IsSuccessStatusCode
                 ? new[]
@@ -86,7 +88,7 @@ public class MistralProvider : ProviderBase
                 }
                 : new[] { this.CreateUnavailableUsage(DescribeUnavailableStatus(response.StatusCode), (int)response.StatusCode) };
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             this._logger.LogError(ex, "Failed to verify Mistral API key");
             return new[] { this.CreateUnavailableUsage(DescribeUnavailableException(ex, "Failed to verify Mistral API key")) };

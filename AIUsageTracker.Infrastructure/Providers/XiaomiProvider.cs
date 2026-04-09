@@ -40,6 +40,8 @@ public class XiaomiProvider : ProviderBase
 
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
         if (string.IsNullOrEmpty(config.ApiKey))
         {
             return new[]
@@ -62,10 +64,10 @@ public class XiaomiProvider : ProviderBase
             // Endpoint based on research/best-guess
             var request = CreateBearerRequest(HttpMethod.Get, "https://api.xiaomimimo.com/v1/user/balance", config.ApiKey);
 
-            var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
+            var response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
 
-            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             var data = DeserializeJsonOrDefault<XiaomiResponse>(content);
 
             if (data == null || data.Data == null)
@@ -102,7 +104,7 @@ public class XiaomiProvider : ProviderBase
             },
             };
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             this._logger.LogError(ex, "Failed to fetch Xiaomi usage");
             return new[]

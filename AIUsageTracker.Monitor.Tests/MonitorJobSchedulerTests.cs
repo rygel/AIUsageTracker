@@ -286,9 +286,9 @@ public class MonitorJobSchedulerTests
 
         _ = scheduler.Enqueue(
             "timing-job",
-            async _ =>
+            async ct =>
             {
-                await Task.Delay(60).ConfigureAwait(false);
+                await Task.Delay(60, ct).ConfigureAwait(false);
                 completion.TrySetResult(true);
             },
             MonitorJobPriority.Normal);

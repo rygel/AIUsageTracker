@@ -44,6 +44,8 @@ public class OpenRouterProvider : ProviderBase
     /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
         this._logger.LogDebug("Starting OpenRouter usage fetch for provider {ProviderId}", config.ProviderId);
 
         if (string.IsNullOrEmpty(config.ApiKey))
@@ -68,9 +70,9 @@ public class OpenRouterProvider : ProviderBase
 
             var request = CreateBearerRequest(HttpMethod.Get, "https://openrouter.ai/api/v1/credits", config.ApiKey);
 
-            var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
+            var response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             httpStatus = (int)response.StatusCode;
-            creditsResponseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            creditsResponseBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
             this._logger.LogDebug("OpenRouter credits API response status: {StatusCode}", response.StatusCode);
             this._logger.LogTrace("OpenRouter credits API response body: {ResponseBody}", creditsResponseBody);
@@ -88,7 +90,7 @@ public class OpenRouterProvider : ProviderBase
             {
                 creditsData = System.Text.Json.JsonSerializer.Deserialize<OpenRouterCreditsResponse>(creditsResponseBody);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is System.Text.Json.JsonException)
             {
                 this._logger.LogError(ex, "Failed to deserialize OpenRouter credits response. Raw response: {Response}", creditsResponseBody);
                 return new[]
@@ -113,7 +115,7 @@ public class OpenRouterProvider : ProviderBase
                 creditsData.Data.TotalCredits,
                 creditsData.Data.TotalUsage);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {
             this._logger.LogError(ex, "Exception while calling OpenRouter credits API");
             return new[]
@@ -135,8 +137,8 @@ public class OpenRouterProvider : ProviderBase
 
             var keyRequest = CreateBearerRequest(HttpMethod.Get, "https://openrouter.ai/api/v1/key", config.ApiKey);
 
-            var keyResponse = await this._httpClient.SendAsync(keyRequest).ConfigureAwait(false);
-            var keyResponseBody = await keyResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var keyResponse = await this._httpClient.SendAsync(keyRequest, cancellationToken).ConfigureAwait(false);
+            var keyResponseBody = await keyResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
             this._logger.LogDebug("OpenRouter key API response status: {StatusCode}", keyResponse.StatusCode);
             this._logger.LogTrace("OpenRouter key API response body: {ResponseBody}", keyResponseBody);
@@ -149,7 +151,7 @@ public class OpenRouterProvider : ProviderBase
                 {
                     keyData = System.Text.Json.JsonSerializer.Deserialize<OpenRouterKeyResponse>(keyResponseBody);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is System.Text.Json.JsonException)
                 {
                     this._logger.LogWarning(ex, "Failed to deserialize OpenRouter key response. Response: {Response}", keyResponseBody);
                 }
@@ -206,7 +208,7 @@ public class OpenRouterProvider : ProviderBase
                     keyResponseBody);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {
             this._logger.LogWarning(ex, "Exception while calling OpenRouter key API - continuing with credits data only");
         }

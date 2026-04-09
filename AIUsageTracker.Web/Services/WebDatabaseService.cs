@@ -132,6 +132,8 @@ public class WebDatabaseService : IWebDatabaseRepository
         WebDatabaseConnectionFactory? connectionFactory,
         string? databasePathOverride)
     {
+        ArgumentNullException.ThrowIfNull(pathProvider);
+
         this._cache = cache;
         this._logger = logger;
         this._connectionFactory = connectionFactory

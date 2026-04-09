@@ -47,6 +47,8 @@ public class ReliabilityModel : PageModel
 
     public string GetReliabilityClass(ProviderReliabilitySnapshot snapshot)
     {
+        ArgumentNullException.ThrowIfNull(snapshot);
+
         if (!snapshot.IsAvailable || snapshot.FailureRatePercent < 1)
         {
             return "healthy";
@@ -67,6 +69,8 @@ public class ReliabilityModel : PageModel
 
     public string GetReliabilityLabel(ProviderReliabilitySnapshot snapshot)
     {
+        ArgumentNullException.ThrowIfNull(snapshot);
+
         if (!snapshot.IsAvailable)
         {
             return "Unknown";
@@ -92,6 +96,8 @@ public class ReliabilityModel : PageModel
 
     public string GetLatencyText(ProviderReliabilitySnapshot snapshot)
     {
+        ArgumentNullException.ThrowIfNull(snapshot);
+
         if (!snapshot.IsAvailable || snapshot.SampleCount == 0)
         {
             return "n/a";
@@ -108,6 +114,8 @@ public class ReliabilityModel : PageModel
 
     public string GetLastSyncText(ProviderReliabilitySnapshot snapshot)
     {
+        ArgumentNullException.ThrowIfNull(snapshot);
+
         if (!snapshot.IsAvailable || snapshot.LastSuccessfulSyncUtc == null)
         {
             return "Never";

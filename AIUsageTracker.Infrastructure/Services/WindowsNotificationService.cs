@@ -68,4 +68,13 @@ public class WindowsNotificationService : INotificationService
     {
         this.ShowNotification($"{providerName} Quota Exceeded", details, "showProvider", providerName);
     }
+
+    public void ShowSubscriptionExpired(string providerName)
+    {
+        this.ShowNotification(
+            $"{providerName} — Subscription Expired",
+            "Your subscription has expired. Renew to continue using this provider.",
+            "showProvider",
+            providerName);
+    }
 }

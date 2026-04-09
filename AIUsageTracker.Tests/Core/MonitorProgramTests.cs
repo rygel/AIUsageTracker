@@ -50,8 +50,8 @@ public sealed class MonitorProgramTests : IDisposable
     {
         var path = MonitorLauncher.GetCanonicalMonitorInfoFilePath();
 
-        Assert.EndsWith("AIUsageTracker" + Path.DirectorySeparatorChar + "monitor.json", path);
-        Assert.DoesNotContain("AIUsageTracker" + Path.DirectorySeparatorChar + "AIUsageTracker", path);
+        Assert.EndsWith("AIUsageTracker" + Path.DirectorySeparatorChar + "monitor.json", path, StringComparison.Ordinal);
+        Assert.DoesNotContain("AIUsageTracker" + Path.DirectorySeparatorChar + "AIUsageTracker", path, StringComparison.Ordinal);
     }
 
     [Fact]

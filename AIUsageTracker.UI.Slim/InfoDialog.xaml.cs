@@ -110,7 +110,7 @@ public partial class InfoDialog : Window
                 ? FormatFileSize(dbInfo.Length)
                 : "not found";
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
         {
             this._logger.LogWarning(ex, "Could not read database file size");
             this.DatabaseSizeText.Text = "unavailable";
@@ -175,7 +175,7 @@ public partial class InfoDialog : Window
         }
 
         var normalized = informationalVersion.Split('+')[0];
-        var dashIndex = normalized.IndexOf('-');
+        var dashIndex = normalized.IndexOf("-", StringComparison.Ordinal);
         if (dashIndex < 0 || dashIndex >= normalized.Length - 1)
         {
             return null;
@@ -211,16 +211,16 @@ public partial class InfoDialog : Window
             App.SetPrivacyMode(this._isPrivacyMode);
 
             // App.PrivacyChanged event will handle UI update
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(true);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "PrivacyBtn_ClickAsync failed");
         }
     }
 
 #pragma warning disable VSTHRD100 // XAML click handlers must be async void wrappers.
-    private async void PrivacyBtn_Click(object sender, RoutedEventArgs e) => await this.PrivacyBtn_ClickAsync(sender, e);
+    private async void PrivacyBtn_Click(object sender, RoutedEventArgs e) => await this.PrivacyBtn_ClickAsync(sender, e).ConfigureAwait(true);
 #pragma warning restore VSTHRD100
 
     private void ConfigDir_Click(object sender, RoutedEventArgs e)
@@ -236,7 +236,7 @@ public partial class InfoDialog : Window
                     UseShellExecute = true,
                 });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
             {
                 this._logger.LogWarning(ex, "Failed to open config directory");
             }
@@ -256,7 +256,7 @@ public partial class InfoDialog : Window
                     UseShellExecute = true,
                 });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
             {
                 this._logger.LogWarning(ex, "Failed to open data directory");
             }

@@ -30,7 +30,10 @@ public class UsageAlertsService
 
     public void CheckUsageAlerts(IReadOnlyList<ProviderUsage> usages, AppPreferences prefs, IReadOnlyList<ProviderConfig> configs)
     {
-        if (!prefs.EnableNotifications || !prefs.NotifyOnUsageThreshold || IsInQuietHours(prefs))
+        ArgumentNullException.ThrowIfNull(prefs);
+        ArgumentNullException.ThrowIfNull(usages);
+
+        if (!prefs.EnableNotifications || IsInQuietHours(prefs))
         {
             return;
         }
@@ -39,6 +42,17 @@ public class UsageAlertsService
         {
             var config = configs.FirstOrDefault(c => c.ProviderId.Equals(usage.ProviderId, StringComparison.OrdinalIgnoreCase));
             if (config == null || !config.EnableNotifications)
+            {
+                continue;
+            }
+
+            if (usage.State == ProviderUsageState.Expired && prefs.NotifyOnSubscriptionExpired)
+            {
+                this._notificationService.ShowSubscriptionExpired(usage.ProviderName);
+                continue;
+            }
+
+            if (!prefs.NotifyOnUsageThreshold)
             {
                 continue;
             }
@@ -61,6 +75,8 @@ public class UsageAlertsService
 
     public async Task DetectResetEventsAsync(IReadOnlyList<ProviderUsage> currentUsages)
     {
+        ArgumentNullException.ThrowIfNull(currentUsages);
+
         this._logger.LogDebug("Checking for reset events...");
 
         var allHistory = await this._database.GetRecentHistoryAsync(2).ConfigureAwait(false);
@@ -96,7 +112,7 @@ public class UsageAlertsService
                 await this.SendResetNotificationAsync(usage).ConfigureAwait(false);
                 this._logger.LogInformation("{ProviderId} reset: {Reason}", usage.ProviderId, resetReason);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is IOException or InvalidOperationException)
             {
                 this._logger.LogWarning(ex, "Reset check failed for {ProviderId}: {Message}", usage.ProviderId, ex.Message);
             }

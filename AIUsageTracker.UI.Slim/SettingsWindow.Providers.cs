@@ -584,7 +584,7 @@ public partial class SettingsWindow
         return checkBox;
     }
 
-    private TextBox BuildApiKeyEditor(ProviderConfig config)
+    private FrameworkElement BuildApiKeyEditor(ProviderConfig config)
     {
         var keyBox = new TextBox
         {
@@ -605,7 +605,41 @@ public partial class SettingsWindow
             };
         }
 
-        return keyBox;
+        var authSourceLabel = BuildAuthSourceLabel(config.AuthSource);
+        if (authSourceLabel == null)
+        {
+            return keyBox;
+        }
+
+        var panel = new StackPanel();
+        panel.Children.Add(keyBox);
+        panel.Children.Add(authSourceLabel);
+        return panel;
+    }
+
+    private static TextBlock? BuildAuthSourceLabel(string? authSource)
+    {
+        if (string.IsNullOrWhiteSpace(authSource))
+        {
+            return null;
+        }
+
+        // Only show for external sources where the user needs to know the origin.
+        if (!AuthSource.IsRooOrKilo(authSource) && !AuthSource.IsEnvironment(authSource))
+        {
+            return null;
+        }
+
+        var label = new TextBlock
+        {
+            Text = $"Source: {authSource}",
+            FontSize = 9,
+            FontStyle = FontStyles.Italic,
+            Margin = new Thickness(0, 2, 0, 0),
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        };
+        label.SetResourceReference(TextBlock.ForegroundProperty, "TertiaryText");
+        return label;
     }
 
     private static string GetDisplayApiKey(string? apiKey, bool isPrivacyMode)
@@ -678,7 +712,7 @@ public partial class SettingsWindow
                 return icoImage;
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is System.IO.IOException or InvalidOperationException or NotSupportedException)
         {
             this._logger.LogDebug(ex, "Failed to load provider icon for {ProviderId}", providerId);
         }

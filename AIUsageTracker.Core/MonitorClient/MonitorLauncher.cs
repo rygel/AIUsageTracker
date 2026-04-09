@@ -204,7 +204,7 @@ public class MonitorLauncher : IMonitorLauncher
                 launchPlan.Value.StartInfo,
                 launchPlan.Value.LaunchTarget);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
         {
             this._logger?.LogDebug("Failed to start Monitor: {Message}", ex.Message);
             return false;
@@ -289,7 +289,7 @@ public class MonitorLauncher : IMonitorLauncher
                 this.InvalidateMonitorInfoPath(infoPath);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             this._logger?.LogDebug("Failed to invalidate monitor metadata: {Message}", ex.Message);
         }
@@ -443,9 +443,9 @@ public class MonitorLauncher : IMonitorLauncher
             this._logger?.LogDebug("Access denied reading monitor metadata: {Message}", ex.Message);
             return (null, path);
         }
-        catch
+        catch (Exception ex) when (ex is IOException or JsonException)
         {
-            this._logger?.LogDebug("Failed to load monitor metadata for an unknown reason.");
+            this._logger?.LogDebug("Failed to load monitor metadata: {Message}", ex.Message);
             return (null, path);
         }
     }
@@ -530,9 +530,13 @@ public class MonitorLauncher : IMonitorLauncher
                 File.Delete(staleFile);
             }
         }
-        catch
+        catch (IOException)
         {
-            // Best-effort cleanup; swallow exceptions.
+            // Best-effort cleanup; file I/O errors are expected.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Best-effort cleanup; permission errors are expected.
         }
     }
 
@@ -558,9 +562,9 @@ public class MonitorLauncher : IMonitorLauncher
             this._logger?.LogDebug("Health check timed out on port {Port}: {Message}", port, ex.Message);
             return false;
         }
-        catch
+        catch (Exception ex) when (ex is IOException or InvalidOperationException)
         {
-            this._logger?.LogDebug("Health check failed on port {Port} for an unknown reason.", port);
+            this._logger?.LogDebug("Health check failed on port {Port}: {Message}", port, ex.Message);
             return false;
         }
     }
@@ -587,7 +591,7 @@ public class MonitorLauncher : IMonitorLauncher
             this._logger?.LogDebug("Monitor process {ProcessId} was not found.", processId);
             return Task.FromResult(false);
         }
-        catch
+        catch (InvalidOperationException)
         {
             this._logger?.LogDebug("Failed to query monitor process {ProcessId}.", processId);
             return Task.FromResult(false);

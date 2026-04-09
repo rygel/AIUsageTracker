@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Configuration;
@@ -63,7 +64,7 @@ public class ConfigService : IConfigService
             Volatile.Write(ref this._cachedConfigs, configs);
             return configs;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             this._logger.LogError(ex, "Failed to load configs: {Message}", ex.Message);
             MonitorInfoPersistence.ReportError($"Config load failed: {ex.Message}", this._pathProvider, this._logger);
@@ -77,6 +78,19 @@ public class ConfigService : IConfigService
 
     public async Task SaveConfigAsync(ProviderConfig config)
     {
+        ArgumentNullException.ThrowIfNull(config);
+        if (string.IsNullOrWhiteSpace(config.ProviderId))
+        {
+            throw new ArgumentException("Provider ID must not be null or whitespace.", nameof(config));
+        }
+
+        if (!ProviderMetadataCatalog.TryGet(config.ProviderId, out _))
+        {
+            throw new ArgumentException(
+                $"Unknown provider ID '{config.ProviderId}'. Only catalog-registered providers may be saved.",
+                nameof(config));
+        }
+
         try
         {
             var configs = (await this._configLoader.LoadConfigAsync().ConfigureAwait(false)).ToList();
@@ -144,7 +158,7 @@ public class ConfigService : IConfigService
             Volatile.Write(ref this._cachedPreferences, prefs);
             return prefs;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             this._logger.LogError(ex, "Failed to load preferences: {Message}", ex.Message);
             return new AppPreferences();
@@ -176,6 +190,8 @@ public class ConfigService : IConfigService
         {
             var discovered = await this._tokenDiscovery.DiscoverTokensAsync().ConfigureAwait(false);
             var existing = (await this._configLoader.LoadConfigAsync().ConfigureAwait(false)).ToList();
+            var prefs = await this.GetPreferencesAsync().ConfigureAwait(false);
+            var suppressed = new HashSet<string>(prefs.SuppressedProviderIds, StringComparer.OrdinalIgnoreCase);
             var discoveredWithKeys = discovered
                 .Where(config => !string.IsNullOrWhiteSpace(config.ApiKey))
                 .ToList();
@@ -191,6 +207,13 @@ public class ConfigService : IConfigService
             // Merge discovered with existing — only add providers that actually have keys
             foreach (var newConfig in discovered)
             {
+                // Skip providers the user deliberately removed via Settings.
+                if (suppressed.Contains(newConfig.ProviderId))
+                {
+                    this._logger.LogDebug("Skipping suppressed provider: {ProviderId}", newConfig.ProviderId);
+                    continue;
+                }
+
                 var existingConfig = existing.FirstOrDefault(c =>
                     c.ProviderId.Equals(newConfig.ProviderId, StringComparison.OrdinalIgnoreCase));
 
@@ -250,7 +273,7 @@ public class ConfigService : IConfigService
             Volatile.Write(ref this._cachedConfigs, null);
             return discovered.ToList();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             this._logger.LogError(ex, "Failed to scan for keys: {Message}", ex.Message);
             return new List<ProviderConfig>();

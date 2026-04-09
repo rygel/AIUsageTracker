@@ -89,7 +89,7 @@ public class ProviderManager : IDisposable
         IReadOnlyCollection<ProviderConfig>? overrideConfigs = null,
         CancellationToken cancellationToken = default)
     {
-        await this._refreshSemaphore.WaitAsync().ConfigureAwait(false);
+        await this._refreshSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
         var semaphoreReleased = false;
         try
         {

@@ -13,8 +13,7 @@ internal static class JsonConfigFileStore
 
     public static async Task<Dictionary<string, JsonElement>?> ReadJsonElementMapAsync(
         string path,
-        ILogger logger,
-        string failureMessage)
+        ILogger logger)
     {
         if (!File.Exists(path))
         {
@@ -28,14 +27,14 @@ internal static class JsonConfigFileStore
                 json,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
-            logger.LogDebug(ex, failureMessage, path);
+            logger.LogDebug(ex, "Failed to read JSON element map from {Path}", path);
             return null;
         }
     }
 
-    public static async Task<T?> ReadAsync<T>(string path, ILogger logger, string failureMessage)
+    public static async Task<T?> ReadAsync<T>(string path, ILogger logger)
     {
         if (!File.Exists(path))
         {
@@ -47,9 +46,9 @@ internal static class JsonConfigFileStore
             var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
             return JsonSerializer.Deserialize<T>(json);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
-            logger.LogDebug(ex, failureMessage, path);
+            logger.LogDebug(ex, "Failed to deserialize {TypeName} from {Path}", typeof(T).Name, path);
             return default;
         }
     }

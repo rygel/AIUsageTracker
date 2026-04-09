@@ -2,6 +2,47 @@
 
 ## [Unreleased]
 
+## [2.3.4-beta.28] - 2026-04-06
+
+### Added
+- **Subscription expiration notifications**: providers can now report an `Expired` state when a subscription or plan has lapsed. The provider card displays an orange "Expired" badge with a warning-tone status line. A system tray notification fires when expiration is detected (controlled by the new `NotifyOnSubscriptionExpired` preference, enabled by default). SyntheticProvider uses the new state when the API returns an empty response indicating no active subscription.
+
+## [2.3.4-beta.27] - 2026-04-05
+
+### Fixed
+- **Deleted provider card no longer persists in main window**: clearing a StandardApiKey provider's API key (e.g. Synthetic) now hides the card from the main window immediately. Missing-state cards for StandardApiKey providers are filtered by `PrepareForMainWindow`. Session/external auth providers (GitHub Copilot, Codex) still show their authentication status.
+- **ETag cache invalidated after config changes**: `MonitorService.InvalidateGroupedUsageCache()` is called after saving or removing provider configs in settings, so the main window fetches fresh data instead of stale 304 responses.
+- **Preferences survive concurrent file access**: `PreferencesStore.LoadAsync` uses `FileShare.ReadWrite` so reads succeed when the Monitor holds the file open. Errors are surfaced via MessageBox instead of silently falling back to defaults — fixes "Show Used" resetting after recompilation.
+- **kill-all.ps1 matches compiled process name**: added `AIUsageTracker` to the target list (previously only matched `AIUsageTracker.UI.Slim`).
+
+### Changed
+- **`.editorconfig` prefix typo fixed**: all `dot_diagnostic.*` entries corrected to `dotnet_diagnostic.*`. ~40 analyzer rules were silently disabled since the file was created. Six rules are now enforced at error/warning with zero violations:
+  - **CA1031** (warning): 170 generic `catch (Exception)` blocks narrowed to specific types across Core, Infrastructure, Monitor, and UI.Slim. Unexpected exceptions now propagate.
+  - **CA1062** (error): 67 null parameter guards added across all projects.
+  - **CA1307** (error): 48 explicit `StringComparison.Ordinal` additions.
+  - **CA2016** (error): 23 `CancellationToken` forwarding fixes in provider HTTP calls.
+  - **CA2254** (error): 9 structured logging template fixes.
+  - **VSTHRD111** (warning): 89 explicit `.ConfigureAwait(true)` in UI code, `.ConfigureAwait(false)` verified in all library code.
+- **Architecture guardrail tests**: `ConfigureAwaitGuardrailTests` now enforces both directions — UI code cannot use `ConfigureAwait(false)`, library code cannot use `ConfigureAwait(true)`.
+- **CLAUDE.md added**: documents build workflow (`scripts/kill-all.ps1`), architecture, data flow, settings modes, and lists analyzer rules that must never be weakened.
+- **ADR-005 and ADR-006 added**: document the main window card filtering decision and the kill-all.ps1 fix.
+
+## [2.3.4-beta.26] - 2026-04-04
+
+### Added
+- **OpenCode Go credits provider**: new HTTP-based provider querying `api.opencode.ai/v1/credits` showing credit usage as a quota bar. Auto-discovers key from opencode `auth.json`. Silently hides when the credits API is not available for the account (detected via `Content-Type` header).
+
+### Fixed
+- **Auth scan no longer creates ghost provider configs**: `ScanForKeysAsync` persisted empty skeleton entries (e.g. DeepSeek, Antigravity) for every known provider even without keys. Now only providers with actual credentials are saved.
+- **OpenCode CLI discovery picks correct binary on Windows**: `where opencode` returns the extensionless bash shim first; now prefers `.cmd`/`.exe` variant.
+- **Settings update check has Download & Install button**: previously showed "New version available" with no way to act. Now confirms, downloads with progress, and restarts.
+- **Update channel no longer silently resets to Stable**: DI singleton used default channel before preferences loaded.
+- **Privacy toggle works in Settings and Info dialogs**: same WeakReference GC bug as MainWindow, now fixed with stored delegate field.
+
+### Changed
+- **OpenCode Zen renamed to OpenCode**: CLI provider now displays as "OpenCode". HTTP provider displays as "OpenCode Go".
+- **Zero actionable linter warnings**: fixed all MA, CA, IDE, and SA warnings across the solution.
+
 ## [2.3.4-beta.21] - 2026-04-02
 
 ### Added

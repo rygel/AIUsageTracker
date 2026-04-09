@@ -25,7 +25,7 @@ public class NoGitHubCliTests
     {
         var repoRoot = GetRepoRoot();
         var csFiles = Directory.GetFiles(repoRoot, "*.cs", SearchOption.AllDirectories)
-            .Where(f => !ExcludedPaths.Any(e => f.Contains(e)))
+            .Where(f => !ExcludedPaths.Any(e => f.Contains(e, StringComparison.Ordinal)))
             .ToList();
 
         var violations = new List<string>();

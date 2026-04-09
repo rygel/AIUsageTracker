@@ -139,7 +139,7 @@ public class Program
                     AllocConsole();
                 }
 
-                logger.LogInformation(string.Empty);
+                logger.LogInformation("");
                 logger.LogInformation("═══════════════════════════════════════════════════════════════");
                 logger.LogInformation("  AIUsageTracker.Monitor - DEBUG MODE");
                 logger.LogInformation("═══════════════════════════════════════════════════════════════");
@@ -151,7 +151,7 @@ public class Program
                 logger.LogInformation("  Runtime:    {Runtime}", Environment.Version);
                 logger.LogInformation("  Command Line: {CommandLine}", Environment.CommandLine);
                 logger.LogInformation("═══════════════════════════════════════════════════════════════");
-                logger.LogInformation(string.Empty);
+                logger.LogInformation("");
             }
 
             // Reserve the canonical monitor port with retry for transient bind races.
@@ -176,8 +176,8 @@ public class Program
                 options.AddDefaultPolicy(policy =>
                 {
                     policy.WithOrigins("http://localhost:5100", "http://localhost:5000") // Explicit origins for SignalR/CORS safety
-                          .AllowAnyMethod()
-                          .AllowAnyHeader()
+                          .WithMethods("GET", "POST", "DELETE")
+                          .WithHeaders("Content-Type", "Authorization", "X-Requested-With")
                           .AllowCredentials(); // Required for SignalR with WebSockets/Long Polling
                 });
             });
@@ -278,20 +278,20 @@ public class Program
 
             if (isDebugMode)
             {
-                logger.LogInformation(string.Empty);
+                logger.LogInformation("");
                 logger.LogInformation("═══════════════════════════════════════════════════════════════");
                 logger.LogInformation("  Agent ready! Listening on http://localhost:{Port}", port);
                 logger.LogInformation("═══════════════════════════════════════════════════════════════");
-                logger.LogInformation(string.Empty);
+                logger.LogInformation("");
                 logger.LogInformation("  API Endpoints:");
                 logger.LogInformation("    GET  http://localhost:{Port}{Route}", port, MonitorApiRoutes.Health);
                 logger.LogInformation("    GET  http://localhost:{Port}{Route}", port, MonitorApiRoutes.Usage);
                 logger.LogInformation("    GET  http://localhost:{Port}{Route}", port, MonitorApiRoutes.Config);
                 logger.LogInformation("    POST http://localhost:{Port}{Route}", port, MonitorApiRoutes.Refresh);
-                logger.LogInformation(string.Empty);
+                logger.LogInformation("");
                 logger.LogInformation("  Press Ctrl+C to stop");
                 logger.LogInformation("═══════════════════════════════════════════════════════════════");
-                logger.LogInformation(string.Empty);
+                logger.LogInformation("");
             }
 
             // Update metadata only after successful bind/start.
@@ -328,12 +328,14 @@ public class Program
     // Compatibility wrapper kept for tests and external callers.
     public static void SaveMonitorInfo(int port, bool debug, ILogger logger, IAppPathProvider pathProvider, string? startupStatus = null)
     {
+        ArgumentNullException.ThrowIfNull(pathProvider);
         MonitorInfoPersistence.SaveMonitorInfo(port, debug, logger, pathProvider, startupStatus);
     }
 
     // Compatibility wrapper kept for tests and external callers.
     public static void ReportError(string message, IAppPathProvider pathProvider, ILogger? logger = null)
     {
+        ArgumentNullException.ThrowIfNull(pathProvider);
         MonitorInfoPersistence.ReportError(message, pathProvider, logger);
     }
 }

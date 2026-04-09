@@ -26,6 +26,9 @@ public sealed class ProviderUsagePersistenceService
 
     public async Task PersistUsageAndDynamicProvidersAsync(List<ProviderUsage> filteredUsages, HashSet<string> activeProviderIds)
     {
+        ArgumentNullException.ThrowIfNull(filteredUsages);
+        ArgumentNullException.ThrowIfNull(activeProviderIds);
+
         await this.UpsertDynamicProvidersAsync(filteredUsages, activeProviderIds).ConfigureAwait(false);
         await this.StoreUsageHistoryAndSnapshotsAsync(filteredUsages).ConfigureAwait(false);
     }

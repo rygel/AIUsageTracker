@@ -22,7 +22,7 @@ public class MonitorResilienceTests
         errors.Add("Startup status: running");
 
         Assert.Equal(2, info.Errors.Count);
-        Assert.Contains(info.Errors, e => e.Contains("running"));
+        Assert.Contains(info.Errors, e => e.Contains("running", StringComparison.Ordinal));
     }
 
     [Fact]

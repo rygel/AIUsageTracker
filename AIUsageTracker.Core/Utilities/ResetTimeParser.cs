@@ -33,7 +33,7 @@ public static class ResetTimeParser
             var utcTime = DateTimeOffset.FromUnixTimeSeconds(unixSeconds.Value);
             return utcTime.LocalDateTime;
         }
-        catch
+        catch (ArgumentOutOfRangeException)
         {
             return null;
         }
@@ -56,7 +56,7 @@ public static class ResetTimeParser
             var utcTime = DateTimeOffset.FromUnixTimeMilliseconds(unixMilliseconds.Value);
             return utcTime.LocalDateTime;
         }
-        catch
+        catch (ArgumentOutOfRangeException)
         {
             return null;
         }
@@ -78,7 +78,7 @@ public static class ResetTimeParser
         {
             return DateTime.UtcNow.Add(TimeSpan.FromSeconds(secondsFromNow.Value));
         }
-        catch
+        catch (OverflowException)
         {
             return null;
         }
@@ -179,7 +179,7 @@ public static class ResetTimeParser
                 return Parse(stringValue);
             }
         }
-        catch
+        catch (Exception ex) when (ex is FormatException or JsonException or InvalidOperationException)
         {
             // Ignore parsing errors
         }
@@ -211,6 +211,8 @@ public static class ResetTimeParser
     /// <returns>The soonest valid reset time, or null if none found.</returns>
     public static DateTime? GetSoonest(params DateTime?[] resetTimes)
     {
+        ArgumentNullException.ThrowIfNull(resetTimes);
+
         DateTime? soonest = null;
 
         foreach (var rt in resetTimes)

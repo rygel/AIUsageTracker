@@ -53,6 +53,8 @@ public class GitHubCopilotProvider : ProviderBase
 
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
         var token = this.ResolveToken(config);
         if (string.IsNullOrEmpty(token) && this.DiscoveryService != null)
         {
@@ -98,7 +100,7 @@ public class GitHubCopilotProvider : ProviderBase
         try
         {
             using var request = CreateBearerRequest("https://api.github.com/user", token);
-            using var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
+            using var response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             state.HttpStatus = (int)response.StatusCode;
 
             if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
@@ -127,7 +129,7 @@ public class GitHubCopilotProvider : ProviderBase
             state.IsAvailable = false;
             state.State = ProviderUsageState.Error;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is TaskCanceledException or System.Text.Json.JsonException)
         {
             this._logger.LogError(ex, "Failed to fetch GitHub profile");
             state.Description = $"Error: {ex.Message}";
@@ -346,7 +348,7 @@ public class GitHubCopilotProvider : ProviderBase
                 state.Description = BuildAuthenticatedDescription(state.Username, null);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {
             this._logger.LogDebug(ex, "Failed to resolve GitHub Copilot plan name");
             state.Description = BuildAuthenticatedDescription(state.Username, null);
@@ -459,7 +461,7 @@ public class GitHubCopilotProvider : ProviderBase
                 }
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {
             this._logger.LogDebug(ex, "Failed to parse GitHub Copilot quota snapshot");
         }

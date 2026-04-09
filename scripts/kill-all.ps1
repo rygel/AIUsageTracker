@@ -3,6 +3,7 @@
 # and reports success/failure per process.
 
 $targets = @(
+    "AIUsageTracker",
     "AIUsageTracker.Monitor",
     "AIUsageTracker.UI",
     "AIUsageTracker.UI.Slim",

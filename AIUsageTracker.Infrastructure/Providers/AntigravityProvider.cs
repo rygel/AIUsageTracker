@@ -30,7 +30,7 @@ public class AntigravityProvider : ProviderBase
     private DateTime _lastProcessCheck = DateTime.MinValue;
 
     public AntigravityProvider(ILogger<AntigravityProvider> logger, IHttpClientFactory httpClientFactory)
-        : this(httpClientFactory.CreateClient("LocalhostClient"), logger)
+        : this((httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory))).CreateClient("LocalhostClient"), logger)
     {
     }
 
@@ -66,6 +66,8 @@ public class AntigravityProvider : ProviderBase
     /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
         var results = new List<ProviderUsage>();
 
         try
@@ -191,7 +193,7 @@ public class AntigravityProvider : ProviderBase
                             usageItems = await this.FetchUsageAsync(candidatePort, csrfToken, config).ConfigureAwait(false);
                             break;
                         }
-                        catch (Exception ex)
+                        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
                         {
                             lastPortException = ex;
                             this._logger.LogDebug(ex, "Antigravity PID={Pid} probe failed on port {Port}", pid, candidatePort);
@@ -216,9 +218,9 @@ public class AntigravityProvider : ProviderBase
 
                     results.AddRange(usageItems);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or InvalidOperationException or IOException)
                 {
-                    this._logger.LogWarning(ex, $"Failed to check Antigravity PID {info.Pid}");
+                    this._logger.LogWarning(ex, "Failed to check Antigravity PID {Pid}", info.Pid);
                 }
             }
 
@@ -268,7 +270,7 @@ public class AntigravityProvider : ProviderBase
             // ... (See below for FetchUsage refactor)
             return results;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
         {
             this._logger.LogWarning(ex, "Antigravity check failed");
             return new[]
@@ -327,7 +329,7 @@ public class AntigravityProvider : ProviderBase
         {
             return Process.GetProcessesByName("Antigravity").Any();
         }
-        catch
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
         {
             return false;
         }
@@ -626,7 +628,7 @@ public class AntigravityProvider : ProviderBase
                     candidates.Add((pid, token, port));
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is ManagementException or InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
             {
                 this._logger.LogError(ex, "Process discovery failed");
             }
@@ -712,7 +714,7 @@ public class AntigravityProvider : ProviderBase
                     responseString[..Math.Min(500, responseString.Length)]);
                 break;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
             {
                 lastRequestException = ex;
                 this._logger.LogDebug(ex, "[Antigravity] Request failed for {Scheme}://127.0.0.1:{Port}", scheme, port);
@@ -923,7 +925,7 @@ public class AntigravityProvider : ProviderBase
 
     private (string ChildId, string ChildName) ResolveChildIdentity(string modelName, ProviderConfig config)
     {
-        var childId = $"{this.ProviderId}.{modelName.ToLowerInvariant().Replace(" ", "-")}";
+        var childId = $"{this.ProviderId}.{modelName.ToLowerInvariant().Replace(" ", "-", StringComparison.Ordinal)}";
         var childName = "Antigravity " + modelName;
 
         if (config.Models == null || !config.Models.Any())

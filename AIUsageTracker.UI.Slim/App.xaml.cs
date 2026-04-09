@@ -76,6 +76,8 @@ public partial class App : Application
 #pragma warning disable VSTHRD100 // WPF Application lifecycle overrides require async void signatures
     protected override async void OnStartup(StartupEventArgs e)
     {
+        ArgumentNullException.ThrowIfNull(e);
+
         this._singleInstanceLockService = Host.Services.GetRequiredService<SingleInstanceLockService>();
         if (!this._singleInstanceLockService.TryAcquire())
         {
@@ -84,7 +86,26 @@ public partial class App : Application
             return;
         }
 
-        await Host.StartAsync();
+        // Load preferences BEFORE Host.StartAsync() so DI singletons
+        // (e.g. GitHubUpdateChecker) capture the correct UpdateChannel.
+        var preferencesStore = Host.Services.GetRequiredService<UiPreferencesStore>();
+        try
+        {
+            Preferences = await preferencesStore.LoadAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            var logger = Host.Services.GetRequiredService<ILogger<App>>();
+            logger.LogError(ex, "Failed to load preferences from disk");
+            MessageBox.Show(
+                $"Could not load preferences:\n{ex.Message}\n\nThe application will start with default settings.",
+                "Preferences Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            Preferences = new AppPreferences();
+        }
+
+        await Host.StartAsync().ConfigureAwait(true);
         base.OnStartup(e);
 
         if (e.Args.Contains("--test", StringComparer.OrdinalIgnoreCase) &&
@@ -95,7 +116,7 @@ public partial class App : Application
             return;
         }
 
-        // Fire monitor warmup IMMEDIATELY — runs in parallel with preferences load,
+        // Fire monitor warmup IMMEDIATELY — runs in parallel with
         // theme apply, tray icon init, and the expensive MainWindow InitializeComponent.
         // By the time the window is shown, the monitor should already be running.
         MonitorWarmupTask = Task.Run(async () =>
@@ -105,24 +126,13 @@ public partial class App : Application
                 var lifecycle = Host.Services.GetRequiredService<MonitorLifecycleService>();
                 return await lifecycle.EnsureAgentRunningAsync().ConfigureAwait(false); // ui-thread-guardrail-allow: Task.Run thread pool
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 Host.Services.GetRequiredService<ILogger<App>>()
                     .LogWarning(ex, "Background monitor warmup failed");
                 return false;
             }
         });
-
-        var preferencesStore = Host.Services.GetRequiredService<UiPreferencesStore>();
-        try
-        {
-            Preferences = await preferencesStore.LoadAsync();
-        }
-        catch (Exception ex)
-        {
-            Host.Services.GetRequiredService<ILogger<App>>().LogWarning(ex, "Failed to load preferences on startup.");
-            Preferences = new AppPreferences();
-        }
 
         ApplyTheme(Preferences.Theme);
         IsPrivacyMode = Preferences.IsPrivacyMode;
@@ -145,7 +155,7 @@ public partial class App : Application
 
         using (_host)
         {
-            await Host.StopAsync();
+            await Host.StopAsync().ConfigureAwait(true);
         }
 
         this._singleInstanceLockService?.Release();

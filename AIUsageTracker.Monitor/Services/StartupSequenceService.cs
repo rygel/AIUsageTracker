@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.Extensions.Logging;
@@ -51,7 +52,7 @@ public sealed class StartupSequenceService
         {
             this._logger.LogInformation("Startup seeding cancelled due to shutdown.");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or JsonException or InvalidOperationException)
         {
             this._logger.LogError(ex, "Error during first-time data seeding.");
             MonitorInfoPersistence.ReportError($"Startup seeding failed: {ex.Message}", this._pathProvider, this._logger);
@@ -70,7 +71,7 @@ public sealed class StartupSequenceService
         {
             this._logger.LogInformation("Startup targeted refresh cancelled due to shutdown.");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or JsonException or InvalidOperationException)
         {
             this._logger.LogWarning(ex, "Startup targeted refresh failed");
             MonitorInfoPersistence.ReportError($"Startup targeted refresh failed: {ex.Message}", this._pathProvider, this._logger);

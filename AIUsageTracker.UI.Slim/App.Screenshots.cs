@@ -22,6 +22,8 @@ public partial class App
 
     public static void RenderWindowContent(Window window, string outputPath)
     {
+        ArgumentNullException.ThrowIfNull(window);
+
         if (window.Content is not FrameworkElement root)
         {
             throw new InvalidOperationException("Window content is not a FrameworkElement.");
@@ -168,21 +170,21 @@ public partial class App
             if (isThemeSmokeMode)
             {
                 var smokeFileName = $"theme_smoke_{selectedTheme.ToString().ToLowerInvariant()}.png";
-                await this.CaptureMainWindowScreenshotAsync(Path.Combine(screenshotsDir, smokeFileName));
+                await this.CaptureMainWindowScreenshotAsync(Path.Combine(screenshotsDir, smokeFileName)).ConfigureAwait(true);
                 return;
             }
 
             if (isCardCatalogMode)
             {
-                await this.CaptureCardCatalogAsync(screenshotsDir);
+                await this.CaptureCardCatalogAsync(screenshotsDir).ConfigureAwait(true);
                 return;
             }
 
-            await this.CaptureMainWindowScreenshotAsync(Path.Combine(screenshotsDir, "screenshot_dashboard_privacy.png"));
-            await this.CaptureSettingsScreenshotsAsync(screenshotsDir);
+            await this.CaptureMainWindowScreenshotAsync(Path.Combine(screenshotsDir, "screenshot_dashboard_privacy.png")).ConfigureAwait(true);
+            await this.CaptureSettingsScreenshotsAsync(screenshotsDir).ConfigureAwait(true);
             this.CaptureInfoScreenshot(Path.Combine(screenshotsDir, "screenshot_info_privacy.png"));
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogError(ex, "Headless screenshot capture failed");
             Environment.ExitCode = 1;
@@ -226,8 +228,8 @@ public partial class App
         var window = Host.Services.GetRequiredService<MainWindow>();
         try
         {
-            await window.PrepareForHeadlessScreenshotAsync(deterministic: true);
-            await this.WaitForDispatcherIdleAsync(window);
+            await window.PrepareForHeadlessScreenshotAsync(deterministic: true).ConfigureAwait(true);
+            await this.WaitForDispatcherIdleAsync(window).ConfigureAwait(true);
             RenderWindowContent(window, outputPath);
         }
         finally
@@ -241,7 +243,7 @@ public partial class App
         var window = Host.Services.GetRequiredService<SettingsWindow>();
         try
         {
-            await window.CaptureHeadlessTabScreenshotsAsync(outputDirectory);
+            await window.CaptureHeadlessTabScreenshotsAsync(outputDirectory).ConfigureAwait(true);
         }
         finally
         {
@@ -252,7 +254,7 @@ public partial class App
     private async Task WaitForDispatcherIdleAsync(Window window)
     {
 #pragma warning disable VSTHRD001 // WPF screenshot capture needs the window dispatcher to reach idle before rendering.
-        await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+        await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle).Task.ConfigureAwait(true);
 #pragma warning restore VSTHRD001
     }
 
@@ -272,13 +274,13 @@ public partial class App
             var window = Host.Services.GetRequiredService<MainWindow>();
             try
             {
-                await window.PrepareForHeadlessScreenshotAsync(deterministic: true);
+                await window.PrepareForHeadlessScreenshotAsync(deterministic: true).ConfigureAwait(true);
 
                 // Apply the permutation AFTER the fixture loads — the fixture resets
                 // preferences to defaults, so we must override afterwards.
                 permutation.Apply(Preferences);
                 window.ApplyPreferencesAndRerender();
-                await this.WaitForDispatcherIdleAsync(window);
+                await this.WaitForDispatcherIdleAsync(window).ConfigureAwait(true);
                 RenderWindowContent(window, outputPath);
                 captured.Add((fileName, permutation.Label, permutation.Description));
             }
@@ -294,7 +296,7 @@ public partial class App
         // Generate markdown index.
         var markdown = CardCatalogPermutations.GenerateMarkdown(captured);
         var markdownPath = Path.Combine(catalogDir, "CARD-CATALOG.md");
-        await File.WriteAllTextAsync(markdownPath, markdown);
+        await File.WriteAllTextAsync(markdownPath, markdown).ConfigureAwait(true);
         logger.LogInformation("Card catalog: {Count} screenshots + markdown index written to {Dir}", captured.Count, catalogDir);
     }
 

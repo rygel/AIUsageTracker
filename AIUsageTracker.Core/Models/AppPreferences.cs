@@ -72,6 +72,8 @@ public class AppPreferences
 
     public bool NotifyOnProviderErrors { get; set; } = false;
 
+    public bool NotifyOnSubscriptionExpired { get; set; } = true;
+
     public bool EnableQuietHours { get; set; } = false;
 
     public string QuietHoursStart { get; set; } = "22:00";
@@ -96,6 +98,11 @@ public class AppPreferences
     // Provider item visibility — IDs in this list are hidden in the Slim UI.
     // An empty list means all items are visible (default).
     public IList<string> HiddenProviderItemIds { get; set; } = new List<string>();
+
+    // Providers the user deliberately removed. ScanForKeysAsync skips these
+    // so externally discovered keys (Roo Code, Kilo Code, env vars) don't reappear.
+    // Un-suppressed automatically when the user re-adds a key via Settings.
+    public IList<string> SuppressedProviderIds { get; set; } = new List<string>();
 
     // Per-group collapse state for flat card groups (keyed by GroupId).
     public IDictionary<string, bool> CollapsedGroupIds { get; set; } = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);

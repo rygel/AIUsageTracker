@@ -46,4 +46,9 @@ public class NoOpNotificationService : INotificationService
     {
         this._logger.LogDebug("Quota exceeded alert (no-op): {Provider} - {Details}", providerName, details);
     }
+
+    public void ShowSubscriptionExpired(string providerName)
+    {
+        this._logger.LogDebug("Subscription expired alert (no-op): {Provider}", providerName);
+    }
 }

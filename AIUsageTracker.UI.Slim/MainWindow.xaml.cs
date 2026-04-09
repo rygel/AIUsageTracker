@@ -164,9 +164,9 @@ public partial class MainWindow : Window
         {
             try
             {
-                await this.CheckForUpdatesAsync();
+                await this.CheckForUpdatesAsync().ConfigureAwait(true);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 this._logger.LogError(ex, "UpdateCheckTimer_Tick failed");
             }
@@ -202,10 +202,14 @@ public partial class MainWindow : Window
         {
             try
             {
-                await this.InitializeAsync();
-                _ = this.CheckForUpdatesAsync();
+                await this.InitializeAsync().ConfigureAwait(true);
+                _ = this.CheckForUpdatesAsync().ContinueWith(
+                    t => this._logger.LogError(t.Exception, "CheckForUpdatesAsync failed unhandled"),
+                    CancellationToken.None,
+                    TaskContinuationOptions.OnlyOnFaulted,
+                    TaskScheduler.Default);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 this._logger.LogError(ex, "Window_Loaded failed");
             }
@@ -216,9 +220,9 @@ public partial class MainWindow : Window
         {
             try
             {
-                await this.SaveWindowPositionAsync();
+                await this.SaveWindowPositionAsync().ConfigureAwait(true);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 this._logger.LogError(ex, "LocationChanged handler failed");
             }
@@ -227,9 +231,9 @@ public partial class MainWindow : Window
         {
             try
             {
-                await this.SaveWindowPositionAsync();
+                await this.SaveWindowPositionAsync().ConfigureAwait(true);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 this._logger.LogError(ex, "SizeChanged handler failed");
             }
@@ -330,7 +334,7 @@ public partial class MainWindow : Window
             this._preferences.WindowTop = this.Top;
             this._preferences.WindowWidth = this.Width;
             this._preferences.WindowHeight = this.Height;
-            await this.SaveUiPreferencesAsync();
+            await this.SaveUiPreferencesAsync().ConfigureAwait(true);
         }
     }
 
@@ -362,7 +366,7 @@ public partial class MainWindow : Window
             var sw = System.Diagnostics.Stopwatch.StartNew();
             try
             {
-                var monitorReady = await App.MonitorWarmupTask;
+                var monitorReady = await App.MonitorWarmupTask.ConfigureAwait(true);
                 sw.Stop();
                 this.LogDiagnostic($"[DIAGNOSTIC] Monitor warmup completed in {sw.ElapsedMilliseconds}ms, ready={monitorReady}");
 
@@ -373,9 +377,9 @@ public partial class MainWindow : Window
                     var startupResult = await this._monitorStartupOrchestrator.EnsureMonitorReadyAsync(
                         async (message, type) =>
                         {
-                            await this.Dispatcher.InvokeAsync(() => this.ShowStatus(message, type));
+                            await this.Dispatcher.InvokeAsync(() => this.ShowStatus(message, type)).Task.ConfigureAwait(true);
                         },
-                        skipInitialHealthCheck: true);
+                        skipInitialHealthCheck: true).ConfigureAwait(true);
 
                     if (!startupResult.IsSuccess)
                     {
@@ -395,10 +399,10 @@ public partial class MainWindow : Window
                 }
 
                 // Monitor is running — refresh port and fetch data
-                await this._monitorService.RefreshPortAsync();
-                await this.FetchDataAsync();
+                await this._monitorService.RefreshPortAsync().ConfigureAwait(true);
+                await this.FetchDataAsync().ConfigureAwait(true);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 this.LogDiagnostic($"[DIAGNOSTIC] Monitor startup failed: {ex.Message}");
                 this.ShowErrorState($"Monitor startup failed: {ex.Message}");
@@ -413,12 +417,12 @@ public partial class MainWindow : Window
             {
                 // Contract check and toggle update in background — don't block UI
                 var handshakeResult = await this._monitorService.CheckApiContractAsync().ConfigureAwait(false); // ui-thread-guardrail-allow: Task.Run thread pool
-                await this.Dispatcher.InvokeAsync(() => this.ApplyMonitorContractStatus(handshakeResult));
+                await this.Dispatcher.InvokeAsync(() => this.ApplyMonitorContractStatus(handshakeResult)).Task.ConfigureAwait(true);
             });
 
             this.ShowStatus("Connected", StatusType.Success);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this.ShowErrorState($"Initialization failed: {ex.Message}");
         }
@@ -491,7 +495,7 @@ public partial class MainWindow : Window
     private async Task SaveUiPreferencesAsync()
     {
         App.Preferences = this._preferences;
-        var saved = await this._preferencesStore.SaveAsync(this._preferences);
+        var saved = await this._preferencesStore.SaveAsync(this._preferences).ConfigureAwait(true);
         if (!saved)
         {
             this._logger.LogWarning("Failed to save Slim UI preferences");
@@ -528,7 +532,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            await this.InitializeAsync();
+            await this.InitializeAsync().ConfigureAwait(true);
         }
     }
 
@@ -584,9 +588,9 @@ public partial class MainWindow : Window
     {
         try
         {
-            await this.RefreshDataAsync();
+            await this.RefreshDataAsync().ConfigureAwait(true);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "RefreshBtn_Click failed");
             this.ShowStatus("Refresh failed", StatusType.Error);
@@ -597,9 +601,9 @@ public partial class MainWindow : Window
     {
         try
         {
-            await this.OpenSettingsDialogAsync();
+            await this.OpenSettingsDialogAsync().ConfigureAwait(true);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "SettingsBtn_Click failed");
             this.ShowStatus("Settings failed", StatusType.Error);
@@ -614,7 +618,7 @@ public partial class MainWindow : Window
         try
         {
             var owner = this.IsVisible ? this : null;
-            settingsResult = await this._dialogService.ShowSettingsAsync(owner);
+            settingsResult = await this._dialogService.ShowSettingsAsync(owner).ConfigureAwait(true);
         }
         finally
         {
@@ -631,7 +635,7 @@ public partial class MainWindow : Window
             this._preferencesLoaded = true;
 
             this.ApplyPreferencesFromSettings();
-            await this.InitializeAsync();
+            await this.InitializeAsync().ConfigureAwait(true);
         }
     }
 
@@ -672,16 +676,16 @@ public partial class MainWindow : Window
 
     private async void WebBtn_Click(object sender, RoutedEventArgs e)
     {
-        await this.OpenWebUIAsync();
+        await this.OpenWebUIAsync().ConfigureAwait(true);
     }
 
     private async Task OpenWebUIAsync()
     {
         try
         {
-            await this._browserService.OpenWebUIAsync();
+            await this._browserService.OpenWebUIAsync().ConfigureAwait(true);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "Failed to open Web UI");
             MessageBox.Show(
@@ -699,9 +703,9 @@ public partial class MainWindow : Window
             var newPrivacyMode = !this._isPrivacyMode;
             this._preferences.IsPrivacyMode = newPrivacyMode;
             App.SetPrivacyMode(newPrivacyMode);
-            await this.SaveUiPreferencesAsync();
+            await this.SaveUiPreferencesAsync().ConfigureAwait(true);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "PrivacyBtn_Click failed");
         }
@@ -731,9 +735,9 @@ public partial class MainWindow : Window
                 this.ApplyTopmostState(false);
             }
 
-            await this.SaveUiPreferencesAsync();
+            await this.SaveUiPreferencesAsync().ConfigureAwait(true);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "AlwaysOnTop_Checked failed");
         }
@@ -749,12 +753,12 @@ public partial class MainWindow : Window
             }
 
             this._preferences.ShowUsedPercentages = this.ShowUsedToggle.IsChecked ?? false;
-            await this.SaveUiPreferencesAsync();
+            await this.SaveUiPreferencesAsync().ConfigureAwait(true);
 
             // Refresh the display to show used% vs remaining%
             this.RenderProviders();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "ShowUsedToggle_Checked failed");
         }
@@ -785,7 +789,7 @@ public partial class MainWindow : Window
         }
 
         var normalized = informationalVersion.Split('+')[0];
-        var dashIndex = normalized.IndexOf('-');
+        var dashIndex = normalized.IndexOf("-", StringComparison.Ordinal);
         if (dashIndex < 0 || dashIndex >= normalized.Length - 1)
         {
             return null;
@@ -817,13 +821,13 @@ public partial class MainWindow : Window
     {
         try
         {
-            var (isRunning, _) = await this._monitorLifecycleService.IsAgentRunningWithPortAsync();
+            var (isRunning, _) = await this._monitorLifecycleService.IsAgentRunningWithPortAsync().ConfigureAwait(true);
 
             if (isRunning)
             {
                 // Stop the agent
                 this.ShowStatus("Stopping monitor...", StatusType.Warning);
-                var stopped = await this._monitorLifecycleService.StopAgentAsync();
+                var stopped = await this._monitorLifecycleService.StopAgentAsync().ConfigureAwait(true);
                 if (stopped)
                 {
                     this.ShowStatus("Monitor stopped", StatusType.Info);
@@ -838,12 +842,12 @@ public partial class MainWindow : Window
             {
                 // Start the monitor
                 this.ShowStatus("Starting monitor...", StatusType.Warning);
-                var monitorReady = await this._monitorLifecycleService.EnsureAgentRunningAsync();
+                var monitorReady = await this._monitorLifecycleService.EnsureAgentRunningAsync().ConfigureAwait(true);
                 if (monitorReady)
                 {
                     this.ShowStatus("Monitor started", StatusType.Success);
                     this.UpdateMonitorToggleButton(true);
-                    await this.RefreshDataAsync();
+                    await this.RefreshDataAsync().ConfigureAwait(true);
                 }
                 else
                 {
@@ -852,7 +856,7 @@ public partial class MainWindow : Window
                 }
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this._logger.LogError(ex, "MonitorToggleBtn_Click failed");
             this.ShowStatus("Monitor toggle failed", StatusType.Error);

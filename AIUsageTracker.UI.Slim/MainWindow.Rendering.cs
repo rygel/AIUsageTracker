@@ -42,7 +42,7 @@ public partial class MainWindow : Window
                 this.ApplyProviderListFontPreferences();
                 this.LogDiagnostic("[DIAGNOSTIC] Empty-state provider message added");
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 this._logger.LogError(ex, "Failed to add empty-state provider message");
             }
@@ -79,7 +79,7 @@ public partial class MainWindow : Window
 
             this.ApplyProviderListFontPreferences();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             this.LogDiagnostic($"[DIAGNOSTIC] RenderProviders failed: {ex}");
             this.ProvidersList.Children.Clear();
@@ -211,9 +211,9 @@ public partial class MainWindow : Window
                 setCollapsed(newState);
                 container.Visibility = newState ? Visibility.Collapsed : Visibility.Visible;
                 toggleText.Text = newState ? "\u25B6" : "\u25BC";
-                await this.SaveUiPreferencesAsync();
+                await this.SaveUiPreferencesAsync().ConfigureAwait(true);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 this._logger.LogWarning(ex, "Failed to save collapse state");
             }
@@ -337,7 +337,7 @@ public partial class MainWindow : Window
         }
 
         this.ApplyPreferencesFromSettings();
-        await this.InitializeAsync();
+        await this.InitializeAsync().ConfigureAwait(true);
     }
 
     private ToolTip CreateTopmostAwareToolTip(FrameworkElement placementTarget, object content)

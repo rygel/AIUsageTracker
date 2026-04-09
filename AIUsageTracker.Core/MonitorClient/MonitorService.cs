@@ -144,7 +144,7 @@ public class MonitorService : IMonitorService
             this.AgentUrl = "http://localhost:5000";
             this.LastAgentErrors = preservedErrors;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
         {
             this._logger?.LogWarning(ex, "Error refreshing monitor info");
             this.AgentUrl = "http://localhost:5000";
@@ -219,7 +219,7 @@ public class MonitorService : IMonitorService
                 return new List<ProviderUsage>();
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             stopwatch.Stop();
             this.RecordUsageTelemetry(stopwatch.Elapsed, false);
@@ -295,7 +295,7 @@ public class MonitorService : IMonitorService
                 this.BuildMonitorUrl(MonitorApiRoutes.UsageGrouped));
             return null;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or JsonException)
         {
             this._logger?.LogWarning(
                 ex,
@@ -430,7 +430,7 @@ public class MonitorService : IMonitorService
                 Message = $"Monitor returned {(int)response.StatusCode} ({response.ReasonPhrase}).",
             };
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
             this._logger?.LogWarning(ex, "SendTestNotificationAsync error");
             return new MonitorActionResult
@@ -569,7 +569,7 @@ public class MonitorService : IMonitorService
 
             return await ParseContractResponseAsync(response.Content, activity).ConfigureAwait(false);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             this._logger?.LogWarning(ex, "CheckApiContractAsync failed against {AgentUrl}", this.AgentUrl);
             activity?.SetTag("error.type", ex.GetType().Name);
@@ -620,7 +620,7 @@ public class MonitorService : IMonitorService
                 Message = $"HTTP {response.StatusCode}",
             };
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             this._logger?.LogWarning(ex, "CheckProviderAsync failed for {ProviderId}", providerId);
             return new MonitorActionResult
@@ -793,6 +793,15 @@ public class MonitorService : IMonitorService
         return $"{this.AgentUrl}{relativePath}";
     }
 
+    public void InvalidateGroupedUsageCache()
+    {
+        lock (this._groupedUsageCacheLock)
+        {
+            this._cachedGroupedUsageSnapshot = null;
+            this._cachedGroupedUsageETag = null;
+        }
+    }
+
     private void CacheGroupedUsageSnapshot(AgentGroupedUsageSnapshot snapshot, string? eTag)
     {
         lock (this._groupedUsageCacheLock)
@@ -845,7 +854,7 @@ public class MonitorService : IMonitorService
                 this.BuildMonitorUrl(relativePath));
             return default;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or JsonException)
         {
             this._logger?.LogWarning(ex, "{Operation} failed at {Url}", operationName, this.BuildMonitorUrl(relativePath));
             return default;
@@ -860,7 +869,7 @@ public class MonitorService : IMonitorService
         {
             return await requestFactory(this._httpClient).ConfigureAwait(false);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
             this._logger?.LogWarning(ex, "{Operation} failed against {AgentUrl}", operationName, this.AgentUrl);
             return null;
@@ -881,7 +890,7 @@ public class MonitorService : IMonitorService
         {
             return await response.Content.ReadFromJsonAsync<T>(this._jsonOptions).ConfigureAwait(false);
         }
-        catch (Exception ex)
+        catch (JsonException ex)
         {
             this._logger?.LogWarning(
                 ex,

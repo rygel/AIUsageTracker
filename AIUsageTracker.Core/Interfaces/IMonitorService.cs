@@ -35,6 +35,14 @@ public interface IMonitorService
 
     Task<bool> RemoveConfigAsync(string providerId);
 
+    /// <summary>
+    /// Clears the cached grouped-usage ETag so the next <see cref="GetGroupedUsageAsync"/>
+    /// call fetches fresh data instead of returning a stale 304 response.
+    /// Call after <see cref="SaveConfigAsync"/> or <see cref="RemoveConfigAsync"/>
+    /// to ensure config changes are reflected immediately.
+    /// </summary>
+    void InvalidateGroupedUsageCache();
+
     Task<bool> SendTestNotificationAsync();
 
     Task<MonitorActionResult> SendTestNotificationDetailedAsync();
