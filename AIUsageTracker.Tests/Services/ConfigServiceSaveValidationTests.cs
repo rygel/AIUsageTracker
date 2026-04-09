@@ -61,4 +61,13 @@ public sealed class ConfigServiceSaveValidationTests : IntegrationTestBase
 
         await Assert.ThrowsAsync<ArgumentNullException>(() => service.SaveConfigAsync(null!));
     }
+
+    [Fact]
+    public async Task SaveConfigAsync_EmptyProviderId_ThrowsArgumentExceptionAsync()
+    {
+        var service = this.CreateConfigService();
+        var config = new ProviderConfig { ProviderId = string.Empty };
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.SaveConfigAsync(config));
+    }
 }

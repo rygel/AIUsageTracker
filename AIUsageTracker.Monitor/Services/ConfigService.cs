@@ -79,6 +79,11 @@ public class ConfigService : IConfigService
     public async Task SaveConfigAsync(ProviderConfig config)
     {
         ArgumentNullException.ThrowIfNull(config);
+        if (string.IsNullOrWhiteSpace(config.ProviderId))
+        {
+            throw new ArgumentException("Provider ID must not be null or whitespace.", nameof(config));
+        }
+
         if (!ProviderMetadataCatalog.TryGet(config.ProviderId, out _))
         {
             throw new ArgumentException(
