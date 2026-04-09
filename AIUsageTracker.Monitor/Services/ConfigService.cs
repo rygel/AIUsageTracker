@@ -128,6 +128,7 @@ public class ConfigService : IConfigService
             configs.RemoveAll(c => c.ProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase));
             await this._configLoader.SaveConfigAsync(configs).ConfigureAwait(false);
             Volatile.Write(ref this._cachedConfigs, null);
+            Volatile.Write(ref this._cachedPreferences, null); // force ScanForKeysAsync to reload suppressed list from disk
             this._logger.LogInformation("Removed: {ProviderId}", providerId);
         }
         catch (Exception ex)
