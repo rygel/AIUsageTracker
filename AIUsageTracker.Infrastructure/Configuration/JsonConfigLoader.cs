@@ -323,11 +323,11 @@ public class JsonConfigLoader : IConfigLoader
     {
         if (string.IsNullOrEmpty(config.AuthSource))
         {
-            config.AuthSource = AuthSource.FromConfigFile(Path.GetFileName(path));
+            config.AuthSource = AuthSource.FromConfigFile(path);
             return;
         }
 
-        config.AuthSource += $", {Path.GetFileName(path)}";
+        config.AuthSource += $", {path}";
     }
 
     private async Task ApplyDiscoveredTokensAsync(List<ProviderConfig> configs)

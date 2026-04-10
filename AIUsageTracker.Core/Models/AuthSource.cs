@@ -51,4 +51,62 @@ public static class AuthSource
         return value.Contains(RooPrefix, StringComparison.OrdinalIgnoreCase) ||
                value.Contains(KiloPrefix, StringComparison.OrdinalIgnoreCase);
     }
+
+    public static bool IsConfig(string? value)
+    {
+        return !string.IsNullOrWhiteSpace(value) &&
+               value.StartsWith($"{ConfigPrefix}:", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Extracts the variable name from "Env: VARIABLE_NAME".</summary>
+    public static bool TryParseEnvironmentVariable(string? authSource, out string varName)
+    {
+        var prefix = $"{EnvironmentPrefix}: ";
+        if (!string.IsNullOrWhiteSpace(authSource) &&
+            authSource.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            varName = authSource.Substring(prefix.Length).Trim();
+            return true;
+        }
+
+        varName = string.Empty;
+        return false;
+    }
+
+    /// <summary>
+    /// Extracts all file paths from a "Config: path1, path2" auth source string.
+    /// A config entry may list multiple comma-separated paths when keys were merged
+    /// from several files.
+    /// </summary>
+    public static IReadOnlyList<string> ParseConfigFilePaths(string? authSource)
+    {
+        if (string.IsNullOrWhiteSpace(authSource))
+        {
+            return Array.Empty<string>();
+        }
+
+        var prefix = $"{ConfigPrefix}: ";
+        if (!authSource.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return Array.Empty<string>();
+        }
+
+        var rest = authSource.Substring(prefix.Length);
+        return rest.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
+
+    /// <summary>Extracts the file path from "Roo Code: /path/to/file".</summary>
+    public static bool TryParseRooPath(string? authSource, out string filePath)
+    {
+        var prefix = $"{RooPrefix}: ";
+        if (!string.IsNullOrWhiteSpace(authSource) &&
+            authSource.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            filePath = authSource.Substring(prefix.Length).Trim();
+            return true;
+        }
+
+        filePath = string.Empty;
+        return false;
+    }
 }
