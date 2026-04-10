@@ -636,16 +636,22 @@ public partial class SettingsWindow
             Margin = new Thickness(0, 0, 0, 1),
             TextTrimming = TextTrimming.CharacterEllipsis,
         };
-        sourceLine.SetResourceReference(TextBlock.ForegroundProperty, "TertiaryText");
+        sourceLine.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
         sourceLine.Inlines.Add(new System.Windows.Documents.Run("Source: ") { FontWeight = FontWeights.SemiBold });
         sourceLine.Inlines.Add(new System.Windows.Documents.Run(sourceLabel));
+        if (!string.IsNullOrEmpty(removalHint))
+        {
+            sourceLine.ToolTip = $"To remove: {removalHint}";
+        }
+
         panel.Children.Add(sourceLine);
 
-        // File path lines (one per path, selectable for copy + open button)
+        // File path lines (one per path, selectable for copy + edit/folder buttons)
         foreach (var path in paths)
         {
-            var row = new Grid { Margin = new Thickness(0, 0, 0, 1) };
+            var row = new Grid { Margin = new Thickness(0, 2, 0, 0) };
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             var pathBox = new TextBox
@@ -656,48 +662,67 @@ public partial class SettingsWindow
                 BorderThickness = new Thickness(0),
                 Background = System.Windows.Media.Brushes.Transparent,
                 Padding = new Thickness(0),
-                Margin = new Thickness(0, 0, 4, 0),
+                Margin = new Thickness(0, 0, 6, 0),
                 TextWrapping = TextWrapping.NoWrap,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden,
                 ToolTip = path,
                 VerticalAlignment = VerticalAlignment.Center,
             };
-            pathBox.SetResourceReference(TextBox.ForegroundProperty, "TertiaryText");
+            pathBox.SetResourceReference(TextBox.ForegroundProperty, "SecondaryText");
             Grid.SetColumn(pathBox, 0);
             row.Children.Add(pathBox);
 
-            var openButton = new Button
-            {
-                Content = "Open",
-                FontSize = 8,
-                Padding = new Thickness(4, 1, 4, 1),
-                VerticalAlignment = VerticalAlignment.Center,
-                ToolTip = File.Exists(path) ? $"Open {path}" : $"Open folder containing {path}",
-            };
             var capturedPath = path;
-            openButton.Click += (_, _) => OpenPathInExplorer(capturedPath);
-            Grid.SetColumn(openButton, 1);
-            row.Children.Add(openButton);
+            var fileExists = File.Exists(path);
+
+            var editButton = new Button
+            {
+                Content = "Edit",
+                FontSize = 9,
+                Padding = new Thickness(8, 3, 8, 3),
+                Margin = new Thickness(0, 0, 4, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = fileExists ? $"Open in Notepad: {path}" : "File does not exist yet",
+                IsEnabled = fileExists,
+            };
+            editButton.SetResourceReference(Button.BackgroundProperty, "AccentColor");
+            editButton.SetResourceReference(Button.ForegroundProperty, "AccentForeground");
+            editButton.Click += (_, _) => OpenInNotepad(capturedPath);
+            Grid.SetColumn(editButton, 1);
+            row.Children.Add(editButton);
+
+            var folderButton = new Button
+            {
+                Content = "Folder",
+                FontSize = 9,
+                Padding = new Thickness(8, 3, 8, 3),
+                VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = $"Show in Explorer: {Path.GetDirectoryName(path)}",
+            };
+            folderButton.Click += (_, _) => OpenPathInExplorer(capturedPath);
+            Grid.SetColumn(folderButton, 2);
+            row.Children.Add(folderButton);
 
             panel.Children.Add(row);
         }
 
-        // Removal hint
-        if (!string.IsNullOrEmpty(removalHint))
-        {
-            var hintLine = new TextBlock
-            {
-                Text = $"To remove: {removalHint}",
-                FontSize = 9,
-                FontStyle = FontStyles.Italic,
-                Margin = new Thickness(0, 2, 0, 0),
-                TextWrapping = TextWrapping.Wrap,
-            };
-            hintLine.SetResourceReference(TextBlock.ForegroundProperty, "TertiaryText");
-            panel.Children.Add(hintLine);
-        }
-
         return panel;
+    }
+
+    private static void OpenInNotepad(string path)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "notepad.exe",
+                Arguments = $"\"{path}\"",
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+        }
     }
 
     private static void OpenPathInExplorer(string path)
@@ -801,6 +826,11 @@ public partial class SettingsWindow
             if (path.Contains("kilo", StringComparison.OrdinalIgnoreCase))
             {
                 return "Kilo Code";
+            }
+
+            if (path.Contains("AIUsageTracker", StringComparison.OrdinalIgnoreCase))
+            {
+                return "AI Usage Tracker";
             }
         }
 

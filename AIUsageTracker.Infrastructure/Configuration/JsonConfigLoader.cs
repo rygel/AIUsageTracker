@@ -229,7 +229,6 @@ public class JsonConfigLoader : IConfigLoader
 
         var config = this.GetOrCreateMergedConfig(mergedConfigs, providerId);
         this.ApplyFileConfig(config, entry.Value, providerId, path, isAuthFile);
-        this.AppendConfigSource(config, path);
     }
 
     private ProviderConfig GetOrCreateMergedConfig(Dictionary<string, ProviderConfig> mergedConfigs, string providerId)
@@ -266,6 +265,7 @@ public class JsonConfigLoader : IConfigLoader
                 }
 
                 config.ApiKey = value;
+                config.AuthSource = AuthSource.FromConfigFile(path);
             }
         }
 
@@ -317,17 +317,6 @@ public class JsonConfigLoader : IConfigLoader
             .Select(item => item.GetString())
             .OfType<string>()
             .ToList();
-    }
-
-    private void AppendConfigSource(ProviderConfig config, string path)
-    {
-        if (string.IsNullOrEmpty(config.AuthSource))
-        {
-            config.AuthSource = AuthSource.FromConfigFile(path);
-            return;
-        }
-
-        config.AuthSource += $", {path}";
     }
 
     private async Task ApplyDiscoveredTokensAsync(List<ProviderConfig> configs)

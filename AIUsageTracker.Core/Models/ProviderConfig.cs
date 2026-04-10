@@ -36,7 +36,7 @@ public class ProviderConfig
     [JsonPropertyName("enabled_sub_trays")]
     public IReadOnlyList<string> EnabledSubTrays { get; set; } = [];
 
-    [JsonIgnore]
+    [JsonPropertyName("auth_source")]
     [StringLength(100)]
     public string AuthSource { get; set; } = string.Empty;
 

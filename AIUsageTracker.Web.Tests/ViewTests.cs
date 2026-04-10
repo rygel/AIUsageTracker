@@ -14,6 +14,29 @@ public class ViewTests : WebTestBase
 {
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
 
+    // Matches broken Razor format strings like @variable:F1 that render literally in HTML.
+    // Correct syntax in text content is @variable.ToString("F1").
+    private static readonly Regex BrokenRazorFormatString =
+        new(@"@\w[\w.]*:[A-Z]\d", RegexOptions.Compiled, RegexTimeout);
+
+    [TestMethod]
+    [DataRow("/")]
+    [DataRow("/providers")]
+    [DataRow("/charts")]
+    [DataRow("/history")]
+    [DataRow("/reliability")]
+    public async Task Page_ContainsNoBrokenRazorFormatStringsAsync(string path)
+    {
+        using var client = CreateClient();
+        using var response = await client.GetAsync(path);
+        var html = await ReadBodyAsync(response);
+        var match = BrokenRazorFormatString.Match(html);
+        Assert.IsFalse(
+            match.Success,
+            $"Page '{path}' contains a broken Razor format string '{match.Value}'. " +
+            "Use .ToString(\"F1\") instead of :F1 in text content.");
+    }
+
     [TestMethod]
     [DataRow("/")]
     [DataRow("/providers")]

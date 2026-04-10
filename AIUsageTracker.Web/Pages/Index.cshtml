@@ -68,7 +68,7 @@
                             <div class="reliability-metric">
                                 <div class="reliability-row">
                                     <span>Success Rate</span>
-                                    <span>@successRate:F1%</span>
+                                    <span>@successRate.ToString("F1")%</span>
                                 </div>
                                 <div class="reliability-progress">
                                     <div class="reliability-progress-bar success" style="width: @successRate%"></div>
@@ -77,7 +77,7 @@
                             <div class="reliability-metric">
                                 <div class="reliability-row">
                                     <span>Failure Rate</span>
-                                    <span>@snapshot.FailureRatePercent:F1%</span>
+                                    <span>@snapshot.FailureRatePercent.ToString("F1")%</span>
                                 </div>
                                 <div class="reliability-progress">
                                     <div class="reliability-progress-bar @failureClass" style="width: @snapshot.FailureRatePercent%"></div>
