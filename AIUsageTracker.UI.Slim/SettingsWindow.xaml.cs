@@ -839,6 +839,13 @@ public partial class SettingsWindow : Window
 
                 if (behavior.InputMode == ProviderInputMode.StandardApiKey && string.IsNullOrWhiteSpace(config.ApiKey))
                 {
+                    var removed = await this._monitorService.RemoveConfigAsync(config.ProviderId).ConfigureAwait(true);
+                    if (!removed)
+                    {
+                        failedConfigs.Add(config.ProviderId);
+                        continue;
+                    }
+
                     // Suppress re-discovery so the scanner won't re-add the key
                     // from external sources (Roo Code, Kilo Code, env vars).
                     if (!this._preferences.SuppressedProviderIds.Contains(config.ProviderId, StringComparer.OrdinalIgnoreCase))
@@ -846,7 +853,6 @@ public partial class SettingsWindow : Window
                         this._preferences.SuppressedProviderIds.Add(config.ProviderId);
                     }
 
-                    await this._monitorService.RemoveConfigAsync(config.ProviderId).ConfigureAwait(true);
                     removedProviderIds.Add(config.ProviderId);
                     continue;
                 }
