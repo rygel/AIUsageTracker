@@ -242,9 +242,24 @@ A provider card's appearance reflects the current state of its API key:
 | **Error** | Red, API error message | Key is present but the provider returned an error (e.g. 429 rate limit, 500 server error). |
 | **Not configured** | Card absent from dashboard | No key is set for this provider. Configure one in Settings to show the card. |
 
-### Replacing an expired key
+### Where to update a key — upstream source first
 
-When your subscription renews or you purchase a new plan, update the key:
+**This tracker does not own your API keys.** It reads them from wherever you originally stored them: environment variables, Roo Code, OpenCode, Kilo Code, or other tools (see [section 6](#6-api-key-discovery)). The Settings UI key field only holds a local copy for keys that have no external source.
+
+If your key came from an external source, **always update it there first**, then re-scan:
+
+| Original source | Where to rotate the key | Then |
+|:---|:---|:---|
+| Environment variable (e.g. `OPENROUTER_API_KEY`) | Update the variable in your system or shell profile | Re-open terminal / restart service, then `act scan` |
+| Roo Code / Kilo Code config | Update the key inside that tool's settings | Run `act scan` or click **Scan for Keys** |
+| OpenCode `auth.json` | Update via `opencode auth` or edit the file directly | Run `act scan` or click **Scan for Keys** |
+| GitHub Copilot | Re-authenticate inside Settings (click **Log in**) | Automatic |
+
+Updating the key only in the tracker's Settings field will be overwritten on the next scan — the tracker will re-read the old key from the upstream source.
+
+### Replacing an expired key (no external source)
+
+If the key lives only in this tracker (you entered it manually and it is not discovered from any external source), update it here:
 
 **Via Settings UI:**
 1. Open Settings (⚙️) → **Providers** tab.
@@ -258,6 +273,8 @@ act set-key <provider-id> <new-api-key>
 # Example:
 act set-key synthetic sk-syn-...
 ```
+
+> **Check the auth source first.** The Settings card shows the source of the current key (e.g. "Env: OPENROUTER_API_KEY" or "Roo Code: …"). If a source is shown, update it there instead of overwriting the field here.
 
 ### Removing a key you no longer need
 
@@ -275,7 +292,9 @@ act remove-key <provider-id>
 act remove-key openrouter
 ```
 
-> **Note:** Removing a key does not delete historical usage data. Past records are preserved and visible in the **History** tab and via `act history`.
+> **Note:** Removing a key here does not remove it from the upstream source. If the key still exists in an environment variable or external tool config, a future **Scan for Keys** will rediscover it. To fully stop tracking a provider, also remove or unset the key in the upstream source.
+>
+> Removing a key does not delete historical usage data. Past records are preserved and visible in the **History** tab and via `act history`.
 
 ---
 
