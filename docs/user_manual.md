@@ -229,7 +229,57 @@ Click **"Scan for Keys"** in Settings or run `act scan` to trigger discovery fro
 
 ---
 
-## 7. Troubleshooting
+## 7. Managing API Keys
+
+### Key states
+
+A provider card's appearance reflects the current state of its API key:
+
+| State | Card appearance | What it means |
+|:---|:---|:---|
+| **Active** | Green/yellow/red progress bar | Key is present and working. |
+| **Expired** | Amber warning, "No active subscription" | Key is valid but your subscription or credits are exhausted. The card remains visible so you can see the state. |
+| **Error** | Red, API error message | Key is present but the provider returned an error (e.g. 429 rate limit, 500 server error). |
+| **Not configured** | Card absent from dashboard | No key is set for this provider. Configure one in Settings to show the card. |
+
+### Replacing an expired key
+
+When your subscription renews or you purchase a new plan, update the key:
+
+**Via Settings UI:**
+1. Open Settings (⚙️) → **Providers** tab.
+2. Find the provider — its card shows the **Inactive** badge.
+3. Paste the new key into the key field.
+4. The card reappears on the dashboard within one refresh cycle.
+
+**Via CLI:**
+```bash
+act set-key <provider-id> <new-api-key>
+# Example:
+act set-key synthetic sk-syn-...
+```
+
+### Removing a key you no longer need
+
+If you want to stop tracking a provider entirely, remove its key. The card disappears from the main dashboard immediately; the configuration slot remains in Settings so you can re-add a key later.
+
+**Via Settings UI:**
+1. Open Settings (⚙️) → **Providers** tab.
+2. Clear the key field for the provider (select all, delete).
+3. Close Settings — the card is removed from the dashboard on the next refresh.
+
+**Via CLI:**
+```bash
+act remove-key <provider-id>
+# Example:
+act remove-key openrouter
+```
+
+> **Note:** Removing a key does not delete historical usage data. Past records are preserved and visible in the **History** tab and via `act history`.
+
+---
+
+## 8. Troubleshooting
 
 - **Monitor not running**: The CLI will attempt to auto-start the monitor. If it fails, run `act monitor start` or start the UI application.
 - **Missing Keys**: Use `act check` to see which providers are failing due to missing or invalid keys.
@@ -237,4 +287,4 @@ Click **"Scan for Keys"** in Settings or run `act scan` to trigger discovery fro
 
 ---
 
-*Version: 2.3.2 beta series | Author: Alexander Brandt*
+*Version: 2.3.2 beta series | Author: Alexander Brandt | Updated: 2026-04-12*
