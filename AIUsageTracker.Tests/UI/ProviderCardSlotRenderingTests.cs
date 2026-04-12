@@ -146,4 +146,35 @@ public sealed class ProviderCardSlotRenderingTests
         var deserialized = AppPreferences.Deserialize(json);
         Assert.Equal(CardSlotContent.ProjectedPercent, deserialized.CardPrimaryBadge);
     }
+
+    /// <summary>
+    /// Verifies that <see cref="AppPreferences.ShowUsedPercentages"/> is the canonical source
+    /// of truth for the display mode, not any UI toggle's visual state.
+    ///
+    /// Prior bug: MainWindow.AddProviderCard read ShowUsedToggle.IsChecked directly. When
+    /// Settings closed quickly (within the 600ms debounce window), the async void Closing
+    /// handler suspended at the first await, ShowDialog() returned null, and the main window
+    /// skipped ApplyPreferencesFromSettings() — leaving ShowUsedToggle out of sync with the
+    /// updated preference. Rendering then used the stale toggle state instead of the preference.
+    /// </summary>
+    [Fact]
+    public void PercentageDisplayMode_IsTruthForShowUsed_RoundTripsCorrectly()
+    {
+        var prefs = new AppPreferences { ShowUsedPercentages = false };
+        Assert.Equal(PercentageDisplayMode.Remaining, prefs.PercentageDisplayMode);
+        Assert.False(prefs.ShowUsedPercentages);
+
+        prefs.ShowUsedPercentages = true;
+        Assert.Equal(PercentageDisplayMode.Used, prefs.PercentageDisplayMode);
+        Assert.True(prefs.ShowUsedPercentages);
+
+        // Round-trip: serialized as PercentageDisplayMode (ShowUsedPercentages is [JsonIgnore])
+        var json = System.Text.Json.JsonSerializer.Serialize(prefs);
+        Assert.Contains("\"Used\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("ShowUsedPercentages", json, StringComparison.Ordinal);
+
+        var reloaded = AppPreferences.Deserialize(json);
+        Assert.True(reloaded.ShowUsedPercentages);
+        Assert.Equal(PercentageDisplayMode.Used, reloaded.PercentageDisplayMode);
+    }
 }

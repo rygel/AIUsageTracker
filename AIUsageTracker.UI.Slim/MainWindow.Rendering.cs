@@ -300,7 +300,10 @@ public partial class MainWindow : Window
 
     private void AddProviderCard(ProviderUsage usage, StackPanel container, ProviderCardRenderer cardRenderer, bool isChild = false)
     {
-        var showUsed = this.ShowUsedToggle?.IsChecked ?? false;
+        // Read from preferences (the authoritative source) rather than the toggle's
+        // visual state, which can lag behind when Settings closes without the main window
+        // applying the updated preferences (e.g. quick close within the debounce window).
+        var showUsed = this._preferences.ShowUsedPercentages;
         var definition = ProviderMetadataCatalog.Find(usage.ProviderId ?? string.Empty);
         var card = cardRenderer.CreateProviderCard(usage, showUsed, isChild, definition);
 

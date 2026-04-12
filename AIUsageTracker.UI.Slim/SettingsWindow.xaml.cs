@@ -44,6 +44,7 @@ public partial class SettingsWindow : Window
     private bool _isDeterministicScreenshotMode;
     private bool _isLoadingSettings;
     private bool _hasPendingAutoSave;
+    private bool _closingStarted;
     private UpdateInfo? _pendingUpdate;
     private GitHubUpdateChecker? _pendingUpdateChecker;
 
@@ -319,13 +320,31 @@ public partial class SettingsWindow : Window
 
     private async void SettingsWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
-        // Flush any pending auto-save so preferences are persisted to disk
-        // regardless of how the window closes (X button, Alt+F4, etc.).
-        this._autoSaveTimer.Stop();
-        if (this._hasPendingAutoSave)
+        // If there is a pending auto-save and the close has not been initiated yet,
+        // cancel the close, flush preferences, then re-close via DialogResult = true.
+        // Without this, ShowDialog() returns null: the async void suspends at the first
+        // await, WPF closes the window before DialogResult is set, and the main window
+        // skips ApplyPreferencesFromSettings() — leaving the display out of sync.
+        if (!this._closingStarted && this._hasPendingAutoSave)
         {
-            await this.PersistAllSettingsAsync(showErrorDialog: false).ConfigureAwait(true);
+            e.Cancel = true;
+            this._closingStarted = true;
+            this._autoSaveTimer.Stop();
+            try
+            {
+                await this.PersistAllSettingsAsync(showErrorDialog: false).ConfigureAwait(true);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                this._logger.LogError(ex, "SettingsWindow_Closing flush failed");
+            }
+
+            // Setting DialogResult fires Closing again; _closingStarted prevents re-entrancy.
+            this.DialogResult = true;
+            return;
         }
+
+        this._autoSaveTimer.Stop();
 
         // Ensure the main window reloads preferences regardless of how the dialog closes
         // (Close button, X button, or Alt+F4). DialogResult can only be set before the
