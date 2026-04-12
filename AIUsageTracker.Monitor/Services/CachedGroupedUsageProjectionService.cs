@@ -50,27 +50,21 @@ public sealed class CachedGroupedUsageProjectionService
 
         var allUsage = await this._database.GetLatestHistoryAsync().ConfigureAwait(false);
         var activeConfigs = await this._configService.GetConfigsAsync().ConfigureAwait(false);
-        var activeIds = ProviderMetadataCatalog.ExpandAcceptedUsageProviderIds(
-            activeConfigs.Select(c => c.ProviderId));
 
-        // StandardApiKey providers with no API key configured should not appear in the main
-        // window — they have nothing to show. The config is authoritative here: even if the
-        // database has a stale "API Key missing" history row, the right question is "is this
-        // provider configured?" not "what was its last observed state?".
-        // (They remain in Settings where the user can configure a key.)
-        //
-        // Use the specific ProviderId (not canonical) so that provider families with
-        // multiple independently-keyable sub-providers (e.g. minimax vs minimax-io)
-        // only hide the sub-providers whose key is missing — not the whole family.
-        var unconfiguredStandardApiKeyIds = activeConfigs
-            .Where(c => string.IsNullOrEmpty(c.ApiKey) &&
-                        ProviderMetadataCatalog.Find(c.ProviderId)?.SettingsMode == ProviderSettingsMode.StandardApiKey)
-            .Select(c => c.ProviderId)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // Build the set of provider IDs that should appear in the snapshot.
+        // StandardApiKey providers require a key to be visible — without one there is nothing
+        // to show (the monitor never polls them, so the only DB rows would be stale zeroes).
+        // Non-StandardApiKey providers (SessionAuth, AutoDetected, ExternalAuth) are always
+        // included because their presence and state are determined by runtime detection, not
+        // by an API key in the config.
+        var visibleIds = ProviderMetadataCatalog.ExpandAcceptedUsageProviderIds(
+            activeConfigs
+                .Where(c => !string.IsNullOrEmpty(c.ApiKey) ||
+                            ProviderMetadataCatalog.Find(c.ProviderId)?.SettingsMode != ProviderSettingsMode.StandardApiKey)
+                .Select(c => c.ProviderId));
 
         var usage = allUsage
-            .Where(u => activeIds.Contains(u.ProviderId ?? string.Empty) &&
-                        !unconfiguredStandardApiKeyIds.Contains(u.ProviderId ?? string.Empty))
+            .Where(u => visibleIds.Contains(u.ProviderId ?? string.Empty))
             .ToList();
         var snapshot = GroupedUsageProjectionService.Build(usage);
         var eTag = CreateUsageETag(usage);

@@ -211,23 +211,6 @@ public sealed class ProviderUsageDisplayCatalogTests
         Assert.NotNull(gemini.NextResetTime);
     }
 
-    [Fact]
-    public void PrepareForMainWindow_HidesStandardApiKeyProviders_WhenStateIsMissing()
-    {
-        // openrouter and xiaomi are StandardApiKey providers.
-        // When State=Missing (no API key configured), they must not appear in the main window.
-        var usages = new List<ProviderUsage>
-        {
-            new() { ProviderId = "synthetic", IsAvailable = true, State = ProviderUsageState.Available },
-            new() { ProviderId = "openrouter", IsAvailable = false, State = ProviderUsageState.Missing },
-            new() { ProviderId = "xiaomi", IsAvailable = false, State = ProviderUsageState.Missing },
-        };
-
-        var preparation = MainWindowRuntimeLogic.PrepareForMainWindow(usages);
-
-        var syntheticItem = Assert.Single(preparation);
-        Assert.Equal("synthetic", syntheticItem.ProviderId);
-    }
 }
 
 

@@ -11,8 +11,9 @@ namespace AIUsageTracker.Tests.UI;
 /// <summary>
 /// End-to-end tests for provider key deletion behavior.
 /// Settings always shows all provider cards (they are configuration slots).
-/// The main window hides Missing-state cards for StandardApiKey providers
-/// so deleted/unconfigured providers don't clutter the UI.
+/// The monitor snapshot (CachedGroupedUsageProjectionService) excludes unconfigured
+/// StandardApiKey providers so they never reach the main window; see
+/// CachedGroupedUsageProjectionServiceTests for those assertions.
 /// </summary>
 public sealed class ProviderKeyDeletionEndToEndTests
 {
@@ -68,28 +69,15 @@ public sealed class ProviderKeyDeletionEndToEndTests
     }
 
     // ───────────────────────────────────────────────────────────
-    //  Main window: Missing-state StandardApiKey cards are hidden
+    //  Main window: state does not affect visibility (filtering
+    //  of unconfigured providers happens upstream in the monitor)
     // ───────────────────────────────────────────────────────────
-
-    [Fact]
-    public void MainWindow_HidesMissingState_ForStandardApiKeyProviders()
-    {
-        var usages = new List<ProviderUsage>
-        {
-            CreateUsage("synthetic", isAvailable: false, state: ProviderUsageState.Missing, description: "API Key missing"),
-            CreateUsage("codex", isAvailable: true, description: "OK"),
-        };
-
-        var items = MainWindowRuntimeLogic.PrepareForMainWindow(usages);
-
-        Assert.DoesNotContain(items, item => item.ProviderId == "synthetic");
-        Assert.Contains(items, item => item.ProviderId == "codex");
-    }
 
     [Fact]
     public void MainWindow_ShowsMissingState_ForSessionAuthProviders()
     {
-        // GitHub Copilot uses ExternalAuthStatus — "Not authenticated" is useful info
+        // GitHub Copilot uses ExternalAuthStatus — "Not authenticated" is useful info.
+        // PrepareForMainWindow imposes no state filter; it renders whatever the monitor snapshot contains.
         var usages = new List<ProviderUsage>
         {
             CreateUsage("github-copilot", isAvailable: false, state: ProviderUsageState.Missing, description: "Not authenticated"),
@@ -138,38 +126,6 @@ public sealed class ProviderKeyDeletionEndToEndTests
         var items = MainWindowRuntimeLogic.PrepareForMainWindow(usages, new[] { "synthetic" });
 
         Assert.DoesNotContain(items, item => item.ProviderId == "synthetic");
-    }
-
-    [Fact]
-    public void MainWindow_MultipleProviders_OnlyStandardApiKeyMissingHidden()
-    {
-        var usages = new List<ProviderUsage>
-        {
-            CreateUsage("synthetic", isAvailable: false, state: ProviderUsageState.Missing),
-            CreateUsage("mistral", isAvailable: false, state: ProviderUsageState.Missing),
-            CreateUsage("github-copilot", isAvailable: false, state: ProviderUsageState.Missing),
-            CreateUsage("codex", isAvailable: true),
-        };
-
-        var items = MainWindowRuntimeLogic.PrepareForMainWindow(usages);
-
-        Assert.DoesNotContain(items, item => item.ProviderId == "synthetic");
-        Assert.DoesNotContain(items, item => item.ProviderId == "mistral");
-        Assert.Contains(items, item => item.ProviderId == "github-copilot");
-        Assert.Contains(items, item => item.ProviderId == "codex");
-    }
-
-    [Fact]
-    public void MainWindow_RenderPlan_MissingStandardApiKey_ZeroRendered()
-    {
-        var usages = new List<ProviderUsage>
-        {
-            CreateUsage("synthetic", isAvailable: false, state: ProviderUsageState.Missing),
-        };
-
-        var plan = MainWindowRuntimeLogic.BuildProviderRenderPlan(usages, null);
-
-        Assert.Equal(0, plan.RenderedCount);
     }
 
     [Fact]
@@ -251,22 +207,18 @@ public sealed class ProviderKeyDeletionEndToEndTests
     }
 
     [Fact]
-    public void MainWindow_HidesMissing_ButShowsExpired_ForSameProvider()
+    public void MainWindow_ShowsExpired_WhenSubscriptionLapsed()
     {
-        // Missing = key deleted → hidden. Expired = key present, sub lapsed → visible.
-        var missingUsages = new List<ProviderUsage>
-        {
-            CreateUsage("synthetic", isAvailable: false, state: ProviderUsageState.Missing, description: "API Key missing"),
-        };
+        // Expired = key present but subscription lapsed → card must remain visible so the
+        // user can see their quota is exhausted. Filtering of Missing (no key) happens
+        // upstream in CachedGroupedUsageProjectionService, not here.
         var expiredUsages = new List<ProviderUsage>
         {
             CreateUsage("synthetic", isAvailable: false, state: ProviderUsageState.Expired, description: "No active subscription"),
         };
 
-        var missingItems = MainWindowRuntimeLogic.PrepareForMainWindow(missingUsages);
         var expiredItems = MainWindowRuntimeLogic.PrepareForMainWindow(expiredUsages);
 
-        Assert.DoesNotContain(missingItems, item => item.ProviderId == "synthetic");
         Assert.Contains(expiredItems, item => item.ProviderId == "synthetic");
     }
 
