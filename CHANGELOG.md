@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+## [2.3.4-beta.30] - 2026-04-12
+
+### Added
+- **MiniMax Coding Plan provider**: new `minimax-coding` provider for the MiniMax API plan tier.
+- **Auth source panel shows exact config file**: each provider card in Settings now displays the exact file path that the key was discovered from (e.g. Roo Code `secrets.json`, OpenCode `auth.json`), with **Open** and **Edit** buttons to open the file or its folder directly. Removal instructions are shown alongside the source path.
+- **Key lifecycle documentation**: user manual section 7 now covers key states, where to rotate keys in upstream sources (env vars, Roo Code, Kilo Code, OpenCode), and the note that removing a key here does not remove it from its upstream source.
+
+### Fixed
+- **Unconfigured StandardApiKey provider cards no longer appear in main window**: root-cause fix across three layers — (1) `ProviderRefreshConfigSelector` never polls a StandardApiKey provider without a key, so no Missing-state rows are written; (2) `GetLatestHistoryAsync` filters history by configured provider IDs at the SQL level; (3) the compensating UI-layer filter has been removed. Session/external auth providers (GitHub Copilot, Codex) are unaffected.
+- **MiniMax International not hidden by unconfigured China sibling**: the old canonical-ID filter incorrectly excluded `minimax-io` (International) when `minimax` (China) had no key. Now filtered at the provider ID level before grouping.
+- **Show Used preference no longer resets on window close**: async-void `Closing` handler race condition and stale toggle reads caused the preference to silently revert on every close.
+- **Privacy toggle works in Settings and Info dialogs**: `SettingsWindow` and `InfoDialog` now store the privacy-change event handler in a field, preventing the GC from collecting the weak-referenced delegate and silently breaking the toggle.
+- **Snapshot cache invalidated on config save**: monitor now immediately invalidates the grouped usage cache after any config save or removal, preventing stale ETag responses to the UI.
+- **Provider key deletion only suppresses after confirmed monitor deletion**: `SuppressedProviderIds` is updated only after the monitor HTTP call succeeds, not speculatively.
+- **Preferences cache invalidated in `RemoveConfigAsync`**: stale in-memory configs no longer linger after key removal.
+
+### Changed
+- **Xiaomi and OpenRouter hidden from Settings when unconfigured**: providers without keys configured are no longer shown as empty slots in the Settings Providers tab.
+- **Minimax display names standardized**: provider card labels updated for consistency across MiniMax variants.
+
 ## [2.3.4-beta.29] - 2026-04-09
 
 ### Fixed
