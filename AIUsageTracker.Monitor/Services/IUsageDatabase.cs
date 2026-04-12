@@ -24,7 +24,7 @@ public interface IUsageDatabase
 
     Task StoreResetEventAsync(string providerId, string providerName, double? previousUsage, double? newUsage, string resetType);
 
-    Task<IReadOnlyList<ProviderUsage>> GetLatestHistoryAsync();
+    Task<IReadOnlyList<ProviderUsage>> GetLatestHistoryAsync(IReadOnlyCollection<string>? providerIds = null);
 
     Task<IReadOnlyList<ProviderUsage>> GetHistoryAsync(int limit = 100);
 

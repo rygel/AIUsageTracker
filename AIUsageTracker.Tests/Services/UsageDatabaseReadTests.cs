@@ -63,6 +63,53 @@ public sealed class UsageDatabaseReadTests : IDisposable
     }
 
     [Fact]
+    public async Task GetLatestHistoryAsync_WithProviderIds_ReturnsOnlyRequestedProvidersAsync()
+    {
+        var db = await this.CreateDatabaseAsync();
+        var now = DateTime.UtcNow.AddMinutes(-1);
+
+        await db.StoreHistoryAsync([
+            MakeUsage("codex", fetchedAt: now),
+            MakeUsage("mistral", fetchedAt: now),
+            MakeUsage("antigravity", fetchedAt: now),
+        ]);
+
+        var results = await db.GetLatestHistoryAsync(new[] { "codex", "antigravity" });
+
+        Assert.Contains(results, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal));
+        Assert.Contains(results, u => string.Equals(u.ProviderId, "antigravity", StringComparison.Ordinal));
+        Assert.DoesNotContain(results, u => string.Equals(u.ProviderId, "mistral", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task GetLatestHistoryAsync_WithEmptyProviderIds_ReturnsEmptyAsync()
+    {
+        var db = await this.CreateDatabaseAsync();
+        await db.StoreHistoryAsync([MakeUsage("codex", fetchedAt: DateTime.UtcNow.AddMinutes(-1))]);
+
+        var results = await db.GetLatestHistoryAsync(Array.Empty<string>());
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public async Task GetLatestHistoryAsync_WithNullProviderIds_ReturnsAllProvidersAsync()
+    {
+        var db = await this.CreateDatabaseAsync();
+        var now = DateTime.UtcNow.AddMinutes(-1);
+
+        await db.StoreHistoryAsync([
+            MakeUsage("codex", fetchedAt: now),
+            MakeUsage("mistral", fetchedAt: now),
+        ]);
+
+        var results = await db.GetLatestHistoryAsync(null);
+
+        Assert.Contains(results, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal));
+        Assert.Contains(results, u => string.Equals(u.ProviderId, "mistral", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task GetLatestHistoryAsync_RowOlderThan24h_IsExcludedFromResultsAsync()
     {
         // Rows older than 24 h are excluded at the SQL level — the provider must not appear at all.

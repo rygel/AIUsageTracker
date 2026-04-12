@@ -48,7 +48,6 @@ public sealed class CachedGroupedUsageProjectionService
             }
         }
 
-        var allUsage = await this._database.GetLatestHistoryAsync().ConfigureAwait(false);
         var activeConfigs = await this._configService.GetConfigsAsync().ConfigureAwait(false);
 
         // Build the set of provider IDs that should appear in the snapshot.
@@ -63,9 +62,10 @@ public sealed class CachedGroupedUsageProjectionService
                             ProviderMetadataCatalog.Find(c.ProviderId)?.SettingsMode != ProviderSettingsMode.StandardApiKey)
                 .Select(c => c.ProviderId));
 
-        var usage = allUsage
-            .Where(u => visibleIds.Contains(u.ProviderId ?? string.Empty))
-            .ToList();
+        // Pass visibleIds directly to the DB so filtering happens in SQL rather than in
+        // application code. Stale history rows for unconfigured providers are excluded at
+        // the query level; the result set is already the snapshot — no further filtering needed.
+        var usage = await this._database.GetLatestHistoryAsync(visibleIds).ConfigureAwait(false);
         var snapshot = GroupedUsageProjectionService.Build(usage);
         var eTag = CreateUsageETag(usage);
 

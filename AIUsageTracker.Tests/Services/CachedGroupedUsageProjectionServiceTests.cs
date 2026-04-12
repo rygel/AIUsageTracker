@@ -34,7 +34,11 @@ public sealed class CachedGroupedUsageProjectionServiceTests
         };
 
         var mockDb = new Mock<IUsageDatabase>();
-        mockDb.Setup(d => d.GetLatestHistoryAsync()).ReturnsAsync(dbUsages);
+        mockDb.Setup(d => d.GetLatestHistoryAsync(It.IsAny<IReadOnlyCollection<string>?>()))
+            .Returns((IReadOnlyCollection<string>? ids) => Task.FromResult<IReadOnlyList<ProviderUsage>>(
+                ids == null ? dbUsages : dbUsages
+                    .Where(u => ids.Contains(u.ProviderId ?? string.Empty, StringComparer.OrdinalIgnoreCase))
+                    .ToList()));
 
         var mockConfig = new Mock<IConfigService>();
         mockConfig.Setup(c => c.GetConfigsAsync()).ReturnsAsync(configs);
@@ -67,7 +71,11 @@ public sealed class CachedGroupedUsageProjectionServiceTests
         };
 
         var mockDb = new Mock<IUsageDatabase>();
-        mockDb.Setup(d => d.GetLatestHistoryAsync()).ReturnsAsync(dbUsages);
+        mockDb.Setup(d => d.GetLatestHistoryAsync(It.IsAny<IReadOnlyCollection<string>?>()))
+            .Returns((IReadOnlyCollection<string>? ids) => Task.FromResult<IReadOnlyList<ProviderUsage>>(
+                ids == null ? dbUsages : dbUsages
+                    .Where(u => ids.Contains(u.ProviderId ?? string.Empty, StringComparer.OrdinalIgnoreCase))
+                    .ToList()));
 
         var mockConfig = new Mock<IConfigService>();
         mockConfig.Setup(c => c.GetConfigsAsync()).ReturnsAsync(configs);
@@ -108,7 +116,11 @@ public sealed class CachedGroupedUsageProjectionServiceTests
         };
 
         var mockDb = new Mock<IUsageDatabase>();
-        mockDb.Setup(d => d.GetLatestHistoryAsync()).ReturnsAsync(dbUsages);
+        mockDb.Setup(d => d.GetLatestHistoryAsync(It.IsAny<IReadOnlyCollection<string>?>()))
+            .Returns((IReadOnlyCollection<string>? ids) => Task.FromResult<IReadOnlyList<ProviderUsage>>(
+                ids == null ? dbUsages : dbUsages
+                    .Where(u => ids.Contains(u.ProviderId ?? string.Empty, StringComparer.OrdinalIgnoreCase))
+                    .ToList()));
 
         var mockConfig = new Mock<IConfigService>();
         mockConfig.Setup(c => c.GetConfigsAsync()).ReturnsAsync(configs);

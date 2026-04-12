@@ -133,7 +133,7 @@ public class ProviderUsagePersistenceServiceTests
     [Fact]
     public async Task PersistUsageAndDynamicProvidersAsync_InvalidatesGroupedUsageCacheAfterHistoryWriteAsync()
     {
-        this._database.SetupSequence(database => database.GetLatestHistoryAsync())
+        this._database.SetupSequence(database => database.GetLatestHistoryAsync(It.IsAny<IReadOnlyCollection<string>?>()))
             .ReturnsAsync(new List<ProviderUsage>
             {
                 new()
@@ -179,7 +179,7 @@ public class ProviderUsagePersistenceServiceTests
         await service.PersistUsageAndDynamicProvidersAsync(usages, activeProviderIds);
         _ = await groupedCache.GetGroupedUsageAsync();
 
-        this._database.Verify(database => database.GetLatestHistoryAsync(), Times.Exactly(2));
+        this._database.Verify(database => database.GetLatestHistoryAsync(It.IsAny<IReadOnlyCollection<string>?>()), Times.Exactly(2));
     }
 
     private ProviderUsagePersistenceService CreateService(CachedGroupedUsageProjectionService? groupedUsageProjectionCache = null)

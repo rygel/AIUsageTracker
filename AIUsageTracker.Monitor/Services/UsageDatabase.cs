@@ -600,11 +600,21 @@ public class UsageDatabase : IUsageDatabase
         }
     }
 
-    public async Task<IReadOnlyList<ProviderUsage>> GetLatestHistoryAsync()
+    public async Task<IReadOnlyList<ProviderUsage>> GetLatestHistoryAsync(IReadOnlyCollection<string>? providerIds = null)
     {
+        if (providerIds != null && providerIds.Count == 0)
+        {
+            return Array.Empty<ProviderUsage>();
+        }
+
         using var connection = await this.OpenReadConnectionAsync().ConfigureAwait(false);
 
-        const string sql = @"
+        // When a provider-ID set is supplied, restrict the subquery to those IDs so that
+        // stale history rows for removed/unconfigured providers are excluded at the SQL level
+        // rather than filtered in application code.
+        var providerClause = providerIds != null ? "AND provider_id IN @providerIds" : string.Empty;
+
+        var sql = $@"
                 SELECT h.provider_id AS ProviderId,
                        COALESCE(NULLIF(p.provider_name, ''), h.provider_id) AS ProviderName,
                        h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
@@ -628,11 +638,13 @@ public class UsageDatabase : IUsageDatabase
                 WHERE h.id IN (
                     SELECT MAX(id) FROM provider_history
                     WHERE fetched_at >= (strftime('%s', 'now') - 86400)
+                    {providerClause}
                     GROUP BY provider_id, card_id
                 )
                 ORDER BY h.provider_id, h.card_id";
 
-        var results = (await connection.QueryAsync<ProviderUsage>(sql).ConfigureAwait(false)).ToList();
+        object? param = providerIds != null ? new { providerIds = providerIds.ToArray() } : null;
+        var results = (await connection.QueryAsync<ProviderUsage>(sql, param).ConfigureAwait(false)).ToList();
 
         await StampUsageRatesAsync(connection, results).ConfigureAwait(false);
 
