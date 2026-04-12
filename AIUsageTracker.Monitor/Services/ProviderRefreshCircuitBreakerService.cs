@@ -254,13 +254,12 @@ public class ProviderRefreshCircuitBreakerService
             return false;
         }
 
-        // Typed state takes priority
         if (usage.State == ProviderUsageState.Error)
         {
             return false;
         }
 
-        return usage.State != ProviderUsageState.Error;
+        return true;
     }
 
     private static string GetFailureMessage(IReadOnlyCollection<ProviderUsage> providerUsages)
