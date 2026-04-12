@@ -58,16 +58,19 @@ public sealed class CachedGroupedUsageProjectionService
         // database has a stale "API Key missing" history row, the right question is "is this
         // provider configured?" not "what was its last observed state?".
         // (They remain in Settings where the user can configure a key.)
+        //
+        // Use the specific ProviderId (not canonical) so that provider families with
+        // multiple independently-keyable sub-providers (e.g. minimax vs minimax-io)
+        // only hide the sub-providers whose key is missing — not the whole family.
         var unconfiguredStandardApiKeyIds = activeConfigs
             .Where(c => string.IsNullOrEmpty(c.ApiKey) &&
                         ProviderMetadataCatalog.Find(c.ProviderId)?.SettingsMode == ProviderSettingsMode.StandardApiKey)
-            .Select(c => ProviderMetadataCatalog.GetCanonicalProviderId(c.ProviderId))
+            .Select(c => c.ProviderId)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         var usage = allUsage
             .Where(u => activeIds.Contains(u.ProviderId ?? string.Empty) &&
-                        !unconfiguredStandardApiKeyIds.Contains(
-                            ProviderMetadataCatalog.GetCanonicalProviderId(u.ProviderId ?? string.Empty)))
+                        !unconfiguredStandardApiKeyIds.Contains(u.ProviderId ?? string.Empty))
             .ToList();
         var snapshot = GroupedUsageProjectionService.Build(usage);
         var eTag = CreateUsageETag(usage);
