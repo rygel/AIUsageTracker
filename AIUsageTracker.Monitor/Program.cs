@@ -229,6 +229,27 @@ public class Program
             builder.Services.AddSingleton<ProviderRefreshService>();
             builder.Services.AddHostedService(sp => sp.GetRequiredService<ProviderRefreshService>());
 
+            if (OperatingSystem.IsWindows())
+            {
+                builder.Services.AddSingleton<PowerStateListener>(sp =>
+                    new PowerStateListener(
+                        sp.GetRequiredService<ILogger<PowerStateListener>>(),
+                        sp.GetRequiredService<MonitorJobScheduler>(),
+                        sp.GetRequiredService<IAppPathProvider>(),
+                        onSuspend: () =>
+                        {
+                            sp.GetRequiredService<MonitorJobScheduler>().Pause();
+                            sp.GetRequiredService<ProviderRefreshService>().CancelActiveRefresh();
+                        },
+                        onResume: () =>
+                        {
+                            var scheduler = sp.GetRequiredService<MonitorJobScheduler>();
+                            scheduler.Resume();
+                            sp.GetRequiredService<ProviderRefreshService>().QueueManualRefresh(forceAll: true);
+                        }));
+                builder.Services.AddHostedService(sp => sp.GetRequiredService<PowerStateListener>());
+            }
+
             // Configure HTTP clients
             builder.Services.AddHttpClient();
             builder.Services.AddConfiguredHttpClients();

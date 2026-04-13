@@ -6,6 +6,8 @@ namespace AIUsageTracker.Monitor.Services;
 
 public sealed class MonitorJobSchedulerSnapshot
 {
+    public bool IsPaused { get; init; }
+
     public int HighPriorityQueuedJobs { get; init; }
 
     public int NormalPriorityQueuedJobs { get; init; }

@@ -71,6 +71,7 @@ public partial class MainWindow : Window
     private bool _isSettingsDialogOpen;
     private bool _isChangelogOpen;
     private bool _isTooltipOpen;
+    private readonly CancellationTokenSource _watchdogCts = new();
 
     public MainWindow(
         MainViewModel viewModel,
@@ -176,10 +177,22 @@ public partial class MainWindow : Window
         this._alwaysOnTopTimer.Start();
 
         this.SourceInitialized += this.OnSourceInitialized;
+        if (OperatingSystem.IsWindows())
+        {
+            SystemEvents.PowerModeChanged += this.OnPowerModeChanged;
+        }
+
         PrivacyChangedWeakEventManager.AddHandler(this._privacyChangedHandler);
         this.Closed += (s, e) =>
         {
             PrivacyChangedWeakEventManager.RemoveHandler(this._privacyChangedHandler);
+            this._watchdogCts.Cancel();
+            this._watchdogCts.Dispose();
+            if (OperatingSystem.IsWindows())
+            {
+                SystemEvents.PowerModeChanged -= this.OnPowerModeChanged;
+            }
+
             this._updateCheckTimer.Stop();
             this._alwaysOnTopTimer.Stop();
             this.SourceInitialized -= this.OnSourceInitialized;
@@ -419,6 +432,7 @@ public partial class MainWindow : Window
                 var handshakeResult = await this._monitorService.CheckApiContractAsync().ConfigureAwait(false); // ui-thread-guardrail-allow: Task.Run thread pool
                 await this.Dispatcher.InvokeAsync(() => this.ApplyMonitorContractStatus(handshakeResult)).Task.ConfigureAwait(true);
             });
+            _ = Task.Run(() => this._monitorStartupOrchestrator.RunWatchdogLoopAsync(this._watchdogCts.Token));
 
             this.ShowStatus("Connected", StatusType.Success);
         }
@@ -557,6 +571,16 @@ public partial class MainWindow : Window
         if (hasUsages)
         {
             this.RenderProviders();
+        }
+    }
+
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
+    {
+        if (e.Mode == PowerModes.Resume)
+        {
+            this._logger.LogInformation("System resumed — triggering immediate watchdog check");
+            this._monitorStartupOrchestrator.NotifyResumed();
         }
     }
 

@@ -11,9 +11,16 @@ namespace AIUsageTracker.UI.Slim.Services;
 
 public sealed class MonitorStartupOrchestrator
 {
+    private static readonly TimeSpan BaseInterval = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan MaxInterval = TimeSpan.FromSeconds(300);
+    private static readonly TimeSpan HealthCheckTimeout = TimeSpan.FromMilliseconds(2000);
+
     private readonly IMonitorService _monitorService;
     private readonly MonitorLifecycleService _monitorLifecycleService;
     private readonly ILogger<MonitorStartupOrchestrator> _logger;
+
+    private TaskCompletionSource<bool>? _activeResumeSignal;
+    private int _consecutiveFailures;
 
     public MonitorStartupOrchestrator(
         IMonitorService monitorService,
@@ -23,7 +30,10 @@ public sealed class MonitorStartupOrchestrator
         this._monitorService = monitorService;
         this._monitorLifecycleService = monitorLifecycleService;
         this._logger = logger;
+        this.CurrentWatchdogInterval = BaseInterval;
     }
+
+    public TimeSpan CurrentWatchdogInterval { get; private set; }
 
     public async Task<MonitorStartupOrchestrationResult> EnsureMonitorReadyAsync(
         Func<string, StatusType, Task> reportStatusAsync,
@@ -67,6 +77,98 @@ public sealed class MonitorStartupOrchestrator
             this._logger.LogError(ex, "Startup orchestration failed");
             return new MonitorStartupOrchestrationResult(IsSuccess: false, IsLaunchFailure: false);
         }
+    }
+
+    public async Task RunWatchdogLoopAsync(CancellationToken cancellationToken)
+    {
+        this._logger.LogInformation("Watchdog loop starting");
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                this._activeResumeSignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                await Task.WhenAny(
+                    Task.Delay(this.CurrentWatchdogInterval, cancellationToken),
+                    this._activeResumeSignal.Task).ConfigureAwait(false);
+
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
+
+                await this.RunWatchdogTickAsync().ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Clean shutdown
+        }
+
+        this._logger.LogInformation("Watchdog loop stopped");
+    }
+
+    public async Task RunWatchdogTickAsync()
+    {
+        try
+        {
+            var isHealthy = await this._monitorService.CheckHealthAsync(HealthCheckTimeout).ConfigureAwait(false);
+            if (isHealthy)
+            {
+                if (this._consecutiveFailures > 0)
+                {
+                    this._logger.LogInformation(
+                        "Monitor recovered after {Failures} consecutive failure(s)",
+                        this._consecutiveFailures);
+                }
+
+                this._consecutiveFailures = 0;
+                this.CurrentWatchdogInterval = BaseInterval;
+                return;
+            }
+
+            this._consecutiveFailures++;
+            this._logger.LogWarning(
+                "Watchdog health check failed (consecutive failures: {Failures})",
+                this._consecutiveFailures);
+
+            await this._monitorService.RefreshPortAsync().ConfigureAwait(false);
+            var restarted = await this._monitorLifecycleService.EnsureAgentRunningAsync().ConfigureAwait(false);
+
+            if (restarted)
+            {
+                this._logger.LogInformation("Monitor restarted successfully by watchdog");
+                await this._monitorService.RefreshPortAsync().ConfigureAwait(false);
+                this._consecutiveFailures = 0;
+                this.CurrentWatchdogInterval = BaseInterval;
+            }
+            else
+            {
+                var backoffSeconds = Math.Min(
+                    BaseInterval.TotalSeconds * Math.Pow(2, this._consecutiveFailures - 1),
+                    MaxInterval.TotalSeconds);
+                this.CurrentWatchdogInterval = TimeSpan.FromSeconds(backoffSeconds);
+                this._logger.LogWarning(
+                    "Watchdog restart failed; next check in {Seconds:F0}s",
+                    backoffSeconds);
+            }
+        }
+        catch (Exception ex)
+        {
+            this._consecutiveFailures++;
+            var backoffSeconds = Math.Min(
+                BaseInterval.TotalSeconds * Math.Pow(2, this._consecutiveFailures - 1),
+                MaxInterval.TotalSeconds);
+            this.CurrentWatchdogInterval = TimeSpan.FromSeconds(backoffSeconds);
+            this._logger.LogError(
+                ex,
+                "Watchdog tick failed; next check in {Seconds:F0}s",
+                backoffSeconds);
+        }
+    }
+
+    public void NotifyResumed()
+    {
+        this._activeResumeSignal?.TrySetResult(true);
     }
 
     private async Task<bool> TryRestartMonitorForVersionMismatchAsync(Func<string, StatusType, Task> reportStatusAsync)

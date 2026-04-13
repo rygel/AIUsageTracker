@@ -27,6 +27,8 @@ public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobSchedule
     private readonly ConcurrentQueue<ScheduledJob> _lowPriorityQueue = new();
     private readonly ConcurrentDictionary<string, byte> _coalescedKeys = new(StringComparer.OrdinalIgnoreCase);
     private readonly SemaphoreSlim _queuedItemsSignal = new(0);
+    private readonly SemaphoreSlim _pauseGate = new(1, 1);
+    private volatile bool _paused;
     private readonly object _recurringLock = new();
     private readonly List<RecurringJobRegistration> _recurringRegistrations = new();
     private readonly List<Task> _recurringTasks = new();
@@ -88,6 +90,30 @@ public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobSchedule
         return true;
     }
 
+    public void Pause()
+    {
+        if (this._paused)
+        {
+            return;
+        }
+
+        this._paused = true;
+        this._pauseGate.Wait(); // architecture-allow-sync-wait: called from synchronous SystemEvents.PowerModeChanged handler
+        this._logger.LogInformation("Monitor job scheduler paused");
+    }
+
+    public void Resume()
+    {
+        if (!this._paused)
+        {
+            return;
+        }
+
+        this._paused = false;
+        this._pauseGate.Release();
+        this._logger.LogInformation("Monitor job scheduler resumed");
+    }
+
     public void RegisterRecurringJob(
         string jobName,
         TimeSpan interval,
@@ -144,6 +170,7 @@ public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobSchedule
 
         return new MonitorJobSchedulerSnapshot
         {
+            IsPaused = this._paused,
             HighPriorityQueuedJobs = high,
             NormalPriorityQueuedJobs = normal,
             LowPriorityQueuedJobs = low,
@@ -187,6 +214,8 @@ public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobSchedule
             while (!stoppingToken.IsCancellationRequested)
             {
                 await this._queuedItemsSignal.WaitAsync(stoppingToken).ConfigureAwait(false);
+                await this._pauseGate.WaitAsync(stoppingToken).ConfigureAwait(false);
+                this._pauseGate.Release();
                 if (!this.TryDequeueNext(out var job))
                 {
                     Interlocked.Increment(ref this._dispatchNoopSignals);

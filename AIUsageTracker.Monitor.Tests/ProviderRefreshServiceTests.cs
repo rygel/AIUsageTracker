@@ -759,6 +759,12 @@ public class ProviderRefreshServiceTests
         return lifecycle.CurrentMaxConcurrency;
     }
 
+    [Fact]
+    public void CancelActiveRefresh_WhenNoRefreshActive_DoesNotThrow()
+    {
+        this._service.CancelActiveRefresh();
+    }
+
     private sealed record PipelineTestFiles(string Root, string AuthPath, string ProvidersPath, string PreferencesPath);
 
     private sealed record PipelinePrivacyScenario(

@@ -20,5 +20,9 @@ public interface IMonitorJobScheduler
         TimeSpan? initialDelay = null,
         string? coalesceKey = null);
 
+    void Pause();
+
+    void Resume();
+
     MonitorJobSchedulerSnapshot GetSnapshot();
 }
