@@ -261,39 +261,7 @@ public class CodexProvider : ProviderBase
 
     private static SparkWindow ExtractSparkWindow(JsonElement root)
     {
-        var candidates = new List<SparkWindow>();
-
-        // Look in additional_rate_limits array - these are spark windows by structure
-        if (root.TryGetProperty("additional_rate_limits", out var additionalRateLimits) &&
-            additionalRateLimits.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var item in additionalRateLimits.EnumerateArray())
-            {
-                // Spark windows have a model_name or model field and rate_limit data
-                var modelName = item.ReadString("model_name") ?? item.ReadString("model");
-
-                if (!item.TryGetProperty(JsonKeyRateLimit, out var sparkRateLimit))
-                {
-                    continue;
-                }
-
-                var primaryUsedPercent = sparkRateLimit.ReadDouble(JsonKeyPrimaryWindow, JsonKeyUsedPercent);
-                var primaryResetAfterSeconds = sparkRateLimit.ReadDouble(JsonKeyPrimaryWindow, JsonKeyResetAfterSeconds);
-                var secondaryUsedPercent = sparkRateLimit.ReadDouble(JsonKeySecondaryWindow, JsonKeyUsedPercent);
-                var secondaryResetAfterSeconds = sparkRateLimit.ReadDouble(JsonKeySecondaryWindow, JsonKeyResetAfterSeconds);
-                if (primaryUsedPercent.HasValue || primaryResetAfterSeconds.HasValue || secondaryUsedPercent.HasValue || secondaryResetAfterSeconds.HasValue)
-                {
-                    var limitName = item.ReadString("limit_name");
-                    candidates.Add(new SparkWindow(
-                        limitName,
-                        modelName,
-                        primaryUsedPercent,
-                        primaryResetAfterSeconds,
-                        secondaryUsedPercent,
-                        secondaryResetAfterSeconds));
-                }
-            }
-        }
+        var candidates = ParseAdditionalRateLimits(root);
 
         var preferredAdditionalCandidate = SelectPreferredSparkCandidate(candidates);
         if (preferredAdditionalCandidate.HasValue)
@@ -301,45 +269,86 @@ public class CodexProvider : ProviderBase
             return preferredAdditionalCandidate.Value;
         }
 
-        // Look in rate_limit object properties
-        if (root.TryGetProperty(JsonKeyRateLimit, out var rateLimit) && rateLimit.ValueKind == JsonValueKind.Object)
-        {
-            candidates.Clear();
-            foreach (var property in rateLimit.EnumerateObject())
-            {
-                if (property.Name.Equals(JsonKeyPrimaryWindow, StringComparison.OrdinalIgnoreCase) ||
-                    property.Name.Equals(JsonKeySecondaryWindow, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                // Skip scalar properties (e.g. "allowed": true, "limit_reached": false) —
-                // the API added these alongside the window objects and they are not spark windows.
-                if (property.Value.ValueKind != JsonValueKind.Object)
-                {
-                    continue;
-                }
-
-                var primaryUsedPercent = property.Value.ReadDouble(JsonKeyPrimaryWindow, JsonKeyUsedPercent);
-                var primaryResetAfterSeconds = property.Value.ReadDouble(JsonKeyPrimaryWindow, JsonKeyResetAfterSeconds);
-                var secondaryUsedPercent = property.Value.ReadDouble(JsonKeySecondaryWindow, JsonKeyUsedPercent);
-                var secondaryResetAfterSeconds = property.Value.ReadDouble(JsonKeySecondaryWindow, JsonKeyResetAfterSeconds);
-                if (primaryUsedPercent.HasValue || primaryResetAfterSeconds.HasValue || secondaryUsedPercent.HasValue || secondaryResetAfterSeconds.HasValue)
-                {
-                    var modelName = property.Value.ReadString("model_name") ?? property.Value.ReadString("model");
-                    candidates.Add(new SparkWindow(
-                        property.Name,
-                        modelName,
-                        primaryUsedPercent,
-                        primaryResetAfterSeconds,
-                        secondaryUsedPercent,
-                        secondaryResetAfterSeconds));
-                }
-            }
-        }
+        candidates = ParseRateLimitProperties(root);
 
         var preferredRateLimitCandidate = SelectPreferredSparkCandidate(candidates);
         return preferredRateLimitCandidate ?? new SparkWindow(null, null, null, null, null, null);
+    }
+
+    private static List<SparkWindow> ParseAdditionalRateLimits(JsonElement root)
+    {
+        var candidates = new List<SparkWindow>();
+
+        if (!root.TryGetProperty("additional_rate_limits", out var additionalRateLimits) ||
+            additionalRateLimits.ValueKind != JsonValueKind.Array)
+        {
+            return candidates;
+        }
+
+        foreach (var item in additionalRateLimits.EnumerateArray())
+        {
+            var modelName = item.ReadString("model_name") ?? item.ReadString("model");
+
+            if (!item.TryGetProperty(JsonKeyRateLimit, out var sparkRateLimit))
+            {
+                continue;
+            }
+
+            var sparkWindow = TryParseSparkWindowFromElement(sparkRateLimit, item.ReadString("limit_name"), modelName);
+            if (sparkWindow.HasValue)
+            {
+                candidates.Add(sparkWindow.Value);
+            }
+        }
+
+        return candidates;
+    }
+
+    private static List<SparkWindow> ParseRateLimitProperties(JsonElement root)
+    {
+        var candidates = new List<SparkWindow>();
+
+        if (!root.TryGetProperty(JsonKeyRateLimit, out var rateLimit) || rateLimit.ValueKind != JsonValueKind.Object)
+        {
+            return candidates;
+        }
+
+        foreach (var property in rateLimit.EnumerateObject())
+        {
+            if (property.Name.Equals(JsonKeyPrimaryWindow, StringComparison.OrdinalIgnoreCase) ||
+                property.Name.Equals(JsonKeySecondaryWindow, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (property.Value.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            var modelName = property.Value.ReadString("model_name") ?? property.Value.ReadString("model");
+            var sparkWindow = TryParseSparkWindowFromElement(property.Value, property.Name, modelName);
+            if (sparkWindow.HasValue)
+            {
+                candidates.Add(sparkWindow.Value);
+            }
+        }
+
+        return candidates;
+    }
+
+    private static SparkWindow? TryParseSparkWindowFromElement(JsonElement element, string? label, string? modelName)
+    {
+        var primaryUsedPercent = element.ReadDouble(JsonKeyPrimaryWindow, JsonKeyUsedPercent);
+        var primaryResetAfterSeconds = element.ReadDouble(JsonKeyPrimaryWindow, JsonKeyResetAfterSeconds);
+        var secondaryUsedPercent = element.ReadDouble(JsonKeySecondaryWindow, JsonKeyUsedPercent);
+        var secondaryResetAfterSeconds = element.ReadDouble(JsonKeySecondaryWindow, JsonKeyResetAfterSeconds);
+        if (primaryUsedPercent.HasValue || primaryResetAfterSeconds.HasValue || secondaryUsedPercent.HasValue || secondaryResetAfterSeconds.HasValue)
+        {
+            return new SparkWindow(label, modelName, primaryUsedPercent, primaryResetAfterSeconds, secondaryUsedPercent, secondaryResetAfterSeconds);
+        }
+
+        return null;
     }
 
     private static SparkWindow? SelectPreferredSparkCandidate(IReadOnlyCollection<SparkWindow> candidates)

@@ -91,48 +91,7 @@ internal sealed class ChangelogMarkdownRenderer
                 continue;
             }
 
-            var headerLevel = GetHeaderLevel(trimmed);
-            if (headerLevel > 0)
-            {
-                var headerText = trimmed[(headerLevel + 1)..];
-                var header = new Paragraph
-                {
-                    Margin = new Thickness(0, headerLevel == 1 ? 10 : 6, 0, 4),
-                    FontWeight = FontWeights.SemiBold,
-                    FontSize = headerLevel switch
-                    {
-                        1 => 22,
-                        2 => 18,
-                        3 => 16,
-                        _ => 14,
-                    },
-                };
-                this.AddMarkdownInlines(header, headerText);
-                document.Blocks.Add(header);
-                continue;
-            }
-
-            if (trimmed.StartsWith("- ", StringComparison.Ordinal) || trimmed.StartsWith("* ", StringComparison.Ordinal))
-            {
-                var bullet = new Paragraph { Margin = new Thickness(0, 1, 0, 1) };
-                bullet.Inlines.Add(new Run("• "));
-                this.AddMarkdownInlines(bullet, trimmed[2..]);
-                document.Blocks.Add(bullet);
-                continue;
-            }
-
-            if (TryParseNumberedItem(trimmed, out var numberedPrefix, out var numberedText))
-            {
-                var numbered = new Paragraph { Margin = new Thickness(0, 1, 0, 1) };
-                numbered.Inlines.Add(new Run($"{numberedPrefix}. "));
-                this.AddMarkdownInlines(numbered, numberedText);
-                document.Blocks.Add(numbered);
-                continue;
-            }
-
-            var paragraph = new Paragraph { Margin = new Thickness(0, 0, 0, 6), LineHeight = 20 };
-            this.AddMarkdownInlines(paragraph, trimmed);
-            document.Blocks.Add(paragraph);
+            this.ProcessContentLine(document, trimmed);
         }
 
         if (inCodeBlock && codeBuilder.Length > 0)
@@ -141,6 +100,52 @@ internal sealed class ChangelogMarkdownRenderer
         }
 
         return document;
+    }
+
+    private void ProcessContentLine(FlowDocument document, string trimmed)
+    {
+        var headerLevel = GetHeaderLevel(trimmed);
+        if (headerLevel > 0)
+        {
+            var headerText = trimmed[(headerLevel + 1)..];
+            var header = new Paragraph
+            {
+                Margin = new Thickness(0, headerLevel == 1 ? 10 : 6, 0, 4),
+                FontWeight = FontWeights.SemiBold,
+                FontSize = headerLevel switch
+                {
+                    1 => 22,
+                    2 => 18,
+                    3 => 16,
+                    _ => 14,
+                },
+            };
+            this.AddMarkdownInlines(header, headerText);
+            document.Blocks.Add(header);
+            return;
+        }
+
+        if (trimmed.StartsWith("- ", StringComparison.Ordinal) || trimmed.StartsWith("* ", StringComparison.Ordinal))
+        {
+            var bullet = new Paragraph { Margin = new Thickness(0, 1, 0, 1) };
+            bullet.Inlines.Add(new Run("• "));
+            this.AddMarkdownInlines(bullet, trimmed[2..]);
+            document.Blocks.Add(bullet);
+            return;
+        }
+
+        if (TryParseNumberedItem(trimmed, out var numberedPrefix, out var numberedText))
+        {
+            var numbered = new Paragraph { Margin = new Thickness(0, 1, 0, 1) };
+            numbered.Inlines.Add(new Run($"{numberedPrefix}. "));
+            this.AddMarkdownInlines(numbered, numberedText);
+            document.Blocks.Add(numbered);
+            return;
+        }
+
+        var paragraph = new Paragraph { Margin = new Thickness(0, 0, 0, 6), LineHeight = 20 };
+        this.AddMarkdownInlines(paragraph, trimmed);
+        document.Blocks.Add(paragraph);
     }
 
     internal static int GetHeaderLevel(string trimmedLine)

@@ -90,174 +90,175 @@ public class KimiProvider : ProviderBase
                 return new[] { this.CreateUnavailableUsage("Response missing usage data", authSource: config.AuthSource) };
             }
 
-            double used = data.Usage.Used;
-            double limit = data.Usage.Limit;
-            double remaining = data.Usage.Remaining;
-
-            DateTime? soonestResetDt = null;
-            TimeSpan minDiff = TimeSpan.MaxValue;
-            var flatCards = new List<ProviderUsage>();
-            var usedCardIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            // Add weekly limit from usage only when data.Limits has no 7-day (Rolling) entry.
-            var hasRollingFromLimits = data.Limits?.Any(l =>
-                l.Window != null && DetermineWindowKind(l.Window.Duration, l.Window.TimeUnit) == WindowKind.Rolling) ?? false;
-
-            if (limit > 0 && remaining >= 0 && !hasRollingFromLimits)
-            {
-                var weeklyUsedPct = UsageMath.CalculateUsedPercent(used, limit);
-                DateTime? weeklyResetDt = null;
-                if (!string.IsNullOrEmpty(data.Usage.ResetTime) &&
-                    DateTime.TryParse(data.Usage.ResetTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out var weeklyDt))
-                {
-                    weeklyResetDt = weeklyDt.ToUniversalTime();
-                    var diff = weeklyResetDt.Value - DateTime.UtcNow;
-                    if (diff.TotalSeconds > 0 && diff < minDiff)
-                    {
-                        minDiff = diff;
-                        soonestResetDt = weeklyResetDt;
-                    }
-                }
-
-                flatCards.Add(new ProviderUsage
-                {
-                    ProviderId = this.ProviderId,
-                    ProviderName = this.Definition.DisplayName,
-                    CardId = "weekly",
-                    GroupId = this.ProviderId,
-                    Name = "Weekly Limit",
-                    WindowKind = WindowKind.Rolling,
-                    UsedPercent = weeklyUsedPct,
-                    RequestsUsed = used,
-                    RequestsAvailable = limit,
-                    IsQuotaBased = this.Definition.IsQuotaBased,
-                    PlanType = this.Definition.PlanType,
-                    IsAvailable = true,
-                    Description = $"{remaining.ToString(CultureInfo.InvariantCulture)} remaining{(!string.IsNullOrEmpty(data.Usage.ResetTime) ? $" (Resets: {FormatResetTime(data.Usage.ResetTime)})" : string.Empty)}",
-                    RawJson = content,
-                    HttpStatus = (int)response.StatusCode,
-                    NextResetTime = weeklyResetDt,
-                    PeriodDuration = TimeSpan.FromDays(7),
-                    AuthSource = config.AuthSource,
-                });
-                usedCardIds.Add("weekly");
-            }
-
-            if (data.Limits != null)
-            {
-                foreach (var limitItem in data.Limits)
-                {
-                    if (limitItem.Detail == null || limitItem.Window == null)
-                    {
-                        continue;
-                    }
-
-                    var win = limitItem.Window;
-                    var det = limitItem.Detail;
-
-                    if (det.Limit <= 0)
-                    {
-                        continue;
-                    }
-
-                    string name = $"{FormatDuration(win.Duration, win.TimeUnit ?? "TIME_UNIT_MINUTE")} Limit";
-                    var itemUsed = det.Limit - det.Remaining;
-                    var itemUsedPercentage = det.Limit > 0 ? (itemUsed / (double)det.Limit) * 100.0 : 0;
-
-                    var resetDisplay = FormatResetTime(det.ResetTime ?? string.Empty);
-                    DateTime? itemResetDt = null;
-                    if (DateTime.TryParse(det.ResetTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
-                    {
-                        itemResetDt = dt.ToUniversalTime();
-                        var diff = itemResetDt.Value - DateTime.UtcNow;
-                        if (diff.TotalSeconds > 0 && diff < minDiff)
-                        {
-                            minDiff = diff;
-                            soonestResetDt = itemResetDt;
-                        }
-                    }
-
-                    var quotaBucketKind = DetermineWindowKind(win.Duration, win.TimeUnit);
-                    TimeSpan? periodDuration;
-                    if (quotaBucketKind == WindowKind.Rolling)
-                    {
-                        periodDuration = TimeSpan.FromDays(win.Duration);
-                    }
-                    else if (quotaBucketKind == WindowKind.Burst)
-                    {
-                        periodDuration = string.Equals(win.TimeUnit, "TIME_UNIT_HOUR", StringComparison.Ordinal)
-                            ? TimeSpan.FromHours(win.Duration)
-                            : TimeSpan.FromMinutes(win.Duration);
-                    }
-                    else
-                    {
-                        periodDuration = null;
-                    }
-
-                    var baseCardId = name.ToLowerInvariant()
-                        .Replace(" ", "-", StringComparison.Ordinal)
-                        .Replace("/", "-", StringComparison.Ordinal);
-                    var cardId = baseCardId;
-                    var dupCounter = 2;
-                    while (!usedCardIds.Add(cardId))
-                    {
-                        cardId = $"{baseCardId}-{dupCounter.ToString(CultureInfo.InvariantCulture)}";
-                        dupCounter++;
-                    }
-
-                    flatCards.Add(new ProviderUsage
-                    {
-                        ProviderId = this.ProviderId,
-                        ProviderName = this.Definition.DisplayName,
-                        CardId = cardId,
-                        GroupId = this.ProviderId,
-                        Name = name,
-                        WindowKind = quotaBucketKind,
-                        UsedPercent = itemUsedPercentage,
-                        RequestsUsed = itemUsed,
-                        RequestsAvailable = det.Limit,
-                        IsQuotaBased = this.Definition.IsQuotaBased,
-                        PlanType = this.Definition.PlanType,
-                        IsAvailable = true,
-                        Description = $"{det.Remaining.ToString(CultureInfo.InvariantCulture)} / {det.Limit.ToString(CultureInfo.InvariantCulture)} remaining (Resets: {resetDisplay})",
-                        RawJson = content,
-                        HttpStatus = (int)response.StatusCode,
-                        NextResetTime = itemResetDt,
-                        PeriodDuration = periodDuration,
-                        AuthSource = config.AuthSource,
-                    });
-                }
-            }
-
-            if (flatCards.Count == 0)
-            {
-                return new[]
-                {
-                    new ProviderUsage
-                    {
-                        ProviderId = this.ProviderId,
-                        ProviderName = this.Definition.DisplayName,
-                        UsedPercent = limit > 0 ? UsageMath.CalculateUsedPercent(used, limit) : 0,
-                        RequestsUsed = used,
-                        RequestsAvailable = limit,
-                        IsQuotaBased = this.Definition.IsQuotaBased,
-                        PlanType = this.Definition.PlanType,
-                        IsAvailable = true,
-                        Description = "Active",
-                        RawJson = content,
-                        HttpStatus = (int)response.StatusCode,
-                        NextResetTime = soonestResetDt,
-                        AuthSource = config.AuthSource,
-                    },
-                };
-            }
-
-            return flatCards;
+            return this.BuildUsageCards(data, content, (int)response.StatusCode, config.AuthSource);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
             this._logger.LogError(ex, "Kimi check failed");
             return new[] { this.CreateUnavailableUsage(DescribeUnavailableException(ex), authSource: config.AuthSource) };
+        }
+    }
+
+    private IEnumerable<ProviderUsage> BuildUsageCards(KimiUsageResponse data, string content, int statusCode, string? authSource)
+    {
+        var flatCards = new List<ProviderUsage>();
+        var usedCardIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var hasRollingFromLimits = data.Limits?.Any(l =>
+            l.Window != null && DetermineWindowKind(l.Window.Duration, l.Window.TimeUnit) == WindowKind.Rolling) ?? false;
+
+        var weeklyCard = this.TryBuildWeeklyCard(data.Usage!, hasRollingFromLimits, content, statusCode, authSource);
+        if (weeklyCard != null)
+        {
+            flatCards.Add(weeklyCard);
+            usedCardIds.Add("weekly");
+        }
+
+        if (data.Limits != null)
+        {
+            this.AddLimitCards(data.Limits, flatCards, usedCardIds, content, statusCode, authSource);
+        }
+
+        if (flatCards.Count == 0)
+        {
+            return new[]
+            {
+                new ProviderUsage
+                {
+                    ProviderId = this.ProviderId,
+                    ProviderName = this.Definition.DisplayName,
+                    UsedPercent = data.Usage!.Limit > 0 ? UsageMath.CalculateUsedPercent(data.Usage!.Used, data.Usage!.Limit) : 0,
+                    RequestsUsed = data.Usage!.Used,
+                    RequestsAvailable = data.Usage!.Limit,
+                    IsQuotaBased = this.Definition.IsQuotaBased,
+                    PlanType = this.Definition.PlanType,
+                    IsAvailable = true,
+                    Description = "Active",
+                    RawJson = content,
+                    HttpStatus = statusCode,
+                    AuthSource = authSource ?? string.Empty,
+                },
+            };
+        }
+
+        return flatCards;
+    }
+
+    private ProviderUsage? TryBuildWeeklyCard(KimiUsageData usage, bool hasRollingFromLimits, string content, int statusCode, string? authSource)
+    {
+        if (usage.Limit <= 0 || usage.Remaining < 0 || hasRollingFromLimits)
+        {
+            return null;
+        }
+
+        var weeklyUsedPct = UsageMath.CalculateUsedPercent(usage.Used, usage.Limit);
+        DateTime? weeklyResetDt = null;
+        if (!string.IsNullOrEmpty(usage.ResetTime) &&
+            DateTime.TryParse(usage.ResetTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out var weeklyDt))
+        {
+            weeklyResetDt = weeklyDt.ToUniversalTime();
+        }
+
+        return new ProviderUsage
+        {
+            ProviderId = this.ProviderId,
+            ProviderName = this.Definition.DisplayName,
+            CardId = "weekly",
+            GroupId = this.ProviderId,
+            Name = "Weekly Limit",
+            WindowKind = WindowKind.Rolling,
+            UsedPercent = weeklyUsedPct,
+            RequestsUsed = usage.Used,
+            RequestsAvailable = usage.Limit,
+            IsQuotaBased = this.Definition.IsQuotaBased,
+            PlanType = this.Definition.PlanType,
+            IsAvailable = true,
+            Description = $"{usage.Remaining.ToString(CultureInfo.InvariantCulture)} remaining{(!string.IsNullOrEmpty(usage.ResetTime) ? $" (Resets: {FormatResetTime(usage.ResetTime)})" : string.Empty)}",
+            RawJson = content,
+            HttpStatus = statusCode,
+            NextResetTime = weeklyResetDt,
+            PeriodDuration = TimeSpan.FromDays(7),
+            AuthSource = authSource ?? string.Empty,
+        };
+    }
+
+    private void AddLimitCards(List<KimiLimitItem> limits, List<ProviderUsage> flatCards, HashSet<string> usedCardIds, string content, int statusCode, string? authSource)
+    {
+        foreach (var limitItem in limits)
+        {
+            if (limitItem.Detail == null || limitItem.Window == null)
+            {
+                continue;
+            }
+
+            var win = limitItem.Window;
+            var det = limitItem.Detail;
+
+            if (det.Limit <= 0)
+            {
+                continue;
+            }
+
+            string name = $"{FormatDuration(win.Duration, win.TimeUnit ?? "TIME_UNIT_MINUTE")} Limit";
+            var itemUsed = det.Limit - det.Remaining;
+            var itemUsedPercentage = det.Limit > 0 ? (itemUsed / (double)det.Limit) * 100.0 : 0;
+
+            var resetDisplay = FormatResetTime(det.ResetTime ?? string.Empty);
+            DateTime? itemResetDt = null;
+            if (DateTime.TryParse(det.ResetTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
+            {
+                itemResetDt = dt.ToUniversalTime();
+            }
+
+            var quotaBucketKind = DetermineWindowKind(win.Duration, win.TimeUnit);
+            TimeSpan? periodDuration;
+            if (quotaBucketKind == WindowKind.Rolling)
+            {
+                periodDuration = TimeSpan.FromDays(win.Duration);
+            }
+            else if (quotaBucketKind == WindowKind.Burst)
+            {
+                periodDuration = string.Equals(win.TimeUnit, "TIME_UNIT_HOUR", StringComparison.Ordinal)
+                    ? TimeSpan.FromHours(win.Duration)
+                    : TimeSpan.FromMinutes(win.Duration);
+            }
+            else
+            {
+                periodDuration = null;
+            }
+
+            var baseCardId = name.ToLowerInvariant()
+                .Replace(" ", "-", StringComparison.Ordinal)
+                .Replace("/", "-", StringComparison.Ordinal);
+            var cardId = baseCardId;
+            var dupCounter = 2;
+            while (!usedCardIds.Add(cardId))
+            {
+                cardId = $"{baseCardId}-{dupCounter.ToString(CultureInfo.InvariantCulture)}";
+                dupCounter++;
+            }
+
+            flatCards.Add(new ProviderUsage
+            {
+                ProviderId = this.ProviderId,
+                ProviderName = this.Definition.DisplayName,
+                CardId = cardId,
+                GroupId = this.ProviderId,
+                Name = name,
+                WindowKind = quotaBucketKind,
+                UsedPercent = itemUsedPercentage,
+                RequestsUsed = itemUsed,
+                RequestsAvailable = det.Limit,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
+                IsAvailable = true,
+                Description = $"{det.Remaining.ToString(CultureInfo.InvariantCulture)} / {det.Limit.ToString(CultureInfo.InvariantCulture)} remaining (Resets: {resetDisplay})",
+                RawJson = content,
+                HttpStatus = statusCode,
+                NextResetTime = itemResetDt,
+                PeriodDuration = periodDuration,
+                AuthSource = authSource ?? string.Empty,
+            });
         }
     }
 

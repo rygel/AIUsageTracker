@@ -82,65 +82,71 @@ public class AntigravityProvider : ProviderBase
             var processInfos = this.FindProcessInfos();
             if (processInfos.Count == 0)
             {
-                if (this._cachedUsage != null)
-                {
-                    var timeSinceRefresh = DateTime.UtcNow - this._cacheTimestamp;
-                    var minutesAgo = (int)timeSinceRefresh.TotalMinutes;
-                    var description = $"Last refreshed: {minutesAgo.ToString(CultureInfo.InvariantCulture)}m ago";
+                return this.BuildNoProcessResult(config);
+            }
 
-                    // Check if the cached reset time has passed and update if so
-                    if (this._cachedUsage.NextResetTime.HasValue)
-                    {
-                        var anyResetPassed = this._cachedUsage.NextResetTime.Value <= DateTime.UtcNow;
+            await this.CollectInstanceUsagesAsync(processInfos, results, config).ConfigureAwait(false);
 
-                        if (anyResetPassed)
-                        {
-                            this._logger.LogDebug("Antigravity reset time passed while offline; status is unknown until reconnect");
-                            description += " (Status unknown until next Antigravity refresh)";
+            if (results.Count == 0)
+            {
+                return new[] { CreateNotRunningUsage(this.ProviderId, this.Definition) };
+            }
 
-                            return this.WithOfflineChildren(
-                                new ProviderUsage
-                                {
-                                    ProviderId = this.ProviderId,
-                                    ProviderName = this.Definition.DisplayName,
-                                    IsAvailable = true,
-                                    UsedPercent = 0,
-                                    RequestsUsed = 0,
-                                    RequestsAvailable = this._cachedUsage.RequestsAvailable,
-                                    AccountName = this._cachedUsage.AccountName,
-                                    Description = description,
-                                    IsQuotaBased = this.Definition.IsQuotaBased,
-                                    PlanType = this.Definition.PlanType,
-                                },
-                                config);
-                        }
-                    }
+            this._cachedUsage = results.FirstOrDefault();
+            this._cacheTimestamp = DateTime.UtcNow;
+            return results;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
+        {
+            this._logger.LogWarning(ex, "Antigravity check failed");
+            return new[] { CreateNotRunningUsage(this.ProviderId, this.Definition) };
+        }
+    }
 
-                    if (!description.Contains("unknown", StringComparison.OrdinalIgnoreCase))
-                    {
-                        description += " (Usage unknown until next Antigravity refresh)";
-                    }
+    private static ProviderUsage CreateNotRunningUsage(string providerId, ProviderDefinition definition)
+    {
+        return new ProviderUsage
+        {
+            ProviderId = providerId,
+            ProviderName = definition.DisplayName,
+            IsAvailable = true,
+            UsedPercent = 0,
+            RequestsUsed = 0,
+            RequestsAvailable = 0,
+            Description = IsAntigravityDesktopRunning()
+                ? "Antigravity running, waiting for language server"
+                : "Application not running",
+            IsQuotaBased = definition.IsQuotaBased,
+            PlanType = definition.PlanType,
+        };
+    }
 
-                    return this.WithOfflineChildren(
-                        new ProviderUsage
-                        {
-                            ProviderId = this.ProviderId,
-                            ProviderName = this.Definition.DisplayName,
-                            IsAvailable = true,
-                            UsedPercent = 0,
-                            RequestsUsed = 0,
-                            RequestsAvailable = this._cachedUsage.RequestsAvailable,
-                            AccountName = this._cachedUsage.AccountName,
-                            Description = description,
-                            IsQuotaBased = this.Definition.IsQuotaBased,
-                            PlanType = this.Definition.PlanType,
-                        },
-                        config);
-                }
+    private IEnumerable<ProviderUsage> BuildNoProcessResult(ProviderConfig config)
+    {
+        if (this._cachedUsage != null)
+        {
+            return this.BuildCachedOfflineResult(config);
+        }
 
-                var appRunning = IsAntigravityDesktopRunning();
-                return new[]
-                {
+        return new[] { CreateNotRunningUsage(this.ProviderId, this.Definition) };
+    }
+
+    private IEnumerable<ProviderUsage> BuildCachedOfflineResult(ProviderConfig config)
+    {
+        var timeSinceRefresh = DateTime.UtcNow - this._cacheTimestamp;
+        var minutesAgo = (int)timeSinceRefresh.TotalMinutes;
+        var description = $"Last refreshed: {minutesAgo.ToString(CultureInfo.InvariantCulture)}m ago";
+
+        if (this._cachedUsage!.NextResetTime.HasValue)
+        {
+            var anyResetPassed = this._cachedUsage.NextResetTime.Value <= DateTime.UtcNow;
+
+            if (anyResetPassed)
+            {
+                this._logger.LogDebug("Antigravity reset time passed while offline; status is unknown until reconnect");
+                description += " (Status unknown until next Antigravity refresh)";
+
+                return this.WithOfflineChildren(
                     new ProviderUsage
                     {
                         ProviderId = this.ProviderId,
@@ -148,153 +154,122 @@ public class AntigravityProvider : ProviderBase
                         IsAvailable = true,
                         UsedPercent = 0,
                         RequestsUsed = 0,
-                        RequestsAvailable = 0,
-                        Description = appRunning
-                            ? "Antigravity running, waiting for language server"
-                            : "Application not running",
+                        RequestsAvailable = this._cachedUsage.RequestsAvailable,
+                        AccountName = this._cachedUsage.AccountName,
+                        Description = description,
                         IsQuotaBased = this.Definition.IsQuotaBased,
                         PlanType = this.Definition.PlanType,
                     },
-                };
+                    config);
             }
-
-            foreach (var info in processInfos)
-            {
-                try
-                {
-                    var (pid, csrfToken, commandLinePort) = info;
-                    var tokenPreview = csrfToken.Length > 8 ? csrfToken[..8] : csrfToken;
-                    this._logger.LogDebug(
-                        "Checking Antigravity process: PID={Pid}, CSRF={Csrf}, PortHint={PortHint}",
-                        pid,
-                        tokenPreview,
-                        commandLinePort?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "none");
-
-                    // 2. Resolve candidate ports (extension port hint + all listening loopback ports)
-                    var candidatePorts = new List<int>();
-                    if (commandLinePort.HasValue && commandLinePort.Value > 0)
-                    {
-                        candidatePorts.Add(commandLinePort.Value);
-                    }
-
-                    foreach (var listeningPort in (await this.FindListeningPortsAsync(pid).ConfigureAwait(false)).Where(p => !candidatePorts.Contains(p)))
-                    {
-                        candidatePorts.Add(listeningPort);
-                    }
-
-                    if (!candidatePorts.Any())
-                    {
-                        throw new InvalidOperationException($"No candidate Antigravity ports discovered for PID {pid.ToString(CultureInfo.InvariantCulture)}");
-                    }
-
-                    // 3. Request
-                    List<ProviderUsage>? usageItems = null;
-                    Exception? lastPortException = null;
-                    foreach (var candidatePort in candidatePorts)
-                    {
-                        try
-                        {
-                            usageItems = await this.FetchUsageAsync(candidatePort, csrfToken, config).ConfigureAwait(false);
-                            break;
-                        }
-                        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
-                        {
-                            lastPortException = ex;
-                            this._logger.LogDebug(ex, "Antigravity PID={Pid} probe failed on port {Port}", pid, candidatePort);
-                        }
-                    }
-
-                    if (usageItems == null)
-                    {
-                        throw new InvalidOperationException(
-                            $"Failed to fetch Antigravity usage for PID {pid.ToString(CultureInfo.InvariantCulture)} on ports [{string.Join(", ", candidatePorts)}]",
-                            lastPortException);
-                    }
-
-                    // Check for duplicates based on AccountName (Email) for the MAIN item
-                    // Assuming the first item is the summary
-                    var mainItem = usageItems.FirstOrDefault(u => string.Equals(u.ProviderId, this.ProviderId, StringComparison.Ordinal));
-
-                    if (mainItem != null && results.Any(r => string.Equals(r.ProviderId, this.ProviderId, StringComparison.Ordinal) && string.Equals(r.AccountName, mainItem.AccountName, StringComparison.Ordinal)))
-                    {
-                        continue;
-                    }
-
-                    results.AddRange(usageItems);
-                }
-                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or InvalidOperationException or IOException)
-                {
-                    this._logger.LogWarning(ex, "Failed to check Antigravity PID {Pid}", info.Pid);
-                }
-            }
-
-            if (results.Count == 0)
-            {
-                return new[]
-                {
-                    new ProviderUsage
-                 {
-                     ProviderId = this.ProviderId,
-                     ProviderName = this.Definition.DisplayName,
-                     IsAvailable = true,
-                     UsedPercent = 0,
-                     RequestsUsed = 0,
-                     RequestsAvailable = 0,
-                     Description = "Not running",
-                     IsQuotaBased = this.Definition.IsQuotaBased,
-                     PlanType = this.Definition.PlanType,
-                 },
-                };
-            }
-
-            // Cache the results for next refresh
-            if (results.Count > 0)
-            {
-                this._cachedUsage = results.FirstOrDefault();
-                this._cacheTimestamp = DateTime.UtcNow;
-            }
-
-            // Start with just the summary
-            // But we can't just return results list here because we build it differently now
-            // The loop above adds to 'results'
-
-            // Wait, previous logic was:
-            // 1. Find processes
-            // 2. Add to results
-            // 3. Return results
-
-            // New logic inside FetchUsage returns a list (or we need to change FetchUsage signature)
-            // Let's change FetchUsage to return IEnumerable<ProviderUsage>
-
-            // For now, let's keep FetchUsage returning single and split it here?
-            // No, FetchUsage has the context (details list).
-
-            // Refactoring FetchUsage to return List<ProviderUsage>
-
-            // ... (See below for FetchUsage refactor)
-            return results;
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
+
+        if (!description.Contains("unknown", StringComparison.OrdinalIgnoreCase))
         {
-            this._logger.LogWarning(ex, "Antigravity check failed");
-            return new[]
-            {
-                new ProviderUsage
+            description += " (Usage unknown until next Antigravity refresh)";
+        }
+
+        return this.WithOfflineChildren(
+            new ProviderUsage
             {
                 ProviderId = this.ProviderId,
                 ProviderName = this.Definition.DisplayName,
                 IsAvailable = true,
                 UsedPercent = 0,
                 RequestsUsed = 0,
-                RequestsAvailable = 0,
-                Description = IsAntigravityDesktopRunning()
-                    ? "Antigravity running, waiting for language server"
-                    : "Application not running",
+                RequestsAvailable = this._cachedUsage.RequestsAvailable,
+                AccountName = this._cachedUsage.AccountName,
+                Description = description,
                 IsQuotaBased = this.Definition.IsQuotaBased,
                 PlanType = this.Definition.PlanType,
             },
-            };
+            config);
+    }
+
+    private async Task CollectInstanceUsagesAsync(
+        List<(int Pid, string Token, int? Port)> processInfos,
+        List<ProviderUsage> results,
+        ProviderConfig config)
+    {
+        foreach (var info in processInfos)
+        {
+            try
+            {
+                var (pid, csrfToken, commandLinePort) = info;
+                var tokenPreview = csrfToken.Length > 8 ? csrfToken[..8] : csrfToken;
+                this._logger.LogDebug(
+                    "Checking Antigravity process: PID={Pid}, CSRF={Csrf}, PortHint={PortHint}",
+                    pid,
+                    tokenPreview,
+                    commandLinePort?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "none");
+
+                var candidatePorts = await this.ResolveCandidatePortsAsync(pid, commandLinePort).ConfigureAwait(false);
+
+                var usageItems = await this.TryFetchUsageFromPortsAsync(candidatePorts, csrfToken, config, pid).ConfigureAwait(false);
+
+                var mainItem = usageItems.FirstOrDefault(u => string.Equals(u.ProviderId, this.ProviderId, StringComparison.Ordinal));
+
+                if (mainItem != null && results.Any(r => string.Equals(r.ProviderId, this.ProviderId, StringComparison.Ordinal) && string.Equals(r.AccountName, mainItem.AccountName, StringComparison.Ordinal)))
+                {
+                    continue;
+                }
+
+                results.AddRange(usageItems);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or InvalidOperationException or IOException)
+            {
+                this._logger.LogWarning(ex, "Failed to check Antigravity PID {Pid}", info.Pid);
+            }
         }
+    }
+
+    private async Task<List<int>> ResolveCandidatePortsAsync(int pid, int? commandLinePort)
+    {
+        var candidatePorts = new List<int>();
+        if (commandLinePort.HasValue && commandLinePort.Value > 0)
+        {
+            candidatePorts.Add(commandLinePort.Value);
+        }
+
+        foreach (var listeningPort in (await this.FindListeningPortsAsync(pid).ConfigureAwait(false)).Where(p => !candidatePorts.Contains(p)))
+        {
+            candidatePorts.Add(listeningPort);
+        }
+
+        if (!candidatePorts.Any())
+        {
+            throw new InvalidOperationException($"No candidate Antigravity ports discovered for PID {pid.ToString(CultureInfo.InvariantCulture)}");
+        }
+
+        return candidatePorts;
+    }
+
+    private async Task<List<ProviderUsage>> TryFetchUsageFromPortsAsync(List<int> candidatePorts, string csrfToken, ProviderConfig config, int pid)
+    {
+        List<ProviderUsage>? usageItems = null;
+        Exception? lastPortException = null;
+        foreach (var candidatePort in candidatePorts)
+        {
+            try
+            {
+                usageItems = await this.FetchUsageAsync(candidatePort, csrfToken, config).ConfigureAwait(false);
+                break;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+            {
+                lastPortException = ex;
+                this._logger.LogDebug(ex, "Antigravity PID={Pid} probe failed on port {Port}", pid, candidatePort);
+            }
+        }
+
+        if (usageItems == null)
+        {
+            throw new InvalidOperationException(
+                $"Failed to fetch Antigravity usage for PID {pid.ToString(CultureInfo.InvariantCulture)} on ports [{string.Join(", ", candidatePorts)}]",
+                lastPortException);
+        }
+
+        return usageItems;
     }
 
     private static string? ParseCsrfToken(string commandLine)
@@ -341,31 +316,7 @@ public class AntigravityProvider : ProviderBase
 
         for (var sortIndex = 0; sortIndex < modelSorts.Count; sortIndex++)
         {
-            var modelSort = modelSorts[sortIndex];
-            var sortName = ResolveModelSortName(modelSort, sortIndex);
-            var modelGroups = modelSort.Groups ?? new List<ModelGroup>();
-
-            for (var groupIndex = 0; groupIndex < modelGroups.Count; groupIndex++)
-            {
-                var groupName = ResolveModelGroupName(modelGroups[groupIndex], sortName, groupIndex);
-                foreach (var label in GetModelLabels(modelGroups[groupIndex]))
-                {
-                    if (string.IsNullOrWhiteSpace(label))
-                    {
-                        continue;
-                    }
-
-                    if (masterModelLabelSet.Add(label))
-                    {
-                        masterModelLabels.Add(label);
-                    }
-
-                    if (!labelToGroup.ContainsKey(label))
-                    {
-                        labelToGroup[label] = groupName;
-                    }
-                }
-            }
+            CollectSortGroupLabels(modelSorts[sortIndex], sortIndex, labelToGroup, masterModelLabelSet, masterModelLabels);
         }
 
         if (masterModelLabels.Count == 0)
@@ -378,6 +329,39 @@ public class AntigravityProvider : ProviderBase
         }
 
         return (labelToGroup, masterModelLabels);
+    }
+
+    private static void CollectSortGroupLabels(
+        ClientModelSort sort,
+        int sortIndex,
+        Dictionary<string, string> labelToGroup,
+        HashSet<string> masterModelLabelSet,
+        List<string> masterModelLabels)
+    {
+        var sortName = ResolveModelSortName(sort, sortIndex);
+        var modelGroups = sort.Groups ?? new List<ModelGroup>();
+
+        for (var groupIndex = 0; groupIndex < modelGroups.Count; groupIndex++)
+        {
+            var groupName = ResolveModelGroupName(modelGroups[groupIndex], sortName, groupIndex);
+            foreach (var label in GetModelLabels(modelGroups[groupIndex]))
+            {
+                if (string.IsNullOrWhiteSpace(label))
+                {
+                    continue;
+                }
+
+                if (masterModelLabelSet.Add(label))
+                {
+                    masterModelLabels.Add(label);
+                }
+
+                if (!labelToGroup.ContainsKey(label))
+                {
+                    labelToGroup[label] = groupName;
+                }
+            }
+        }
     }
 
     private static Dictionary<string, ClientModelConfig> BuildConfigMap(List<ClientModelConfig> modelConfigs)
@@ -458,44 +442,54 @@ public class AntigravityProvider : ProviderBase
 
         if (group.ExtensionData != null)
         {
-            foreach (var key in new[] { "labels", "modelLabels", "models", "items", "model_ids", "modelIds" })
-            {
-                if (!group.ExtensionData.TryGetValue(key, out var element) || element.ValueKind != JsonValueKind.Array)
-                {
-                    continue;
-                }
-
-                foreach (var item in element.EnumerateArray())
-                {
-                    if (item.ValueKind == JsonValueKind.String)
-                    {
-                        var value = item.GetString();
-                        if (!string.IsNullOrWhiteSpace(value))
-                        {
-                            labels.Add(value);
-                        }
-                    }
-                    else if (item.ValueKind == JsonValueKind.Object)
-                    {
-                        foreach (var property in new[] { "label", "name", "modelLabel", "model_name" })
-                        {
-                            if (!item.TryGetProperty(property, out var valueElement) || valueElement.ValueKind != JsonValueKind.String)
-                            {
-                                continue;
-                            }
-
-                            var value = valueElement.GetString();
-                            if (!string.IsNullOrWhiteSpace(value))
-                            {
-                                labels.Add(value);
-                            }
-                        }
-                    }
-                }
-            }
+            ExtractLabelsFromExtensionData(group.ExtensionData, labels);
         }
 
         return labels.ToList();
+    }
+
+    private static void ExtractLabelsFromExtensionData(Dictionary<string, JsonElement> extensionData, HashSet<string> labels)
+    {
+        foreach (var key in new[] { "labels", "modelLabels", "models", "items", "model_ids", "modelIds" })
+        {
+            if (!extensionData.TryGetValue(key, out var element) || element.ValueKind != JsonValueKind.Array)
+            {
+                continue;
+            }
+
+            foreach (var item in element.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.String)
+                {
+                    var value = item.GetString();
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        labels.Add(value);
+                    }
+                }
+                else if (item.ValueKind == JsonValueKind.Object)
+                {
+                    ExtractLabelFromObject(item, labels);
+                }
+            }
+        }
+    }
+
+    private static void ExtractLabelFromObject(JsonElement item, HashSet<string> labels)
+    {
+        foreach (var property in new[] { "label", "name", "modelLabel", "model_name" })
+        {
+            if (!item.TryGetProperty(property, out var valueElement) || valueElement.ValueKind != JsonValueKind.String)
+            {
+                continue;
+            }
+
+            var value = valueElement.GetString();
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                labels.Add(value);
+            }
+        }
     }
 
     private static string ResolveModelSortName(ClientModelSort sort, int index)
@@ -588,47 +582,7 @@ public class AntigravityProvider : ProviderBase
             return this._cachedProcessInfos;
         }
 
-        var candidates = new List<(int Pid, string Token, int? Port)>();
-
-        if (OperatingSystem.IsWindows())
-        {
-            try
-            {
-                using var searcher = new ManagementObjectSearcher(
-                    "SELECT ProcessId, CommandLine FROM Win32_Process WHERE Name LIKE 'language_server%'");
-                using var collection = searcher.Get();
-
-                foreach (var obj in collection)
-                {
-                    var cmdLine = obj["CommandLine"]?.ToString();
-                    var pidVal = obj["ProcessId"];
-
-                    if (string.IsNullOrWhiteSpace(cmdLine) || pidVal == null)
-                    {
-                        continue;
-                    }
-
-                    if (!cmdLine.Contains(AntigravityApiIdentifier, StringComparison.OrdinalIgnoreCase))
-                    {
-                        continue;
-                    }
-
-                    var token = ParseCsrfToken(cmdLine);
-                    if (string.IsNullOrEmpty(token))
-                    {
-                        continue;
-                    }
-
-                    var pid = Convert.ToInt32(pidVal, System.Globalization.CultureInfo.InvariantCulture);
-                    var port = ParseExtensionServerPort(cmdLine);
-                    candidates.Add((pid, token, port));
-                }
-            }
-            catch (Exception ex) when (ex is ManagementException or InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
-            {
-                this._logger.LogError(ex, "Process discovery failed");
-            }
-        }
+        var candidates = this.DiscoverWindowsLanguageServerProcesses();
 
         candidates = candidates
             .GroupBy(c => c.Pid)
@@ -637,6 +591,55 @@ public class AntigravityProvider : ProviderBase
 
         this._cachedProcessInfos = candidates;
         this._lastProcessCheck = DateTime.UtcNow;
+        return candidates;
+    }
+
+    private List<(int Pid, string Token, int? Port)> DiscoverWindowsLanguageServerProcesses()
+    {
+        var candidates = new List<(int Pid, string Token, int? Port)>();
+
+        if (!OperatingSystem.IsWindows())
+        {
+            return candidates;
+        }
+
+        try
+        {
+            using var searcher = new ManagementObjectSearcher(
+                "SELECT ProcessId, CommandLine FROM Win32_Process WHERE Name LIKE 'language_server%'");
+            using var collection = searcher.Get();
+
+            foreach (var obj in collection)
+            {
+                var cmdLine = obj["CommandLine"]?.ToString();
+                var pidVal = obj["ProcessId"];
+
+                if (string.IsNullOrWhiteSpace(cmdLine) || pidVal == null)
+                {
+                    continue;
+                }
+
+                if (!cmdLine.Contains(AntigravityApiIdentifier, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var token = ParseCsrfToken(cmdLine);
+                if (string.IsNullOrEmpty(token))
+                {
+                    continue;
+                }
+
+                var pid = Convert.ToInt32(pidVal, System.Globalization.CultureInfo.InvariantCulture);
+                var port = ParseExtensionServerPort(cmdLine);
+                candidates.Add((pid, token, port));
+            }
+        }
+        catch (Exception ex) when (ex is ManagementException or InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
+        {
+            this._logger.LogError(ex, "Process discovery failed");
+        }
+
         return candidates;
     }
 

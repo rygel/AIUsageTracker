@@ -250,6 +250,17 @@ public class JsonConfigLoader : IConfigLoader
         string path,
         bool isAuthFile)
     {
+        this.ApplyAuthProperties(config, element, providerId, path, isAuthFile);
+        this.ApplyDisplayProperties(config, element, providerId, path);
+    }
+
+    private void ApplyAuthProperties(
+        ProviderConfig config,
+        JsonElement element,
+        string providerId,
+        string path,
+        bool isAuthFile)
+    {
         if (element.TryGetProperty("key", out var keyProp) && (isAuthFile || string.IsNullOrEmpty(config.ApiKey)))
         {
             var value = keyProp.GetString();
@@ -274,7 +285,14 @@ public class JsonConfigLoader : IConfigLoader
         {
             config.BaseUrl = urlProp.GetString() ?? config.BaseUrl;
         }
+    }
 
+    private void ApplyDisplayProperties(
+        ProviderConfig config,
+        JsonElement element,
+        string providerId,
+        string path)
+    {
         if (element.TryGetProperty("show_in_tray", out var showProp))
         {
             config.ShowInTray = showProp.ValueKind == JsonValueKind.True;

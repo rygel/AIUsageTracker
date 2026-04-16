@@ -109,42 +109,13 @@ public static class Program
                 await ShowStatusAsync(agentService, json, showAll).ConfigureAwait(false);
                 break;
             case "history":
-                int days = 7;
-                if (args.Length > 1 && int.TryParse(args[1], System.Globalization.CultureInfo.InvariantCulture, out int d))
-                {
-                    days = d;
-                }
-
-                await ShowHistoryAsync(agentService, days, json).ConfigureAwait(false);
+                await ShowHistoryAsync(agentService, ParseDays(args), json).ConfigureAwait(false);
                 break;
             case "list":
                 await ShowListAsync(agentService, json).ConfigureAwait(false);
                 break;
             case "set-key":
-                if (args.Length < 2)
-                {
-                    Console.WriteLine("Usage: act set-key <provider-id> [api-key]");
-                    Console.WriteLine("  If api-key is omitted, you will be prompted to enter it.");
-                    return;
-                }
-
-                string apiKeyArg;
-                if (args.Length >= 3)
-                {
-                    apiKeyArg = args[2];
-                }
-                else
-                {
-                    Console.Write($"Enter API key for '{args[1]}': ");
-                    apiKeyArg = Console.ReadLine() ?? string.Empty;
-                    if (string.IsNullOrWhiteSpace(apiKeyArg))
-                    {
-                        Console.WriteLine("No key entered. Aborting.");
-                        return;
-                    }
-                }
-
-                await SetKeyAsync(agentService, args[1], apiKeyArg).ConfigureAwait(false);
+                await HandleSetKeyAsync(agentService, args).ConfigureAwait(false);
                 break;
             case "remove-key":
                 if (args.Length < 2)
@@ -159,19 +130,7 @@ public static class Program
                 await ScanKeysAsync(agentService).ConfigureAwait(false);
                 break;
             case "config":
-                if (args.Length == 1)
-                {
-                    await ShowConfigAsync().ConfigureAwait(false);
-                }
-                else if (args.Length >= 3)
-                {
-                    await SetConfigAsync(args[1], args[2]).ConfigureAwait(false);
-                }
-                else
-                {
-                    Console.WriteLine("Usage: act config [key] [value]");
-                }
-
+                await HandleConfigCommandAsync(args).ConfigureAwait(false);
                 break;
             case "agent":
                 if (args.Length < 2)
@@ -192,6 +151,60 @@ public static class Program
             default:
                 Console.WriteLine($"Unknown command: {command}");
                 break;
+        }
+    }
+
+    private static int ParseDays(string[] args)
+    {
+        if (args.Length > 1 && int.TryParse(args[1], System.Globalization.CultureInfo.InvariantCulture, out int d))
+        {
+            return d;
+        }
+
+        return 7;
+    }
+
+    private static async Task HandleSetKeyAsync(IMonitorService service, string[] args)
+    {
+        if (args.Length < 2)
+        {
+            Console.WriteLine("Usage: act set-key <provider-id> [api-key]");
+            Console.WriteLine("  If api-key is omitted, you will be prompted to enter it.");
+            return;
+        }
+
+        string apiKeyArg;
+        if (args.Length >= 3)
+        {
+            apiKeyArg = args[2];
+        }
+        else
+        {
+            Console.Write($"Enter API key for '{args[1]}': ");
+            apiKeyArg = Console.ReadLine() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(apiKeyArg))
+            {
+                Console.WriteLine("No key entered. Aborting.");
+                return;
+            }
+        }
+
+        await SetKeyAsync(service, args[1], apiKeyArg).ConfigureAwait(false);
+    }
+
+    private static async Task HandleConfigCommandAsync(string[] args)
+    {
+        if (args.Length == 1)
+        {
+            await ShowConfigAsync().ConfigureAwait(false);
+        }
+        else if (args.Length >= 3)
+        {
+            await SetConfigAsync(args[1], args[2]).ConfigureAwait(false);
+        }
+        else
+        {
+            Console.WriteLine("Usage: act config [key] [value]");
         }
     }
 
@@ -530,36 +543,38 @@ public static class Program
 
             foreach (var u in usage)
             {
-                var usedPct = u.UsedPercent;
-                var pct = u.IsAvailable ? $"{usedPct.ToString("F0", CultureInfo.InvariantCulture)}%" : "-";
-
-                // Handle missing PlanType or IsQuotaBased if relying on serialized data
-                var type = u.IsQuotaBased ? "Quota" : "Pay-As-You-Go";
-                var accountInfo = !string.IsNullOrWhiteSpace(u.AccountName) ? $" [{u.AccountName}]" : string.Empty;
-                var providerDisplayName = ProviderMetadataCatalog.ResolveDisplayLabel(u.ProviderId, u.ProviderName);
-
-                var description = u.Description;
-
-                // Append account to description (first line)
-                if (string.IsNullOrEmpty(description))
-                {
-                    description = accountInfo.Trim();
-                }
-                else
-                {
-                    // If existing desc, append
-                    description += accountInfo;
-                }
-
-                var lines = description.Split(DescriptionSplitSeparators, StringSplitOptions.None);
-
-                Console.WriteLine($"{providerDisplayName,-36} | {type,-14} | {pct,-10} | {lines[0]}");
-
-                for (int i = 1; i < lines.Length; i++)
-                {
-                    Console.WriteLine($"{string.Empty,-36} | {string.Empty,-14} | {string.Empty,-10} | {lines[i]}");
-                }
+                WriteProviderStatusLine(u);
             }
+        }
+    }
+
+    private static void WriteProviderStatusLine(ProviderUsage u)
+    {
+        var usedPct = u.UsedPercent;
+        var pct = u.IsAvailable ? $"{usedPct.ToString("F0", CultureInfo.InvariantCulture)}%" : "-";
+
+        var type = u.IsQuotaBased ? "Quota" : "Pay-As-You-Go";
+        var accountInfo = !string.IsNullOrWhiteSpace(u.AccountName) ? $" [{u.AccountName}]" : string.Empty;
+        var providerDisplayName = ProviderMetadataCatalog.ResolveDisplayLabel(u.ProviderId, u.ProviderName);
+
+        var description = u.Description;
+
+        if (string.IsNullOrEmpty(description))
+        {
+            description = accountInfo.Trim();
+        }
+        else
+        {
+            description += accountInfo;
+        }
+
+        var lines = description.Split(DescriptionSplitSeparators, StringSplitOptions.None);
+
+        Console.WriteLine($"{providerDisplayName,-36} | {type,-14} | {pct,-10} | {lines[0]}");
+
+        for (int i = 1; i < lines.Length; i++)
+        {
+            Console.WriteLine($"{string.Empty,-36} | {string.Empty,-14} | {string.Empty,-10} | {lines[i]}");
         }
     }
 

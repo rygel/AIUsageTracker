@@ -162,7 +162,13 @@ public partial class MainWindow : Window
             return;
         }
 
-#pragma warning disable VSTHRD101 // WPF event subscriptions intentionally use async lambdas for UI event handlers.
+        this.WireUpEventHandlers();
+        this.UpdatePrivacyButtonState();
+    }
+
+    private void WireUpEventHandlers()
+    {
+#pragma warning disable VSTHRD101
         this._updateCheckTimer.Tick += async (s, e) =>
         {
             try
@@ -185,74 +191,10 @@ public partial class MainWindow : Window
         }
 
         PrivacyChangedWeakEventManager.AddHandler(this._privacyChangedHandler);
-        this.Closed += (s, e) =>
-        {
-            PrivacyChangedWeakEventManager.RemoveHandler(this._privacyChangedHandler);
-            this._watchdogCts.Cancel();
-            this._watchdogCts.Dispose();
-            if (OperatingSystem.IsWindows())
-            {
-                SystemEvents.PowerModeChanged -= this.OnPowerModeChanged;
-            }
-
-            this._updateCheckTimer.Stop();
-            this._alwaysOnTopTimer.Stop();
-            this.SourceInitialized -= this.OnSourceInitialized;
-
-            if (this._hubConnection != null)
-            {
-                _ = this._hubConnection.DisposeAsync();
-                this._hubConnection = null;
-            }
-
-            if (this._windowSource is not null)
-            {
-                this._windowSource.RemoveHook(this.WndProc);
-                this._windowSource = null;
-            }
-        };
-        this.UpdatePrivacyButtonState();
-
-        this.Loaded += async (s, e) =>
-        {
-            try
-            {
-                await this.InitializeAsync().ConfigureAwait(true);
-                _ = this.CheckForUpdatesAsync().ContinueWith(
-                    t => this._logger.LogError(t.Exception, "CheckForUpdatesAsync failed unhandled"),
-                    CancellationToken.None,
-                    TaskContinuationOptions.OnlyOnFaulted,
-                    TaskScheduler.Default);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                this._logger.LogError(ex, "Window_Loaded failed");
-            }
-        };
-
-        // Track window position changes
-        this.LocationChanged += async (s, e) =>
-        {
-            try
-            {
-                await this.SaveWindowPositionAsync().ConfigureAwait(true);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                this._logger.LogError(ex, "LocationChanged handler failed");
-            }
-        };
-        this.SizeChanged += async (s, e) =>
-        {
-            try
-            {
-                await this.SaveWindowPositionAsync().ConfigureAwait(true);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                this._logger.LogError(ex, "SizeChanged handler failed");
-            }
-        };
+        this.Closed += this.OnWindowClosed;
+        this.Loaded += this.OnWindowLoaded;
+        this.LocationChanged += this.OnWindowLocationChanged;
+        this.SizeChanged += this.OnWindowSizeChanged;
 #pragma warning restore VSTHRD101
         this.Activated += (s, e) =>
         {
@@ -292,6 +234,76 @@ public partial class MainWindow : Window
             this.LogWindowFocusTransition($"IsVisibleChanged -> {this.IsVisible}");
         };
     }
+
+#pragma warning disable VSTHRD100
+    private async void OnWindowClosed(object? s, EventArgs e)
+    {
+        PrivacyChangedWeakEventManager.RemoveHandler(this._privacyChangedHandler);
+        this._watchdogCts.Cancel();
+        this._watchdogCts.Dispose();
+        if (OperatingSystem.IsWindows())
+        {
+            SystemEvents.PowerModeChanged -= this.OnPowerModeChanged;
+        }
+
+        this._updateCheckTimer.Stop();
+        this._alwaysOnTopTimer.Stop();
+        this.SourceInitialized -= this.OnSourceInitialized;
+
+        if (this._hubConnection != null)
+        {
+            _ = this._hubConnection.DisposeAsync();
+            this._hubConnection = null;
+        }
+
+        if (this._windowSource is not null)
+        {
+            this._windowSource.RemoveHook(this.WndProc);
+            this._windowSource = null;
+        }
+    }
+
+    private async void OnWindowLoaded(object s, RoutedEventArgs e)
+    {
+        try
+        {
+            await this.InitializeAsync().ConfigureAwait(true);
+            _ = this.CheckForUpdatesAsync().ContinueWith(
+                t => this._logger.LogError(t.Exception, "CheckForUpdatesAsync failed unhandled"),
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted,
+                TaskScheduler.Default);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            this._logger.LogError(ex, "Window_Loaded failed");
+        }
+    }
+
+    private async void OnWindowLocationChanged(object? s, EventArgs e)
+    {
+        try
+        {
+            await this.SaveWindowPositionAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            this._logger.LogError(ex, "LocationChanged handler failed");
+        }
+    }
+
+    private async void OnWindowSizeChanged(object? s, SizeChangedEventArgs e)
+    {
+        try
+        {
+            await this.SaveWindowPositionAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            this._logger.LogError(ex, "SizeChanged handler failed");
+        }
+    }
+#pragma warning restore VSTHRD100
 
     private void ApplyVersionDisplay()
     {

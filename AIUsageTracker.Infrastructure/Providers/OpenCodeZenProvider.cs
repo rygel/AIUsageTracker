@@ -229,7 +229,6 @@ public class OpenCodeZenProvider : ProviderBase
         var results = new List<ModelUsageEntry>();
         var sections = SeparatorRegex.Split(cleaned);
 
-        // Find MODEL USAGE section — blocks between the header and the next major section
         var inModelSection = false;
         foreach (var section in sections)
         {
@@ -239,9 +238,7 @@ public class OpenCodeZenProvider : ProviderBase
                 continue;
             }
 
-            if (inModelSection && (section.Contains("TOOL USAGE", StringComparison.Ordinal) ||
-                                   section.Contains("OVERVIEW", StringComparison.Ordinal) ||
-                                   section.Contains("COST & TOKENS", StringComparison.Ordinal)))
+            if (inModelSection && IsSectionTerminator(section))
             {
                 break;
             }
@@ -251,57 +248,68 @@ public class OpenCodeZenProvider : ProviderBase
                 continue;
             }
 
-            // Each block is one model — extract fields line by line
-            var lines = section.Split('\n')
-                .Select(l => StripBoxDrawingChars(l).Trim())
-                .Where(l => !string.IsNullOrWhiteSpace(l))
-                .ToList();
-
-            if (lines.Count == 0)
-            {
-                continue;
-            }
-
-            // First line is model name (e.g. "opencode-go/kimi-k2.5")
-            var modelName = lines[0].Trim();
-            if (string.IsNullOrWhiteSpace(modelName) ||
-                modelName.Contains("MODEL USAGE", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            var entry = new ModelUsageEntry { Name = modelName };
-            foreach (var line in lines.Skip(1))
-            {
-                if (line.StartsWith("Messages", StringComparison.OrdinalIgnoreCase))
-                {
-                    entry.Messages = ParseValue<int>(line, @"Messages\s+([0-9,]+)");
-                }
-                else if (line.StartsWith("Input Tokens", StringComparison.OrdinalIgnoreCase))
-                {
-                    entry.InputTokens = ExtractTokenCount(line, @"Input Tokens\s+([0-9.,KMBT]+)");
-                }
-                else if (line.StartsWith("Output Tokens", StringComparison.OrdinalIgnoreCase))
-                {
-                    entry.OutputTokens = ExtractTokenCount(line, @"Output Tokens\s+([0-9.,KMBT]+)");
-                }
-                else if (line.StartsWith("Cache Read", StringComparison.OrdinalIgnoreCase))
-                {
-                    entry.CacheReadTokens = ExtractTokenCount(line, @"Cache Read\s+([0-9.,KMBT]+)");
-                }
-                else if (line.StartsWith("Cost", StringComparison.OrdinalIgnoreCase))
-                {
-                    entry.Cost = ParseValue<double>(line, @"Cost\s+\$([0-9.]+)");
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(entry.Name))
+            var entry = ParseModelSection(section);
+            if (entry != null)
             {
                 results.Add(entry);
             }
         }
 
         return results.OrderByDescending(m => m.Cost).ThenByDescending(m => m.Messages).ToList();
+    }
+
+    private static bool IsSectionTerminator(string section)
+    {
+        return section.Contains("TOOL USAGE", StringComparison.Ordinal) ||
+               section.Contains("OVERVIEW", StringComparison.Ordinal) ||
+               section.Contains("COST & TOKENS", StringComparison.Ordinal);
+    }
+
+    private static ModelUsageEntry? ParseModelSection(string section)
+    {
+        var lines = section.Split('\n')
+            .Select(l => StripBoxDrawingChars(l).Trim())
+            .Where(l => !string.IsNullOrWhiteSpace(l))
+            .ToList();
+
+        if (lines.Count == 0)
+        {
+            return null;
+        }
+
+        var modelName = lines[0].Trim();
+        if (string.IsNullOrWhiteSpace(modelName) ||
+            modelName.Contains("MODEL USAGE", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var entry = new ModelUsageEntry { Name = modelName };
+        foreach (var line in lines.Skip(1))
+        {
+            if (line.StartsWith("Messages", StringComparison.OrdinalIgnoreCase))
+            {
+                entry.Messages = ParseValue<int>(line, @"Messages\s+([0-9,]+)");
+            }
+            else if (line.StartsWith("Input Tokens", StringComparison.OrdinalIgnoreCase))
+            {
+                entry.InputTokens = ExtractTokenCount(line, @"Input Tokens\s+([0-9.,KMBT]+)");
+            }
+            else if (line.StartsWith("Output Tokens", StringComparison.OrdinalIgnoreCase))
+            {
+                entry.OutputTokens = ExtractTokenCount(line, @"Output Tokens\s+([0-9.,KMBT]+)");
+            }
+            else if (line.StartsWith("Cache Read", StringComparison.OrdinalIgnoreCase))
+            {
+                entry.CacheReadTokens = ExtractTokenCount(line, @"Cache Read\s+([0-9.,KMBT]+)");
+            }
+            else if (line.StartsWith("Cost", StringComparison.OrdinalIgnoreCase))
+            {
+                entry.Cost = ParseValue<double>(line, @"Cost\s+\$([0-9.]+)");
+            }
+        }
+
+        return string.IsNullOrWhiteSpace(entry.Name) ? null : entry;
     }
 
     private static List<ToolUsageEntry> ParseToolUsage(string cleaned)

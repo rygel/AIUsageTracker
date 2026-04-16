@@ -241,6 +241,58 @@ public class GitHubCopilotProvider : ProviderBase
         state.PrimaryQuotaWindowName = windowName;
     }
 
+    private static void ApplyQuotaSnapshots(CopilotUsageState state, System.Text.Json.JsonElement snapshots)
+    {
+        var selectedWindowName = string.Empty;
+        var selectedWindowEntitlement = 0.0;
+        var selectedWindowRemaining = 0.0;
+        var selectedWindowRemainingPercent = 0.0;
+
+        if (snapshots.TryGetProperty("premium_interactions", out var premium) &&
+            TryParseFiniteQuotaSnapshot(premium, out var entitlement, out var remaining, out var remainingPercent))
+        {
+            var normalizedRemaining = Math.Clamp(remaining, 0, entitlement);
+            var usedPercent = Math.Clamp(100.0 - remainingPercent, 0.0, 100.0);
+            selectedWindowName = "Weekly Quota";
+            selectedWindowEntitlement = entitlement;
+            selectedWindowRemaining = normalizedRemaining;
+            selectedWindowRemainingPercent = remainingPercent;
+            state.WeeklyUsedPercent = usedPercent;
+            state.WeeklyDescription = $"{normalizedRemaining.ToString("F0", CultureInfo.InvariantCulture)} / {entitlement.ToString("F0", CultureInfo.InvariantCulture)} remaining";
+            state.WeeklyEntitlement = entitlement;
+            state.WeeklyUsed = entitlement - normalizedRemaining;
+        }
+
+        if (snapshots.TryGetProperty("usage", out var usageSnapshot) &&
+            TryParseFiniteQuotaSnapshot(usageSnapshot, out var uEnt, out var uRem, out var uRemainingPercent))
+        {
+            var normalizedRemaining = Math.Clamp(uRem, 0, uEnt);
+            var uUsedPercent = Math.Clamp(100.0 - uRemainingPercent, 0.0, 100.0);
+            if (string.IsNullOrEmpty(selectedWindowName))
+            {
+                selectedWindowName = "5-hour Window";
+                selectedWindowEntitlement = uEnt;
+                selectedWindowRemaining = normalizedRemaining;
+                selectedWindowRemainingPercent = uRemainingPercent;
+            }
+
+            state.BurstUsedPercent = uUsedPercent;
+            state.BurstDescription = $"{normalizedRemaining.ToString("F0", CultureInfo.InvariantCulture)} / {uEnt.ToString("F0", CultureInfo.InvariantCulture)} remaining";
+            state.BurstEntitlement = uEnt;
+            state.BurstUsed = uEnt - normalizedRemaining;
+        }
+
+        if (!string.IsNullOrEmpty(selectedWindowName))
+        {
+            ApplyQuotaWindowSnapshot(
+                state,
+                selectedWindowName,
+                selectedWindowEntitlement,
+                selectedWindowRemaining,
+                selectedWindowRemainingPercent);
+        }
+    }
+
     private static string BuildFinalDescription(CopilotUsageState state)
     {
         if (state.HasCopilotQuotaData)
@@ -415,56 +467,7 @@ public class GitHubCopilotProvider : ProviderBase
 
             if (root.TryGetProperty("quota_snapshots", out var snapshots))
             {
-                var selectedWindowName = string.Empty;
-                var selectedWindowEntitlement = 0.0;
-                var selectedWindowRemaining = 0.0;
-                var selectedWindowRemainingPercent = 0.0;
-
-                // 1. Premium/interaction window is the primary top-level signal for Copilot quota.
-                if (snapshots.TryGetProperty("premium_interactions", out var premium) &&
-                    TryParseFiniteQuotaSnapshot(premium, out var entitlement, out var remaining, out var remainingPercent))
-                {
-                    var normalizedRemaining = Math.Clamp(remaining, 0, entitlement);
-                    var usedPercent = Math.Clamp(100.0 - remainingPercent, 0.0, 100.0);
-                    selectedWindowName = "Weekly Quota";
-                    selectedWindowEntitlement = entitlement;
-                    selectedWindowRemaining = normalizedRemaining;
-                    selectedWindowRemainingPercent = remainingPercent;
-                    state.WeeklyUsedPercent = usedPercent;
-                    state.WeeklyDescription = $"{normalizedRemaining.ToString("F0", CultureInfo.InvariantCulture)} / {entitlement.ToString("F0", CultureInfo.InvariantCulture)} remaining";
-                    state.WeeklyEntitlement = entitlement;
-                    state.WeeklyUsed = entitlement - normalizedRemaining;
-                }
-
-                // 2. Usage/session window is supplementary when present.
-                if (snapshots.TryGetProperty("usage", out var usageSnapshot) &&
-                    TryParseFiniteQuotaSnapshot(usageSnapshot, out var uEnt, out var uRem, out var uRemainingPercent))
-                {
-                    var normalizedRemaining = Math.Clamp(uRem, 0, uEnt);
-                    var uUsedPercent = Math.Clamp(100.0 - uRemainingPercent, 0.0, 100.0);
-                    if (string.IsNullOrEmpty(selectedWindowName))
-                    {
-                        selectedWindowName = "5-hour Window";
-                        selectedWindowEntitlement = uEnt;
-                        selectedWindowRemaining = normalizedRemaining;
-                        selectedWindowRemainingPercent = uRemainingPercent;
-                    }
-
-                    state.BurstUsedPercent = uUsedPercent;
-                    state.BurstDescription = $"{normalizedRemaining.ToString("F0", CultureInfo.InvariantCulture)} / {uEnt.ToString("F0", CultureInfo.InvariantCulture)} remaining";
-                    state.BurstEntitlement = uEnt;
-                    state.BurstUsed = uEnt - normalizedRemaining;
-                }
-
-                if (!string.IsNullOrEmpty(selectedWindowName))
-                {
-                    ApplyQuotaWindowSnapshot(
-                        state,
-                        selectedWindowName,
-                        selectedWindowEntitlement,
-                        selectedWindowRemaining,
-                        selectedWindowRemainingPercent);
-                }
+                ApplyQuotaSnapshots(state, snapshots);
             }
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)

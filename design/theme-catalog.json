@@ -1,8 +1,8 @@
 {
   "defaultTheme": "Dark",
   "sourcePolicy": {
-    "notes": "Use this file as the single source of truth for theme metadata across Slim/Web and tests. Updated for PR-283 App.xaml.cs DI/lifecycle service registration maintenance and recent screenshot/smoke-test maintenance on 2026-03-10; no theme definitions changed.",
-    "updatedAt": "2026-03-10",
+    "notes": "Use this file as the single source of truth for theme metadata across Slim/Web and tests. Updated for S7761 fix: replaced setAttribute with dataset property in theme.js.",
+    "updatedAt": "2026-04-16",
     "references": [
       "https://catppuccin.com/palette/",
       "https://code.visualstudio.com/docs/getstarted/themes"
