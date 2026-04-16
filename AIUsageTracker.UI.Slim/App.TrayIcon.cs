@@ -113,7 +113,7 @@ public partial class App
         {
             var key = kvp.Key;
             var info = kvp.Value;
-            var iconSource = this.GenerateUsageIcon(info.FillPercent, info.PaceColor, yellowThreshold, redThreshold, showUsed, info.IsQuota);
+            var iconSource = this.GenerateUsageIcon(info.FillPercent, info.PaceColor, yellowThreshold, redThreshold, showUsed);
 
             if (!this._providerTrayIcons.ContainsKey(key))
             {
@@ -160,8 +160,7 @@ public partial class App
         PaceColorResult paceColor,
         int yellowThreshold,
         int redThreshold,
-        bool showUsed = false,
-        bool isQuota = false)
+        bool showUsed = false)
     {
         var size = 32;
         var visual = new DrawingVisual();
@@ -179,9 +178,18 @@ public partial class App
             else
             {
                 var colorPercent = paceColor.ColorPercent;
-                fillBrush = colorPercent >= redThreshold
-                    ? Brushes.Crimson
-                    : (colorPercent >= yellowThreshold ? Brushes.Gold : Brushes.MediumSeaGreen);
+                if (colorPercent >= redThreshold)
+                {
+                    fillBrush = Brushes.Crimson;
+                }
+                else if (colorPercent >= yellowThreshold)
+                {
+                    fillBrush = Brushes.Gold;
+                }
+                else
+                {
+                    fillBrush = Brushes.MediumSeaGreen;
+                }
             }
 
             var barWidth = size - 6;

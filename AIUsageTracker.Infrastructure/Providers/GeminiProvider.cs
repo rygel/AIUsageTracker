@@ -2,6 +2,8 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+#pragma warning disable S6418 // OAuth client secrets are public, intentionally shipped with gemini-cli tool
+
 using System.Globalization;
 using System.Net.Http.Json;
 using System.Text;
@@ -485,7 +487,7 @@ public class GeminiProvider : ProviderBase
         response.EnsureSuccessStatusCode();
 
         var tokenResponse = await response.Content.ReadFromJsonAsync<GeminiTokenResponse>().ConfigureAwait(false);
-        return tokenResponse?.AccessToken ?? throw new Exception("Failed to retrieve access token");
+        return tokenResponse?.AccessToken ?? throw new InvalidOperationException("Failed to retrieve access token");
     }
 
     private async Task<List<Bucket>?> FetchQuotaAsync(string accessToken, string projectId)
@@ -650,22 +652,6 @@ public class GeminiProvider : ProviderBase
             "exp" => "Exp",
             _ => char.ToUpperInvariant(token[0]) + token[1..].ToLowerInvariant(),
         };
-    }
-
-    private static string RedactEmail(string? email)
-    {
-        if (string.IsNullOrWhiteSpace(email))
-        {
-            return "(unknown)";
-        }
-
-        var atIndex = email.IndexOf("@", StringComparison.Ordinal);
-        if (atIndex <= 0)
-        {
-            return "***";
-        }
-
-        return email[0] + "***" + email[atIndex..];
     }
 
     private static string TruncateForLog(string? value, int maxLength = 600)

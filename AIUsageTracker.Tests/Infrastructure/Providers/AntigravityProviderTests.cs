@@ -23,19 +23,6 @@ public class AntigravityProviderTests : HttpProviderTestBase<AntigravityProvider
     }
 
     [Fact]
-    public void CreateLocalhostClient_HasShorterTimeout()
-    {
-        // Act
-        var method = typeof(AntigravityProvider).GetMethod("CreateLocalhostClient", BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.NotNull(method);
-
-        using var client = (HttpClient)method.Invoke(null, null)!;
-
-        // Assert
-        Assert.Equal(TimeSpan.FromSeconds(1.5), client.Timeout);
-    }
-
-    [Fact]
     public async Task GetUsageAsync_WhenNotRunning_ReturnsQuotaPlanTypeAsync()
     {
         // Arrange

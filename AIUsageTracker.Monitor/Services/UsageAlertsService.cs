@@ -203,8 +203,8 @@ public class UsageAlertsService
             return false;
         }
 
-        if (!TimeSpan.TryParse(prefs.QuietHoursStart, out var start) ||
-            !TimeSpan.TryParse(prefs.QuietHoursEnd, out var end))
+        if (!TimeSpan.TryParse(prefs.QuietHoursStart, System.Globalization.CultureInfo.InvariantCulture, out var start) ||
+            !TimeSpan.TryParse(prefs.QuietHoursEnd, System.Globalization.CultureInfo.InvariantCulture, out var end))
         {
             return false;
         }

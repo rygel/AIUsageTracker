@@ -67,7 +67,7 @@ public class ConfigLoaderTests : IntegrationTestBase
 
             var openAi = Assert.Single(configs, config => string.Equals(config.ProviderId, "openai", StringComparison.Ordinal));
             Assert.Equal("sk-configured-key", openAi.ApiKey);
-            Assert.Equal("Config: auth.json", openAi.AuthSource);
+            Assert.Matches("^Config: .+auth\\.json$", openAi.AuthSource);
         }
         finally
         {

@@ -176,13 +176,21 @@ public class KimiProvider : ProviderBase
                     }
 
                     var quotaBucketKind = DetermineWindowKind(win.Duration, win.TimeUnit);
-                    var periodDuration = quotaBucketKind == WindowKind.Rolling
-                        ? TimeSpan.FromDays(win.Duration)
-                        : quotaBucketKind == WindowKind.Burst
-                            ? (string.Equals(win.TimeUnit, "TIME_UNIT_HOUR", StringComparison.Ordinal)
-                                ? TimeSpan.FromHours(win.Duration)
-                                : TimeSpan.FromMinutes(win.Duration))
-                            : (TimeSpan?)null;
+                    TimeSpan? periodDuration;
+                    if (quotaBucketKind == WindowKind.Rolling)
+                    {
+                        periodDuration = TimeSpan.FromDays(win.Duration);
+                    }
+                    else if (quotaBucketKind == WindowKind.Burst)
+                    {
+                        periodDuration = string.Equals(win.TimeUnit, "TIME_UNIT_HOUR", StringComparison.Ordinal)
+                            ? TimeSpan.FromHours(win.Duration)
+                            : TimeSpan.FromMinutes(win.Duration);
+                    }
+                    else
+                    {
+                        periodDuration = null;
+                    }
 
                     var baseCardId = name.ToLowerInvariant()
                         .Replace(" ", "-", StringComparison.Ordinal)

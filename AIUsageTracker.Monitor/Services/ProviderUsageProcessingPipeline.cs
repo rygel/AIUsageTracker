@@ -79,7 +79,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
                 continue;
             }
 
-            normalized = this.ApplyDetailContractStage(normalized, ref detailContractAdjustedCount);
+            normalized = this.ApplyDetailContractStage(normalized);
 
             accepted.Add(normalized);
         }
@@ -178,8 +178,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
     }
 
     private ProviderUsage ApplyDetailContractStage(
-        ProviderUsage usage,
-        ref int detailContractAdjustedCount)
+        ProviderUsage usage)
     {
         // With flat cards, there are no sub-details to validate — this stage is a no-op.
         return usage;

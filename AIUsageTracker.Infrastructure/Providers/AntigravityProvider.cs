@@ -180,7 +180,7 @@ public class AntigravityProvider : ProviderBase
 
                     if (!candidatePorts.Any())
                     {
-                        throw new Exception($"No candidate Antigravity ports discovered for PID {pid}");
+                        throw new InvalidOperationException($"No candidate Antigravity ports discovered for PID {pid}");
                     }
 
                     // 3. Request
@@ -202,7 +202,7 @@ public class AntigravityProvider : ProviderBase
 
                     if (usageItems == null)
                     {
-                        throw new Exception(
+                        throw new InvalidOperationException(
                             $"Failed to fetch Antigravity usage for PID {pid} on ports [{string.Join(", ", candidatePorts)}]",
                             lastPortException);
                     }
@@ -291,14 +291,6 @@ public class AntigravityProvider : ProviderBase
             },
             };
         }
-    }
-
-    private static HttpClient CreateLocalhostClient()
-    {
-        return new HttpClient
-        {
-            Timeout = TimeSpan.FromSeconds(1.5),
-        };
     }
 
     private static string? ParseCsrfToken(string commandLine)
@@ -730,7 +722,7 @@ public class AntigravityProvider : ProviderBase
 
         if (data?.UserStatus == null)
         {
-            throw new Exception("Invalid Antigravity response");
+            throw new InvalidOperationException("Invalid Antigravity response");
         }
 
         this._logger.LogDebug(

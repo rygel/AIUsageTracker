@@ -4,6 +4,7 @@
 
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
@@ -203,7 +204,28 @@ public partial class MainWindow : Window
 
         // Click handler
         header.Cursor = System.Windows.Input.Cursors.Hand;
-        header.MouseLeftButtonDown += async (s, e) =>
+        header.MouseLeftButtonDown += this.CreateHeaderClickHandler(getCollapsed, setCollapsed, container, toggleText);
+
+        Grid.SetColumn(toggleText, 0);
+        Grid.SetColumn(titleBlock, 1);
+        Grid.SetColumn(line, 2);
+
+        header.Children.Add(toggleText);
+        header.Children.Add(titleBlock);
+        header.Children.Add(line);
+
+        return (header, container);
+    }
+
+    // MA0147: async void is required for MouseButtonEventHandler delegate
+#pragma warning disable MA0147
+    private MouseButtonEventHandler CreateHeaderClickHandler(
+        Func<bool> getCollapsed,
+        Action<bool> setCollapsed,
+        StackPanel container,
+        TextBlock toggleText)
+    {
+        return async (s, e) =>
         {
             try
             {
@@ -218,16 +240,7 @@ public partial class MainWindow : Window
                 this._logger.LogWarning(ex, "Failed to save collapse state");
             }
         };
-
-        Grid.SetColumn(toggleText, 0);
-        Grid.SetColumn(titleBlock, 1);
-        Grid.SetColumn(line, 2);
-
-        header.Children.Add(toggleText);
-        header.Children.Add(titleBlock);
-        header.Children.Add(line);
-
-        return (header, container);
+#pragma warning restore MA0147
     }
 
     private ProviderCardRenderer CreateProviderCardRenderer()
@@ -309,14 +322,14 @@ public partial class MainWindow : Window
 
         var contextMenu = new ContextMenu();
         var designerItem = new MenuItem { Header = "Card settings..." };
-        designerItem.Click += (_, _) => this.OpenCardSettings();
+        designerItem.Click += async (_, _) => await this.OpenCardSettingsAsync().ConfigureAwait(true);
         contextMenu.Items.Add(designerItem);
         card.ContextMenu = contextMenu;
 
         container.Children.Add(card);
     }
 
-    private async void OpenCardSettings()
+    private async Task OpenCardSettingsAsync()
     {
         try
         {

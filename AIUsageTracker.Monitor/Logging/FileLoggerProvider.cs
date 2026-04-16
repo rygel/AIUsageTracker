@@ -22,5 +22,11 @@ public class FileLoggerProvider : ILoggerProvider
 
     public void Dispose()
     {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
     }
 }

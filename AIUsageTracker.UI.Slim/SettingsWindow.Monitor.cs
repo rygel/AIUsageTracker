@@ -354,7 +354,7 @@ public partial class SettingsWindow
 
     private string SerializeBundlePayload<T>(T? payload, string emptyFallback)
     {
-        if (payload == null)
+        if (EqualityComparer<T>.Default.Equals(payload, default))
         {
             return emptyFallback;
         }

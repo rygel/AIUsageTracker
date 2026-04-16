@@ -111,33 +111,7 @@ public static class SessionIdentityHelper
         switch (element.ValueKind)
         {
             case JsonValueKind.Object:
-                foreach (var property in element.EnumerateObject())
-                {
-                    if (property.Value.ValueKind == JsonValueKind.String)
-                    {
-                        var value = property.Value.GetString();
-                        if (!string.IsNullOrWhiteSpace(value))
-                        {
-                            var key = property.Name.ToLowerInvariant();
-                            if (key.Contains("email", StringComparison.Ordinal) ||
-                                key.Contains("username", StringComparison.Ordinal) ||
-                                key.Contains("login", StringComparison.Ordinal) ||
-                                key.Contains("user", StringComparison.Ordinal))
-                            {
-                                return value;
-                            }
-                        }
-                    }
-
-                    var nested = FindIdentityInJson(property.Value);
-                    if (!string.IsNullOrWhiteSpace(nested))
-                    {
-                        return nested;
-                    }
-                }
-
-                break;
-
+                return FindIdentityInObject(element);
             case JsonValueKind.Array:
                 return element.EnumerateArray()
                     .Select(FindIdentityInJson)
@@ -145,6 +119,38 @@ public static class SessionIdentityHelper
         }
 
         return null;
+    }
+
+    private static string? FindIdentityInObject(JsonElement element)
+    {
+        foreach (var property in element.EnumerateObject())
+        {
+            if (property.Value.ValueKind == JsonValueKind.String)
+            {
+                var value = property.Value.GetString();
+                if (IsIdentityKey(property.Name) && !string.IsNullOrWhiteSpace(value))
+                {
+                    return value;
+                }
+            }
+
+            var nested = FindIdentityInJson(property.Value);
+            if (!string.IsNullOrWhiteSpace(nested))
+            {
+                return nested;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsIdentityKey(string key)
+    {
+        var lower = key.ToLowerInvariant();
+        return lower.Contains("email", StringComparison.Ordinal) ||
+               lower.Contains("username", StringComparison.Ordinal) ||
+               lower.Contains("login", StringComparison.Ordinal) ||
+               lower.Contains("user", StringComparison.Ordinal);
     }
 
     public static bool IsEmailLike(string? value)

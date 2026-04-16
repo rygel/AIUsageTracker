@@ -17,7 +17,7 @@ const constructorEnd = '            _updateCheckTimer.Start();\n        }';
 content = content.replace(constructorEnd, constructorEnd + helperMethod);
 
 // Replace all (SolidColorBrush)Application.Current.Resources["KEY"] with GetThemeBrush("KEY", Brushes.Gray)
-content = content.replace(/\(SolidColorBrush\)Application\.Current\.Resources\["([^"]+)"\]/g, 'GetThemeBrush("$1", Brushes.Gray)');
+content = content.replaceAll(/\(SolidColorBrush\)Application\.Current\.Resources\["([^"]+)"\]/g, 'GetThemeBrush("$1", Brushes.Gray)');
 
 fs.writeFileSync('AIConsumptionTracker.UI/MainWindow.xaml.cs', content);
 console.log('Done');

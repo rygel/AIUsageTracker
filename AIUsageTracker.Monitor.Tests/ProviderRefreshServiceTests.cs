@@ -240,9 +240,9 @@ public class ProviderRefreshServiceTests
             stoppedActivities,
             activity => string.Equals(activity.OperationName, "monitor.provider_refresh", StringComparison.Ordinal));
         Assert.Equal(ActivityStatusCode.Error, refreshActivity.Status);
-        Assert.Equal(false, refreshActivity.TagObjects.FirstOrDefault(tag => string.Equals(tag.Key, "refresh.force_all", StringComparison.Ordinal)).Value);
+        Assert.False((bool)refreshActivity.TagObjects.FirstOrDefault(tag => string.Equals(tag.Key, "refresh.force_all", StringComparison.Ordinal)).Value!);
         Assert.Equal(0, refreshActivity.TagObjects.FirstOrDefault(tag => string.Equals(tag.Key, "refresh.include_provider_ids.count", StringComparison.Ordinal)).Value);
-        Assert.Equal(false, refreshActivity.TagObjects.FirstOrDefault(tag => string.Equals(tag.Key, "refresh.bypass_circuit_breaker", StringComparison.Ordinal)).Value);
+        Assert.False((bool)refreshActivity.TagObjects.FirstOrDefault(tag => string.Equals(tag.Key, "refresh.bypass_circuit_breaker", StringComparison.Ordinal)).Value!);
     }
 
     [Fact]
@@ -352,8 +352,8 @@ public class ProviderRefreshServiceTests
         var refreshActivity = Assert.Single(
             stoppedActivities,
             activity => string.Equals(activity.OperationName, "monitor.provider_refresh", StringComparison.Ordinal));
-        Assert.Equal(true, refreshActivity.TagObjects.FirstOrDefault(tag => string.Equals(tag.Key, "refresh.force_all", StringComparison.Ordinal)).Value);
-        Assert.Equal(true, refreshActivity.TagObjects.FirstOrDefault(tag => string.Equals(tag.Key, "refresh.bypass_circuit_breaker", StringComparison.Ordinal)).Value);
+        Assert.True((bool)refreshActivity.TagObjects.FirstOrDefault(tag => string.Equals(tag.Key, "refresh.force_all", StringComparison.Ordinal)).Value!);
+        Assert.True((bool)refreshActivity.TagObjects.FirstOrDefault(tag => string.Equals(tag.Key, "refresh.bypass_circuit_breaker", StringComparison.Ordinal)).Value!);
     }
 
     [Fact]
@@ -762,7 +762,8 @@ public class ProviderRefreshServiceTests
     [Fact]
     public void CancelActiveRefresh_WhenNoRefreshActive_DoesNotThrow()
     {
-        this._service.CancelActiveRefresh();
+        var exception = Record.Exception(() => this._service.CancelActiveRefresh());
+        Assert.Null(exception);
     }
 
     private sealed record PipelineTestFiles(string Root, string AuthPath, string ProvidersPath, string PreferencesPath);

@@ -72,7 +72,7 @@ public class XiaomiProvider : ProviderBase
 
             if (data == null || data.Data == null)
             {
-                throw new Exception("Invalid response from Xiaomi API");
+                throw new InvalidOperationException("Invalid response from Xiaomi API");
             }
 
             double balance = data.Data.Balance;

@@ -24,6 +24,8 @@ namespace AIUsageTracker.Monitor;
 
 public class Program
 {
+    protected Program() { }
+
     public static async Task Main(string[] args)
     {
         bool isDebugMode = args.Contains("--debug", StringComparer.Ordinal);
@@ -257,12 +259,6 @@ public class Program
             // Register plain HttpClient for providers that need it (e.g., ClaudeCodeProvider, KimiProvider).
             // Uses "PlainClient" — no Polly retry-on-429 policy, so providers control their own retry behavior.
             builder.Services.AddSingleton(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("PlainClient"));
-
-            // Enable debug mode in refresh service
-            if (isDebugMode)
-            {
-                ProviderRefreshService.SetDebugMode(true);
-            }
 
             var app = builder.Build();
 

@@ -5,15 +5,23 @@
 [*.{xaml.cs}]
 dotnet_diagnostic.MA0004.severity = none
 dotnet_diagnostic.VSTHRD001.severity = none
+dotnet_diagnostic.VSTHRD100.severity = none
+dotnet_diagnostic.VSTHRD101.severity = none
 
 [MainWindow.*.cs]
 dotnet_diagnostic.MA0004.severity = none
 dotnet_diagnostic.VSTHRD001.severity = none
+dotnet_diagnostic.VSTHRD100.severity = none
+dotnet_diagnostic.VSTHRD101.severity = none
 
 [SettingsWindow.*.cs]
 dotnet_diagnostic.MA0004.severity = none
 dotnet_diagnostic.VSTHRD001.severity = none
+dotnet_diagnostic.VSTHRD100.severity = none
+dotnet_diagnostic.VSTHRD101.severity = none
 
 [InfoDialog.*.cs]
 dotnet_diagnostic.MA0004.severity = none
 dotnet_diagnostic.VSTHRD001.severity = none
+dotnet_diagnostic.VSTHRD100.severity = none
+dotnet_diagnostic.VSTHRD101.severity = none

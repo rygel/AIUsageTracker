@@ -42,7 +42,7 @@ internal sealed record DeterministicProviderScenario(
             AuthSource: "oauth",
             MainWindowUsage: new(27.5, 110, 400, "72.5% Remaining", 20),
             SettingsWindowUsage: new(27.5, 0, 0, "72.5% Remaining", 20),
-            SettingsWindowHistory: new(27.5, 27.5, 100.0, "72.5% Remaining", new DateTime(2026, 2, 1, 12, 0, 0))),
+            SettingsWindowHistory: new(27.5, 27.5, 100.0, "72.5% Remaining", new DateTime(2026, 2, 1, 12, 0, 0, DateTimeKind.Utc))),
         new(
             KimiProvider.StaticDefinition.ProviderId,
             "kimi-demo-key",
@@ -73,7 +73,7 @@ internal sealed record DeterministicProviderScenario(
             ShowInTray: true,
             MainWindowUsage: new(37.0, 148, 400, "63.0% Remaining", 18),
             SettingsWindowUsage: new(37.0, 0, 0, "63.0% Remaining", 18),
-            SettingsWindowHistory: new(31.1, 12.45, 40.0, "$12.45 / $40.00", new DateTime(2026, 2, 1, 12, 5, 0))),
+            SettingsWindowHistory: new(31.1, 12.45, 40.0, "$12.45 / $40.00", new DateTime(2026, 2, 1, 12, 5, 0, DateTimeKind.Utc))),
         new(
             OpenCodeZenProvider.StaticDefinition.ProviderId,
             "ocz-demo-key",

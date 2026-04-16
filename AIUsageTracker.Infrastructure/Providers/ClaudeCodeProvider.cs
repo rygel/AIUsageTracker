@@ -144,7 +144,7 @@ public class ClaudeCodeProvider : ProviderBase
         }
 
         // Fall back to CLI if API fails
-        return await this.GetUsageFromCliAsync(config).ConfigureAwait(false);
+        return await this.GetUsageFromCliAsync().ConfigureAwait(false);
     }
 
     /// <summary>
@@ -465,7 +465,7 @@ public class ClaudeCodeProvider : ProviderBase
         return info;
     }
 
-    private async Task<IEnumerable<ProviderUsage>> GetUsageFromCliAsync(ProviderConfig config)
+    private async Task<IEnumerable<ProviderUsage>> GetUsageFromCliAsync()
     {
         return await Task.Run(async () =>
         {

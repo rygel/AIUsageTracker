@@ -62,7 +62,7 @@ public class OpenRouterProvider : ProviderBase
         // Try to fetch credits first
         OpenRouterCreditsResponse? creditsData = null;
         string? creditsResponseBody = null;
-        int httpStatus = 200;
+        int httpStatus;
 
         try
         {

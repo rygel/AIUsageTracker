@@ -388,14 +388,14 @@ internal static partial class MainWindowRuntimeLogic
     {
         ArgumentNullException.ThrowIfNull(preferences);
 
-        return ShouldUseSharedCollapsePreference(providerId) && preferences.IsAntigravityCollapsed;
+        return ShouldUseSharedCollapsePreference() && preferences.IsAntigravityCollapsed;
     }
 
     public static void SetIsCollapsed(AppPreferences preferences, string providerId, bool isCollapsed)
     {
         ArgumentNullException.ThrowIfNull(preferences);
 
-        if (!ShouldUseSharedCollapsePreference(providerId))
+        if (!ShouldUseSharedCollapsePreference())
         {
             return;
         }
@@ -403,37 +403,7 @@ internal static partial class MainWindowRuntimeLogic
         preferences.IsAntigravityCollapsed = isCollapsed;
     }
 
-    private static bool ShouldUseSharedCollapsePreference(string providerId) => false;
-
-    private static string FormatPercentage(
-        double percentage,
-        PercentageValueSemantic semantic,
-        int decimalPlaces,
-        bool includeComplement)
-    {
-        var format = $"F{Math.Max(0, decimalPlaces)}";
-        var value = UsageMath.ClampPercent(percentage).ToString(format, CultureInfo.InvariantCulture);
-        var semanticLabel = semantic switch
-        {
-            PercentageValueSemantic.Used => "used",
-            PercentageValueSemantic.Remaining => "remaining",
-            _ => string.Empty,
-        };
-
-        if (string.IsNullOrWhiteSpace(semanticLabel))
-        {
-            return $"{value}%";
-        }
-
-        if (!includeComplement)
-        {
-            return $"{value}% {semanticLabel}";
-        }
-
-        var complementValue = UsageMath.ClampPercent(100.0 - percentage).ToString(format, CultureInfo.InvariantCulture);
-        var complementLabel = semantic == PercentageValueSemantic.Used ? "remaining" : "used";
-        return $"{value}% {semanticLabel} ({complementValue}% {complementLabel})";
-    }
+    private static bool ShouldUseSharedCollapsePreference() => false;
 
     private static string NormalizeIdentity(string? value)
     {

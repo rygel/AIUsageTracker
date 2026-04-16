@@ -403,13 +403,13 @@ public static class UsageMath
             return forecastResult;
         }
 
-        var burnRatePerDay = CalculateBurnRatePerDay(cycleSamples, out var elapsedDays);
+        var burnRatePerDay = CalculateBurnRatePerDay(cycleSamples, out _);
         if (!ValidateBurnRate(burnRatePerDay, out forecastResult))
         {
             return forecastResult;
         }
 
-        return CreateBurnRateForecast(burnRatePerDay, cycleSamples, elapsedDays);
+        return CreateBurnRateForecast(burnRatePerDay, cycleSamples);
     }
 
     public static ProviderReliabilitySnapshot CalculateReliabilitySnapshot(IEnumerable<ProviderUsage> history)
@@ -599,7 +599,7 @@ public static class UsageMath
         return burnRatePerDay > 0 && !double.IsNaN(burnRatePerDay) && !double.IsInfinity(burnRatePerDay);
     }
 
-    private static BurnRateForecast CreateBurnRateForecast(double burnRatePerDay, List<ProviderUsage> cycleSamples, double elapsedDays)
+    private static BurnRateForecast CreateBurnRateForecast(double burnRatePerDay, List<ProviderUsage> cycleSamples)
     {
         var last = cycleSamples[^1];
         var remaining = Math.Max(0, last.RequestsAvailable - last.RequestsUsed);

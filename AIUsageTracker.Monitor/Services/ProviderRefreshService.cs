@@ -28,18 +28,12 @@ public class ProviderRefreshService : BackgroundService
     private readonly ProviderRefreshJobScheduler _refreshJobScheduler;
     private readonly ProviderManagerLifecycleService _providerManagerLifecycle;
     private readonly ProviderRefreshNotificationService _refreshNotificationService;
-    private static bool _debugMode = false;
     private static readonly ActivitySource ActivitySource = MonitorActivitySources.Refresh;
     private readonly StartupSequenceService _startupSequenceService;
     private readonly IProviderUsageProcessingPipeline _usageProcessingPipeline;
     private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
     private volatile CancellationTokenSource? _activeRefreshCts;
     private readonly TimeSpan _refreshInterval = TimeSpan.FromMinutes(5);
-
-    public static void SetDebugMode(bool debug)
-    {
-        _debugMode = debug;
-    }
 
     public ProviderRefreshService(
         ILogger<ProviderRefreshService> logger,

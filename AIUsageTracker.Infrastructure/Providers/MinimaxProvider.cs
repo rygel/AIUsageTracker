@@ -86,9 +86,6 @@ public class MinimaxProvider : ProviderBase
         return await this.GetTokenUsageAsync(config, providerLabel, cancellationToken).ConfigureAwait(false);
     }
 
-    private static bool IsCodingPlanId(string? providerId) =>
-        string.Equals(providerId, CodingPlanProviderId, StringComparison.OrdinalIgnoreCase);
-
     private async Task<IEnumerable<ProviderUsage>> GetTokenUsageAsync(
         ProviderConfig config,
         string providerLabel,
@@ -202,9 +199,17 @@ public class MinimaxProvider : ProviderBase
         string providerLabel,
         CancellationToken cancellationToken)
     {
-        var url = !string.IsNullOrEmpty(config.BaseUrl)
-            ? (config.BaseUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? config.BaseUrl : "https://" + config.BaseUrl)
-            : ProviderEndpoints.Minimax.CodingPlanRemains;
+        string url;
+        if (!string.IsNullOrEmpty(config.BaseUrl))
+        {
+            url = config.BaseUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+                ? config.BaseUrl
+                : "https://" + config.BaseUrl;
+        }
+        else
+        {
+            url = ProviderEndpoints.Minimax.CodingPlanRemains;
+        }
 
         var request = CreateBearerRequest(HttpMethod.Get, url, config.ApiKey);
         var response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
