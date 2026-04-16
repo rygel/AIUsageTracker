@@ -13,9 +13,8 @@ $token = $env:SONAR_TOKEN
 $headers = @{Authorization = "Bearer $token"}
 $base = "http://mac-mini-alexander.local:9000/api/issues/search?componentKeys=AIUsageTracker&ps=500"
 
-$severities = if ($args.Count -gt 0) { $args[0] } else { "BLOCKER,CRITICAL,MEDIUM" }
-$resp = Invoke-RestMethod -Uri "$base&impactSeverities=$severities&resolved=false&statuses=OPEN,CONFIRMED" -Headers $headers
-Write-Host "`n=== Issues ($severities) - Open/Confirmed ($($resp.total)) ==="
+$resp = Invoke-RestMethod -Uri "$base&impactSeverities=MEDIUM&impactSoftwareQualities=MAINTAINABILITY&inNewCodePeriod=true&resolved=false&statuses=OPEN,CONFIRMED" -Headers $headers
+Write-Host "`n=== MEDIUM MAINTAINABILITY in New Code ($($resp.total)) ==="
 
 $byRule = @{}
 foreach ($issue in $resp.issues) {

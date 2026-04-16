@@ -10,6 +10,7 @@ namespace AIUsageTracker.Tests.UI;
 public sealed class ProviderSettingsCatalogTests
 {
     private static readonly string TestApiKey = Guid.NewGuid().ToString();
+
     [Fact]
     public void GetInputMode_ReturnsSessionAuth_ForCodexSpark()
     {

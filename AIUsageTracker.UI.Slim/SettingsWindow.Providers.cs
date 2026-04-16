@@ -337,6 +337,7 @@ public partial class SettingsWindow
         {
             displayAccount = "No account detected";
         }
+
         var secondaryLines = new List<StatusSecondaryLine>();
 
         return new StatusPanelPresentation(

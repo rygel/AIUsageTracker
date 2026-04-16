@@ -43,20 +43,20 @@ public sealed class ConfigServiceExtendedTests : IDisposable
     [Fact]
     public async Task GetConfigsAsync_ReturnsEmpty_WhenNoFile()
     {
-        var configs = await this._service.GetConfigsAsync();
+        var configs = await this._service.GetConfigsAsync().ConfigureAwait(false);
         Assert.NotNull(configs);
     }
 
     [Fact]
     public async Task GetConfigsAsync_ReturnsCachedOnSecondCall()
     {
-        await this.WriteProvidersJsonAsync(new Dictionary<string, object>
+        await this.WriteProvidersJsonAsync(new Dictionary<string, object>(StringComparer.Ordinal)
         {
-            ["antigravity"] = new { key = "" },
-        });
+            ["antigravity"] = new { key = string.Empty },
+        }).ConfigureAwait(false);
 
-        var first = await this._service.GetConfigsAsync();
-        var second = await this._service.GetConfigsAsync();
+        var first = await this._service.GetConfigsAsync().ConfigureAwait(false);
+        var second = await this._service.GetConfigsAsync().ConfigureAwait(false);
 
         Assert.Equal(first.Count, second.Count);
     }
@@ -65,7 +65,7 @@ public sealed class ConfigServiceExtendedTests : IDisposable
     public async Task SaveConfigAsync_ThrowsOnNullConfig()
     {
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => this._service.SaveConfigAsync(null!));
+            () => this._service.SaveConfigAsync(null!)).ConfigureAwait(false);
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public sealed class ConfigServiceExtendedTests : IDisposable
     {
         var config = new ProviderConfig { ProviderId = string.Empty };
         await Assert.ThrowsAsync<ArgumentException>(
-            () => this._service.SaveConfigAsync(config));
+            () => this._service.SaveConfigAsync(config)).ConfigureAwait(false);
     }
 
     [Fact]
@@ -81,13 +81,13 @@ public sealed class ConfigServiceExtendedTests : IDisposable
     {
         var config = new ProviderConfig { ProviderId = "nonexistent-xyz-abc" };
         await Assert.ThrowsAsync<ArgumentException>(
-            () => this._service.SaveConfigAsync(config));
+            () => this._service.SaveConfigAsync(config)).ConfigureAwait(false);
     }
 
     [Fact]
     public async Task SaveConfigAsync_AddsNewConfig()
     {
-        await this.WriteProvidersJsonAsync("{}");
+        await this.WriteProvidersJsonAsync("{}").ConfigureAwait(false);
 
         var config = new ProviderConfig
         {
@@ -96,21 +96,21 @@ public sealed class ConfigServiceExtendedTests : IDisposable
             AuthSource = "manual",
         };
 
-        await this._service.SaveConfigAsync(config);
+        await this._service.SaveConfigAsync(config).ConfigureAwait(false);
 
         var authPath = Path.Combine(this._tempDir, "auth.json");
         Assert.True(File.Exists(authPath));
-        var content = await File.ReadAllTextAsync(authPath);
+        var content = await File.ReadAllTextAsync(authPath).ConfigureAwait(false);
         Assert.Contains("test-key-123", content, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task SaveConfigAsync_UpdatesExistingConfig()
     {
-        await this.WriteProvidersJsonAsync(new Dictionary<string, object>
+        await this.WriteProvidersJsonAsync(new Dictionary<string, object>(StringComparer.Ordinal)
         {
             ["antigravity"] = new { key = "old-key" },
-        });
+        }).ConfigureAwait(false);
 
         var config = new ProviderConfig
         {
@@ -119,10 +119,10 @@ public sealed class ConfigServiceExtendedTests : IDisposable
             AuthSource = "updated",
         };
 
-        await this._service.SaveConfigAsync(config);
+        await this._service.SaveConfigAsync(config).ConfigureAwait(false);
 
         var authPath = Path.Combine(this._tempDir, "auth.json");
-        var content = await File.ReadAllTextAsync(authPath);
+        var content = await File.ReadAllTextAsync(authPath).ConfigureAwait(false);
         Assert.Contains("new-key", content, StringComparison.Ordinal);
         Assert.DoesNotContain("old-key", content, StringComparison.Ordinal);
     }
@@ -130,18 +130,18 @@ public sealed class ConfigServiceExtendedTests : IDisposable
     [Fact]
     public async Task RemoveConfigAsync_RemovesProvider()
     {
-        await this.WriteProvidersJsonAsync(new Dictionary<string, object>
+        await this.WriteProvidersJsonAsync(new Dictionary<string, object>(StringComparer.Ordinal)
         {
             ["antigravity"] = new { key = "key1" },
             ["gemini-cli"] = new { key = "key2" },
-        });
+        }).ConfigureAwait(false);
 
-        await this._service.RemoveConfigAsync("antigravity");
+        await this._service.RemoveConfigAsync("antigravity").ConfigureAwait(false);
 
         var authPath = Path.Combine(this._tempDir, "auth.json");
         if (File.Exists(authPath))
         {
-            var content = await File.ReadAllTextAsync(authPath);
+            var content = await File.ReadAllTextAsync(authPath).ConfigureAwait(false);
             Assert.DoesNotContain("key1", content, StringComparison.Ordinal);
         }
     }
@@ -149,15 +149,15 @@ public sealed class ConfigServiceExtendedTests : IDisposable
     [Fact]
     public async Task GetPreferencesAsync_ReturnsDefault_WhenNoFile()
     {
-        var prefs = await this._service.GetPreferencesAsync();
+        var prefs = await this._service.GetPreferencesAsync().ConfigureAwait(false);
         Assert.NotNull(prefs);
     }
 
     [Fact]
     public async Task GetPreferencesAsync_ReturnsCachedOnSecondCall()
     {
-        var first = await this._service.GetPreferencesAsync();
-        var second = await this._service.GetPreferencesAsync();
+        var first = await this._service.GetPreferencesAsync().ConfigureAwait(false);
+        var second = await this._service.GetPreferencesAsync().ConfigureAwait(false);
 
         Assert.Equal(first.SuppressedProviderIds.Count, second.SuppressedProviderIds.Count);
     }
@@ -170,9 +170,9 @@ public sealed class ConfigServiceExtendedTests : IDisposable
             SuppressedProviderIds = new List<string> { "antigravity" },
         };
 
-        await this._service.SavePreferencesAsync(prefs);
+        await this._service.SavePreferencesAsync(prefs).ConfigureAwait(false);
 
-        var loaded = await this._service.GetPreferencesAsync();
+        var loaded = await this._service.GetPreferencesAsync().ConfigureAwait(false);
         Assert.Contains("antigravity", loaded.SuppressedProviderIds);
     }
 
@@ -181,7 +181,7 @@ public sealed class ConfigServiceExtendedTests : IDisposable
         var json = data is string s ? s : JsonSerializer.Serialize(data);
         await File.WriteAllTextAsync(
             Path.Combine(this._tempDir, "providers.json"),
-            json);
+            json).ConfigureAwait(false);
     }
 
     private sealed class TestPathProvider : IAppPathProvider
@@ -191,12 +191,19 @@ public sealed class ConfigServiceExtendedTests : IDisposable
         public TestPathProvider(string root) => this._root = root;
 
         public string GetAppDataRoot() => this._root;
+
         public string GetDatabasePath() => Path.Combine(this._root, "monitor.db");
+
         public string GetLogDirectory() => Path.Combine(this._root, "logs");
+
         public string GetAuthFilePath() => Path.Combine(this._root, "auth.json");
+
         public string GetPreferencesFilePath() => Path.Combine(this._root, "prefs.json");
+
         public string GetProviderConfigFilePath() => Path.Combine(this._root, "providers.json");
+
         public string GetMonitorInfoFilePath() => Path.Combine(this._root, "monitor.json");
+
         public string GetUserProfileRoot() => Path.Combine(this._root, "userprofile");
     }
 }

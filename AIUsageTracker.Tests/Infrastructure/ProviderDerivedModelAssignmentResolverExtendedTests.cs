@@ -22,7 +22,7 @@ public sealed class ProviderDerivedModelAssignmentResolverExtendedTests
     {
         var models = new[] { new AgentGroupedModelUsage { ModelId = "m1" } };
         Assert.Empty(ProviderDerivedModelAssignmentResolver.Resolve(null!, models));
-        Assert.Empty(ProviderDerivedModelAssignmentResolver.Resolve("", models));
+        Assert.Empty(ProviderDerivedModelAssignmentResolver.Resolve(string.Empty, models));
         Assert.Empty(ProviderDerivedModelAssignmentResolver.Resolve("   ", models));
     }
 
@@ -64,7 +64,7 @@ public sealed class ProviderDerivedModelAssignmentResolverExtendedTests
             "test-provider",
             new[]
             {
-                new AgentGroupedModelUsage { ModelId = "", ModelName = "ValidModel" },
+                new AgentGroupedModelUsage { ModelId = string.Empty, ModelName = "ValidModel" },
                 new AgentGroupedModelUsage { ModelId = "model-b", ModelName = "Model B" },
             });
 
@@ -138,7 +138,7 @@ public sealed class ProviderDerivedModelAssignmentResolverExtendedTests
     [Fact]
     public void GetModelAssignmentKey_FallsBackToModelName_WhenModelIdEmpty()
     {
-        var model = new AgentGroupedModelUsage { ModelId = "", ModelName = "name-value" };
+        var model = new AgentGroupedModelUsage { ModelId = string.Empty, ModelName = "name-value" };
         var key = InvokeGetModelAssignmentKey(model);
         Assert.Equal("name-value", key);
     }
@@ -160,7 +160,7 @@ public sealed class ProviderDerivedModelAssignmentResolverExtendedTests
     [Fact]
     public void ContainsAnyToken_ReturnsFalse_ForEmptySource()
     {
-        Assert.False(InvokeContainsAnyToken("", new[] { "test" }));
+        Assert.False(InvokeContainsAnyToken(string.Empty, new[] { "test" }));
     }
 
     [Fact]
@@ -184,7 +184,7 @@ public sealed class ProviderDerivedModelAssignmentResolverExtendedTests
     [Fact]
     public void ContainsAnyToken_SkipsEmptyTokens()
     {
-        Assert.False(InvokeContainsAnyToken("source", new[] { "", "  ", null! }));
+        Assert.False(InvokeContainsAnyToken("source", new[] { string.Empty, "  ", null! }));
     }
 
     [Fact]

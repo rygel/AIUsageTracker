@@ -86,7 +86,7 @@ public class ProviderManagerExtendedTests
         var result = await manager.GetUsageAsync("openai");
 
         Assert.NotEmpty(result);
-        Assert.Contains(result, u => u.ProviderId == "openai");
+        Assert.Contains(result, u => string.Equals(u.ProviderId, "openai", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public class ProviderManagerExtendedTests
             forceRefresh: true,
             overrideConfigs: overrideConfigs);
 
-        Assert.Contains(result, u => u.ProviderId == "openai");
+        Assert.Contains(result, u => string.Equals(u.ProviderId, "openai", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -154,7 +154,7 @@ public class ProviderManagerExtendedTests
                 .ContinueWith(_ => (IEnumerable<ProviderUsage>)new[]
                 {
                     new ProviderUsage { ProviderId = "slow-provider", IsAvailable = true },
-                }),
+                }, TaskScheduler.Default),
         };
 
         var providers = new List<IProviderService> { mockProvider };
@@ -170,7 +170,7 @@ public class ProviderManagerExtendedTests
         var result = await manager.GetAllUsageAsync(forceRefresh: true);
 
         Assert.NotEmpty(result);
-        Assert.Contains(result, u => u.ProviderId == "slow-provider");
+        Assert.Contains(result, u => string.Equals(u.ProviderId, "slow-provider", StringComparison.Ordinal));
     }
 
     [Fact]

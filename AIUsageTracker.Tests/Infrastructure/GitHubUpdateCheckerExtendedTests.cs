@@ -117,7 +117,7 @@ public class GitHubUpdateCheckerExtendedTests : IDisposable
         var updateInfo = new AIUsageTracker.Core.Interfaces.UpdateInfo
         {
             Version = "1.0.0",
-            DownloadUrl = "",
+            DownloadUrl = string.Empty,
         };
 
         var result = await this._checker.DownloadAndInstallUpdateAsync(updateInfo);

@@ -27,6 +27,7 @@ public partial class App : Application
             ConfigureServices(services);
         })
         .Build();
+
     private readonly Dictionary<string, TaskbarIcon> _providerTrayIcons = new(StringComparer.Ordinal);
     private TaskbarIcon? _trayIcon;
     private MainWindow? _mainWindow;

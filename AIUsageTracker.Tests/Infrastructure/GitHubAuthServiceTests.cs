@@ -48,7 +48,7 @@ public class GitHubAuthServiceTests : IDisposable
     [Fact]
     public void InitializeToken_EmptyToken_StillSetsIsAuthenticatedFalse()
     {
-        this._service.InitializeToken("");
+        this._service.InitializeToken(string.Empty);
         Assert.False(this._service.IsAuthenticated);
     }
 
@@ -98,9 +98,9 @@ public class GitHubAuthServiceTests : IDisposable
     }
 
     [Fact]
-    public void RefreshTokenAsync_ReturnsNull()
+    public async Task RefreshTokenAsync_ReturnsNull()
     {
-        var result = this._service.RefreshTokenAsync("some-refresh-token").Result;
+        var result = await this._service.RefreshTokenAsync("some-refresh-token").ConfigureAwait(false);
         Assert.Null(result);
     }
 

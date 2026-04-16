@@ -59,6 +59,7 @@ internal sealed class ProviderCardRenderer
         {
             friendlyName = ProviderMetadataCatalog.ResolveDisplayLabel(usage);
         }
+
         var presentation = MainWindowRuntimeLogic.Create(usage, showUsed, this._preferences.EnablePaceAdjustment);
 
         var isCompact = this._preferences.CardCompactMode;
