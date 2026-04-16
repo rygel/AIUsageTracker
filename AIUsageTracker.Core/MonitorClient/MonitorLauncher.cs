@@ -19,6 +19,8 @@ public class MonitorLauncher : IMonitorLauncher
     private const int StopWaitSeconds = 5;
     private const int LaunchMutexWaitSeconds = 3;
     private const string CanonicalProductFolder = "AIUsageTracker";
+    private const string StatusStarting = "starting";
+    private const string StartupStatusPrefix = "Startup status:";
 
     private readonly SemaphoreSlim _startupSemaphore = new(1, 1);
     private readonly HttpClient _healthCheckHttpClient = new HttpClient { Timeout = TimeSpan.FromMilliseconds(500) };
@@ -104,7 +106,7 @@ public class MonitorLauncher : IMonitorLauncher
             };
         }
 
-        if (string.Equals(startupStatus, "starting", StringComparison.OrdinalIgnoreCase) && metadataState.ProcessRunning)
+        if (string.Equals(startupStatus, StatusStarting, StringComparison.OrdinalIgnoreCase) && metadataState.ProcessRunning)
         {
             return new MonitorAgentStatus
             {
@@ -329,7 +331,7 @@ public class MonitorLauncher : IMonitorLauncher
             return new MonitorReadyState(metadataState.EffectivePort, IsRunning: false, FromMetadata: false, StartupFailure: startupFailure);
         }
 
-        if (string.Equals(startupStatus, "starting", StringComparison.OrdinalIgnoreCase) && metadataState.ProcessRunning)
+        if (string.Equals(startupStatus, StatusStarting, StringComparison.OrdinalIgnoreCase) && metadataState.ProcessRunning)
         {
             return new MonitorReadyState(metadataState.EffectivePort, IsRunning: false, FromMetadata: false, IsStarting: true);
         }
@@ -472,7 +474,7 @@ public class MonitorLauncher : IMonitorLauncher
             return new MonitorMetadataState(info, path, healthOk, processRunning);
         }
 
-        if (string.Equals(startupStatus, "starting", StringComparison.OrdinalIgnoreCase) && processRunning)
+        if (string.Equals(startupStatus, StatusStarting, StringComparison.OrdinalIgnoreCase) && processRunning)
         {
             this._logger?.LogDebug("Monitor metadata indicates startup is still in progress.");
             return new MonitorMetadataState(info, path, healthOk, processRunning);
@@ -623,9 +625,9 @@ public class MonitorLauncher : IMonitorLauncher
     {
         return errors?.FirstOrDefault(error =>
             !string.IsNullOrWhiteSpace(error) &&
-            error.StartsWith("Startup status:", StringComparison.OrdinalIgnoreCase) &&
+            error.StartsWith(StartupStatusPrefix, StringComparison.OrdinalIgnoreCase) &&
             !error.Contains("running", StringComparison.OrdinalIgnoreCase) &&
-            !error.Contains("starting", StringComparison.OrdinalIgnoreCase) &&
+            !error.Contains(StatusStarting, StringComparison.OrdinalIgnoreCase) &&
             !error.Contains("stopped", StringComparison.OrdinalIgnoreCase));
     }
 
@@ -633,13 +635,13 @@ public class MonitorLauncher : IMonitorLauncher
     {
         var startupEntry = errors?.FirstOrDefault(error =>
             !string.IsNullOrWhiteSpace(error) &&
-            error.StartsWith("Startup status:", StringComparison.OrdinalIgnoreCase));
+            error.StartsWith(StartupStatusPrefix, StringComparison.OrdinalIgnoreCase));
         if (string.IsNullOrWhiteSpace(startupEntry))
         {
             return null;
         }
 
-        return startupEntry["Startup status:".Length..].Trim();
+        return startupEntry[StartupStatusPrefix.Length..].Trim();
     }
 
     // --- Types ---

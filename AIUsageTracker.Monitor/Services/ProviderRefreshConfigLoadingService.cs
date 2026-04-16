@@ -30,10 +30,9 @@ public sealed class ProviderRefreshConfigLoadingService
         bool forceAll,
         IReadOnlyCollection<string>? includeProviderIds)
     {
-        this._logger.LogInformation("Loading provider configurations...");
         var configsReadOnly = await this._configService.GetConfigsAsync().ConfigureAwait(false);
         var configs = configsReadOnly.ToList();
-        this._logger.LogInformation("Found {Count} total configurations", configs.Count);
+        this._logger.LogInformation("Loading {Count} provider configurations...", configs.Count);
 
         foreach (var config in configs)
         {
@@ -44,7 +43,7 @@ public sealed class ProviderRefreshConfigLoadingService
                 hasKey ? $"Has API key ({config.ApiKey?.Length ?? 0} chars)" : "NO API KEY");
         }
 
-        var selection = this._configSelector.SelectActiveConfigs(configs, forceAll, includeProviderIds);
+        var selection = ProviderRefreshConfigSelector.SelectActiveConfigs(configs, forceAll, includeProviderIds);
         var activeConfigs = selection.ActiveConfigs;
 
         this._logger.LogInformation("Refreshing {Count} configured providers", activeConfigs.Count);

@@ -18,7 +18,7 @@ internal static class MonitorLauncherProcessController
     {
         var monitorExeName = OperatingSystem.IsWindows()
             ? "AIUsageTracker.Monitor.exe"
-            : "AIUsageTracker.Monitor";
+            : MonitorProjectDirectoryName;
         var possiblePaths = GetExecutableCandidates(AppContext.BaseDirectory, monitorExeName);
 
         MonitorService.LogDiagnostic($"Locating Monitor executable (checked {possiblePaths.Count} common locations)...");
@@ -120,7 +120,7 @@ internal static class MonitorLauncherProcessController
             return await stopNamedProcessesOverride().ConfigureAwait(false);
         }
 
-        var processes = Process.GetProcessesByName("AIUsageTracker.Monitor").ToArray();
+        var processes = Process.GetProcessesByName(MonitorProjectDirectoryName).ToArray();
         var stoppedAny = false;
         foreach (var process in processes)
         {

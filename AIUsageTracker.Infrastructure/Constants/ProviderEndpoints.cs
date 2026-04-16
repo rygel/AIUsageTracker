@@ -2,6 +2,8 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+#pragma warning disable S1075 // URIs are provider endpoint constants
+
 namespace AIUsageTracker.Infrastructure.Constants;
 
 /// <summary>

@@ -22,6 +22,8 @@ namespace AIUsageTracker.UI.Slim;
 
 public partial class SettingsWindow : Window
 {
+    private const string PackApplicationUri = "pack://application:,,,/";
+
     private static readonly JsonSerializerOptions BundleJsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
@@ -599,7 +601,7 @@ public partial class SettingsWindow : Window
     private void PopulateFontComboBox()
     {
         // Get all system fonts
-        var fonts = System.Windows.Media.Fonts.GetFontFamilies(new Uri("pack://application:,,,/"))
+        var fonts = System.Windows.Media.Fonts.GetFontFamilies(new Uri(PackApplicationUri))
             .Select(ff => ff.FamilyNames.FirstOrDefault().Value ?? ff.Source)
             .OrderBy(f => f, StringComparer.Ordinal)
             .ToList();

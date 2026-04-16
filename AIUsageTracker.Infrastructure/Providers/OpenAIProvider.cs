@@ -22,6 +22,12 @@ namespace AIUsageTracker.Infrastructure.Providers;
 public class OpenAIProvider : ProviderBase
 {
     private const string WhamUsageEndpoint = "https://chatgpt.com/backend-api/wham/usage";
+    private const string ModelsEndpoint = "https://api.openai.com/v1/models";
+    private const string JsonKeyRateLimit = "rate_limit";
+    private const string JsonKeyPrimaryWindow = "primary_window";
+    private const string JsonKeySecondaryWindow = "secondary_window";
+    private const string JsonKeyUsedPercent = "used_percent";
+    private const string JsonKeyResetAfterSeconds = "reset_after_seconds";
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<OpenAIProvider> _logger;
@@ -128,9 +134,9 @@ public class OpenAIProvider : ProviderBase
 
     private static (DateTime? BurstResetTime, double? BurstUsed, string BurstDesc, DateTime? WeeklyResetTime, double? WeeklyUsed, string WeeklyDesc, string? CreditsDesc) ParseOpenAiSessionWindows(JsonElement root)
     {
-        var primaryUsed = root.ReadDouble("rate_limit", "primary_window", "used_percent");
-        var primaryReset = root.ReadDouble("rate_limit", "primary_window", "reset_after_seconds");
-        var primaryResetTime = ResolveWindowResetTime(root, "primary_window");
+        var primaryUsed = root.ReadDouble(JsonKeyRateLimit, JsonKeyPrimaryWindow, JsonKeyUsedPercent);
+        var primaryReset = root.ReadDouble(JsonKeyRateLimit, JsonKeyPrimaryWindow, JsonKeyResetAfterSeconds);
+        var primaryResetTime = ResolveWindowResetTime(root, JsonKeyPrimaryWindow);
 
         DateTime? burstResetTime = null;
         double? burstUsed = null;
@@ -143,9 +149,9 @@ public class OpenAIProvider : ProviderBase
             burstResetTime = primaryResetTime;
         }
 
-        var weeklyUsedVal = root.ReadDouble("rate_limit", "secondary_window", "used_percent");
-        var weeklyReset = root.ReadDouble("rate_limit", "secondary_window", "reset_after_seconds");
-        var weeklyResetTime = ResolveWindowResetTime(root, "secondary_window");
+        var weeklyUsedVal = root.ReadDouble(JsonKeyRateLimit, JsonKeySecondaryWindow, JsonKeyUsedPercent);
+        var weeklyReset = root.ReadDouble(JsonKeyRateLimit, JsonKeySecondaryWindow, JsonKeyResetAfterSeconds);
+        var weeklyResetTime = ResolveWindowResetTime(root, JsonKeySecondaryWindow);
 
         DateTime? weeklyResetTimeParsed = null;
         double? weeklyUsed = null;
@@ -171,19 +177,19 @@ public class OpenAIProvider : ProviderBase
 
     private static DateTime? ResolveResetTime(JsonElement root)
     {
-        var primaryReset = ResolveWindowResetTime(root, "primary_window");
+        var primaryReset = ResolveWindowResetTime(root, JsonKeyPrimaryWindow);
         if (primaryReset.HasValue)
         {
             return primaryReset;
         }
 
-        return ResolveWindowResetTime(root, "secondary_window");
+        return ResolveWindowResetTime(root, JsonKeySecondaryWindow);
     }
 
     private static DateTime? ResolveWindowResetTime(JsonElement root, string windowName)
     {
-        var resetSeconds = root.ReadDouble("rate_limit", windowName, "reset_after_seconds")
-                          ?? root.ReadDouble("rate_limit", windowName, "reset_after");
+        var resetSeconds = root.ReadDouble(JsonKeyRateLimit, windowName, JsonKeyResetAfterSeconds)
+                          ?? root.ReadDouble(JsonKeyRateLimit, windowName, "reset_after");
 
         var resetFromSeconds = ResolveResetTimeFromSeconds(resetSeconds);
         if (resetFromSeconds.HasValue)
@@ -191,8 +197,8 @@ public class OpenAIProvider : ProviderBase
             return resetFromSeconds;
         }
 
-        var resetAtIso = root.ReadString("rate_limit", windowName, "resets_at")
-                         ?? root.ReadString("rate_limit", windowName, "reset_at");
+        var resetAtIso = root.ReadString(JsonKeyRateLimit, windowName, "resets_at")
+                         ?? root.ReadString(JsonKeyRateLimit, windowName, "reset_at");
 
         if (!string.IsNullOrWhiteSpace(resetAtIso) &&
             DateTime.TryParse(resetAtIso, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedResetAt))
@@ -200,7 +206,7 @@ public class OpenAIProvider : ProviderBase
             return parsedResetAt.ToLocalTime();
         }
 
-        var resetAtEpoch = root.ReadDouble("rate_limit", windowName, "reset_at_unix");
+        var resetAtEpoch = root.ReadDouble(JsonKeyRateLimit, windowName, "reset_at_unix");
         if (resetAtEpoch.HasValue && resetAtEpoch.Value > 0)
         {
             return DateTimeOffset.FromUnixTimeSeconds((long)resetAtEpoch.Value).LocalDateTime;
@@ -252,7 +258,7 @@ public class OpenAIProvider : ProviderBase
 
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, "https://api.openai.com/v1/models");
+            using var request = new HttpRequestMessage(HttpMethod.Get, ModelsEndpoint);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
             var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
 
@@ -402,8 +408,8 @@ public class OpenAIProvider : ProviderBase
 
         if (results.Count == 0)
         {
-            var primaryUsed = doc.RootElement.ReadDouble("rate_limit", "primary_window", "used_percent") ?? 0.0;
-            var secondaryUsed = doc.RootElement.ReadDouble("rate_limit", "secondary_window", "used_percent") ?? 0.0;
+            var primaryUsed = doc.RootElement.ReadDouble(JsonKeyRateLimit, JsonKeyPrimaryWindow, JsonKeyUsedPercent) ?? 0.0;
+            var secondaryUsed = doc.RootElement.ReadDouble(JsonKeyRateLimit, JsonKeySecondaryWindow, JsonKeyUsedPercent) ?? 0.0;
             var used = Math.Max(primaryUsed, secondaryUsed);
             var remaining = Math.Clamp(100.0 - used, 0.0, 100.0);
             results.Add(new ProviderUsage

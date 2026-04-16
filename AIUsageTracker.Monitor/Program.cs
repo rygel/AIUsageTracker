@@ -24,9 +24,9 @@ namespace AIUsageTracker.Monitor;
 
 public class Program
 {
-    protected Program()
-    {
-    }
+    private const string DebugBannerSeparator = "═══════════════════════════════════════════════════════════════";
+
+    protected Program() { }
 
     public static async Task Main(string[] args)
     {
@@ -95,7 +95,6 @@ public class Program
 
             if (!createdNew)
             {
-                logger.LogWarning("Monitor startup lock is already held. Checking for existing healthy monitor instance.");
                 var existingStatus = await monitorLauncher.GetAgentStatusInfoAsync().ConfigureAwait(false);
                 if (existingStatus.IsRunning)
                 {
@@ -105,7 +104,7 @@ public class Program
                     return;
                 }
 
-                logger.LogWarning("No healthy monitor instance detected yet. Waiting up to 10 seconds for startup lock.");
+                logger.LogWarning("Startup lock already held and no healthy monitor detected, waiting up to 10 seconds.");
                 try
                 {
                     if (!startupMutex.WaitOne(TimeSpan.FromSeconds(10)))
@@ -145,17 +144,16 @@ public class Program
 
 #pragma warning disable CA2254 // Template strings are intentionally varied for debug banner output
                 logger.LogInformation(string.Empty);
-                logger.LogInformation("═══════════════════════════════════════════════════════════════");
+                logger.LogInformation(DebugBannerSeparator);
+#pragma warning restore CA2254
                 logger.LogInformation("  AIUsageTracker.Monitor - DEBUG MODE");
-                logger.LogInformation("═══════════════════════════════════════════════════════════════");
-                logger.LogInformation("  Version:    {Version}", monitorVersion);
-                logger.LogInformation("  Started:    {StartedAt}", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture));
-                logger.LogInformation("  Process ID: {ProcessId}", Environment.ProcessId);
+                logger.LogInformation(DebugBannerSeparator);
+                logger.LogInformation("  Version: {Version} | PID: {ProcessId} | Started: {StartedAt}", monitorVersion, Environment.ProcessId, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture));
+                logger.LogInformation("  OS: {Os} | Runtime: {Runtime}", Environment.OSVersion, Environment.Version);
                 logger.LogInformation("  Working Dir: {WorkingDir}", Directory.GetCurrentDirectory());
-                logger.LogInformation("  OS:         {Os}", Environment.OSVersion);
-                logger.LogInformation("  Runtime:    {Runtime}", Environment.Version);
                 logger.LogInformation("  Command Line: {CommandLine}", Environment.CommandLine);
-                logger.LogInformation("═══════════════════════════════════════════════════════════════");
+#pragma warning disable CA2254
+                logger.LogInformation(DebugBannerSeparator);
                 logger.LogInformation(string.Empty);
 #pragma warning restore CA2254
             }
@@ -301,18 +299,16 @@ public class Program
             {
 #pragma warning disable CA2254 // Template strings are intentionally varied for debug banner output
                 logger.LogInformation(string.Empty);
-                logger.LogInformation("═══════════════════════════════════════════════════════════════");
+                logger.LogInformation(DebugBannerSeparator);
                 logger.LogInformation("  Agent ready! Listening on http://localhost:{Port}", port);
-                logger.LogInformation("═══════════════════════════════════════════════════════════════");
+                logger.LogInformation(DebugBannerSeparator);
                 logger.LogInformation(string.Empty);
                 logger.LogInformation("  API Endpoints:");
-                logger.LogInformation("    GET  http://localhost:{Port}{Route}", port, MonitorApiRoutes.Health);
-                logger.LogInformation("    GET  http://localhost:{Port}{Route}", port, MonitorApiRoutes.Usage);
-                logger.LogInformation("    GET  http://localhost:{Port}{Route}", port, MonitorApiRoutes.Config);
-                logger.LogInformation("    POST http://localhost:{Port}{Route}", port, MonitorApiRoutes.Refresh);
+                logger.LogInformation("    GET  http://localhost:{Port}{Health} | GET  http://localhost:{Port}{Usage} | GET  http://localhost:{Port}{Config}", port, MonitorApiRoutes.Health, port, MonitorApiRoutes.Usage, port, MonitorApiRoutes.Config);
+                logger.LogInformation("    POST http://localhost:{Port}{Refresh}", port, MonitorApiRoutes.Refresh);
                 logger.LogInformation(string.Empty);
                 logger.LogInformation("  Press Ctrl+C to stop");
-                logger.LogInformation("═══════════════════════════════════════════════════════════════");
+                logger.LogInformation(DebugBannerSeparator);
                 logger.LogInformation(string.Empty);
 #pragma warning restore CA2254
             }

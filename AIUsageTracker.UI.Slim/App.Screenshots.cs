@@ -170,7 +170,7 @@ public partial class App
             if (isThemeSmokeMode)
             {
                 var smokeFileName = $"theme_smoke_{selectedTheme.ToString().ToLowerInvariant()}.png";
-                await this.CaptureMainWindowScreenshotAsync(Path.Combine(screenshotsDir, smokeFileName)).ConfigureAwait(true);
+                await CaptureMainWindowScreenshotAsync(Path.Combine(screenshotsDir, smokeFileName)).ConfigureAwait(true);
                 return;
             }
 
@@ -180,8 +180,8 @@ public partial class App
                 return;
             }
 
-            await this.CaptureMainWindowScreenshotAsync(Path.Combine(screenshotsDir, "screenshot_dashboard_privacy.png")).ConfigureAwait(true);
-            await this.CaptureSettingsScreenshotsAsync(screenshotsDir).ConfigureAwait(true);
+            await CaptureMainWindowScreenshotAsync(Path.Combine(screenshotsDir, "screenshot_dashboard_privacy.png")).ConfigureAwait(true);
+            await CaptureSettingsScreenshotsAsync(screenshotsDir).ConfigureAwait(true);
             this.CaptureInfoScreenshot(Path.Combine(screenshotsDir, "screenshot_info_privacy.png"));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -223,13 +223,13 @@ public partial class App
         SetPrivacyMode(true);
     }
 
-    private async Task CaptureMainWindowScreenshotAsync(string outputPath)
+    private static async Task CaptureMainWindowScreenshotAsync(string outputPath)
     {
         var window = Host.Services.GetRequiredService<MainWindow>();
         try
         {
             await window.PrepareForHeadlessScreenshotAsync(deterministic: true).ConfigureAwait(true);
-            await this.WaitForDispatcherIdleAsync(window).ConfigureAwait(true);
+            await WaitForDispatcherIdleAsync(window).ConfigureAwait(true);
             RenderWindowContent(window, outputPath);
         }
         finally
@@ -238,7 +238,7 @@ public partial class App
         }
     }
 
-    private async Task CaptureSettingsScreenshotsAsync(string outputDirectory)
+    private static async Task CaptureSettingsScreenshotsAsync(string outputDirectory)
     {
         var window = Host.Services.GetRequiredService<SettingsWindow>();
         try
@@ -251,7 +251,7 @@ public partial class App
         }
     }
 
-    private async Task WaitForDispatcherIdleAsync(Window window)
+    private static async Task WaitForDispatcherIdleAsync(Window window)
     {
 #pragma warning disable VSTHRD001 // WPF screenshot capture needs the window dispatcher to reach idle before rendering.
         await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle).Task.ConfigureAwait(true);
@@ -280,7 +280,7 @@ public partial class App
                 // preferences to defaults, so we must override afterwards.
                 permutation.Apply(Preferences);
                 window.ApplyPreferencesAndRerender();
-                await this.WaitForDispatcherIdleAsync(window).ConfigureAwait(true);
+                await WaitForDispatcherIdleAsync(window).ConfigureAwait(true);
                 RenderWindowContent(window, outputPath);
                 captured.Add((fileName, permutation.Label, permutation.Description));
             }

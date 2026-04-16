@@ -10,11 +10,14 @@ namespace AIUsageTracker.Monitor.Services;
 
 public class DatabaseMigrationService
 {
+    private const string TableProviders = "providers";
+    private const string TableProviderHistory = "provider_history";
+
     private static readonly IReadOnlyDictionary<string, string> TableInfoSql =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["providers"] = "PRAGMA table_info(providers)",
-            ["provider_history"] = "PRAGMA table_info(provider_history)",
+            [TableProviders] = "PRAGMA table_info(providers)",
+            [TableProviderHistory] = "PRAGMA table_info(provider_history)",
             ["raw_snapshots"] = "PRAGMA table_info(raw_snapshots)",
             ["reset_events"] = "PRAGMA table_info(reset_events)",
         };
@@ -228,27 +231,27 @@ public class DatabaseMigrationService
             );
         ");
 
-        EnsureColumn(connection, "providers", "provider_name", "TEXT");
-        EnsureColumn(connection, "providers", "account_name", "TEXT");
-        EnsureColumn(connection, "providers", "created_at", "TEXT");
-        EnsureColumn(connection, "providers", "updated_at", "TEXT");
-        EnsureColumn(connection, "providers", "is_active", "INTEGER NOT NULL DEFAULT 1");
-        EnsureColumn(connection, "providers", "config_json", "TEXT");
-        EnsureColumn(connection, "providers", "auth_source", "TEXT DEFAULT 'manual'");
-        EnsureColumn(connection, "providers", "plan_type", "TEXT DEFAULT 'usage'");
-        EnsureColumn(connection, "provider_history", "next_reset_time", "TEXT");
-        EnsureColumn(connection, "provider_history", "details_json", "TEXT");
-        EnsureColumn(connection, "provider_history", "next_reset_time", "TEXT");
-        EnsureColumn(connection, "provider_history", "response_latency_ms", "REAL NOT NULL DEFAULT 0");
-        EnsureColumn(connection, "provider_history", "http_status", "INTEGER NOT NULL DEFAULT 0");
-        EnsureColumn(connection, "provider_history", "upstream_response_validity", "INTEGER NOT NULL DEFAULT 0");
-        EnsureColumn(connection, "provider_history", "upstream_response_note", "TEXT NOT NULL DEFAULT ''");
-        EnsureColumn(connection, "provider_history", "parent_provider_id", "TEXT");
-        EnsureColumn(connection, "provider_history", "card_id", "TEXT");
-        EnsureColumn(connection, "provider_history", "group_id", "TEXT");
-        EnsureColumn(connection, "provider_history", "window_kind", "INTEGER NOT NULL DEFAULT 0");
-        EnsureColumn(connection, "provider_history", "model_name", "TEXT");
-        EnsureColumn(connection, "provider_history", "name", "TEXT");
+        EnsureColumn(connection, TableProviders, "provider_name", "TEXT");
+        EnsureColumn(connection, TableProviders, "account_name", "TEXT");
+        EnsureColumn(connection, TableProviders, "created_at", "TEXT");
+        EnsureColumn(connection, TableProviders, "updated_at", "TEXT");
+        EnsureColumn(connection, TableProviders, "is_active", "INTEGER NOT NULL DEFAULT 1");
+        EnsureColumn(connection, TableProviders, "config_json", "TEXT");
+        EnsureColumn(connection, TableProviders, "auth_source", "TEXT DEFAULT 'manual'");
+        EnsureColumn(connection, TableProviders, "plan_type", "TEXT DEFAULT 'usage'");
+        EnsureColumn(connection, TableProviderHistory, "next_reset_time", "TEXT");
+        EnsureColumn(connection, TableProviderHistory, "details_json", "TEXT");
+        EnsureColumn(connection, TableProviderHistory, "next_reset_time", "TEXT");
+        EnsureColumn(connection, TableProviderHistory, "response_latency_ms", "REAL NOT NULL DEFAULT 0");
+        EnsureColumn(connection, TableProviderHistory, "http_status", "INTEGER NOT NULL DEFAULT 0");
+        EnsureColumn(connection, TableProviderHistory, "upstream_response_validity", "INTEGER NOT NULL DEFAULT 0");
+        EnsureColumn(connection, TableProviderHistory, "upstream_response_note", "TEXT NOT NULL DEFAULT ''");
+        EnsureColumn(connection, TableProviderHistory, "parent_provider_id", "TEXT");
+        EnsureColumn(connection, TableProviderHistory, "card_id", "TEXT");
+        EnsureColumn(connection, TableProviderHistory, "group_id", "TEXT");
+        EnsureColumn(connection, TableProviderHistory, "window_kind", "INTEGER NOT NULL DEFAULT 0");
+        EnsureColumn(connection, TableProviderHistory, "model_name", "TEXT");
+        EnsureColumn(connection, TableProviderHistory, "name", "TEXT");
 
         // Convert fetched_at TEXT → INTEGER epoch for databases that pre-date V11.
         ConvertTimestampsToEpochIfNeeded(connection);
@@ -276,7 +279,7 @@ public class DatabaseMigrationService
     /// </summary>
     private static void ConvertTimestampsToEpochIfNeeded(SqliteConnection connection)
     {
-        var type = GetColumnType(connection, "provider_history", "fetched_at");
+        var type = GetColumnType(connection, TableProviderHistory, "fetched_at");
         if (string.IsNullOrEmpty(type) || !string.Equals(type, "TEXT", StringComparison.OrdinalIgnoreCase))
         {
             return;

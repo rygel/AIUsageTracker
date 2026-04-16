@@ -21,6 +21,8 @@ namespace AIUsageTracker.Infrastructure.Providers;
 
 public class AntigravityProvider : ProviderBase
 {
+    private const string AntigravityApiIdentifier = "antigravity";
+
     private readonly HttpClient _httpClient;
     private readonly ILogger<AntigravityProvider> _logger;
     private ProviderUsage? _cachedUsage;
@@ -41,7 +43,7 @@ public class AntigravityProvider : ProviderBase
     }
 
     public static ProviderDefinition StaticDefinition { get; } = new(
-        "antigravity",
+        AntigravityApiIdentifier,
         "Google Antigravity",
         PlanType.Coding,
         isQuotaBased: true)
@@ -604,7 +606,7 @@ public class AntigravityProvider : ProviderBase
                         continue;
                     }
 
-                    if (!cmdLine.Contains("antigravity", StringComparison.OrdinalIgnoreCase))
+                    if (!cmdLine.Contains(AntigravityApiIdentifier, StringComparison.OrdinalIgnoreCase))
                     {
                         continue;
                     }
@@ -679,7 +681,7 @@ public class AntigravityProvider : ProviderBase
 
     private async Task<List<ProviderUsage>> FetchUsageAsync(int port, string csrfToken, ProviderConfig config)
     {
-        var body = new { metadata = new { ideName = "antigravity", extensionName = "antigravity", ideVersion = "unknown", locale = "en" } };
+        var body = new { metadata = new { ideName = AntigravityApiIdentifier, extensionName = AntigravityApiIdentifier, ideVersion = "unknown", locale = "en" } };
         string? responseString = null;
         int httpStatus = 200;
         Exception? lastRequestException = null;

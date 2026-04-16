@@ -569,7 +569,7 @@
         return $"{snapshot.AverageLatencyMs:F0}ms";
     }
 
-    string GetLastSuccessText(AIUsageTracker.Core.Models.ProviderReliabilitySnapshot snapshot)
+    static string GetLastSuccessText(AIUsageTracker.Core.Models.ProviderReliabilitySnapshot snapshot)
     {
         if (!snapshot.IsAvailable || !snapshot.LastSuccessfulSyncUtc.HasValue)
         {
@@ -580,7 +580,7 @@
         return $"{utc.ToLocalTime():MMM d, HH:mm} ({GetElapsedSinceString(utc)})";
     }
 
-    string GetElapsedSinceString(DateTime timestampUtc)
+    static string GetElapsedSinceString(DateTime timestampUtc)
     {
         var diff = DateTime.UtcNow - timestampUtc.ToUniversalTime();
 

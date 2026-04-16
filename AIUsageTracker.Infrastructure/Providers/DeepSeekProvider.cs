@@ -15,6 +15,8 @@ namespace AIUsageTracker.Infrastructure.Providers;
 
 public class DeepSeekProvider : ProviderBase
 {
+    private const string UserBalanceEndpoint = "https://api.deepseek.com/user/balance";
+
     private readonly HttpClient _httpClient;
     private readonly ILogger<DeepSeekProvider> _logger;
 
@@ -59,7 +61,7 @@ public class DeepSeekProvider : ProviderBase
 
         try
         {
-            var request = CreateBearerRequest(HttpMethod.Get, "https://api.deepseek.com/user/balance", config.ApiKey);
+            var request = CreateBearerRequest(HttpMethod.Get, UserBalanceEndpoint, config.ApiKey);
             request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 
             var response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);

@@ -84,6 +84,11 @@ public class CodexProvider : ProviderBase
 
     private const string UsageEndpoint = "https://chatgpt.com/backend-api/wham/usage";
     private const string AuthClaimKey = "https://api.openai.com/auth";
+    private const string JsonKeyRateLimit = "rate_limit";
+    private const string JsonKeyPrimaryWindow = "primary_window";
+    private const string JsonKeySecondaryWindow = "secondary_window";
+    private const string JsonKeyUsedPercent = "used_percent";
+    private const string JsonKeyResetAfterSeconds = "reset_after_seconds";
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<CodexProvider> _logger;
@@ -266,15 +271,15 @@ public class CodexProvider : ProviderBase
                 // Spark windows have a model_name or model field and rate_limit data
                 var modelName = item.ReadString("model_name") ?? item.ReadString("model");
 
-                if (!item.TryGetProperty("rate_limit", out var sparkRateLimit))
+                if (!item.TryGetProperty(JsonKeyRateLimit, out var sparkRateLimit))
                 {
                     continue;
                 }
 
-                var primaryUsedPercent = sparkRateLimit.ReadDouble("primary_window", "used_percent");
-                var primaryResetAfterSeconds = sparkRateLimit.ReadDouble("primary_window", "reset_after_seconds");
-                var secondaryUsedPercent = sparkRateLimit.ReadDouble("secondary_window", "used_percent");
-                var secondaryResetAfterSeconds = sparkRateLimit.ReadDouble("secondary_window", "reset_after_seconds");
+                var primaryUsedPercent = sparkRateLimit.ReadDouble(JsonKeyPrimaryWindow, JsonKeyUsedPercent);
+                var primaryResetAfterSeconds = sparkRateLimit.ReadDouble(JsonKeyPrimaryWindow, JsonKeyResetAfterSeconds);
+                var secondaryUsedPercent = sparkRateLimit.ReadDouble(JsonKeySecondaryWindow, JsonKeyUsedPercent);
+                var secondaryResetAfterSeconds = sparkRateLimit.ReadDouble(JsonKeySecondaryWindow, JsonKeyResetAfterSeconds);
                 if (primaryUsedPercent.HasValue || primaryResetAfterSeconds.HasValue || secondaryUsedPercent.HasValue || secondaryResetAfterSeconds.HasValue)
                 {
                     var limitName = item.ReadString("limit_name");
@@ -296,13 +301,13 @@ public class CodexProvider : ProviderBase
         }
 
         // Look in rate_limit object properties
-        if (root.TryGetProperty("rate_limit", out var rateLimit) && rateLimit.ValueKind == JsonValueKind.Object)
+        if (root.TryGetProperty(JsonKeyRateLimit, out var rateLimit) && rateLimit.ValueKind == JsonValueKind.Object)
         {
             candidates.Clear();
             foreach (var property in rateLimit.EnumerateObject())
             {
-                if (property.Name.Equals("primary_window", StringComparison.OrdinalIgnoreCase) ||
-                    property.Name.Equals("secondary_window", StringComparison.OrdinalIgnoreCase))
+                if (property.Name.Equals(JsonKeyPrimaryWindow, StringComparison.OrdinalIgnoreCase) ||
+                    property.Name.Equals(JsonKeySecondaryWindow, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
@@ -314,10 +319,10 @@ public class CodexProvider : ProviderBase
                     continue;
                 }
 
-                var primaryUsedPercent = property.Value.ReadDouble("primary_window", "used_percent");
-                var primaryResetAfterSeconds = property.Value.ReadDouble("primary_window", "reset_after_seconds");
-                var secondaryUsedPercent = property.Value.ReadDouble("secondary_window", "used_percent");
-                var secondaryResetAfterSeconds = property.Value.ReadDouble("secondary_window", "reset_after_seconds");
+                var primaryUsedPercent = property.Value.ReadDouble(JsonKeyPrimaryWindow, JsonKeyUsedPercent);
+                var primaryResetAfterSeconds = property.Value.ReadDouble(JsonKeyPrimaryWindow, JsonKeyResetAfterSeconds);
+                var secondaryUsedPercent = property.Value.ReadDouble(JsonKeySecondaryWindow, JsonKeyUsedPercent);
+                var secondaryResetAfterSeconds = property.Value.ReadDouble(JsonKeySecondaryWindow, JsonKeyResetAfterSeconds);
                 if (primaryUsedPercent.HasValue || primaryResetAfterSeconds.HasValue || secondaryUsedPercent.HasValue || secondaryResetAfterSeconds.HasValue)
                 {
                     var modelName = property.Value.ReadString("model_name") ?? property.Value.ReadString("model");
@@ -444,10 +449,10 @@ public class CodexProvider : ProviderBase
         int httpStatus = 200)
     {
         var planType = root.ReadString("plan_type") ?? jwtPlanType ?? "unknown";
-        var primaryUsedPercent = root.ReadDouble("rate_limit", "primary_window", "used_percent") ?? 0.0;
-        var primaryResetSeconds = root.ReadDouble("rate_limit", "primary_window", "reset_after_seconds");
-        var secondaryUsedPercent = root.ReadDouble("rate_limit", "secondary_window", "used_percent");
-        var secondaryResetSeconds = root.ReadDouble("rate_limit", "secondary_window", "reset_after_seconds");
+        var primaryUsedPercent = root.ReadDouble(JsonKeyRateLimit, JsonKeyPrimaryWindow, JsonKeyUsedPercent) ?? 0.0;
+        var primaryResetSeconds = root.ReadDouble(JsonKeyRateLimit, JsonKeyPrimaryWindow, JsonKeyResetAfterSeconds);
+        var secondaryUsedPercent = root.ReadDouble(JsonKeyRateLimit, JsonKeySecondaryWindow, JsonKeyUsedPercent);
+        var secondaryResetSeconds = root.ReadDouble(JsonKeyRateLimit, JsonKeySecondaryWindow, JsonKeyResetAfterSeconds);
         var sparkWindow = ExtractSparkWindow(root);
         var accountIdentity = ResolveAccountIdentity(root, jwtEmail, authIdentity, accountId);
 

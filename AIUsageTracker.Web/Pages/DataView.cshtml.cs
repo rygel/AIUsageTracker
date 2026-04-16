@@ -12,6 +12,7 @@ namespace AIUsageTracker.Web.Pages;
 public class DataViewModel : PageModel
 {
     private const int PageSize = 100;
+    private const string TableNameProviders = "providers";
 
     private readonly WebDatabaseService _dbService;
     private readonly IDataExportService _exportService;
@@ -48,7 +49,7 @@ public class DataViewModel : PageModel
         // Map URL-friendly names to actual table names
         var actualTable = tableName?.ToLower(System.Globalization.CultureInfo.InvariantCulture) switch
         {
-            "providers" => "providers",
+            TableNameProviders => TableNameProviders,
             "history" => "provider_history",
             "snapshots" => "raw_snapshots",
             "resets" => "reset_events",
@@ -57,8 +58,8 @@ public class DataViewModel : PageModel
 
         if (actualTable == null)
         {
-            tableName = "providers";
-            actualTable = "providers";
+            tableName = TableNameProviders;
+            actualTable = TableNameProviders;
         }
 
         this.TableName = tableName;
@@ -70,7 +71,7 @@ public class DataViewModel : PageModel
 
         var (rows, totalCount) = actualTable switch
         {
-            "providers" => await this._dbService.GetProvidersRawAsync(page, PageSize).ConfigureAwait(false),
+            TableNameProviders => await this._dbService.GetProvidersRawAsync(page, PageSize).ConfigureAwait(false),
             "provider_history" => await this._dbService.GetProviderHistoryRawAsync(page, PageSize).ConfigureAwait(false),
             "raw_snapshots" => await this._dbService.GetRawSnapshotsRawAsync(page, PageSize).ConfigureAwait(false),
             "reset_events" => await this._dbService.GetResetEventsRawAsync(page, PageSize).ConfigureAwait(false),

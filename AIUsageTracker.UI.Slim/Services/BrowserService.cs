@@ -15,7 +15,9 @@ namespace AIUsageTracker.UI.Slim.Services;
 /// </summary>
 public class BrowserService : IBrowserService
 {
+#pragma warning disable S1075 // Localhost URL is a default constant
     private const string WebUiUrl = "http://localhost:5100";
+#pragma warning restore S1075
     private const string WebProjectName = "AIUsageTracker.Web";
     private readonly ILogger<BrowserService> _logger;
     private readonly IHttpClientFactory _httpClientFactory;

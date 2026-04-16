@@ -9,7 +9,7 @@ namespace AIUsageTracker.Monitor.Services;
 
 public sealed class ProviderRefreshConfigSelector
 {
-    public ProviderRefreshConfigSelection SelectActiveConfigs(
+    public static ProviderRefreshConfigSelection SelectActiveConfigs(
         IReadOnlyCollection<ProviderConfig> configs,
         bool forceAll,
         IReadOnlyCollection<string>? includeProviderIds)
