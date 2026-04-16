@@ -174,10 +174,10 @@ public class MonitorLauncher : IMonitorLauncher
             {
                 holdsLaunchMutex = launchMutex.WaitOne(TimeSpan.FromSeconds(LaunchMutexWaitSeconds));
             }
-            catch (AbandonedMutexException)
+            catch (AbandonedMutexException ex)
             {
                 holdsLaunchMutex = true;
-                this._logger?.LogDebug("Monitor launch lock was abandoned; proceeding.");
+                this._logger?.LogDebug(ex, "Monitor launch lock was abandoned; proceeding.");
             }
 
             if (!holdsLaunchMutex)
@@ -213,7 +213,7 @@ public class MonitorLauncher : IMonitorLauncher
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
         {
-            this._logger?.LogDebug("Failed to start Monitor: {Message}", ex.Message);
+            this._logger?.LogDebug(ex, "Failed to start Monitor: {Message}", ex.Message);
             return false;
         }
         finally
@@ -298,7 +298,7 @@ public class MonitorLauncher : IMonitorLauncher
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            this._logger?.LogDebug("Failed to invalidate monitor metadata: {Message}", ex.Message);
+            this._logger?.LogDebug(ex, "Failed to invalidate monitor metadata: {Message}", ex.Message);
         }
 
         return Task.CompletedTask;
@@ -394,9 +394,9 @@ public class MonitorLauncher : IMonitorLauncher
             {
                 await Task.Delay(200, cancellationToken).ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException ex)
             {
-                this._logger?.LogDebug("Monitor wait cancelled after {Elapsed:F1}s.", stopwatch.Elapsed.TotalSeconds);
+                this._logger?.LogDebug(ex, "Monitor wait cancelled after {Elapsed:F1}s.", stopwatch.Elapsed.TotalSeconds);
                 return null;
             }
         }
@@ -432,7 +432,7 @@ public class MonitorLauncher : IMonitorLauncher
         }
         catch (JsonException ex)
         {
-            this._logger?.LogDebug("Failed to parse monitor metadata: {Message}", ex.Message);
+            this._logger?.LogDebug(ex, "Failed to parse monitor metadata: {Message}", ex.Message);
             if (path != null)
             {
                 this.QuarantineMonitorInfoPath(path);
@@ -442,17 +442,17 @@ public class MonitorLauncher : IMonitorLauncher
         }
         catch (IOException ex)
         {
-            this._logger?.LogDebug("Failed to read monitor metadata: {Message}", ex.Message);
+            this._logger?.LogDebug(ex, "Failed to read monitor metadata: {Message}", ex.Message);
             return (null, path);
         }
         catch (UnauthorizedAccessException ex)
         {
-            this._logger?.LogDebug("Access denied reading monitor metadata: {Message}", ex.Message);
+            this._logger?.LogDebug(ex, "Access denied reading monitor metadata: {Message}", ex.Message);
             return (null, path);
         }
         catch (Exception ex) when (ex is IOException or JsonException)
         {
-            this._logger?.LogDebug("Failed to load monitor metadata: {Message}", ex.Message);
+            this._logger?.LogDebug(ex, "Failed to load monitor metadata: {Message}", ex.Message);
             return (null, path);
         }
     }
@@ -561,17 +561,17 @@ public class MonitorLauncher : IMonitorLauncher
         }
         catch (HttpRequestException ex)
         {
-            this._logger?.LogDebug("Health check request failed on port {Port}: {Message}", port, ex.Message);
+            this._logger?.LogDebug(ex, "Health check request failed on port {Port}: {Message}", port, ex.Message);
             return false;
         }
         catch (TaskCanceledException ex)
         {
-            this._logger?.LogDebug("Health check timed out on port {Port}: {Message}", port, ex.Message);
+            this._logger?.LogDebug(ex, "Health check timed out on port {Port}: {Message}", port, ex.Message);
             return false;
         }
         catch (Exception ex) when (ex is IOException or InvalidOperationException)
         {
-            this._logger?.LogDebug("Health check failed on port {Port}: {Message}", port, ex.Message);
+            this._logger?.LogDebug(ex, "Health check failed on port {Port}: {Message}", port, ex.Message);
             return false;
         }
     }
@@ -593,14 +593,14 @@ public class MonitorLauncher : IMonitorLauncher
             var process = Process.GetProcessById(processId);
             return Task.FromResult(!process.HasExited);
         }
-        catch (ArgumentException)
-        {
-            this._logger?.LogDebug("Monitor process {ProcessId} was not found.", processId);
+            catch (ArgumentException ex)
+            {
+                this._logger?.LogDebug(ex, "Monitor process {ProcessId} was not found.", processId);
             return Task.FromResult(false);
         }
-        catch (InvalidOperationException)
-        {
-            this._logger?.LogDebug("Failed to query monitor process {ProcessId}.", processId);
+            catch (InvalidOperationException ex)
+            {
+                this._logger?.LogDebug(ex, "Failed to query monitor process {ProcessId}.", processId);
             return Task.FromResult(false);
         }
     }

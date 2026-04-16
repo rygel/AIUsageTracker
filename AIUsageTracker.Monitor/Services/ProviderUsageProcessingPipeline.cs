@@ -38,7 +38,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         ArgumentNullException.ThrowIfNull(activeProviderIds);
 
         var accepted = new List<ProviderUsage>();
-        var activeSet = this.BuildActiveProviderSet(activeProviderIds);
+        var activeSet = BuildActiveProviderSet(activeProviderIds);
 
         var invalidIdentityCount = 0;
         var inactiveProviderFilteredCount = 0;
@@ -79,12 +79,12 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
                 continue;
             }
 
-            normalized = this.ApplyDetailContractStage(normalized);
+            normalized = ApplyDetailContractStage(normalized);
 
             accepted.Add(normalized);
         }
 
-        this.NormalizeFamilyAccountIdentity(accepted);
+        NormalizeFamilyAccountIdentity(accepted);
 
         this.RecordSnapshot(
             totalProcessedEntries,
@@ -132,7 +132,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         };
     }
 
-    private HashSet<string> BuildActiveProviderSet(IReadOnlyCollection<string> activeProviderIds)
+    private static HashSet<string> BuildActiveProviderSet(IReadOnlyCollection<string> activeProviderIds)
     {
         return activeProviderIds
             .Where(id => !string.IsNullOrWhiteSpace(id))
@@ -177,7 +177,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         return false;
     }
 
-    private ProviderUsage ApplyDetailContractStage(
+    private static ProviderUsage ApplyDetailContractStage(
         ProviderUsage usage)
     {
         // With flat cards, there are no sub-details to validate — this stage is a no-op.
@@ -236,11 +236,11 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             : usage.ProviderName.Trim();
         ProviderMetadataCatalog.TryGet(providerId, out var definition);
 
-        var requestsUsed = this.SanitizeNonNegativeFinite(usage.RequestsUsed);
-        var requestsAvailable = this.SanitizeNonNegativeFinite(usage.RequestsAvailable);
-        var requestsPercentage = this.NormalizePercentage(usage, requestsUsed, requestsAvailable);
-        var responseLatencyMs = this.SanitizeNonNegativeFinite(usage.ResponseLatencyMs);
-        var fetchedAt = this.NormalizeFetchedAt(usage.FetchedAt);
+        var requestsUsed = SanitizeNonNegativeFinite(usage.RequestsUsed);
+        var requestsAvailable = SanitizeNonNegativeFinite(usage.RequestsAvailable);
+        var requestsPercentage = NormalizePercentage(usage, requestsUsed, requestsAvailable);
+        var responseLatencyMs = SanitizeNonNegativeFinite(usage.ResponseLatencyMs);
+        var fetchedAt = NormalizeFetchedAt(usage.FetchedAt);
         var description = (usage.Description ?? string.Empty).Trim();
         if (!usage.IsAvailable && string.IsNullOrWhiteSpace(description))
         {
@@ -312,18 +312,18 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         upstreamResponseValidity = upstreamEvaluation.Validity;
         upstreamResponseNote = upstreamEvaluation.Note;
 
-        if (!this.StringEquals(providerId, usage.ProviderId) ||
-            !this.StringEquals(providerName, usage.ProviderName) ||
+        if (!StringEquals(providerId, usage.ProviderId) ||
+            !StringEquals(providerName, usage.ProviderName) ||
             Math.Abs(requestsUsed - usage.RequestsUsed) > 0.001 ||
             Math.Abs(requestsAvailable - usage.RequestsAvailable) > 0.001 ||
             Math.Abs(requestsPercentage - usage.UsedPercent) > 0.001 ||
             Math.Abs(responseLatencyMs - usage.ResponseLatencyMs) > 0.001 ||
             fetchedAt != usage.FetchedAt ||
-            !this.StringEquals(description, usage.Description) ||
+            !StringEquals(description, usage.Description) ||
             httpStatus != usage.HttpStatus ||
             normalizedNextResetTimeUtc != usageNextResetTimeUtc ||
             upstreamResponseValidity != usage.UpstreamResponseValidity ||
-            !this.StringEquals(upstreamResponseNote, usage.UpstreamResponseNote))
+            !StringEquals(upstreamResponseNote, usage.UpstreamResponseNote))
         {
             normalizedCount++;
         }
@@ -333,12 +333,12 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         return normalizedUsageCandidate;
     }
 
-    private bool StringEquals(string? left, string? right)
+    private static bool StringEquals(string? left, string? right)
     {
         return string.Equals(left, right, StringComparison.Ordinal);
     }
 
-    private DateTime NormalizeFetchedAt(DateTime fetchedAt)
+    private static DateTime NormalizeFetchedAt(DateTime fetchedAt)
     {
         if (fetchedAt == default)
         {
@@ -353,7 +353,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         };
     }
 
-    private double SanitizeNonNegativeFinite(double value)
+    private static double SanitizeNonNegativeFinite(double value)
     {
         if (double.IsNaN(value) || double.IsInfinity(value) || value < 0)
         {
@@ -363,7 +363,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         return value;
     }
 
-    private double NormalizePercentage(ProviderUsage usage, double requestsUsed, double requestsAvailable)
+    private static double NormalizePercentage(ProviderUsage usage, double requestsUsed, double requestsAvailable)
     {
         var original = usage.UsedPercent;
         var isFinite = !double.IsNaN(original) && !double.IsInfinity(original);
@@ -398,7 +398,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         return string.IsNullOrWhiteSpace(usage.Description);
     }
 
-    private void NormalizeFamilyAccountIdentity(List<ProviderUsage> usages)
+    private static void NormalizeFamilyAccountIdentity(List<ProviderUsage> usages)
     {
         foreach (var group in usages.GroupBy(
                      usage => ProviderMetadataCatalog.GetCanonicalProviderId(usage.ProviderId),

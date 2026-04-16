@@ -148,23 +148,10 @@ internal static class MonitorUsageEndpoints
             return false;
         }
 
-        foreach (var rawHeader in headerValues)
-        {
-            if (string.IsNullOrWhiteSpace(rawHeader))
-            {
-                continue;
-            }
-
-            foreach (var candidate in rawHeader.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
-            {
-                if (string.Equals(candidate, "*", StringComparison.Ordinal) ||
-                    string.Equals(candidate, currentETag, StringComparison.Ordinal))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        return headerValues
+            .Where(h => !string.IsNullOrWhiteSpace(h))
+            .SelectMany(h => h.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            .Any(candidate => string.Equals(candidate, "*", StringComparison.Ordinal) ||
+                              string.Equals(candidate, currentETag, StringComparison.Ordinal));
     }
 }

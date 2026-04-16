@@ -15,14 +15,14 @@ internal sealed class ProviderSessionTokenResolver
     private readonly ProviderAuthDiscoverySpec _discoverySpec;
     private readonly string _description;
     private readonly string _sourcePrefix;
-    private readonly ILogger<TokenDiscoveryService> _logger;
+    private readonly ILogger _logger;
     private readonly IAppPathProvider _pathProvider;
 
     public ProviderSessionTokenResolver(
         ProviderAuthDiscoverySpec discoverySpec,
         string description,
         string sourcePrefix,
-        ILogger<TokenDiscoveryService> logger,
+        ILogger logger,
         IAppPathProvider pathProvider)
     {
         this._discoverySpec = discoverySpec;

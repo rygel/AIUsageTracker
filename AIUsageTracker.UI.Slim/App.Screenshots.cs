@@ -164,7 +164,7 @@ public partial class App
             var isThemeSmokeMode = args.Contains("--theme-smoke", StringComparer.OrdinalIgnoreCase);
             var isCardCatalogMode = args.Contains("--card-catalog", StringComparer.OrdinalIgnoreCase);
             this.ConfigureHeadlessScreenshotPreferences(selectedTheme);
-            var screenshotsDir = this.ResolveOutputDirectory(args);
+            var screenshotsDir = ResolveOutputDirectory(args);
             Directory.CreateDirectory(screenshotsDir);
 
             if (isThemeSmokeMode)
@@ -195,7 +195,7 @@ public partial class App
         }
     }
 
-    private string ResolveOutputDirectory(IReadOnlyList<string> args)
+    private static string ResolveOutputDirectory(IReadOnlyList<string> args)
     {
         var outputDirectoryArg = GetArgumentValue(args, "--output-dir");
         return string.IsNullOrWhiteSpace(outputDirectoryArg)

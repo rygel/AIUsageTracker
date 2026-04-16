@@ -45,7 +45,7 @@ public class ReliabilityModel : PageModel
         }
     }
 
-    public string GetReliabilityClass(ProviderReliabilitySnapshot snapshot)
+    public static string GetReliabilityClass(ProviderReliabilitySnapshot snapshot)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
 
@@ -67,7 +67,7 @@ public class ReliabilityModel : PageModel
         return "unknown";
     }
 
-    public string GetReliabilityLabel(ProviderReliabilitySnapshot snapshot)
+    public static string GetReliabilityLabel(ProviderReliabilitySnapshot snapshot)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
 
@@ -94,7 +94,7 @@ public class ReliabilityModel : PageModel
         return "Critical";
     }
 
-    public string GetLatencyText(ProviderReliabilitySnapshot snapshot)
+    public static string GetLatencyText(ProviderReliabilitySnapshot snapshot)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
 
@@ -112,7 +112,7 @@ public class ReliabilityModel : PageModel
         };
     }
 
-    public string GetLastSyncText(ProviderReliabilitySnapshot snapshot)
+    public static string GetLastSyncText(ProviderReliabilitySnapshot snapshot)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
 

@@ -195,13 +195,7 @@ public static class ProviderMetadataCatalog
                 continue;
             }
 
-            foreach (var coReportedProviderId in definition.CoReportedProviderIds)
-            {
-                if (!string.IsNullOrWhiteSpace(coReportedProviderId))
-                {
-                    expanded.Add(coReportedProviderId);
-                }
-            }
+            expanded.UnionWith(definition.CoReportedProviderIds.Where(id => !string.IsNullOrWhiteSpace(id)));
         }
 
         return expanded;

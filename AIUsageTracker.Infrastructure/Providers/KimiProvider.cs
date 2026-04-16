@@ -133,7 +133,7 @@ public class KimiProvider : ProviderBase
                     IsQuotaBased = this.Definition.IsQuotaBased,
                     PlanType = this.Definition.PlanType,
                     IsAvailable = true,
-                    Description = $"{remaining} remaining{(!string.IsNullOrEmpty(data.Usage.ResetTime) ? $" (Resets: {this.FormatResetTime(data.Usage.ResetTime)})" : string.Empty)}",
+                    Description = $"{remaining} remaining{(!string.IsNullOrEmpty(data.Usage.ResetTime) ? $" (Resets: {FormatResetTime(data.Usage.ResetTime)})" : string.Empty)}",
                     RawJson = content,
                     HttpStatus = (int)response.StatusCode,
                     NextResetTime = weeklyResetDt,
@@ -160,11 +160,11 @@ public class KimiProvider : ProviderBase
                         continue;
                     }
 
-                    string name = $"{this.FormatDuration(win.Duration, win.TimeUnit ?? "TIME_UNIT_MINUTE")} Limit";
+                    string name = $"{FormatDuration(win.Duration, win.TimeUnit ?? "TIME_UNIT_MINUTE")} Limit";
                     var itemUsed = det.Limit - det.Remaining;
                     var itemUsedPercentage = det.Limit > 0 ? (itemUsed / (double)det.Limit) * 100.0 : 0;
 
-                    var resetDisplay = this.FormatResetTime(det.ResetTime ?? string.Empty);
+                    var resetDisplay = FormatResetTime(det.ResetTime ?? string.Empty);
                     DateTime? itemResetDt = null;
                     if (DateTime.TryParse(det.ResetTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
                     {
@@ -289,12 +289,12 @@ public class KimiProvider : ProviderBase
         return WindowKind.None;
     }
 
-    private string FormatDuration(long duration, string unit)
+    private static string FormatDuration(long duration, string unit)
     {
         return UsageWindowLabelFormatter.FormatDuration(duration, unit);
     }
 
-    private string FormatResetTime(string resetTime)
+    private static string FormatResetTime(string resetTime)
     {
         if (DateTime.TryParse(resetTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
         {
@@ -304,7 +304,7 @@ public class KimiProvider : ProviderBase
         return resetTime;
     }
 
-    private class KimiUsageResponse
+    private sealed class KimiUsageResponse
     {
         [JsonPropertyName("usage")]
         public KimiUsageData? Usage { get; set; }
@@ -318,7 +318,7 @@ public class KimiProvider : ProviderBase
     // not a global silent fallback. If Kimi's format changes, JsonException will be thrown
     // and logged by the caller.
     [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
-    private class KimiUsageData
+    private sealed class KimiUsageData
     {
         [JsonPropertyName("limit")]
         public long Limit { get; set; }
@@ -333,7 +333,7 @@ public class KimiProvider : ProviderBase
         public string? ResetTime { get; set; }
     }
 
-    private class KimiLimitItem
+    private sealed class KimiLimitItem
     {
         [JsonPropertyName("window")]
         public KimiWindow? Window { get; set; }
@@ -342,7 +342,7 @@ public class KimiProvider : ProviderBase
         public KimiLimitDetail? Detail { get; set; }
     }
 
-    private class KimiWindow
+    private sealed class KimiWindow
     {
         [JsonPropertyName("duration")]
         public long Duration { get; set; }
@@ -352,7 +352,7 @@ public class KimiProvider : ProviderBase
     }
 
     [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
-    private class KimiLimitDetail
+    private sealed class KimiLimitDetail
     {
         [JsonPropertyName("limit")]
         public long Limit { get; set; }

@@ -299,13 +299,13 @@ public class OpenRouterProvider : ProviderBase
         return results;
     }
 
-    private class OpenRouterCreditsResponse
+    private sealed class OpenRouterCreditsResponse
     {
         [JsonPropertyName("data")]
         public CreditsData? Data { get; set; }
     }
 
-    private class CreditsData
+    private sealed class CreditsData
     {
         [JsonPropertyName("total_credits")]
         public double TotalCredits { get; set; }
@@ -314,13 +314,13 @@ public class OpenRouterProvider : ProviderBase
         public double TotalUsage { get; set; }
     }
 
-    private class OpenRouterKeyResponse
+    private sealed class OpenRouterKeyResponse
     {
         [JsonPropertyName("data")]
         public KeyData? Data { get; set; }
     }
 
-    private class KeyData
+    private sealed class KeyData
     {
         [JsonPropertyName("label")]
         public string? Label { get; set; }

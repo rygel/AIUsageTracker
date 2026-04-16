@@ -48,9 +48,9 @@ public sealed class StartupSequenceService
             await refreshAllAsync(cancellationToken).ConfigureAwait(false);
             this._logger.LogInformation("First-time data seeding complete.");
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
         {
-            this._logger.LogInformation("Startup seeding cancelled due to shutdown.");
+            this._logger.LogInformation(ex, "Startup seeding cancelled due to shutdown.");
         }
         catch (Exception ex) when (ex is IOException or JsonException or InvalidOperationException)
         {
@@ -67,9 +67,9 @@ public sealed class StartupSequenceService
             await targetedRefreshAsync(ProviderMetadataCatalog.GetStartupRefreshProviderIds(), cancellationToken).ConfigureAwait(false);
             this._logger.LogDebug("Startup: targeted refresh complete.");
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
         {
-            this._logger.LogInformation("Startup targeted refresh cancelled due to shutdown.");
+            this._logger.LogInformation(ex, "Startup targeted refresh cancelled due to shutdown.");
         }
         catch (Exception ex) when (ex is IOException or JsonException or InvalidOperationException)
         {

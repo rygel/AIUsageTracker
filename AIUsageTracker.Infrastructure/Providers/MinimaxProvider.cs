@@ -363,13 +363,13 @@ public class MinimaxProvider : ProviderBase
         return usages;
     }
 
-    private class MinimaxTokenResponse
+    private sealed class MinimaxTokenResponse
     {
         [JsonPropertyName("usage")]
         public MinimaxTokenUsage? Usage { get; set; }
     }
 
-    private class MinimaxTokenUsage
+    private sealed class MinimaxTokenUsage
     {
         [JsonPropertyName("tokens_used")]
         public double TokensUsed { get; set; }
@@ -378,7 +378,7 @@ public class MinimaxProvider : ProviderBase
         public double TokensLimit { get; set; }
     }
 
-    private class MinimaxCodingPlanResponse
+    private sealed class MinimaxCodingPlanResponse
     {
         [JsonPropertyName("base_resp")]
         public MinimaxBaseResp? BaseResp { get; set; }
@@ -387,7 +387,7 @@ public class MinimaxProvider : ProviderBase
         public List<MinimaxModelRemains>? ModelRemains { get; set; }
     }
 
-    private class MinimaxBaseResp
+    private sealed class MinimaxBaseResp
     {
         [JsonPropertyName("status_code")]
         public int StatusCode { get; set; }
@@ -396,7 +396,7 @@ public class MinimaxProvider : ProviderBase
         public string? StatusMsg { get; set; }
     }
 
-    private class MinimaxModelRemains
+    private sealed class MinimaxModelRemains
     {
         [JsonPropertyName("model_name")]
         public string? ModelName { get; set; }

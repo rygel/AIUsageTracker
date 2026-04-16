@@ -27,7 +27,7 @@ public class TokenDiscoveryService
     public async Task<IReadOnlyList<ProviderConfig>> DiscoverTokensAsync()
     {
         var discoveredConfigs = new List<ProviderConfig>();
-        var environmentVariables = this.GetNormalizedEnvironmentVariables();
+        var environmentVariables = GetNormalizedEnvironmentVariables();
 
         // 1. Discover from environment variables
         foreach (var entry in environmentVariables)
@@ -66,7 +66,7 @@ public class TokenDiscoveryService
 
     private string GetUserProfilePath() => this._pathProvider.GetUserProfileRoot();
 
-    private IReadOnlyDictionary<string, string> GetNormalizedEnvironmentVariables()
+    private static IReadOnlyDictionary<string, string> GetNormalizedEnvironmentVariables()
     {
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var envVars = Environment.GetEnvironmentVariables();
@@ -98,7 +98,7 @@ public class TokenDiscoveryService
             }
 
             // Try environment variables first
-            var resolved = this.TryResolveFromEnvironmentVariables(
+            var resolved = TryResolveFromEnvironmentVariables(
                 providerId, definition.DiscoveryEnvironmentVariables, environmentVariables);
 
             // Fall back to Roo/Kilo discovered configs
@@ -121,7 +121,7 @@ public class TokenDiscoveryService
         }
     }
 
-    private ProviderConfig? TryResolveFromEnvironmentVariables(
+    private static ProviderConfig? TryResolveFromEnvironmentVariables(
         string providerId,
         IReadOnlyCollection<string> environmentVariableNames,
         IReadOnlyDictionary<string, string> environmentVariables)

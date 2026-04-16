@@ -147,12 +147,10 @@ public partial class SettingsWindow
         var inputMode = isDerived
             ? ProviderInputMode.DerivedReadOnly
             : ResolveProviderInputMode(canonicalProviderId, usage, hasSessionToken);
-        var isInactive = isDerived
-            ? false
-            : inputMode switch
+        var isInactive = !isDerived && inputMode switch
             {
                 ProviderInputMode.AutoDetectedStatus => usage == null || !usage.IsAvailable,
-                ProviderInputMode.SessionAuthStatus => string.IsNullOrWhiteSpace(config.ApiKey) && !(usage?.IsAvailable == true),
+                ProviderInputMode.SessionAuthStatus => string.IsNullOrWhiteSpace(config.ApiKey) && usage?.IsAvailable != true,
                 _ => string.IsNullOrWhiteSpace(config.ApiKey),
             };
         var sessionProviderLabel = inputMode == ProviderInputMode.SessionAuthStatus
@@ -876,7 +874,7 @@ public partial class SettingsWindow
             if (System.IO.File.Exists(svgPath))
             {
                 // Return a simple colored circle as fallback (SVG loading requires SharpVectors)
-                return this.CreateFallbackIcon(providerId);
+                return CreateFallbackIcon(providerId);
             }
 
             // Try ICO
@@ -897,10 +895,10 @@ public partial class SettingsWindow
             this._logger.LogDebug(ex, "Failed to load provider icon for {ProviderId}", providerId);
         }
 
-        return this.CreateFallbackIcon(providerId);
+        return CreateFallbackIcon(providerId);
     }
 
-    private ImageSource CreateFallbackIcon(string providerId)
+    private static ImageSource CreateFallbackIcon(string providerId)
     {
         // Create a simple colored circle as fallback
         var (color, _) = global::AIUsageTracker.UI.Slim.Services.WpfProviderIconService.GetBadge(providerId, Brushes.Gray);

@@ -76,69 +76,73 @@ public class ProviderRefreshCircuitBreakerService
         lock (this._providerFailureLock)
         {
             var now = DateTime.UtcNow;
-            foreach (var config in queriedConfigs)
-            {
-                if (!this._providerFailureStates.TryGetValue(config.ProviderId, out var state))
-                {
-                    state = new ProviderFailureState();
-                    this._providerFailureStates[config.ProviderId] = state;
-                }
-
-                state.LastRefreshAttemptUtc = now;
-                var providerUsages = usages
-                    .Where(u => ProviderMetadataCatalog.Find(config.ProviderId)?.HandlesProviderId(u.ProviderId) ?? false)
-                    .ToList();
-                var isSuccess = providerUsages.Any(IsSuccessfulUsage);
-
-                if (isSuccess)
-                {
-                    var hadFailures = state.ConsecutiveFailures > 0 ||
-                        state.CircuitOpenUntilUtc.HasValue ||
-                        !string.IsNullOrWhiteSpace(state.LastError);
-                    state.ConsecutiveFailures = 0;
-                    state.CircuitOpenUntilUtc = null;
-                    state.LastError = null;
-                    state.LastFailureContext = null;
-                    state.LastSuccessfulRefreshUtc = now;
-
-                    if (hadFailures)
-                    {
-                        this._logger.LogDebug("Circuit reset for {ProviderId}", config.ProviderId);
-                    }
-
-                    continue;
-                }
-
-                state.ConsecutiveFailures++;
-                state.LastError = GetFailureMessage(providerUsages);
-                state.LastFailureContext = providerUsages
-                    .Select(u => u.FailureContext)
-                    .FirstOrDefault(fc => fc != null);
-
-                if (state.ConsecutiveFailures >= CircuitBreakerFailureThreshold)
-                {
-                    var backoffDelay = GetCircuitBreakerDelay(state.ConsecutiveFailures, state.LastFailureContext);
-                    state.CircuitOpenUntilUtc = now.Add(backoffDelay);
-
-                    this._logger.LogWarning(
-                        "Circuit opened for {ProviderId} after {Failures} failures; retry at {RetryUtc:HH:mm:ss} UTC ({DelayMinutes:F1} min). Last error: {Error}",
-                        config.ProviderId,
-                        state.ConsecutiveFailures,
-                        state.CircuitOpenUntilUtc.Value,
-                        backoffDelay.TotalMinutes,
-                        state.LastError);
-                }
-                else
-                {
-                    this._logger.LogDebug(
-                        "Provider {ProviderId} failure {Failures}/{Threshold}: {Error}",
-                        config.ProviderId,
-                        state.ConsecutiveFailures,
-                        CircuitBreakerFailureThreshold,
-                        state.LastError);
-                }
-            }
+            _ = queriedConfigs.Select(config => this.ApplyFailureStateUpdate(config, usages, now)).ToArray();
         }
+    }
+
+    private bool ApplyFailureStateUpdate(ProviderConfig config, IReadOnlyCollection<ProviderUsage> usages, DateTime now)
+    {
+        if (!this._providerFailureStates.TryGetValue(config.ProviderId, out var state))
+        {
+            state = new ProviderFailureState();
+            this._providerFailureStates[config.ProviderId] = state;
+        }
+
+        state.LastRefreshAttemptUtc = now;
+        var providerUsages = usages
+            .Where(u => ProviderMetadataCatalog.Find(config.ProviderId)?.HandlesProviderId(u.ProviderId) ?? false)
+            .ToList();
+        var isSuccess = providerUsages.Any(IsSuccessfulUsage);
+
+        if (isSuccess)
+        {
+            var hadFailures = state.ConsecutiveFailures > 0 ||
+                state.CircuitOpenUntilUtc.HasValue ||
+                !string.IsNullOrWhiteSpace(state.LastError);
+            state.ConsecutiveFailures = 0;
+            state.CircuitOpenUntilUtc = null;
+            state.LastError = null;
+            state.LastFailureContext = null;
+            state.LastSuccessfulRefreshUtc = now;
+
+            if (hadFailures)
+            {
+                this._logger.LogDebug("Circuit reset for {ProviderId}", config.ProviderId);
+            }
+
+            return true;
+        }
+
+        state.ConsecutiveFailures++;
+        state.LastError = GetFailureMessage(providerUsages);
+        state.LastFailureContext = providerUsages
+            .Select(u => u.FailureContext)
+            .FirstOrDefault(fc => fc != null);
+
+        if (state.ConsecutiveFailures >= CircuitBreakerFailureThreshold)
+        {
+            var backoffDelay = GetCircuitBreakerDelay(state.ConsecutiveFailures, state.LastFailureContext);
+            state.CircuitOpenUntilUtc = now.Add(backoffDelay);
+
+            this._logger.LogWarning(
+                "Circuit opened for {ProviderId} after {Failures} failures; retry at {RetryUtc:HH:mm:ss} UTC ({DelayMinutes:F1} min). Last error: {Error}",
+                config.ProviderId,
+                state.ConsecutiveFailures,
+                state.CircuitOpenUntilUtc.Value,
+                backoffDelay.TotalMinutes,
+                state.LastError);
+        }
+        else
+        {
+            this._logger.LogDebug(
+                "Provider {ProviderId} failure {Failures}/{Threshold}: {Error}",
+                config.ProviderId,
+                state.ConsecutiveFailures,
+                CircuitBreakerFailureThreshold,
+                state.LastError);
+        }
+
+        return true;
     }
 
     /// <summary>

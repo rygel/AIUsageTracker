@@ -149,10 +149,10 @@ public partial class SettingsWindow
             var status = isRunning ? "Running" : "Not Running";
 
             MessageBox.Show(
-                this.BuildHealthCheckMessage(status, port, healthSnapshot),
+                BuildHealthCheckMessage(status, port, healthSnapshot),
                 "Health Check",
                 MessageBoxButton.OK,
-                this.GetHealthCheckIcon(isRunning, healthSnapshot));
+                GetHealthCheckIcon(isRunning, healthSnapshot));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -168,7 +168,7 @@ public partial class SettingsWindow
         }
     }
 
-    private string BuildHealthCheckMessage(string processStatus, int port, MonitorHealthSnapshot? healthSnapshot)
+    private static string BuildHealthCheckMessage(string processStatus, int port, MonitorHealthSnapshot? healthSnapshot)
     {
         var builder = new StringBuilder();
         builder.AppendLine(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Monitor Status: {processStatus}"));
@@ -207,7 +207,7 @@ public partial class SettingsWindow
         return builder.ToString();
     }
 
-    private MessageBoxImage GetHealthCheckIcon(bool isRunning, MonitorHealthSnapshot? healthSnapshot)
+    private static MessageBoxImage GetHealthCheckIcon(bool isRunning, MonitorHealthSnapshot? healthSnapshot)
     {
         if (!isRunning)
         {
@@ -239,10 +239,10 @@ public partial class SettingsWindow
             var (isRunning, port) = await this._monitorLifecycleService.IsAgentRunningWithPortAsync().ConfigureAwait(true);
             var healthSnapshot = await this._monitorService.GetHealthSnapshotAsync().ConfigureAwait(true);
             var diagnosticsSnapshot = await this._monitorService.GetDiagnosticsSnapshotAsync().ConfigureAwait(true);
-            var healthDetails = this.SerializeBundlePayload(
+            var healthDetails = SerializeBundlePayload(
                 healthSnapshot,
                 "Health payload unavailable.");
-            var diagnosticsDetails = this.SerializeBundlePayload(
+            var diagnosticsDetails = SerializeBundlePayload(
                 diagnosticsSnapshot,
                 "Diagnostics payload unavailable.");
 
@@ -270,7 +270,7 @@ public partial class SettingsWindow
             bundle.AppendLine();
 
             bundle.AppendLine("=== Monitor Health Summary ===");
-            bundle.AppendLine(this.BuildHealthCheckMessage(isRunning ? "Running" : "Not Running", port, healthSnapshot).TrimEnd());
+            bundle.AppendLine(BuildHealthCheckMessage(isRunning ? "Running" : "Not Running", port, healthSnapshot).TrimEnd());
             bundle.AppendLine();
 
             bundle.AppendLine("=== Monitor Health ===");
@@ -278,7 +278,7 @@ public partial class SettingsWindow
             bundle.AppendLine();
 
             bundle.AppendLine("=== Monitor Diagnostics ===");
-            this.AppendMonitorDiagnosticsSummary(bundle, diagnosticsSnapshot);
+            AppendMonitorDiagnosticsSummary(bundle, diagnosticsSnapshot);
             bundle.AppendLine();
             bundle.AppendLine(diagnosticsDetails);
             bundle.AppendLine();
@@ -352,7 +352,7 @@ public partial class SettingsWindow
         }
     }
 
-    private string SerializeBundlePayload<T>(T? payload, string emptyFallback)
+    private static string SerializeBundlePayload<T>(T? payload, string emptyFallback)
     {
         if (EqualityComparer<T>.Default.Equals(payload, default))
         {
@@ -362,7 +362,7 @@ public partial class SettingsWindow
         return JsonSerializer.Serialize(payload, BundleJsonOptions);
     }
 
-    private void AppendMonitorDiagnosticsSummary(StringBuilder bundle, AgentDiagnosticsSnapshot? diagnostics)
+    private static void AppendMonitorDiagnosticsSummary(StringBuilder bundle, AgentDiagnosticsSnapshot? diagnostics)
     {
         if (diagnostics == null)
         {

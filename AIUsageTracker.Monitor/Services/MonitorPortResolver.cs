@@ -36,7 +36,7 @@ internal static class MonitorPortResolver
                 {
                     if (debug)
                     {
-                        logger.LogDebug("Port {Port} in use on attempt {Attempt}, retrying...", preferredPort, attempt);
+                        logger.LogDebug(ex, "Port {Port} in use on attempt {Attempt}, retrying...", preferredPort, attempt);
                     }
 
                     Thread.Sleep(attemptDelay);

@@ -200,7 +200,7 @@ public partial class SettingsWindow : Window
             await this.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle).Task.ConfigureAwait(true);
             this.UpdateLayout();
 
-            var tabSlug = this.BuildTabSlug(header, index);
+            var tabSlug = BuildTabSlug(header, index);
             var fileName = $"screenshot_settings_{tabSlug}_privacy.png";
             App.RenderWindowContent(this, Path.Combine(outputDirectory, fileName));
             capturedFiles.Add(fileName);
@@ -296,7 +296,7 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private string BuildTabSlug(string? header, int index)
+    private static string BuildTabSlug(string? header, int index)
     {
         if (string.IsNullOrWhiteSpace(header))
         {
@@ -841,8 +841,8 @@ public partial class SettingsWindow : Window
             this._preferences.NotifyOnQuotaExceeded = this.NotifyQuotaExceededCheck.IsChecked ?? true;
             this._preferences.NotifyOnProviderErrors = this.NotifyProviderErrorsCheck.IsChecked ?? false;
             this._preferences.EnableQuietHours = this.EnableQuietHoursCheck.IsChecked ?? false;
-            this._preferences.QuietHoursStart = this.NormalizeQuietHour(this.QuietHoursStartBox.Text, "22:00");
-            this._preferences.QuietHoursEnd = this.NormalizeQuietHour(this.QuietHoursEndBox.Text, "07:00");
+            this._preferences.QuietHoursStart = NormalizeQuietHour(this.QuietHoursStartBox.Text, "22:00");
+            this._preferences.QuietHoursEnd = NormalizeQuietHour(this.QuietHoursEndBox.Text, "07:00");
 
             var prefsSaved = await this.SaveUiPreferencesAsync(showErrorDialog).ConfigureAwait(true);
             if (!prefsSaved)
@@ -1235,7 +1235,7 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private string NormalizeQuietHour(string value, string fallback)
+    private static string NormalizeQuietHour(string value, string fallback)
     {
         if (TimeSpan.TryParse(value, out var parsed))
         {

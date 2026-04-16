@@ -454,7 +454,7 @@
         };
     }
 
-    string GetLastUpdateDisplay(string? lastUpdate)
+    static string GetLastUpdateDisplay(string? lastUpdate)
     {
         if (string.IsNullOrWhiteSpace(lastUpdate))
         {
@@ -484,7 +484,7 @@
         return "Never";
     }
 
-    string GetRelativeTimeString(DateTime nextReset)
+    static string GetRelativeTimeString(DateTime nextReset)
     {
         var diff = nextReset - DateTime.Now;
         
@@ -494,7 +494,7 @@
         return $"{Math.Max(1, (int)Math.Ceiling(diff.TotalMinutes))}m";
     }
 
-    string GetForecastText(AIUsageTracker.Core.Models.BurnRateForecast forecast)
+    static string GetForecastText(AIUsageTracker.Core.Models.BurnRateForecast forecast)
     {
         if (!forecast.IsAvailable)
         {
@@ -524,7 +524,7 @@
         return $"~{hours}h left ({burnRateText}/day)";
     }
 
-    string GetReliabilityClass(AIUsageTracker.Core.Models.ProviderReliabilitySnapshot snapshot)
+    static string GetReliabilityClass(AIUsageTracker.Core.Models.ProviderReliabilitySnapshot snapshot)
     {
         if (!snapshot.IsAvailable)
         {
@@ -539,7 +539,7 @@
         };
     }
 
-    string GetReliabilityLabel(AIUsageTracker.Core.Models.ProviderReliabilitySnapshot snapshot)
+    static string GetReliabilityLabel(AIUsageTracker.Core.Models.ProviderReliabilitySnapshot snapshot)
     {
         if (!snapshot.IsAvailable)
         {
@@ -554,7 +554,7 @@
         };
     }
 
-    string GetLatencyText(AIUsageTracker.Core.Models.ProviderReliabilitySnapshot snapshot)
+    static string GetLatencyText(AIUsageTracker.Core.Models.ProviderReliabilitySnapshot snapshot)
     {
         if (!snapshot.IsAvailable || snapshot.AverageLatencyMs <= 0)
         {
@@ -585,12 +585,12 @@
         var diff = DateTime.UtcNow - timestampUtc.ToUniversalTime();
 
         if (diff.TotalSeconds <= 0) return "just now";
-        if (diff.TotalDays >= 1) return $"{(int)diff.TotalDays}d {(int)diff.Hours}h ago";
-        if (diff.TotalHours >= 1) return $"{(int)diff.TotalHours}h {(int)diff.Minutes}m ago";
+        if (diff.TotalDays >= 1) return $"{(int)diff.TotalDays}d {diff.Hours}h ago";
+        if (diff.TotalHours >= 1) return $"{(int)diff.TotalHours}h {diff.Minutes}m ago";
         return $"{Math.Max(1, (int)Math.Ceiling(diff.TotalMinutes))}m ago";
     }
 
-    string GetAnomalyClass(AIUsageTracker.Core.Models.UsageAnomalySnapshot snapshot)
+    static string GetAnomalyClass(AIUsageTracker.Core.Models.UsageAnomalySnapshot snapshot)
     {
         if (!snapshot.IsAvailable)
         {
@@ -600,7 +600,7 @@
         return snapshot.HasAnomaly ? "detected" : "stable";
     }
 
-    string GetAnomalyText(AIUsageTracker.Core.Models.UsageAnomalySnapshot snapshot)
+    static string GetAnomalyText(AIUsageTracker.Core.Models.UsageAnomalySnapshot snapshot)
     {
         if (!snapshot.IsAvailable)
         {
@@ -624,7 +624,7 @@
         return $"{direction} ({severity}) {latestText}/day vs {baselineText}/day";
     }
 
-    bool TryGetDualWindowPercentages(AIUsageTracker.Core.Models.ProviderUsage usage, out double primaryUsed, out double secondaryUsed, out string primaryName, out string secondaryName)
+    static bool TryGetDualWindowPercentages(AIUsageTracker.Core.Models.ProviderUsage usage, out double primaryUsed, out double secondaryUsed, out string primaryName, out string secondaryName)
     {
         // Dual-window data now comes from flat ProviderUsage cards (WindowKind != None).
         // The web page operates on root ProviderUsage objects which no longer carry sub-details.

@@ -35,7 +35,6 @@ public class UsageDatabase : IUsageDatabase
     private readonly string _dbPath;
     private readonly string _connectionString;
     private readonly ILogger<UsageDatabase> _logger;
-    private readonly IAppPathProvider _pathProvider;
 
     // Serialize writes/maintenance only. Read operations use independent connections so
     // SQLite WAL can serve them concurrently with refresh writes.
@@ -43,9 +42,9 @@ public class UsageDatabase : IUsageDatabase
 
     public UsageDatabase(ILogger<UsageDatabase> logger, IAppPathProvider pathProvider)
     {
+        ArgumentNullException.ThrowIfNull(pathProvider);
         this._logger = logger;
-        this._pathProvider = pathProvider;
-        this._dbPath = this._pathProvider.GetDatabasePath();
+        this._dbPath = pathProvider.GetDatabasePath();
 
         var dbDir = Path.GetDirectoryName(this._dbPath);
         if (!string.IsNullOrEmpty(dbDir))

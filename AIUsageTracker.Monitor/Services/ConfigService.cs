@@ -18,7 +18,6 @@ public class ConfigService : IConfigService
     private readonly JsonConfigLoader _configLoader;
     private readonly TokenDiscoveryService _tokenDiscovery;
     private readonly IAppPathProvider _pathProvider;
-    private readonly ILogger<TokenDiscoveryService> _tokenDiscoveryLogger;
     private readonly SemaphoreSlim _configCacheLock = new(1, 1);
     private readonly SemaphoreSlim _prefsCacheLock = new(1, 1);
     private IReadOnlyList<ProviderConfig>? _cachedConfigs;
@@ -34,12 +33,12 @@ public class ConfigService : IConfigService
     {
         this._logger = logger;
         this._pathProvider = pathProvider;
-        this._tokenDiscoveryLogger = loggerFactory.CreateLogger<TokenDiscoveryService>();
+        var tokenDiscoveryLogger = loggerFactory.CreateLogger<TokenDiscoveryService>();
         this._configLoader = new JsonConfigLoader(
             logger: loggerFactory.CreateLogger<JsonConfigLoader>(),
-            tokenDiscoveryLogger: this._tokenDiscoveryLogger,
+            tokenDiscoveryLogger: tokenDiscoveryLogger,
             pathProvider: this._pathProvider);
-        this._tokenDiscovery = new TokenDiscoveryService(this._tokenDiscoveryLogger, this._pathProvider);
+        this._tokenDiscovery = new TokenDiscoveryService(tokenDiscoveryLogger, this._pathProvider);
     }
 
     public async Task<IReadOnlyList<ProviderConfig>> GetConfigsAsync()

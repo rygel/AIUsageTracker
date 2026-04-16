@@ -31,7 +31,7 @@ public partial class App
         var showUsed = prefs?.PercentageDisplayMode == PercentageDisplayMode.Used;
         var showDualQuotaBars = prefs?.ShowDualQuotaBars ?? true;
         var dualQuotaSingleBarMode = prefs?.DualQuotaSingleBarMode ?? DualQuotaSingleBarMode.Rolling;
-        var desiredIcons = this.BuildDesiredIcons(
+        var desiredIcons = BuildDesiredIcons(
             usages,
             configs,
             showUsed,
@@ -42,7 +42,7 @@ public partial class App
         this.SyncProviderTrayIcons(desiredIcons, yellowThreshold, redThreshold, showUsed);
     }
 
-    private Dictionary<string, (string ToolTip, double FillPercent, PaceColorResult PaceColor, bool IsQuota)> BuildDesiredIcons(
+    private static Dictionary<string, (string ToolTip, double FillPercent, PaceColorResult PaceColor, bool IsQuota)> BuildDesiredIcons(
         IReadOnlyList<ProviderUsage> usages,
         IReadOnlyList<ProviderConfig> configs,
         bool showUsed,
@@ -113,7 +113,7 @@ public partial class App
         {
             var key = kvp.Key;
             var info = kvp.Value;
-            var iconSource = this.GenerateUsageIcon(info.FillPercent, info.PaceColor, yellowThreshold, redThreshold, showUsed);
+            var iconSource = GenerateUsageIcon(info.FillPercent, info.PaceColor, yellowThreshold, redThreshold, showUsed);
 
             if (!this._providerTrayIcons.ContainsKey(key))
             {
@@ -135,7 +135,7 @@ public partial class App
         }
     }
 
-    private string ResolveTrayIconPath()
+    private static string ResolveTrayIconPath()
     {
         var candidates = new[]
         {
@@ -144,18 +144,10 @@ public partial class App
             Path.Combine(Environment.CurrentDirectory, "AIUsageTracker.UI.Slim", "Assets", "app_icon.ico"),
         };
 
-        foreach (var candidate in candidates)
-        {
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
-        }
-
-        return candidates[0];
+        return candidates.FirstOrDefault(File.Exists) ?? candidates[0];
     }
 
-    private ImageSource GenerateUsageIcon(
+    private static ImageSource GenerateUsageIcon(
         double fillPercent,
         PaceColorResult paceColor,
         int yellowThreshold,
@@ -234,7 +226,7 @@ public partial class App
         exitMenuItem.Click += (_, _) => this.Shutdown();
         contextMenu.Items.Add(exitMenuItem);
 
-        var trayIconPath = this.ResolveTrayIconPath();
+        var trayIconPath = App.ResolveTrayIconPath();
         var trayIcon = File.Exists(trayIconPath)
             ? new System.Drawing.Icon(trayIconPath)
             : System.Drawing.SystemIcons.Application;

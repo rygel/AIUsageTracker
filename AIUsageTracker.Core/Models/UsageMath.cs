@@ -190,27 +190,18 @@ public static class UsageMath
         }
 
         var nowUtc = DateTime.UtcNow;
-        DateTime? bestFuture = null;
-        DateTime? lastKnown = null;
+        var resetTimes = cards
+            .Where(c => c.NextResetTime.HasValue)
+            .Select(c => c.NextResetTime!.Value.ToUniversalTime())
+            .ToList();
 
-        foreach (var card in cards)
+        if (resetTimes.Count == 0)
         {
-            if (!card.NextResetTime.HasValue)
-            {
-                continue;
-            }
-
-            var resetUtc = card.NextResetTime.Value.ToUniversalTime();
-            if (!lastKnown.HasValue || resetUtc > lastKnown.Value)
-            {
-                lastKnown = resetUtc;
-            }
-
-            if (resetUtc > nowUtc && (!bestFuture.HasValue || resetUtc < bestFuture.Value))
-            {
-                bestFuture = resetUtc;
-            }
+            return null;
         }
+
+        var lastKnown = resetTimes.Max();
+        var bestFuture = resetTimes.Where(t => t > nowUtc).Select(t => (DateTime?)t).Min();
 
         return bestFuture ?? lastKnown;
     }

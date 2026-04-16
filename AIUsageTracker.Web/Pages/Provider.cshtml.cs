@@ -49,7 +49,7 @@ public class ProviderModel : PageModel
             return this.Page();
         }
 
-        this.ProviderName = this.ProviderHistory.First().ProviderName;
+        this.ProviderName = this.ProviderHistory[0].ProviderName;
         this.ResetEvents = await this._dbService.GetResetEventsAsync(this.Id, 50).ConfigureAwait(false);
 
         return this.Page();

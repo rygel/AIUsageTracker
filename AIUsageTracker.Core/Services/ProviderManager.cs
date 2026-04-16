@@ -336,7 +336,7 @@ public class ProviderManager : IDisposable
         }
         catch (ArgumentException ex)
         {
-            this._logger.LogWarning("Skipping {ProviderId}: {Message}", config.ProviderId, ex.Message);
+            this._logger.LogWarning(ex, "Skipping {ProviderId}: {Message}", config.ProviderId, ex.Message);
             var errorUsage = CreateArgumentErrorUsage(config, defaults, ex.Message, stopwatch);
             return CreateSingleUsageList(errorUsage, progressCallback);
         }
@@ -392,11 +392,11 @@ public class ProviderManager : IDisposable
             // External cancellation (shutdown) — rethrow so callers know to stop.
             throw;
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex)
         {
             // Timeout cancellation — return timeout usage.
             stopwatch.Stop();
-            this._logger.LogWarning(
+            this._logger.LogWarning(ex,
                 "Provider {ProviderId} timed out after {TimeoutSeconds}s",
                 config.ProviderId,
                 ProviderRequestTimeout.TotalSeconds);

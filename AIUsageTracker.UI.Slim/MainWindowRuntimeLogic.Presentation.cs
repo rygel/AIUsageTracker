@@ -388,22 +388,13 @@ internal static partial class MainWindowRuntimeLogic
     {
         ArgumentNullException.ThrowIfNull(preferences);
 
-        return ShouldUseSharedCollapsePreference() && preferences.IsAntigravityCollapsed;
+        return false;
     }
 
     public static void SetIsCollapsed(AppPreferences preferences, string providerId, bool isCollapsed)
     {
         ArgumentNullException.ThrowIfNull(preferences);
-
-        if (!ShouldUseSharedCollapsePreference())
-        {
-            return;
-        }
-
-        preferences.IsAntigravityCollapsed = isCollapsed;
     }
-
-    private static bool ShouldUseSharedCollapsePreference() => false;
 
     private static string NormalizeIdentity(string? value)
     {

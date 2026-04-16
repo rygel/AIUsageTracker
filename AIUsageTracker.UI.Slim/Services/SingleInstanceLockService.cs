@@ -44,10 +44,10 @@ public sealed class SingleInstanceLockService
             {
                 this._ownsMutex = this._mutex.WaitOne(TimeSpan.FromMilliseconds(SingleInstanceLockWaitMilliseconds));
             }
-            catch (AbandonedMutexException)
+            catch (AbandonedMutexException ex)
             {
                 this._ownsMutex = true;
-                this._logger.LogWarning("Slim UI single-instance lock was abandoned; continuing.");
+                this._logger.LogWarning(ex, "Slim UI single-instance lock was abandoned; continuing.");
                 UiDiagnosticFileLog.Write("[DIAGNOSTIC] Slim UI single-instance lock was abandoned; continuing.");
             }
 

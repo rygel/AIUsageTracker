@@ -91,17 +91,12 @@ public class ChartsModel : PageModel
 
             var colors = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             var configs = await this._configLoader.LoadConfigAsync();
-            foreach (var cfg in configs)
+            foreach (var model in configs
+                .Where(cfg => cfg.Models != null)
+                .SelectMany(cfg => cfg.Models!)
+                .Where(m => !string.IsNullOrEmpty(m.Color) && !string.IsNullOrEmpty(m.Name)))
             {
-                if (cfg.Models == null)
-                {
-                    continue;
-                }
-
-                foreach (var model in cfg.Models.Where(m => !string.IsNullOrEmpty(m.Color) && !string.IsNullOrEmpty(m.Name)))
-                {
-                    colors[model.Name] = model.Color;
-                }
+                colors[model.Name] = model.Color;
             }
 
             return colors;

@@ -94,7 +94,7 @@ else
 }
 
 @functions {
-    string FormatValue(object? val)
+    static string FormatValue(object? val)
     {
         if (val == null) return "NULL";
         if (val is byte[] bytes) return $"[{bytes.Length} bytes]";

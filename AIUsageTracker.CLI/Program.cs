@@ -559,10 +559,7 @@ public static class Program
         }
         else
         {
-            foreach (var c in configs)
-            {
-                Console.WriteLine($"ID: {c.ProviderId}, Name: {ProviderMetadataCatalog.ResolveDisplayLabel(c.ProviderId)}");
-            }
+            Console.WriteLine(string.Join(Environment.NewLine, configs.Select(c => $"ID: {c.ProviderId}, Name: {ProviderMetadataCatalog.ResolveDisplayLabel(c.ProviderId)}")));
         }
     }
 }

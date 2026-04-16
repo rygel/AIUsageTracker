@@ -125,10 +125,10 @@ public class Program
 
                     holdsStartupMutex = true;
                 }
-                catch (AbandonedMutexException)
+                catch (AbandonedMutexException ex)
                 {
                     holdsStartupMutex = true;
-                    logger.LogWarning("Other Monitor instance exited unexpectedly. Proceeding.");
+                    logger.LogWarning(ex, "Other Monitor instance exited unexpectedly. Proceeding.");
                 }
             }
 
@@ -332,9 +332,9 @@ public class Program
                 {
                     startupMutex.ReleaseMutex();
                 }
-                catch (ApplicationException)
+                catch (ApplicationException ex)
                 {
-                    logger.LogDebug("Startup mutex ownership was lost before shutdown.");
+                    logger.LogDebug(ex, "Startup mutex ownership was lost before shutdown.");
                 }
             }
         }

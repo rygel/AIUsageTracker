@@ -38,8 +38,8 @@
                     <div class="reliability-card">
                         <div class="reliability-header">
                             <span class="provider-name">@usage.ProviderName</span>
-                            <span class="reliability-badge @Model.GetReliabilityClass(snapshot)">
-                                @Model.GetReliabilityLabel(snapshot)
+                            <span class="reliability-badge @ReliabilityModel.GetReliabilityClass(snapshot)">
+                                @ReliabilityModel.GetReliabilityLabel(snapshot)
                             </span>
                         </div>
                         
@@ -67,7 +67,7 @@
                             
                             <div class="reliability-row">
                                 <span>Avg Latency</span>
-                                <span>@Model.GetLatencyText(snapshot)</span>
+                                <span>@ReliabilityModel.GetLatencyText(snapshot)</span>
                             </div>
                             <div class="reliability-row">
                                 <span>Total Samples</span>
@@ -83,7 +83,7 @@
                             </div>
                             <div class="reliability-row">
                                 <span>Last Sync</span>
-                                <span>@Model.GetLastSyncText(snapshot)</span>
+                                <span>@ReliabilityModel.GetLastSyncText(snapshot)</span>
                             </div>
                         }
                         else

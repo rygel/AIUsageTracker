@@ -84,7 +84,7 @@ public class DataViewModel : PageModel
 
         if (this.Rows.Any())
         {
-            this.Columns = this.Rows.First().Keys.ToList();
+            this.Columns = this.Rows[0].Keys.ToList();
         }
 
         return this.Page();

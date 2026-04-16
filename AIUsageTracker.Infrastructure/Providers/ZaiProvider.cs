@@ -370,19 +370,19 @@ public class ZaiProvider : ProviderBase
             : DateTimeOffset.FromUnixTimeMilliseconds(ts).LocalDateTime;
     }
 
-    private class ZaiEnvelope<T>
+    private sealed class ZaiEnvelope<T>
     {
         [JsonPropertyName("data")]
         public T? Data { get; set; }
     }
 
-    private class ZaiQuotaLimitResponse
+    private sealed class ZaiQuotaLimitResponse
     {
         [JsonPropertyName("limits")]
         public List<ZaiQuotaLimitItem>? Limits { get; set; }
     }
 
-    private class ZaiQuotaLimitItem
+    private sealed class ZaiQuotaLimitItem
     {
         [JsonPropertyName("type")]
         public string? Type { get; set; }

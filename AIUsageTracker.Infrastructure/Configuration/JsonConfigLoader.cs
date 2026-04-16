@@ -17,7 +17,7 @@ public class JsonConfigLoader : IConfigLoader
     private const string AuthConfigFileName = "auth.json";
 
     private readonly ILogger<JsonConfigLoader> _logger;
-    private readonly ILogger<TokenDiscoveryService> _tokenDiscoveryLogger;
+    private readonly ILogger<TokenDiscoveryService> _log;
     private readonly IAppPathProvider _pathProvider;
 
     public JsonConfigLoader(
@@ -26,7 +26,7 @@ public class JsonConfigLoader : IConfigLoader
         IAppPathProvider? pathProvider = null)
     {
         this._logger = logger ?? NullLogger<JsonConfigLoader>.Instance;
-        this._tokenDiscoveryLogger = tokenDiscoveryLogger ?? NullLogger<TokenDiscoveryService>.Instance;
+        this._log = tokenDiscoveryLogger ?? NullLogger<TokenDiscoveryService>.Instance;
         this._pathProvider = pathProvider ?? new DefaultAppPathProvider();
     }
 
@@ -49,8 +49,8 @@ public class JsonConfigLoader : IConfigLoader
         var authPath = this.GetTrackerConfigPath();
         var providersPath = this.GetProvidersConfigPath();
 
-        this.EnsureParentDirectoryExists(authPath);
-        this.EnsureParentDirectoryExists(providersPath);
+        EnsureParentDirectoryExists(authPath);
+        EnsureParentDirectoryExists(providersPath);
 
         var exportAuth = await this.LoadExportPayloadAsync(
             authPath).ConfigureAwait(false);
@@ -65,8 +65,8 @@ public class JsonConfigLoader : IConfigLoader
             JsonProviderConfigExportBuilder.MergeProviderConfig(exportAuth, exportProviders, config);
         }
 
-        await this.WriteExportPayloadAsync(authPath, exportAuth).ConfigureAwait(false);
-        await this.WriteExportPayloadAsync(providersPath, exportProviders).ConfigureAwait(false);
+        await WriteExportPayloadAsync(authPath, exportAuth).ConfigureAwait(false);
+        await WriteExportPayloadAsync(providersPath, exportProviders).ConfigureAwait(false);
     }
 
     public async Task<AppPreferences> LoadPreferencesAsync()
@@ -286,7 +286,7 @@ public class JsonConfigLoader : IConfigLoader
 
         if (element.TryGetProperty("enabled_sub_trays", out var subTraysProp) && subTraysProp.ValueKind == JsonValueKind.Array)
         {
-            config.EnabledSubTrays = this.ReadStringList(subTraysProp);
+            config.EnabledSubTrays = ReadStringList(subTraysProp);
         }
 
         if (element.TryGetProperty("models", out var modelsProp) && modelsProp.ValueKind == JsonValueKind.Array)
@@ -311,7 +311,7 @@ public class JsonConfigLoader : IConfigLoader
         }
     }
 
-    private List<string> ReadStringList(JsonElement arrayElement)
+    private static List<string> ReadStringList(JsonElement arrayElement)
     {
         return arrayElement.EnumerateArray()
             .Select(item => item.GetString())
@@ -321,16 +321,16 @@ public class JsonConfigLoader : IConfigLoader
 
     private async Task ApplyDiscoveredTokensAsync(List<ProviderConfig> configs)
     {
-        var discoveryService = new TokenDiscoveryService(this._tokenDiscoveryLogger, this._pathProvider);
+        var discoveryService = new TokenDiscoveryService(this._log, this._pathProvider);
         var discovered = await discoveryService.DiscoverTokensAsync().ConfigureAwait(false);
 
         foreach (var discoveredConfig in discovered)
         {
-            this.MergeDiscoveredConfig(configs, discoveredConfig);
+            MergeDiscoveredConfig(configs, discoveredConfig);
         }
     }
 
-    private void MergeDiscoveredConfig(List<ProviderConfig> configs, ProviderConfig discoveredConfig)
+    private static void MergeDiscoveredConfig(List<ProviderConfig> configs, ProviderConfig discoveredConfig)
     {
         var existing = configs.FirstOrDefault(config =>
             config.ProviderId.Equals(discoveredConfig.ProviderId, StringComparison.OrdinalIgnoreCase));
@@ -353,7 +353,7 @@ public class JsonConfigLoader : IConfigLoader
         }
     }
 
-    private void EnsureParentDirectoryExists(string path)
+    private static void EnsureParentDirectoryExists(string path)
     {
         var directory = Path.GetDirectoryName(path);
         if (directory != null && !Directory.Exists(directory))
@@ -371,7 +371,7 @@ public class JsonConfigLoader : IConfigLoader
                ?? new Dictionary<string, object>(StringComparer.Ordinal);
     }
 
-    private async Task WriteExportPayloadAsync(string path, Dictionary<string, object> payload)
+    private static async Task WriteExportPayloadAsync(string path, Dictionary<string, object> payload)
     {
         await JsonConfigFileStore.WriteIndentedAsync(path, payload).ConfigureAwait(false);
     }

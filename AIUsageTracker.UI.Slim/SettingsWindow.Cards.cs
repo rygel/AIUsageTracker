@@ -173,7 +173,7 @@ public partial class SettingsWindow
         this.UserPresetCombo.ItemsSource = this._userPresets;
     }
 
-    private CardSlotContent GetSlotValue(ComboBox combo)
+    private static CardSlotContent GetSlotValue(ComboBox combo)
     {
         return (combo.SelectedValue as CardSlotContent?) ?? CardSlotContent.None;
     }
@@ -312,14 +312,14 @@ public partial class SettingsWindow
         this._userPresets.Add(new UserPreset
         {
             Name = name,
-            PrimaryBadge = this.GetSlotValue(this.PrimaryBadgeSlot),
-            SecondaryBadge = this.GetSlotValue(this.SecondaryBadgeSlot),
-            StatusLine = this.GetSlotValue(this.StatusLineSlot),
-            ResetInfo = this.GetSlotValue(this.ResetInfoSlot),
+            PrimaryBadge = GetSlotValue(this.PrimaryBadgeSlot),
+            SecondaryBadge = GetSlotValue(this.SecondaryBadgeSlot),
+            StatusLine = GetSlotValue(this.StatusLineSlot),
+            ResetInfo = GetSlotValue(this.ResetInfoSlot),
         });
 
         this.RefreshCardUserPresetCombo();
-        this.UserPresetCombo.SelectedItem = this._userPresets.Last();
+        this.UserPresetCombo.SelectedItem = this._userPresets[^1];
     }
 
     private void CardDeletePresetBtn_Click(object sender, RoutedEventArgs e)

@@ -166,7 +166,7 @@ public partial class MainWindow : Window
         var titleText = isGroupHeader ? title.ToUpperInvariant() : title;
         var titleForeground = isGroupHeader
             ? accent
-            : this.GetResourceBrush("SecondaryText", Brushes.Gray);
+            : GetResourceBrush("SecondaryText", Brushes.Gray);
 
         var header = this.CreateCollapsibleHeaderGrid(margin);
 
@@ -248,10 +248,10 @@ public partial class MainWindow : Window
         return new ProviderCardRenderer(
             this._preferences,
             this._isPrivacyMode,
-            this.GetResourceBrush,
+            GetResourceBrush,
             this._createProviderIcon,
             this.CreateTopmostAwareToolTip,
-            this.ConfigureCardToolTip,
+            ConfigureCardToolTip,
             UsageMath.FormatRelativeTime);
     }
 
@@ -382,7 +382,7 @@ public partial class MainWindow : Window
         return toolTip;
     }
 
-    private void ConfigureCardToolTip(FrameworkElement target)
+    private static void ConfigureCardToolTip(FrameworkElement target)
     {
         ToolTipService.SetInitialShowDelay(target, 100);
         ToolTipService.SetShowDuration(target, 15000);
@@ -428,10 +428,10 @@ public partial class MainWindow : Window
         {
             this.StatusLed.Fill = indicatorKind switch
             {
-                StatusIndicatorKind.Success => this.GetResourceBrush("ProgressBarGreen", Brushes.MediumSeaGreen),
+                StatusIndicatorKind.Success => GetResourceBrush("ProgressBarGreen", Brushes.MediumSeaGreen),
                 StatusIndicatorKind.Warning => Brushes.Gold,
-                StatusIndicatorKind.Error => this.GetResourceBrush("ProgressBarRed", Brushes.Crimson),
-                _ => this.GetResourceBrush("SecondaryText", Brushes.Gray),
+                StatusIndicatorKind.Error => GetResourceBrush("ProgressBarRed", Brushes.Crimson),
+                _ => GetResourceBrush("SecondaryText", Brushes.Gray),
             };
         }
 
@@ -489,7 +489,7 @@ public partial class MainWindow : Window
         return new TextBlock
         {
             Text = text,
-            Foreground = this.GetResourceBrush("TertiaryText", Brushes.Gray),
+            Foreground = GetResourceBrush("TertiaryText", Brushes.Gray),
             HorizontalAlignment = HorizontalAlignment.Center,
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(10),

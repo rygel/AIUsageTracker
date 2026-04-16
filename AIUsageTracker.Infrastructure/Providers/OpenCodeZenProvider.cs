@@ -118,7 +118,7 @@ public class OpenCodeZenProvider : ProviderBase
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException or TimeoutException)
         {
-            this._logger.LogWarning("OpenCode CLI failed: {Message}", ex.Message);
+            this._logger.LogWarning(ex, "OpenCode CLI failed: {Message}", ex.Message);
             return new[]
             {
                 CreateUnavailableUsage(
@@ -462,13 +462,11 @@ public class OpenCodeZenProvider : ProviderBase
         }
 
         // Strategy 3: Check common fallback installation paths
-        foreach (var candidate in FallbackPaths)
+        var found = FallbackPaths.FirstOrDefault(File.Exists);
+        if (found != null)
         {
-            if (File.Exists(candidate))
-            {
-                this._logger.LogDebug("Found opencode via fallback path: {Path}", candidate);
-                return candidate;
-            }
+            this._logger.LogDebug("Found opencode via fallback path: {Path}", found);
+            return found;
         }
 
         return null;
@@ -602,7 +600,7 @@ public class OpenCodeZenProvider : ProviderBase
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
         {
-            this._logger.LogDebug("IsInPath check failed: {Message}", ex.Message);
+            this._logger.LogDebug(ex, "IsInPath check failed: {Message}", ex.Message);
             return false;
         }
     }
@@ -646,7 +644,7 @@ public class OpenCodeZenProvider : ProviderBase
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
         {
-            this._logger.LogDebug("Login shell discovery failed: {Message}", ex.Message);
+            this._logger.LogDebug(ex, "Login shell discovery failed: {Message}", ex.Message);
         }
 
         return null;

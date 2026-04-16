@@ -43,4 +43,4 @@ const ThemeManager = {
 };
 
 document.addEventListener('DOMContentLoaded', () => ThemeManager.init());
-window.ThemeManager = ThemeManager;
+globalThis.ThemeManager = ThemeManager;

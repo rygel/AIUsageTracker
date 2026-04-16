@@ -97,7 +97,7 @@ public class GitHubUpdateChecker
 
             if (updateInfo?.Updates?.Any() == true)
             {
-                var latest = updateInfo.Updates.First();
+                var latest = updateInfo.Updates[0];
                 var currentVersion = System.Reflection.Assembly.GetEntryAssembly()?.GetName()?.Version ?? new Version(1, 0, 0);
 
                 var latestVersionStr = latest.Version?.TrimStart('v') ?? "0.0.0";
@@ -290,7 +290,7 @@ public class GitHubUpdateChecker
                 ? body.GetString() ?? string.Empty
                 : string.Empty;
 
-            var arch = this.GetCurrentArchitectureName();
+            var arch = GetCurrentArchitectureName();
             var downloadUrl = $"{RepositoryBaseUrl}/releases/download/{tagName}/AIUsageTracker_Setup_v{latestVersionStr}_win-{arch}.exe";
 
             this._logger.LogInformation("Beta update available: {Version}", latestVersionStr);
@@ -324,7 +324,7 @@ public class GitHubUpdateChecker
         }
     }
 
-    private string GetCurrentArchitectureName()
+    private static string GetCurrentArchitectureName()
     {
         return System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture switch
         {

@@ -137,9 +137,9 @@ public partial class MainWindow : Window
         this._updateChecker = updateChecker;
         this._dialogService = dialogService;
         this._browserService = browserService;
-        var providerIconService = new WpfProviderIconService(this._logger, this.GetResourceBrush);
+        var providerIconService = new WpfProviderIconService(this._logger, GetResourceBrush);
         this._createProviderIcon = providerIconService.CreateIcon;
-        var markdownRenderer = new ChangelogMarkdownRenderer(this.GetResourceBrush);
+        var markdownRenderer = new ChangelogMarkdownRenderer(GetResourceBrush);
         this._buildChangelogDocument = markdownRenderer.BuildDocument;
         this._preferencesStore = preferencesStore;
         this._viewModel = viewModel;
@@ -594,10 +594,10 @@ public partial class MainWindow : Window
         this.PrivacyBtn.Content = this._isPrivacyMode ? "\uE72E" : "\uE785";
         this.PrivacyBtn.Foreground = this._isPrivacyMode
             ? Brushes.Gold
-            : this.GetResourceBrush("SecondaryText", Brushes.Gray);
+            : GetResourceBrush("SecondaryText", Brushes.Gray);
     }
 
-    private SolidColorBrush GetResourceBrush(string key, SolidColorBrush fallback) =>
+    private static SolidColorBrush GetResourceBrush(string key, SolidColorBrush fallback) =>
         UIHelper.GetResourceBrush(key, fallback);
 
     private void LogDiagnostic(string message)

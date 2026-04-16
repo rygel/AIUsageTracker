@@ -416,7 +416,7 @@ public class GitHubAuthService : IGitHubAuthService
     }
 
     // Helper class for JSON deserialization
-    private class DeviceFlowResponse
+    private sealed class DeviceFlowResponse
     {
         public string Device_code { get; set; } = string.Empty;
 

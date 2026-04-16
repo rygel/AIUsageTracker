@@ -284,12 +284,12 @@ public class GeminiProvider : ProviderBase
             }
 
             var currentDirectory = this._currentDirectoryOverride ?? Directory.GetCurrentDirectory();
-            var normalizedCurrentDirectory = this.NormalizePath(currentDirectory);
+            var normalizedCurrentDirectory = NormalizePath(currentDirectory);
             var bestMatch = projects.Projects
                 .Where(pair => !string.IsNullOrWhiteSpace(pair.Key) && !string.IsNullOrWhiteSpace(pair.Value))
                 .Select(pair => new
                 {
-                    Key = this.NormalizePath(pair.Key),
+                    Key = NormalizePath(pair.Key),
                     Value = pair.Value,
                 })
                 .Where(pair => normalizedCurrentDirectory.StartsWith(pair.Key, StringComparison.OrdinalIgnoreCase))
@@ -361,7 +361,7 @@ public class GeminiProvider : ProviderBase
                 return null;
             }
 
-            var payload = this.DecodeBase64Url(parts[1]);
+            var payload = DecodeBase64Url(parts[1]);
             using var payloadDoc = JsonDocument.Parse(payload);
             if (payloadDoc.RootElement.TryGetProperty("email", out var emailElement))
             {
@@ -376,13 +376,13 @@ public class GeminiProvider : ProviderBase
         return null;
     }
 
-    private string NormalizePath(string path)
+    private static string NormalizePath(string path)
     {
         var normalized = path.Replace('/', '\\').Trim();
         return normalized.TrimEnd('\\');
     }
 
-    private string DecodeBase64Url(string base64UrlValue)
+    private static string DecodeBase64Url(string base64UrlValue)
     {
         var normalized = base64UrlValue.Replace('-', '+').Replace('_', '/');
         var padding = (4 - (normalized.Length % 4)) % 4;
@@ -455,7 +455,7 @@ public class GeminiProvider : ProviderBase
                     var parts = token.Split('.');
                     if (parts.Length > 1)
                     {
-                        var payload = this.DecodeBase64Url(parts[1]);
+                        var payload = DecodeBase64Url(parts[1]);
                         using var payloadDoc = JsonDocument.Parse(payload);
                         if (payloadDoc.RootElement.TryGetProperty("aud", out var aud) &&
                             string.Equals(aud.GetString(), GeminiPluginClientId, StringComparison.Ordinal))
@@ -672,12 +672,12 @@ public class GeminiProvider : ProviderBase
         return value[..maxLength] + "...";
     }
 
-    private class AntigravityAccounts
+    private sealed class AntigravityAccounts
     {
         public List<Account>? Accounts { get; set; }
     }
 
-    private class Account
+    private sealed class Account
     {
         public string Email { get; set; } = string.Empty;
 
@@ -686,13 +686,13 @@ public class GeminiProvider : ProviderBase
         public string ProjectId { get; set; } = string.Empty;
     }
 
-    private class GeminiTokenResponse
+    private sealed class GeminiTokenResponse
     {
         [JsonPropertyName("access_token")]
         public string? AccessToken { get; set; }
     }
 
-    private class GeminiOauthCreds
+    private sealed class GeminiOauthCreds
     {
         [JsonPropertyName("refresh_token")]
         public string? RefreshToken { get; set; }
@@ -701,25 +701,25 @@ public class GeminiProvider : ProviderBase
         public string? IdToken { get; set; }
     }
 
-    private class GeminiGoogleAccounts
+    private sealed class GeminiGoogleAccounts
     {
         [JsonPropertyName("active")]
         public string? Active { get; set; }
     }
 
-    private class GeminiProjects
+    private sealed class GeminiProjects
     {
         [JsonPropertyName("projects")]
         public Dictionary<string, string>? Projects { get; set; }
     }
 
-    private class GeminiQuotaResponse
+    private sealed class GeminiQuotaResponse
     {
         [JsonPropertyName("buckets")]
         public List<Bucket>? Buckets { get; set; }
     }
 
-    private class Bucket
+    private sealed class Bucket
     {
         [JsonPropertyName("remainingFraction")]
         public double RemainingFraction { get; set; }
