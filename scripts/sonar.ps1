@@ -46,7 +46,7 @@ $sonarArgs = @(
     "/d:sonar.token=$token"
 )
 if (-not $SkipCoverage) {
-    $sonarArgs += "/d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml"
+    $sonarArgs += "/d:sonar.cs.vscoveragexml.reportsPaths=TestResults/coverage.coveragexml"
 }
 dotnet @sonarArgs
 
@@ -57,7 +57,15 @@ if (-not $SkipBuild) {
     if (-not $SkipCoverage) {
         Write-Host "`n--- Collecting coverage ---"
         dotnet tool install --global dotnet-coverage 2>$null
-        dotnet-coverage collect "dotnet test AIUsageTracker.Tests/AIUsageTracker.Tests.csproj --configuration Debug --no-build" --output "coverage.xml" --format cobertura 2>$null
+        $ErrorActionPreference = "Continue"
+        dotnet-coverage collect "dotnet test AIUsageTracker.Tests\AIUsageTracker.Tests.csproj --configuration Debug --no-build" --output "TestResults\coverage.coverage" --format coverage
+        $ErrorActionPreference = "Stop"
+        if (Test-Path "TestResults\coverage.coverage") {
+            dotnet-coverage convert "TestResults\coverage.coverage" --output "TestResults\coverage.coveragexml" --format coveragexml
+            Write-Host "Coverage file generated"
+        } else {
+            Write-Host "WARNING: No coverage file found"
+        }
     }
 }
 
