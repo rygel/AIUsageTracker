@@ -21,7 +21,7 @@ public class ProviderRefreshConfigSelectorTests
             new() { ProviderId = "codex" },
         };
 
-        var selection = selector.SelectActiveConfigs(configs, forceAll: true, includeProviderIds: null);
+        var selection = ProviderRefreshConfigSelector.SelectActiveConfigs(configs, forceAll: true, includeProviderIds: null);
 
         Assert.Single(selection.ActiveConfigs);
     }
@@ -36,7 +36,7 @@ public class ProviderRefreshConfigSelectorTests
             new() { ProviderId = "codex", ApiKey = TestApiKey1 },
         };
 
-        var selection = selector.SelectActiveConfigs(configs, forceAll: false, includeProviderIds: null);
+        var selection = ProviderRefreshConfigSelector.SelectActiveConfigs(configs, forceAll: false, includeProviderIds: null);
 
         var activeConfig = Assert.Single(selection.ActiveConfigs);
         Assert.Equal("codex", activeConfig.ProviderId);
@@ -52,7 +52,7 @@ public class ProviderRefreshConfigSelectorTests
             new() { ProviderId = "openai", ApiKey = TestApiKey2 },
         };
 
-        var selection = selector.SelectActiveConfigs(configs, forceAll: false, includeProviderIds: null);
+        var selection = ProviderRefreshConfigSelector.SelectActiveConfigs(configs, forceAll: false, includeProviderIds: null);
 
         var activeConfig = Assert.Single(selection.ActiveConfigs);
         Assert.Equal("codex", activeConfig.ProviderId);
@@ -71,7 +71,7 @@ public class ProviderRefreshConfigSelectorTests
             new() { ProviderId = "codex" },     // SessionAuthStatus, no key — still included
         };
 
-        var selection = selector.SelectActiveConfigs(configs, forceAll: true, includeProviderIds: null);
+        var selection = ProviderRefreshConfigSelector.SelectActiveConfigs(configs, forceAll: true, includeProviderIds: null);
 
         Assert.DoesNotContain(selection.ActiveConfigs, c => c.ProviderId == "mistral");
         Assert.Contains(selection.ActiveConfigs, c => c.ProviderId == "codex");
@@ -86,7 +86,7 @@ public class ProviderRefreshConfigSelectorTests
             new() { ProviderId = "mistral", ApiKey = TestApiKey1 },
         };
 
-        var selection = selector.SelectActiveConfigs(configs, forceAll: true, includeProviderIds: null);
+        var selection = ProviderRefreshConfigSelector.SelectActiveConfigs(configs, forceAll: true, includeProviderIds: null);
 
         Assert.Single(selection.ActiveConfigs);
         Assert.Equal("mistral", selection.ActiveConfigs[0].ProviderId);
@@ -101,7 +101,7 @@ public class ProviderRefreshConfigSelectorTests
             new() { ProviderId = "codex", ApiKey = TestApiKey1 },
         };
 
-        var selection = selector.SelectActiveConfigs(
+        var selection = ProviderRefreshConfigSelector.SelectActiveConfigs(
             configs,
             forceAll: false,
             includeProviderIds: new[] { "codex" });

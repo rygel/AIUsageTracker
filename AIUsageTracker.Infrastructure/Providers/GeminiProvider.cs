@@ -55,6 +55,9 @@ public class GeminiProvider : ProviderBase
 
     private const string GeminiPluginClientSecret = "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";
 
+    private const string OAuthTokenUrl = "https://oauth2.googleapis.com/token";
+    private const string QuotaUrl = "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota";
+
     private readonly HttpClient _httpClient;
     private readonly ILogger<GeminiProvider> _logger;
     private readonly string? _accountsPathOverride;
@@ -473,7 +476,7 @@ public class GeminiProvider : ProviderBase
 
     private async Task<string> DoRefreshTokenAsync(string refreshToken, string clientId, string clientSecret)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, "https://oauth2.googleapis.com/token");
+        using var request = new HttpRequestMessage(HttpMethod.Post, OAuthTokenUrl);
         var content = new FormUrlEncodedContent(new Dictionary<string, string>(StringComparer.Ordinal)
         {
             { "client_id", clientId },
@@ -492,7 +495,7 @@ public class GeminiProvider : ProviderBase
 
     private async Task<List<Bucket>?> FetchQuotaAsync(string accessToken, string projectId)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota");
+        using var request = new HttpRequestMessage(HttpMethod.Post, QuotaUrl);
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
         request.Content = JsonContent.Create(new { project = projectId });
 

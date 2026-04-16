@@ -13,6 +13,8 @@ namespace AIUsageTracker.Infrastructure.Providers;
 
 public class ZaiProvider : ProviderBase
 {
+    private const string QuotaLimitEndpoint = "https://api.z.ai/api/monitor/usage/quota/limit";
+
     private readonly HttpClient _httpClient;
     private readonly ILogger<ZaiProvider> _logger;
 
@@ -58,7 +60,7 @@ public class ZaiProvider : ProviderBase
 
         var providerLabel = this.Definition.DisplayName;
 
-        using var request = new HttpRequestMessage(HttpMethod.Get, "https://api.z.ai/api/monitor/usage/quota/limit");
+        using var request = new HttpRequestMessage(HttpMethod.Get, QuotaLimitEndpoint);
 
         // Z.AI uses raw key in Authorization header without "Bearer" prefix based on Swift ref
         request.Headers.TryAddWithoutValidation("Authorization", config.ApiKey);
@@ -79,12 +81,11 @@ public class ZaiProvider : ProviderBase
 
         // Parse envelope
         var envelope = JsonSerializer.Deserialize<ZaiEnvelope<ZaiQuotaLimitResponse>>(responseString);
-        this._logger.LogDebug("[ZAI] Parsed envelope - Data is null: {IsNull}", envelope?.Data == null);
 
         string planDescription = "API";
 
         var limits = envelope?.Data?.Limits;
-        this._logger.LogDebug("[ZAI] Limits count: {Count}", limits?.Count ?? 0);
+        this._logger.LogDebug("[ZAI] Parsed envelope - Data is null: {IsNull}, Limits count: {Count}", envelope?.Data == null, limits?.Count ?? 0);
 
         if (limits == null || !limits.Any())
         {

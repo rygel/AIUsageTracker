@@ -12,6 +12,11 @@ namespace AIUsageTracker.Infrastructure.Providers;
 
 public class GitHubCopilotProvider : ProviderBase
 {
+    private const string GitHubUserUrl = "https://api.github.com/user";
+    private const string CopilotUserUrl = "https://api.github.com/copilot_internal/user";
+    private const string CopilotTokenUrl = "https://api.github.com/copilot_internal/v2/token";
+    private const string ProviderDisplayName = "GitHub Copilot";
+
     private readonly IGitHubAuthService _authService;
     private readonly HttpClient _httpClient;
     private readonly ILogger<GitHubCopilotProvider> _logger;
@@ -26,7 +31,7 @@ public class GitHubCopilotProvider : ProviderBase
 
     public static ProviderDefinition StaticDefinition { get; } = new(
         "github-copilot",
-        "GitHub Copilot",
+        ProviderDisplayName,
         PlanType.Coding,
         isQuotaBased: true)
     {
@@ -99,7 +104,7 @@ public class GitHubCopilotProvider : ProviderBase
 
         try
         {
-            using var request = CreateBearerRequest("https://api.github.com/user", token);
+            using var request = CreateBearerRequest(GitHubUserUrl, token);
             using var response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             state.HttpStatus = (int)response.StatusCode;
 
@@ -150,7 +155,7 @@ public class GitHubCopilotProvider : ProviderBase
 
     private static HttpRequestMessage CreateQuotaRequest(string token)
     {
-        var request = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/copilot_internal/user");
+        var request = new HttpRequestMessage(HttpMethod.Get, CopilotUserUrl);
         request.Headers.TryAddWithoutValidation("Authorization", $"token {token}");
         request.Headers.TryAddWithoutValidation("Accept", "application/json");
         request.Headers.TryAddWithoutValidation("Editor-Version", "vscode/1.96.2");
@@ -328,7 +333,7 @@ public class GitHubCopilotProvider : ProviderBase
     {
         try
         {
-            using var internalRequest = CreateBearerRequest("https://api.github.com/copilot_internal/v2/token", token);
+            using var internalRequest = CreateBearerRequest(CopilotTokenUrl, token);
             using var internalResponse = await this._httpClient.SendAsync(internalRequest).ConfigureAwait(false);
             if (internalResponse.IsSuccessStatusCode)
             {
@@ -475,7 +480,7 @@ public class GitHubCopilotProvider : ProviderBase
         var baseUsage = new ProviderUsage
         {
             ProviderId = this.ProviderId,
-            ProviderName = "GitHub Copilot",
+            ProviderName = ProviderDisplayName,
             AccountName = accountName,
             IsAvailable = state.IsAvailable,
             State = state.State,
@@ -506,7 +511,7 @@ public class GitHubCopilotProvider : ProviderBase
             results.Add(new ProviderUsage
             {
                 ProviderId = this.ProviderId,
-                ProviderName = "GitHub Copilot",
+                ProviderName = ProviderDisplayName,
                 CardId = "weekly",
                 GroupId = this.ProviderId,
                 Name = "Weekly Quota",
@@ -533,7 +538,7 @@ public class GitHubCopilotProvider : ProviderBase
             results.Add(new ProviderUsage
             {
                 ProviderId = this.ProviderId,
-                ProviderName = "GitHub Copilot",
+                ProviderName = ProviderDisplayName,
                 CardId = "burst",
                 GroupId = this.ProviderId,
                 Name = "5-Hour Window",

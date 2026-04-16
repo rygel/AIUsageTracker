@@ -17,6 +17,11 @@ namespace AIUsageTracker.UI.Slim;
 /// </summary>
 internal sealed class ProviderCardRenderer
 {
+    private const string ResourceKeyTertiaryText = "TertiaryText";
+    private const string ResourceKeySecondaryText = "SecondaryText";
+    private const string ResourceKeyProgressBarRed = "ProgressBarRed";
+    private const string ResourceKeyProgressBarGreen = "ProgressBarGreen";
+
     private readonly AppPreferences _preferences;
     private readonly bool _isPrivacyMode;
     private readonly Func<string, SolidColorBrush, SolidColorBrush> _getResourceBrush;
@@ -91,7 +96,7 @@ internal sealed class ProviderCardRenderer
                 {
                     Text = presentation.DualBar.Primary.Label,
                     FontSize = 8,
-                    Foreground = this._getResourceBrush("TertiaryText", Brushes.Gray),
+                    Foreground = this._getResourceBrush(ResourceKeyTertiaryText, Brushes.Gray),
                     VerticalAlignment = VerticalAlignment.Center,
                     HorizontalAlignment = HorizontalAlignment.Left,
                     Margin = new Thickness(3, 0, 0, 0),
@@ -107,7 +112,7 @@ internal sealed class ProviderCardRenderer
                 {
                     Text = presentation.DualBar.Secondary.Label,
                     FontSize = 8,
-                    Foreground = this._getResourceBrush("TertiaryText", Brushes.Gray),
+                    Foreground = this._getResourceBrush(ResourceKeyTertiaryText, Brushes.Gray),
                     VerticalAlignment = VerticalAlignment.Center,
                     HorizontalAlignment = HorizontalAlignment.Left,
                     Margin = new Thickness(3, 0, 0, 0),
@@ -290,8 +295,8 @@ internal sealed class ProviderCardRenderer
         {
             // Tier is the single source of truth: Headroom/OnPace → green, OverPace → red.
             return paceColor.PaceTier == PaceTier.OverPace
-                ? this._getResourceBrush("ProgressBarRed", Brushes.Crimson)
-                : this._getResourceBrush("ProgressBarGreen", Brushes.MediumSeaGreen);
+                ? this._getResourceBrush(ResourceKeyProgressBarRed, Brushes.Crimson)
+                : this._getResourceBrush(ResourceKeyProgressBarGreen, Brushes.MediumSeaGreen);
         }
 
         return this.GetProgressBarColor(paceColor.ColorPercent);
@@ -304,7 +309,7 @@ internal sealed class ProviderCardRenderer
 
         if (usedPercentage >= redThreshold)
         {
-            return this._getResourceBrush("ProgressBarRed", Brushes.Crimson);
+            return this._getResourceBrush(ResourceKeyProgressBarRed, Brushes.Crimson);
         }
 
         if (usedPercentage >= yellowThreshold)
@@ -312,7 +317,7 @@ internal sealed class ProviderCardRenderer
             return this._getResourceBrush("ProgressBarYellow", Brushes.Gold);
         }
 
-        return this._getResourceBrush("ProgressBarGreen", Brushes.MediumSeaGreen);
+        return this._getResourceBrush(ResourceKeyProgressBarGreen, Brushes.MediumSeaGreen);
     }
 
     private string? BuildResetBadgeText(ProviderUsage usage, ProviderCardPresentation presentation)
@@ -365,10 +370,10 @@ internal sealed class ProviderCardRenderer
                 {
                     var badgeBrush = paceColor.PaceTier switch
                     {
-                        PaceTier.OverPace => this._getResourceBrush("ProgressBarRed", Brushes.IndianRed),
-                        _ => this._getResourceBrush("ProgressBarGreen", Brushes.MediumSeaGreen),
+                        PaceTier.OverPace => this._getResourceBrush(ResourceKeyProgressBarRed, Brushes.IndianRed),
+                        _ => this._getResourceBrush(ResourceKeyProgressBarGreen, Brushes.MediumSeaGreen),
                     };
-                    this.AddSlotText(panel, paceColor.ProjectedText, this._getResourceBrush("TertiaryText", Brushes.Gray), 9);
+                    this.AddSlotText(panel, paceColor.ProjectedText, this._getResourceBrush(ResourceKeyTertiaryText, Brushes.Gray), 9);
                     this.AddSlotText(panel, paceColor.BadgeText, badgeBrush, 9, FontWeights.SemiBold);
                 }
 
@@ -377,7 +382,7 @@ internal sealed class ProviderCardRenderer
             case CardSlotContent.ProjectedPercent:
                 if (paceColor.IsPaceAdjusted)
                 {
-                    this.AddSlotText(panel, $"Projected: {paceColor.ProjectedPercent:F0}%", this._getResourceBrush("TertiaryText", Brushes.Gray), 9);
+                    this.AddSlotText(panel, $"Projected: {paceColor.ProjectedPercent:F0}%", this._getResourceBrush(ResourceKeyTertiaryText, Brushes.Gray), 9);
                 }
 
                 break;
@@ -386,7 +391,7 @@ internal sealed class ProviderCardRenderer
                 if (usage.PeriodDuration.HasValue && usage.PeriodDuration.Value.TotalDays >= 1)
                 {
                     var dailyBudget = 100.0 / usage.PeriodDuration.Value.TotalDays;
-                    this.AddSlotText(panel, $"{dailyBudget:F0}%/day budget", this._getResourceBrush("TertiaryText", Brushes.Gray), 9);
+                    this.AddSlotText(panel, $"{dailyBudget:F0}%/day budget", this._getResourceBrush(ResourceKeyTertiaryText, Brushes.Gray), 9);
                 }
 
                 break;
@@ -394,17 +399,17 @@ internal sealed class ProviderCardRenderer
             case CardSlotContent.UsageRate:
                 if (this._preferences.ShowUsagePerHour && usage.UsagePerHour.HasValue)
                 {
-                    this.AddSlotText(panel, $"{usage.UsagePerHour.Value:F1}/hr", this._getResourceBrush("TertiaryText", Brushes.Gray), 9);
+                    this.AddSlotText(panel, $"{usage.UsagePerHour.Value:F1}/hr", this._getResourceBrush(ResourceKeyTertiaryText, Brushes.Gray), 9);
                 }
 
                 break;
 
             case CardSlotContent.UsedPercent:
-                this.AddSlotText(panel, $"{usage.UsedPercent:F0}% used", this._getResourceBrush("SecondaryText", Brushes.Gray), 10);
+                this.AddSlotText(panel, $"{usage.UsedPercent:F0}% used", this._getResourceBrush(ResourceKeySecondaryText, Brushes.Gray), 10);
                 break;
 
             case CardSlotContent.RemainingPercent:
-                this.AddSlotText(panel, $"{Math.Max(0, 100 - usage.UsedPercent):F0}% remaining", this._getResourceBrush("SecondaryText", Brushes.Gray), 10);
+                this.AddSlotText(panel, $"{Math.Max(0, 100 - usage.UsedPercent):F0}% remaining", this._getResourceBrush(ResourceKeySecondaryText, Brushes.Gray), 10);
                 break;
 
             case CardSlotContent.ResetAbsolute:
@@ -446,7 +451,7 @@ internal sealed class ProviderCardRenderer
                     ProviderCardStatusTone.Missing => Brushes.IndianRed,
                     ProviderCardStatusTone.Warning => Brushes.Orange,
                     ProviderCardStatusTone.Error => Brushes.Red,
-                    _ => this._getResourceBrush("SecondaryText", Brushes.Gray),
+                    _ => this._getResourceBrush(ResourceKeySecondaryText, Brushes.Gray),
                 };
                 this.AddSlotText(panel, statusText, statusBrush, 10);
                 break;
@@ -455,7 +460,7 @@ internal sealed class ProviderCardRenderer
                 if (!string.IsNullOrWhiteSpace(usage.AccountName))
                 {
                     var name = this._isPrivacyMode ? "****" : usage.AccountName;
-                    this.AddSlotText(panel, name, this._getResourceBrush("TertiaryText", Brushes.Gray), 9);
+                    this.AddSlotText(panel, name, this._getResourceBrush(ResourceKeyTertiaryText, Brushes.Gray), 9);
                 }
 
                 break;
@@ -463,7 +468,7 @@ internal sealed class ProviderCardRenderer
             case CardSlotContent.AuthSource:
                 if (!string.IsNullOrWhiteSpace(usage.AuthSource))
                 {
-                    this.AddSlotText(panel, usage.AuthSource, this._getResourceBrush("TertiaryText", Brushes.Gray), 9);
+                    this.AddSlotText(panel, usage.AuthSource, this._getResourceBrush(ResourceKeyTertiaryText, Brushes.Gray), 9);
                 }
 
                 break;
@@ -495,7 +500,7 @@ internal sealed class ProviderCardRenderer
         {
             Width = 4,
             Height = 4,
-            Background = this._getResourceBrush("SecondaryText", Brushes.Gray),
+            Background = this._getResourceBrush(ResourceKeySecondaryText, Brushes.Gray),
             CornerRadius = new CornerRadius(2),
             Margin = new Thickness(2, 0, 10, 0),
             VerticalAlignment = VerticalAlignment.Center,
@@ -509,9 +514,9 @@ internal sealed class ProviderCardRenderer
         bool isChild)
     {
         var primaryTextBrush = isMissing
-            ? this._getResourceBrush("TertiaryText", Brushes.Gray)
+            ? this._getResourceBrush(ResourceKeyTertiaryText, Brushes.Gray)
             : this._getResourceBrush("PrimaryText", Brushes.White);
-        var secondaryTextBrush = this._getResourceBrush("SecondaryText", Brushes.Gray);
+        var secondaryTextBrush = this._getResourceBrush(ResourceKeySecondaryText, Brushes.Gray);
 
         var textBlock = new TextBlock
         {

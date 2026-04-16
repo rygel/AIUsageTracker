@@ -13,9 +13,8 @@ $token = $env:SONAR_TOKEN
 $headers = @{Authorization = "Bearer $token"}
 $base = "http://mac-mini-alexander.local:9000/api/issues/search?componentKeys=AIUsageTracker&ps=500"
 
-$severities = if ($args.Count -gt 0) { $args[0] } else { "BLOCKER,CRITICAL,MEDIUM" }
-$resp = Invoke-RestMethod -Uri "$base&impactSeverities=$severities&resolved=false&statuses=OPEN,CONFIRMED" -Headers $headers
-Write-Host "`n=== Issues ($severities) - Open/Confirmed ($($resp.total)) ==="
+$resp = Invoke-RestMethod -Uri "$base&impactSeverities=LOW&resolved=false&statuses=OPEN,CONFIRMED" -Headers $headers
+Write-Host "`n=== LOW Issues - Open/Confirmed ($($resp.total)) ==="
 
 $byRule = @{}
 foreach ($issue in $resp.issues) {
@@ -25,11 +24,11 @@ foreach ($issue in $resp.issues) {
     $byRule[$issue.rule] += $issue
 }
 
-foreach ($rule in ($byRule.Keys | Sort-Object)) {
+foreach ($rule in ($byRule.Keys | Sort-Object { $_ -replace 'external_roslyn:', '' })) {
     $issues = $byRule[$rule]
-    $msg = $issues[0].message.Substring(0, [Math]::Min(70, $issues[0].message.Length))
+    $msg = $issues[0].message.Substring(0, [Math]::Min(80, $issues[0].message.Length))
     Write-Host "`n  --- $($rule) ($($issues.Count)) ---"
-    Write-Host "  Example: $msg"
+    Write-Host "  $msg"
     foreach ($issue in $issues) {
         $comp = $issue.component -replace "AIUsageTracker:", ""
         $line = $issue.textRange.startLine

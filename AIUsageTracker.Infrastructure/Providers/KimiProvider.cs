@@ -15,6 +15,8 @@ namespace AIUsageTracker.Infrastructure.Providers;
 
 public class KimiProvider : ProviderBase
 {
+    private const string CodingUsagesEndpoint = "https://api.kimi.com/coding/v1/usages";
+
     private readonly HttpClient _httpClient;
     private readonly ILogger<KimiProvider> _logger;
 
@@ -59,7 +61,7 @@ public class KimiProvider : ProviderBase
 
         try
         {
-            var request = CreateBearerRequest(HttpMethod.Get, "https://api.kimi.com/coding/v1/usages", config.ApiKey);
+            var request = CreateBearerRequest(HttpMethod.Get, CodingUsagesEndpoint, config.ApiKey);
 
             var response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)

@@ -26,6 +26,8 @@ public class ClaudeCodeProvider : ProviderBase
     /// </summary>
     internal const string OAuthBetaHeader = "oauth-2025-04-20";
 
+    private const string MessagesEndpoint = "https://api.anthropic.com/v1/messages";
+
     private readonly ILogger<ClaudeCodeProvider> _logger;
     private readonly HttpClient _httpClient;
 
@@ -369,7 +371,7 @@ public class ClaudeCodeProvider : ProviderBase
         {
             // Make a test request to get rate limit headers
             // Note: Anthropic API doesn't have a usage endpoint, so we use rate limits from headers
-            using var testRequest = new HttpRequestMessage(HttpMethod.Post, "https://api.anthropic.com/v1/messages");
+            using var testRequest = new HttpRequestMessage(HttpMethod.Post, MessagesEndpoint);
             testRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
             testRequest.Headers.Add("anthropic-version", "2023-06-01");
             testRequest.Content = new StringContent("{\"model\":\"claude-sonnet-4-20250514\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}", System.Text.Encoding.UTF8, "application/json");

@@ -55,7 +55,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             // Placeholder check must run on the ORIGINAL usage before normalization,
             // because NormalizeUsage fills in "Unavailable" for empty descriptions —
             // which would prevent the filter from ever seeing a blank description.
-            if (this.ShouldRejectPlaceholderStage(usage, ref placeholderFilteredCount))
+            if (ShouldRejectPlaceholderStage(usage, ref placeholderFilteredCount))
             {
                 continue;
             }
@@ -71,7 +71,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
                 continue;
             }
 
-            if (!this.PassesAuthorityStage(
+            if (!PassesAuthorityStage(
                     activeSet,
                     normalized.ProviderId,
                     ref inactiveProviderFilteredCount))
@@ -163,12 +163,12 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         return false;
     }
 
-    private bool PassesAuthorityStage(
+    private static bool PassesAuthorityStage(
         HashSet<string> activeProviderIds,
         string usageProviderId,
         ref int inactiveProviderFilteredCount)
     {
-        if (this.IsUsageForAnyActiveProvider(activeProviderIds, usageProviderId))
+        if (IsUsageForAnyActiveProvider(activeProviderIds, usageProviderId))
         {
             return true;
         }
@@ -184,11 +184,11 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         return usage;
     }
 
-    private bool ShouldRejectPlaceholderStage(
+    private static bool ShouldRejectPlaceholderStage(
         ProviderUsage usage,
         ref int placeholderFilteredCount)
     {
-        if (!this.IsPlaceholderUnavailableUsage(usage))
+        if (!IsPlaceholderUnavailableUsage(usage))
         {
             return false;
         }
@@ -377,13 +377,13 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         return UsageMath.CalculateUsedPercent(requestsUsed, requestsAvailable);
     }
 
-    private bool IsUsageForAnyActiveProvider(HashSet<string> activeProviderIds, string usageProviderId)
+    private static bool IsUsageForAnyActiveProvider(HashSet<string> activeProviderIds, string usageProviderId)
     {
         return activeProviderIds.Any(providerId =>
             (ProviderMetadataCatalog.Find(providerId)?.HandlesProviderId(usageProviderId) ?? false));
     }
 
-    private bool IsPlaceholderUnavailableUsage(ProviderUsage usage)
+    private static bool IsPlaceholderUnavailableUsage(ProviderUsage usage)
     {
         if (usage.RequestsAvailable is not 0 ||
             usage.RequestsUsed is not 0 ||

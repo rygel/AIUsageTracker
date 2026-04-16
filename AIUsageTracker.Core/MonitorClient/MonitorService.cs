@@ -21,6 +21,8 @@ public class MonitorService : IMonitorService
 
     private const int UsageRequestTimeoutSeconds = 8;
     private const int ConfigRequestTimeoutSeconds = 3;
+    private const string DefaultAgentUrl = "http://localhost:5000";
+    private const string ActivityTagMonitorAgentUrl = "monitor.agent_url";
 
     private static readonly List<string> _diagnosticsLog = new();
     private static readonly ActivitySource ActivitySource = new("AIUsageTracker.Core.MonitorService");
@@ -61,7 +63,7 @@ public class MonitorService : IMonitorService
     public static IReadOnlyList<string> DiagnosticsLog => _diagnosticsLog;
 
     /// <inheritdoc/>
-    public string AgentUrl { get; set; } = "http://localhost:5000";
+    public string AgentUrl { get; set; } = DefaultAgentUrl;
 
     /// <inheritdoc/>
     public IReadOnlyList<string> LastAgentErrors { get; private set; } = new List<string>();
@@ -141,13 +143,13 @@ public class MonitorService : IMonitorService
 
             var preservedErrors = GetActionableMetadataErrors(metadata.Info?.Errors);
             LogDiagnostic("monitor.json missing, stale, or invalid; using default port 5000");
-            this.AgentUrl = "http://localhost:5000";
+            this.AgentUrl = DefaultAgentUrl;
             this.LastAgentErrors = preservedErrors;
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
         {
             this._logger?.LogWarning(ex, "Error refreshing monitor info");
-            this.AgentUrl = "http://localhost:5000";
+            this.AgentUrl = DefaultAgentUrl;
             this.LastAgentErrors = new List<string>();
         }
     }
@@ -180,7 +182,7 @@ public class MonitorService : IMonitorService
     public async Task<IReadOnlyList<ProviderUsage>> GetUsageAsync()
     {
         using var activity = ActivitySource.StartActivity("monitor.get_usage", ActivityKind.Client);
-        activity?.SetTag("monitor.agent_url", this.AgentUrl);
+        activity?.SetTag(ActivityTagMonitorAgentUrl, this.AgentUrl);
         var stopwatch = Stopwatch.StartNew();
         try
         {
@@ -336,7 +338,7 @@ public class MonitorService : IMonitorService
     public async Task<bool> TriggerRefreshAsync()
     {
         using var activity = ActivitySource.StartActivity("monitor.trigger_refresh", ActivityKind.Client);
-        activity?.SetTag("monitor.agent_url", this.AgentUrl);
+        activity?.SetTag(ActivityTagMonitorAgentUrl, this.AgentUrl);
         var stopwatch = Stopwatch.StartNew();
         await this.RefreshPortAsync().ConfigureAwait(false);
         var response = await this.SendMonitorRequestAsync(
@@ -485,7 +487,7 @@ public class MonitorService : IMonitorService
     private async Task<bool> CheckHealthCoreAsync(CancellationToken cancellationToken)
     {
         using var activity = ActivitySource.StartActivity("monitor.check_health", ActivityKind.Client);
-        activity?.SetTag("monitor.agent_url", this.AgentUrl);
+        activity?.SetTag(ActivityTagMonitorAgentUrl, this.AgentUrl);
         await this.RefreshPortAsync().ConfigureAwait(false);
         var response = await this.SendMonitorRequestAsync(
             httpClient => httpClient.GetAsync(this.BuildMonitorUrl(MonitorApiRoutes.Health), cancellationToken),
@@ -504,7 +506,7 @@ public class MonitorService : IMonitorService
     public async Task<MonitorHealthSnapshot?> GetHealthSnapshotAsync()
     {
         using var activity = ActivitySource.StartActivity("monitor.get_health_snapshot", ActivityKind.Client);
-        activity?.SetTag("monitor.agent_url", this.AgentUrl);
+        activity?.SetTag(ActivityTagMonitorAgentUrl, this.AgentUrl);
         await this.RefreshPortAsync().ConfigureAwait(false);
         using var response = await this.SendMonitorRequestAsync(
             httpClient => httpClient.GetAsync(this.BuildMonitorUrl(MonitorApiRoutes.Health)),
@@ -551,7 +553,7 @@ public class MonitorService : IMonitorService
     public async Task<AgentContractHandshakeResult> CheckApiContractAsync()
     {
         using var activity = ActivitySource.StartActivity("monitor.check_api_contract", ActivityKind.Client);
-        activity?.SetTag("monitor.agent_url", this.AgentUrl);
+        activity?.SetTag(ActivityTagMonitorAgentUrl, this.AgentUrl);
         try
         {
             using var response = await this._httpClient.GetAsync(this.BuildMonitorUrl(MonitorApiRoutes.Health)).ConfigureAwait(false);

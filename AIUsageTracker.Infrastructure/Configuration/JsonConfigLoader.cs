@@ -14,6 +14,8 @@ namespace AIUsageTracker.Infrastructure.Configuration;
 
 public class JsonConfigLoader : IConfigLoader
 {
+    private const string AuthConfigFileName = "auth.json";
+
     private readonly ILogger<JsonConfigLoader> _logger;
     private readonly ILogger<TokenDiscoveryService> _tokenDiscoveryLogger;
     private readonly IAppPathProvider _pathProvider;
@@ -145,7 +147,7 @@ public class JsonConfigLoader : IConfigLoader
         var appDataRoot = pathProvider.GetAppDataRoot();
         if (!string.IsNullOrWhiteSpace(appDataRoot))
         {
-            entries.Add((Path.Combine(appDataRoot, "auth.json"), true));
+            entries.Add((Path.Combine(appDataRoot, AuthConfigFileName), true));
         }
 
         // Canonical app auth file is read last so explicit user-entered keys remain authoritative.
@@ -180,11 +182,11 @@ public class JsonConfigLoader : IConfigLoader
         // Ordered least-authoritative to most-authoritative (later entries win).
         // ~/.opencode/ is a legacy path with potentially stale keys.
         // ~/.local/share/opencode/ is the active XDG data directory maintained by OpenCode.
-        yield return Path.Combine(userProfileRoot, ".opencode", "auth.json");
-        yield return Path.Combine(userProfileRoot, ".config", "opencode", "auth.json");
-        yield return Path.Combine(userProfileRoot, "AppData", "Roaming", "opencode", "auth.json");
-        yield return Path.Combine(userProfileRoot, "AppData", "Local", "opencode", "auth.json");
-        yield return Path.Combine(userProfileRoot, ".local", "share", "opencode", "auth.json");
+        yield return Path.Combine(userProfileRoot, ".opencode", AuthConfigFileName);
+        yield return Path.Combine(userProfileRoot, ".config", "opencode", AuthConfigFileName);
+        yield return Path.Combine(userProfileRoot, "AppData", "Roaming", "opencode", AuthConfigFileName);
+        yield return Path.Combine(userProfileRoot, "AppData", "Local", "opencode", AuthConfigFileName);
+        yield return Path.Combine(userProfileRoot, ".local", "share", "opencode", AuthConfigFileName);
     }
 
     private async Task MergeConfigFileAsync(Dictionary<string, ProviderConfig> mergedConfigs, string path, bool isAuthFile)

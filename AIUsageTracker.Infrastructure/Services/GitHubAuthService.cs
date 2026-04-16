@@ -21,6 +21,7 @@ public class GitHubAuthService : IGitHubAuthService
     private const string AUTHURL = "https://github.com/login/device/code";
     private const string TOKENURL = "https://github.com/login/oauth/access_token";
     private const string SCOPE = "read:user copilot"; // Requesting copilot scope
+    private const string USERURL = "https://api.github.com/user";
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<GitHubAuthService> _logger;
@@ -191,7 +192,7 @@ public class GitHubAuthService : IGitHubAuthService
 
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user");
+            using var request = new HttpRequestMessage(HttpMethod.Get, USERURL);
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", this._currentToken);
             request.Headers.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("AIUsageTracker", "1.0"));
 

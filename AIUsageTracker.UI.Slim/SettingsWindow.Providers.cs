@@ -17,6 +17,10 @@ namespace AIUsageTracker.UI.Slim;
 
 public partial class SettingsWindow
 {
+    private const string ResourceKeyTertiaryText = "TertiaryText";
+    private const string ResourceKeySecondaryText = "SecondaryText";
+    private const string ResourceKeyProgressBarGreen = "ProgressBarGreen";
+
     private sealed record StatusPanelPresentation(
         bool UseHorizontalLayout,
         string PrimaryText,
@@ -225,7 +229,7 @@ public partial class SettingsWindow
 
     private StackPanel BuildStatusPanel(ProviderConfig config, ProviderUsage? usage, ProviderSettingsBehavior settingsBehavior)
     {
-        var presentation = this.CreateStatusPresentation(
+        var presentation = CreateStatusPresentation(
             config,
             usage,
             settingsBehavior,
@@ -263,7 +267,7 @@ public partial class SettingsWindow
         return panel;
     }
 
-    private StatusPanelPresentation CreateStatusPresentation(
+    private static StatusPanelPresentation CreateStatusPresentation(
         ProviderConfig config,
         ProviderUsage? usage,
         ProviderSettingsBehavior settingsBehavior,
@@ -271,7 +275,7 @@ public partial class SettingsWindow
     {
         return settingsBehavior.InputMode switch
         {
-            ProviderInputMode.DerivedReadOnly => this.CreateDerivedStatusPresentation(config, usage),
+            ProviderInputMode.DerivedReadOnly => CreateDerivedStatusPresentation(config, usage),
             ProviderInputMode.AutoDetectedStatus => CreateAutoDetectedStatusPresentation(usage, isPrivacyMode),
             ProviderInputMode.ExternalAuthStatus => CreateExternalAuthStatusPresentation(config, usage, isPrivacyMode),
             ProviderInputMode.SessionAuthStatus => CreateSessionAuthStatusPresentation(config, usage, settingsBehavior, isPrivacyMode),
@@ -282,7 +286,7 @@ public partial class SettingsWindow
         };
     }
 
-    private StatusPanelPresentation CreateDerivedStatusPresentation(
+    private static StatusPanelPresentation CreateDerivedStatusPresentation(
         ProviderConfig config,
         ProviderUsage? usage)
     {
@@ -295,17 +299,17 @@ public partial class SettingsWindow
         if (usage?.IsAvailable == true)
         {
             primaryText = $"Derived from {sourceLabel} usage (read-only)";
-            primaryResourceKey = "ProgressBarGreen";
+            primaryResourceKey = ResourceKeyProgressBarGreen;
         }
         else if (usage != null && !string.IsNullOrWhiteSpace(usage.Description))
         {
             primaryText = usage.Description;
-            primaryResourceKey = "TertiaryText";
+            primaryResourceKey = ResourceKeyTertiaryText;
         }
         else
         {
             primaryText = "Derived provider (waiting for usage data)";
-            primaryResourceKey = "TertiaryText";
+            primaryResourceKey = ResourceKeyTertiaryText;
         }
 
         if (usage?.NextResetTime is DateTime derivedReset)
@@ -342,7 +346,7 @@ public partial class SettingsWindow
         return new StatusPanelPresentation(
             UseHorizontalLayout: false,
             PrimaryText: isConnected ? $"Auto-Detected ({displayAccount})" : "Searching for local process...",
-            PrimaryResourceKey: isConnected ? "ProgressBarGreen" : "TertiaryText",
+            PrimaryResourceKey: isConnected ? ResourceKeyProgressBarGreen : ResourceKeyTertiaryText,
             PrimaryItalic: !isConnected,
             SecondaryLines: secondaryLines);
     }
@@ -378,7 +382,7 @@ public partial class SettingsWindow
         return new StatusPanelPresentation(
             UseHorizontalLayout: true,
             PrimaryText: displayText,
-            PrimaryResourceKey: isAuthenticated ? "ProgressBarGreen" : "TertiaryText",
+            PrimaryResourceKey: isAuthenticated ? ResourceKeyProgressBarGreen : ResourceKeyTertiaryText,
             PrimaryItalic: false,
             SecondaryLines: Array.Empty<StatusSecondaryLine>());
     }
@@ -418,7 +422,7 @@ public partial class SettingsWindow
         return new StatusPanelPresentation(
             UseHorizontalLayout: false,
             PrimaryText: displayText,
-            PrimaryResourceKey: isAuthenticated ? "ProgressBarGreen" : "TertiaryText",
+            PrimaryResourceKey: isAuthenticated ? ResourceKeyProgressBarGreen : ResourceKeyTertiaryText,
             PrimaryItalic: false,
             SecondaryLines: secondaryLines);
     }
@@ -539,7 +543,7 @@ public partial class SettingsWindow
             Margin = margin,
             IsEnabled = isEnabled,
         };
-        checkBox.SetResourceReference(CheckBox.ForegroundProperty, "SecondaryText");
+        checkBox.SetResourceReference(CheckBox.ForegroundProperty, ResourceKeySecondaryText);
         checkBox.Checked += (_, _) => onCheckedChanged(true);
         checkBox.Unchecked += (_, _) => onCheckedChanged(false);
         return checkBox;
@@ -615,7 +619,7 @@ public partial class SettingsWindow
             Margin = new Thickness(0, 0, 0, 1),
             TextTrimming = TextTrimming.CharacterEllipsis,
         };
-        sourceLine.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
+        sourceLine.SetResourceReference(TextBlock.ForegroundProperty, ResourceKeySecondaryText);
         sourceLine.Inlines.Add(new System.Windows.Documents.Run("Source: ") { FontWeight = FontWeights.SemiBold });
         sourceLine.Inlines.Add(new System.Windows.Documents.Run(sourceLabel));
         if (!string.IsNullOrEmpty(removalHint))
@@ -647,7 +651,7 @@ public partial class SettingsWindow
                 ToolTip = path,
                 VerticalAlignment = VerticalAlignment.Center,
             };
-            pathBox.SetResourceReference(TextBox.ForegroundProperty, "SecondaryText");
+            pathBox.SetResourceReference(TextBox.ForegroundProperty, ResourceKeySecondaryText);
             Grid.SetColumn(pathBox, 0);
             row.Children.Add(pathBox);
 
@@ -846,7 +850,7 @@ public partial class SettingsWindow
             FontSize = 10,
             Margin = new Thickness(0, 3, 0, 0),
         };
-        statusText.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
+        statusText.SetResourceReference(TextBlock.ForegroundProperty, ResourceKeySecondaryText);
         return statusText;
     }
 
@@ -978,7 +982,7 @@ public partial class SettingsWindow
                     Tag = usage.ProviderId,
                     IsChecked = !hidden.Contains(usage.ProviderId ?? string.Empty, StringComparer.OrdinalIgnoreCase),
                     Margin = new Thickness(0, 2, 0, 6),
-                    Foreground = (Brush)this.FindResource("SecondaryText"),
+                    Foreground = (Brush)this.FindResource(ResourceKeySecondaryText),
                 };
                 checkBox.Checked += this.ProviderVisibility_Changed;
                 checkBox.Unchecked += this.ProviderVisibility_Changed;
@@ -993,7 +997,7 @@ public partial class SettingsWindow
                     Text = definition?.DisplayName ?? group.Key,
                     FontWeight = FontWeights.SemiBold,
                     Margin = new Thickness(0, 4, 0, 4),
-                    Foreground = (Brush)this.FindResource("SecondaryText"),
+                    Foreground = (Brush)this.FindResource(ResourceKeySecondaryText),
                 });
 
                 for (var i = 0; i < cards.Count; i++)
@@ -1005,7 +1009,7 @@ public partial class SettingsWindow
                         Tag = usage.ProviderId,
                         IsChecked = !hidden.Contains(usage.ProviderId ?? string.Empty, StringComparer.OrdinalIgnoreCase),
                         Margin = new Thickness(15, 2, 0, i == cards.Count - 1 ? 16 : 2),
-                        Foreground = (Brush)this.FindResource("SecondaryText"),
+                        Foreground = (Brush)this.FindResource(ResourceKeySecondaryText),
                     };
                     checkBox.Checked += this.ProviderVisibility_Changed;
                     checkBox.Unchecked += this.ProviderVisibility_Changed;

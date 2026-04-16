@@ -39,8 +39,7 @@ internal static class WebApplicationPipelineExtensions
         }
         else
         {
-            Log.Warning("Monitor database not found. Web UI will show empty data.");
-            Log.Warning("Ensure the Monitor has run at least once to initialize the database.");
+            Log.Warning("Monitor database not found. Web UI will show empty data. Ensure the Monitor has run at least once to initialize the database.");
         }
     }
 

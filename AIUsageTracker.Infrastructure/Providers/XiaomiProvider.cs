@@ -13,6 +13,8 @@ namespace AIUsageTracker.Infrastructure.Providers;
 
 public class XiaomiProvider : ProviderBase
 {
+    private const string UserBalanceEndpoint = "https://api.xiaomimimo.com/v1/user/balance";
+
     private readonly HttpClient _httpClient;
     private readonly ILogger<XiaomiProvider> _logger;
 
@@ -62,7 +64,7 @@ public class XiaomiProvider : ProviderBase
         try
         {
             // Endpoint based on research/best-guess
-            var request = CreateBearerRequest(HttpMethod.Get, "https://api.xiaomimimo.com/v1/user/balance", config.ApiKey);
+            var request = CreateBearerRequest(HttpMethod.Get, UserBalanceEndpoint, config.ApiKey);
 
             var response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();

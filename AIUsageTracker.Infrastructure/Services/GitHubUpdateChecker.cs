@@ -14,8 +14,14 @@ namespace AIUsageTracker.Infrastructure.Services;
 
 public class GitHubUpdateChecker
 {
+#pragma warning disable S1075 // URIs are repository constants
     private const string RepositoryBaseUrl = "https://github.com/rygel/AIUsageTracker";
     private const string RepositoryApiBaseUrl = "https://api.github.com/repos/rygel/AIUsageTracker";
+    private const string ArchArm64 = "arm64";
+    private const string ArchX64 = "x64";
+    private const string ArchX86 = "x86";
+    private const string ArchArm = "arm";
+#pragma warning restore S1075
 
     private readonly ILogger<GitHubUpdateChecker> _logger;
     private readonly HttpClient _httpClient;
@@ -59,10 +65,10 @@ public class GitHubUpdateChecker
 
         var normalizedArchitecture = architecture.ToLowerInvariant() switch
         {
-            "arm" => "arm64",
-            "arm64" => "arm64",
-            "x86" => "x86",
-            _ => "x64",
+            ArchArm => ArchArm64,
+            ArchArm64 => ArchArm64,
+            ArchX86 => ArchX86,
+            _ => ArchX64,
         };
 
         var appcastName = isBeta
@@ -132,15 +138,13 @@ public class GitHubUpdateChecker
 
         try
         {
-            this._logger.LogInformation("Starting download and install for version {Version}", updateInfo.Version);
-
             if (string.IsNullOrEmpty(updateInfo.DownloadUrl))
             {
                 return UpdateInstallResult.Fail("No download URL available.");
             }
 
             var downloadPath = GetInstallerDownloadPath(updateInfo.Version);
-            this._logger.LogInformation("Downloading update from {Url} to {Path}", updateInfo.DownloadUrl, downloadPath);
+            this._logger.LogInformation("Downloading update for version {Version} from {Url} to {Path}", updateInfo.Version, updateInfo.DownloadUrl, downloadPath);
             var downloadSucceeded = await this.DownloadInstallerAsync(updateInfo.DownloadUrl, downloadPath, progress).ConfigureAwait(false);
             if (!downloadSucceeded)
             {
@@ -324,10 +328,10 @@ public class GitHubUpdateChecker
     {
         return System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture switch
         {
-            System.Runtime.InteropServices.Architecture.Arm64 => "arm64",
-            System.Runtime.InteropServices.Architecture.Arm => "arm64",
-            System.Runtime.InteropServices.Architecture.X86 => "x86",
-            _ => "x64",
+            System.Runtime.InteropServices.Architecture.Arm64 => ArchArm64,
+            System.Runtime.InteropServices.Architecture.Arm => ArchArm64,
+            System.Runtime.InteropServices.Architecture.X86 => ArchX86,
+            _ => ArchX64,
         };
     }
 
@@ -337,13 +341,13 @@ public class GitHubUpdateChecker
 
         var archMapping = new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            ["x64"] = "x64",
-            ["x86"] = "x86",
-            ["arm64"] = "arm64",
-            ["arm"] = "arm64",
+            [ArchX64] = ArchX64,
+            [ArchX86] = ArchX86,
+            [ArchArm64] = ArchArm64,
+            [ArchArm] = ArchArm64,
         };
 
-        var targetArch = archMapping.GetValueOrDefault(currentArch, "x64");
+        var targetArch = archMapping.GetValueOrDefault(currentArch, ArchX64);
 
         if (!archMapping.ContainsKey(currentArch))
         {
