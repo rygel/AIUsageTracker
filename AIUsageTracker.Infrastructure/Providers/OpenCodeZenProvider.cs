@@ -337,6 +337,7 @@ public class OpenCodeZenProvider : ProviderBase
         return results.OrderByDescending(t => t.Count).ToList();
     }
 
+#pragma warning disable S107
     private static string BuildDescription(
         double totalCost,
         int sessions,
@@ -347,6 +348,7 @@ public class OpenCodeZenProvider : ProviderBase
         double avgCostPerDay,
         List<ModelUsageEntry> models,
         List<ToolUsageEntry> tools)
+#pragma warning restore S107
     {
         var parts = new List<string>
         {

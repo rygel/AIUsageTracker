@@ -99,6 +99,7 @@ public partial class MainWindow : Window
     {
     }
 
+#pragma warning disable S107
     internal MainWindow(
         bool skipUiInitialization,
         MainViewModel viewModel,
@@ -111,6 +112,7 @@ public partial class MainWindow : Window
         IDialogService dialogService,
         IBrowserService browserService,
         UiPreferencesStore preferencesStore)
+#pragma warning restore S107
     {
         ArgumentNullException.ThrowIfNull(viewModel);
         ArgumentNullException.ThrowIfNull(monitorService);

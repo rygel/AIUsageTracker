@@ -24,35 +24,37 @@ public static class Program
     {
         ArgumentNullException.ThrowIfNull(args);
 
-        await using var serviceProvider = CreateServiceProvider();
-
-        // Ensure Agent is running
-        var lifecycleService = serviceProvider.GetRequiredService<MonitorLifecycleService>();
-        if (!await lifecycleService.IsAgentRunningAsync().ConfigureAwait(false))
+        var serviceProvider = CreateServiceProvider();
+        await using (serviceProvider.ConfigureAwait(false))
         {
-            Console.WriteLine("Agent is not running. Attempting to start...");
-            if (await lifecycleService.StartAgentAsync().ConfigureAwait(false))
+            // Ensure Agent is running
+            var lifecycleService = serviceProvider.GetRequiredService<MonitorLifecycleService>();
+            if (!await lifecycleService.IsAgentRunningAsync().ConfigureAwait(false))
             {
-                Console.Write("Waiting for Agent to initialize...");
-                if (await lifecycleService.WaitForAgentAsync().ConfigureAwait(false))
+                Console.WriteLine("Agent is not running. Attempting to start...");
+                if (await lifecycleService.StartAgentAsync().ConfigureAwait(false))
                 {
-                    Console.WriteLine(" Done.");
+                    Console.Write("Waiting for Agent to initialize...");
+                    if (await lifecycleService.WaitForAgentAsync().ConfigureAwait(false))
+                    {
+                        Console.WriteLine(" Done.");
+                    }
+                    else
+                    {
+                        Console.WriteLine(" Failed.");
+                        Console.WriteLine("Could not start the Agent service. Please start it manually.");
+                        return;
+                    }
                 }
                 else
                 {
-                    Console.WriteLine(" Failed.");
-                    Console.WriteLine("Could not start the Agent service. Please start it manually.");
+                    Console.WriteLine("Failed to launch Agent process.");
                     return;
                 }
             }
-            else
-            {
-                Console.WriteLine("Failed to launch Agent process.");
-                return;
-            }
-        }
 
-        await RunAsync(args, serviceProvider).ConfigureAwait(false);
+            await RunAsync(args, serviceProvider).ConfigureAwait(false);
+        }
     }
 
     private static ServiceProvider CreateServiceProvider()

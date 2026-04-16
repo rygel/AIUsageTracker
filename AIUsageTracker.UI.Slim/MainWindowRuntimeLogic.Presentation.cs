@@ -128,6 +128,7 @@ internal static partial class MainWindowRuntimeLogic
             IsStale: isStale);
     }
 
+#pragma warning disable S107
     private static bool TryCreateSpecialPresentation(
         bool isMissing,
         bool isUnknown,
@@ -141,6 +142,7 @@ internal static partial class MainWindowRuntimeLogic
         PaceColorResult paceColor,
         bool isStale,
         out ProviderCardPresentation presentation)
+#pragma warning restore S107
     {
         if (isMissing)
         {

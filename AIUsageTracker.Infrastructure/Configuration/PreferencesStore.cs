@@ -40,7 +40,9 @@ public class PreferencesStore : IPreferencesStore
 
         // Use FileShare.ReadWrite so the read succeeds even when the monitor
         // or a previous app instance holds the file open for writing.
+#pragma warning disable MA0004
         await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+#pragma warning restore MA0004
         using var reader = new StreamReader(stream);
         var json = await reader.ReadToEndAsync().ConfigureAwait(false);
         return AppPreferences.Deserialize(json);

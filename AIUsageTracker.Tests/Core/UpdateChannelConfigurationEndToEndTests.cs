@@ -3,6 +3,7 @@
 // </copyright>
 
 using System.Diagnostics;
+using System.Globalization;
 using System.Xml.Linq;
 using AIUsageTracker.Infrastructure.Services;
 using AIUsageTracker.Tests.Infrastructure;
@@ -90,9 +91,9 @@ public sealed class UpdateChannelConfigurationEndToEndTests : IDisposable
 
         var envVars = new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            ["INSTALLER_SIZE_X64"] = x64Size.ToString(),
-            ["INSTALLER_SIZE_X86"] = x86Size.ToString(),
-            ["INSTALLER_SIZE_ARM64"] = arm64Size.ToString(),
+            ["INSTALLER_SIZE_X64"] = x64Size.ToString(CultureInfo.InvariantCulture),
+            ["INSTALLER_SIZE_X86"] = x86Size.ToString(CultureInfo.InvariantCulture),
+            ["INSTALLER_SIZE_ARM64"] = arm64Size.ToString(CultureInfo.InvariantCulture),
         };
 
         var generated = await RunGenerateAppcastAsync(workingDirectory, version, channel, envVars);

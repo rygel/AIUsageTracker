@@ -197,6 +197,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         return true;
     }
 
+#pragma warning disable S107
     private void RecordSnapshot(
         int totalProcessedEntries,
         int acceptedEntries,
@@ -206,6 +207,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         int detailContractAdjustedCount,
         int normalizedCount,
         int privacyRedactedCount)
+#pragma warning restore S107
     {
         var rejectedEntries = totalProcessedEntries - acceptedEntries;
 

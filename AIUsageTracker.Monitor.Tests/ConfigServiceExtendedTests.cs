@@ -179,9 +179,11 @@ public sealed class ConfigServiceExtendedTests : IDisposable
     private async Task WriteProvidersJsonAsync(object data)
     {
         var json = data is string s ? s : JsonSerializer.Serialize(data);
+#pragma warning disable MA0004
         await File.WriteAllTextAsync(
             Path.Combine(this._tempDir, "providers.json"),
             json);
+#pragma warning restore MA0004
     }
 
     private sealed class TestPathProvider : IAppPathProvider

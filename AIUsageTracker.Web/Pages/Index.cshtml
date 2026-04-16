@@ -645,7 +645,9 @@
         return $"{direction} ({severity}) {latestText}/day vs {baselineText}/day";
     }
 
+#pragma warning disable S1172
     static bool TryGetDualWindowPercentages(AIUsageTracker.Core.Models.ProviderUsage _, out double primaryUsed, out double secondaryUsed, out string primaryName, out string secondaryName)
+#pragma warning restore S1172
     {
         // Dual-window data now comes from flat ProviderUsage cards (WindowKind != None).
         // The web page operates on root ProviderUsage objects which no longer carry sub-details.

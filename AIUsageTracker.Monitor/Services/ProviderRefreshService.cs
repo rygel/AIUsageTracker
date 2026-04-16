@@ -35,6 +35,7 @@ public class ProviderRefreshService : BackgroundService
     private volatile CancellationTokenSource? _activeRefreshCts;
     private readonly TimeSpan _refreshInterval = TimeSpan.FromMinutes(5);
 
+#pragma warning disable S107
     public ProviderRefreshService(
         ILogger<ProviderRefreshService> logger,
         IUsageDatabase database,
@@ -50,6 +51,7 @@ public class ProviderRefreshService : BackgroundService
         ProviderRefreshNotificationService refreshNotificationService,
         StartupSequenceService startupSequenceService,
         IProviderUsageProcessingPipeline usageProcessingPipeline)
+#pragma warning restore S107
     {
         this._logger = logger;
         this._database = database;

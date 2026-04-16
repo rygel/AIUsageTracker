@@ -64,6 +64,7 @@ internal static class MonitorLauncherProcessController
         }
     }
 
+#pragma warning disable S107
     public static async Task<bool> StopAgentAsync(
         MonitorInfo? info,
         int fallbackPort,
@@ -73,6 +74,7 @@ internal static class MonitorLauncherProcessController
         Func<Task<bool>> stopNamedProcessesAsync,
         Func<Task> invalidateMonitorInfoAsync,
         ILogger<MonitorLauncher>? logger)
+#pragma warning restore S107
     {
         try
         {

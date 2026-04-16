@@ -373,7 +373,8 @@ public class GitHubUpdateChecker
         var downloadedBytes = 0L;
         var buffer = new byte[8192];
 
-        await using (var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false))
+        var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+        await using (stream.ConfigureAwait(false))
         using (var fileStream = new FileStream(partialDownloadPath, FileMode.Create, FileAccess.Write, FileShare.None))
         {
             int read;

@@ -14,8 +14,8 @@ namespace AIUsageTracker.Infrastructure.Configuration;
 
 public class JsonConfigLoader : IConfigLoader
 {
-    private static readonly JsonSerializerOptions CaseInsensitiveOptions = new() { PropertyNameCaseInsensitive = true };
     private const string AuthConfigFileName = "auth.json";
+    private static readonly JsonSerializerOptions CaseInsensitiveOptions = new() { PropertyNameCaseInsensitive = true };
 
     private readonly ILogger<JsonConfigLoader> _logger;
     private readonly ILogger<TokenDiscoveryService> _log;

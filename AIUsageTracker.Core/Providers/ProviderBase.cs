@@ -136,12 +136,12 @@ public abstract class ProviderBase : IProviderService
 
         var description = ex.ErrorType switch
         {
-            ProviderErrorType.AuthenticationError => $"Authentication failed ({((int)ex.HttpStatusCode).ToString(CultureInfo.InvariantCulture)})",
-            ProviderErrorType.AuthorizationError => $"Access denied ({((int)ex.HttpStatusCode).ToString(CultureInfo.InvariantCulture)})",
+            ProviderErrorType.AuthenticationError => $"Authentication failed ({ex.HttpStatusCode?.ToString(CultureInfo.InvariantCulture) ?? "unknown"})",
+            ProviderErrorType.AuthorizationError => $"Access denied ({ex.HttpStatusCode?.ToString(CultureInfo.InvariantCulture) ?? "unknown"})",
             ProviderErrorType.NetworkError => "Connection failed - check network",
             ProviderErrorType.TimeoutError => "Request timed out",
             ProviderErrorType.RateLimitError => "Rate limit exceeded - please wait before retrying",
-            ProviderErrorType.ServerError => $"Server error ({((int)ex.HttpStatusCode).ToString(CultureInfo.InvariantCulture)})",
+            ProviderErrorType.ServerError => $"Server error ({ex.HttpStatusCode?.ToString(CultureInfo.InvariantCulture) ?? "unknown"})",
             ProviderErrorType.ConfigurationError => "Configuration error",
             ProviderErrorType.DeserializationError => "Failed to parse response",
             ProviderErrorType.InvalidResponseError => "Invalid response from provider",
