@@ -142,16 +142,20 @@ public class Program
                     AllocConsole();
                 }
 
-                logger.LogInformation("");
+#pragma warning disable CA2254 // Template strings are intentionally varied for debug banner output
+                logger.LogInformation(string.Empty);
                 logger.LogInformation(DebugBannerSeparator);
+#pragma warning restore CA2254
                 logger.LogInformation("  AIUsageTracker.Monitor - DEBUG MODE");
                 logger.LogInformation(DebugBannerSeparator);
                 logger.LogInformation("  Version: {Version} | PID: {ProcessId} | Started: {StartedAt}", monitorVersion, Environment.ProcessId, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture));
                 logger.LogInformation("  OS: {Os} | Runtime: {Runtime}", Environment.OSVersion, Environment.Version);
                 logger.LogInformation("  Working Dir: {WorkingDir}", Directory.GetCurrentDirectory());
                 logger.LogInformation("  Command Line: {CommandLine}", Environment.CommandLine);
+#pragma warning disable CA2254
                 logger.LogInformation(DebugBannerSeparator);
-                logger.LogInformation("");
+                logger.LogInformation(string.Empty);
+#pragma warning restore CA2254
             }
 
             // Reserve the canonical monitor port with retry for transient bind races.
@@ -293,18 +297,20 @@ public class Program
 
             if (isDebugMode)
             {
-                logger.LogInformation("");
+#pragma warning disable CA2254 // Template strings are intentionally varied for debug banner output
+                logger.LogInformation(string.Empty);
                 logger.LogInformation(DebugBannerSeparator);
                 logger.LogInformation("  Agent ready! Listening on http://localhost:{Port}", port);
                 logger.LogInformation(DebugBannerSeparator);
-                logger.LogInformation("");
+                logger.LogInformation(string.Empty);
                 logger.LogInformation("  API Endpoints:");
                 logger.LogInformation("    GET  http://localhost:{Port}{Health} | GET  http://localhost:{Port}{Usage} | GET  http://localhost:{Port}{Config}", port, MonitorApiRoutes.Health, port, MonitorApiRoutes.Usage, port, MonitorApiRoutes.Config);
                 logger.LogInformation("    POST http://localhost:{Port}{Refresh}", port, MonitorApiRoutes.Refresh);
-                logger.LogInformation("");
+                logger.LogInformation(string.Empty);
                 logger.LogInformation("  Press Ctrl+C to stop");
                 logger.LogInformation(DebugBannerSeparator);
-                logger.LogInformation("");
+                logger.LogInformation(string.Empty);
+#pragma warning restore CA2254
             }
 
             // Update metadata only after successful bind/start.

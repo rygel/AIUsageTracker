@@ -144,7 +144,7 @@ public class UsageDatabase : IUsageDatabase
 
         public void Dispose()
         {
-            Dispose(true);
+            this.Dispose(true);
             GC.SuppressFinalize(this);
         }
 
@@ -793,6 +793,7 @@ public class UsageDatabase : IUsageDatabase
         {
             ageLabel = $"{(int)age.TotalMinutes}m ago";
         }
+
         var suffix = $"(last refreshed {ageLabel} — data may be outdated)";
         usage.Description = string.IsNullOrWhiteSpace(usage.Description)
             ? suffix

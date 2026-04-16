@@ -175,7 +175,7 @@ public sealed class WebDatabaseServiceTests : IDisposable
         var result = await this._service.GetProvidersAsync();
 
         Assert.NotEmpty(result);
-        Assert.Contains(result, p => p.ProviderId == "test-provider");
+        Assert.Contains(result, p => string.Equals(p.ProviderId, "test-provider", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -292,11 +292,18 @@ public sealed class WebDatabaseServiceTests : IDisposable
         public TestPathProvider(string root) => this._root = root;
 
         public string GetAppDataRoot() => this._root;
-        public string GetDatabasePath() => Path.Combine(this._root, "monitor.db");        public string GetLogDirectory() => Path.Combine(this._root, "logs");
+
+        public string GetDatabasePath() => Path.Combine(this._root, "monitor.db"); 
+public string GetLogDirectory() => Path.Combine(this._root, "logs");
+
         public string GetAuthFilePath() => Path.Combine(this._root, "auth.json");
+
         public string GetPreferencesFilePath() => Path.Combine(this._root, "prefs.json");
+
         public string GetProviderConfigFilePath() => Path.Combine(this._root, "providers.json");
+
         public string GetMonitorInfoFilePath() => Path.Combine(this._root, "monitor.json");
+
         public string GetUserProfileRoot() => Path.Combine(this._root, "userprofile");
     }
 }

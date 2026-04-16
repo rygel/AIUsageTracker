@@ -49,7 +49,7 @@ public sealed class AntigravityProviderParsingTests
     [Fact]
     public void ResolveResetInfo_ReturnsEmpty_WhenResetTimeEmpty()
     {
-        var (description, nextResetTime) = InvokeResolveResetInfo("");
+        var (description, nextResetTime) = InvokeResolveResetInfo(string.Empty);
         Assert.Equal(string.Empty, description);
         Assert.Null(nextResetTime);
     }

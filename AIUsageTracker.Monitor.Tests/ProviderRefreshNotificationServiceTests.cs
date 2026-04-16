@@ -49,9 +49,9 @@ public class ProviderRefreshNotificationServiceTests
 
         var exception = await Record.ExceptionAsync(async () =>
         {
-            await service.NotifyRefreshStartedAsync();
-            await service.NotifyUsageUpdatedAsync();
-        });
+            await service.NotifyRefreshStartedAsync().ConfigureAwait(false);
+            await service.NotifyUsageUpdatedAsync().ConfigureAwait(false);
+        }).ConfigureAwait(false);
 
         Assert.Null(exception);
     }

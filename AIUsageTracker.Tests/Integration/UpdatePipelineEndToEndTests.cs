@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Globalization;
 using System.Net;
 using System.Text.Json;
 using System.Xml.Linq;
@@ -257,7 +258,7 @@ public sealed class UpdatePipelineEndToEndTests : IDisposable
         // length is non-zero
         var lengthStr = enclosure.Attribute("length")?.Value ?? "0";
         Assert.True(
-            long.TryParse(lengthStr, out var length) && length > 0,
+            long.TryParse(lengthStr, CultureInfo.InvariantCulture, out var length) && length > 0,
             $"Appcast {fileName} has length={lengthStr}. Must be > 0.");
 
         // The download URL in the appcast actually resolves

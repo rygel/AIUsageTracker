@@ -10,6 +10,7 @@ namespace AIUsageTracker.Monitor.Tests;
 public class AuthDiagnosticsSnapshotBuilderTests
 {
     private static readonly string TestApiKey = Guid.NewGuid().ToString();
+
     [Fact]
     public void Build_WhenAuthSourceUsesFilePath_ExtractsFallbackAndAgeBucket()
     {
