@@ -1,6 +1,7 @@
 param(
     [string]$ProjectKey = "AIUsageTracker",
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    [switch]$SkipCoverage
 )
 
 $ErrorActionPreference = "Stop"
@@ -38,11 +39,26 @@ Write-Host "Server: $hostUrl"
 Set-Location $repoRoot
 
 Write-Host "`n--- Beginning analysis ---"
-dotnet sonarscanner begin /k:"$ProjectKey" /d:sonar.host.url="$hostUrl" /d:sonar.token="$token"
+$sonarArgs = @(
+    "sonarscanner", "begin",
+    "/k:$ProjectKey",
+    "/d:sonar.host.url=$hostUrl",
+    "/d:sonar.token=$token"
+)
+if (-not $SkipCoverage) {
+    $sonarArgs += "/d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml"
+}
+dotnet @sonarArgs
 
 if (-not $SkipBuild) {
     Write-Host "`n--- Building solution ---"
     dotnet build AIUsageTracker.sln --configuration Debug
+
+    if (-not $SkipCoverage) {
+        Write-Host "`n--- Collecting coverage ---"
+        dotnet tool install --global dotnet-coverage 2>$null
+        dotnet-coverage collect "dotnet test AIUsageTracker.Tests/AIUsageTracker.Tests.csproj --configuration Debug --no-build" --output "coverage.xml" --format cobertura 2>$null
+    }
 }
 
 Write-Host "`n--- Ending analysis and uploading ---"

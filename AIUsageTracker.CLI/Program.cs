@@ -14,7 +14,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.CLI;
 
-public class Program
+public static class Program
 {
     public static async Task Main(string[] args)
     {
