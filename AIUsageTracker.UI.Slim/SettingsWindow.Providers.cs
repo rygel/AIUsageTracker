@@ -148,11 +148,11 @@ public partial class SettingsWindow
             ? ProviderInputMode.DerivedReadOnly
             : ResolveProviderInputMode(canonicalProviderId, usage, hasSessionToken);
         var isInactive = !isDerived && inputMode switch
-            {
-                ProviderInputMode.AutoDetectedStatus => usage == null || !usage.IsAvailable,
-                ProviderInputMode.SessionAuthStatus => string.IsNullOrWhiteSpace(config.ApiKey) && usage?.IsAvailable != true,
-                _ => string.IsNullOrWhiteSpace(config.ApiKey),
-            };
+        {
+            ProviderInputMode.AutoDetectedStatus => usage == null || !usage.IsAvailable,
+            ProviderInputMode.SessionAuthStatus => string.IsNullOrWhiteSpace(config.ApiKey) && usage?.IsAvailable != true,
+            _ => string.IsNullOrWhiteSpace(config.ApiKey),
+        };
         var sessionProviderLabel = inputMode == ProviderInputMode.SessionAuthStatus
             ? ProviderMetadataCatalog.Find(canonicalProviderId)?.SessionStatusLabel
             : null;

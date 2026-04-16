@@ -92,8 +92,8 @@ public sealed class GroupedUsageProjectionServiceTests
         var snapshot = GroupedUsageProjectionService.Build(usages);
 
         Assert.Equal(2, snapshot.Providers.Count);
-        Assert.Contains(snapshot.Providers, provider => provider.ProviderId == "codex" && provider.Models.Count == 0);
-        Assert.Contains(snapshot.Providers, provider => provider.ProviderId == "codex.spark" && provider.Models.Count == 0);
+        Assert.Contains(snapshot.Providers, provider => string.Equals(provider.ProviderId, "codex", StringComparison.Ordinal) && provider.Models.Count == 0);
+        Assert.Contains(snapshot.Providers, provider => string.Equals(provider.ProviderId, "codex.spark", StringComparison.Ordinal) && provider.Models.Count == 0);
     }
 
     [Fact]
@@ -235,14 +235,14 @@ public sealed class GroupedUsageProjectionServiceTests
         var codex = Assert.Single(snapshot.Providers, p => string.Equals(p.ProviderId, "codex", StringComparison.Ordinal));
         Assert.Equal(0, codex.Models.Count);
         Assert.Equal(2, codex.ProviderDetails.Count);
-        Assert.Contains(codex.ProviderDetails, d => d.CardId == "burst" && d.WindowKind == WindowKind.Burst);
-        Assert.Contains(codex.ProviderDetails, d => d.CardId == "weekly" && d.WindowKind == WindowKind.Rolling);
+        Assert.Contains(codex.ProviderDetails, d => string.Equals(d.CardId, "burst", StringComparison.Ordinal) && d.WindowKind == WindowKind.Burst);
+        Assert.Contains(codex.ProviderDetails, d => string.Equals(d.CardId, "weekly", StringComparison.Ordinal) && d.WindowKind == WindowKind.Rolling);
 
         var spark = Assert.Single(snapshot.Providers, p => string.Equals(p.ProviderId, "codex.spark", StringComparison.Ordinal));
         Assert.Equal(0, spark.Models.Count);
         Assert.Equal(2, spark.ProviderDetails.Count);
-        Assert.Contains(spark.ProviderDetails, d => d.CardId == "spark.burst" && d.WindowKind == WindowKind.Burst);
-        Assert.Contains(spark.ProviderDetails, d => d.CardId == "spark.weekly" && d.WindowKind == WindowKind.Rolling);
+        Assert.Contains(spark.ProviderDetails, d => string.Equals(d.CardId, "spark.burst", StringComparison.Ordinal) && d.WindowKind == WindowKind.Burst);
+        Assert.Contains(spark.ProviderDetails, d => string.Equals(d.CardId, "spark.weekly", StringComparison.Ordinal) && d.WindowKind == WindowKind.Rolling);
     }
 
     [Fact]

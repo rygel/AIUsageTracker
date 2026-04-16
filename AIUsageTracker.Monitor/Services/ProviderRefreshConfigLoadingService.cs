@@ -11,18 +11,15 @@ public sealed class ProviderRefreshConfigLoadingService
 {
     private readonly IConfigService _configService;
     private readonly IUsageDatabase _database;
-    private readonly ProviderRefreshConfigSelector _configSelector;
     private readonly ILogger<ProviderRefreshConfigLoadingService> _logger;
 
     public ProviderRefreshConfigLoadingService(
         IConfigService configService,
         IUsageDatabase database,
-        ProviderRefreshConfigSelector configSelector,
         ILogger<ProviderRefreshConfigLoadingService> logger)
     {
         this._configService = configService;
         this._database = database;
-        this._configSelector = configSelector;
         this._logger = logger;
     }
 

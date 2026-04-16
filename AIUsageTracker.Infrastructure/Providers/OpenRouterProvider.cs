@@ -232,7 +232,7 @@ public class OpenRouterProvider : ProviderBase
         string mainReset = string.Empty;
         if (spendingLimitResetTime.HasValue)
         {
-            mainReset = $" (Resets: ({spendingLimitResetTime.Value.ToLocalTime():MMM dd HH:mm}))";
+            mainReset = $" (Resets: ({spendingLimitResetTime.Value.ToLocalTime().ToString("MMM dd HH:mm", CultureInfo.InvariantCulture)}))";
         }
 
         var results = new List<ProviderUsage>();

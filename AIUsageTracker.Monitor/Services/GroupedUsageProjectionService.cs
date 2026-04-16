@@ -163,12 +163,12 @@ public static class GroupedUsageProjectionService
             .ToList();
     }
 
-    private static IReadOnlyList<AgentGroupedModelUsage> BuildModelsFromDetails()
+    private static List<AgentGroupedModelUsage> BuildModelsFromDetails()
     {
         // Legacy path: providers that neither emit flat cards nor use explicit child rows.
         // With all providers now emitting flat cards, this path returns empty.
         // Left in place to avoid removing the BuildModels dispatch branch.
-        return Array.Empty<AgentGroupedModelUsage>();
+        return new List<AgentGroupedModelUsage>();
     }
 
     private static bool ShouldBuildModelsFromExplicitChildRows(

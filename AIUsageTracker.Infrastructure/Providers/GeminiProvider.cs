@@ -57,6 +57,7 @@ public class GeminiProvider : ProviderBase
 
     private const string OAuthTokenUrl = "https://oauth2.googleapis.com/token";
     private const string QuotaUrl = "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota";
+    private static readonly JsonSerializerOptions CaseInsensitiveOptions = new() { PropertyNameCaseInsensitive = true };
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<GeminiProvider> _logger;
@@ -92,7 +93,7 @@ public class GeminiProvider : ProviderBase
     {
         // 1. Load Accounts
         var accounts = this.LoadAccounts();
-        if (accounts == null || accounts.Accounts == null || !accounts.Accounts.Any())
+        if (accounts == null || accounts.Accounts == null || accounts.Accounts.Count == 0)
         {
             return new[]
             {
@@ -134,7 +135,7 @@ public class GeminiProvider : ProviderBase
                             var modelId = TryGetModelId(bucket) ?? "unknown-model";
                             var remaining = UsageMath.ClampPercent(bucket.RemainingFraction * 100.0);
                             var reset = bucket.ResetTime ?? "none";
-                            return $"{modelId}:{remaining:F1}%@{reset}";
+                            return $"{modelId}:{remaining.ToString("F1", CultureInfo.InvariantCulture)}%@{reset}";
                         })));
 
                 results.AddRange(modelQuotaCards);
@@ -146,7 +147,7 @@ public class GeminiProvider : ProviderBase
             }
         }
 
-        if (!results.Any())
+        if (results.Count == 0)
         {
             return new[] { this.CreateUnavailableUsage("Failed to fetch quota for any account", failureContext: lastFailureContext) };
         }
@@ -157,7 +158,7 @@ public class GeminiProvider : ProviderBase
     private AntigravityAccounts? LoadAccounts()
     {
         var opencodeAccounts = this.LoadAntigravityAccounts();
-        if (opencodeAccounts?.Accounts?.Any() == true)
+        if (opencodeAccounts?.Accounts?.Count > 0)
         {
             return opencodeAccounts;
         }
@@ -176,7 +177,7 @@ public class GeminiProvider : ProviderBase
         try
         {
             var json = File.ReadAllText(path);
-            return JsonSerializer.Deserialize<AntigravityAccounts>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            return JsonSerializer.Deserialize<AntigravityAccounts>(json, CaseInsensitiveOptions);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
@@ -199,7 +200,7 @@ public class GeminiProvider : ProviderBase
             var oauthJson = File.ReadAllText(oauthPath);
             var oauthCreds = JsonSerializer.Deserialize<GeminiOauthCreds>(
                 oauthJson,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                CaseInsensitiveOptions);
             if (oauthCreds == null || string.IsNullOrWhiteSpace(oauthCreds.RefreshToken))
             {
                 this._logger.LogWarning("Gemini oauth creds did not include refresh_token");
@@ -277,7 +278,7 @@ public class GeminiProvider : ProviderBase
             var json = File.ReadAllText(projectsPath);
             var projects = JsonSerializer.Deserialize<GeminiProjects>(
                 json,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                CaseInsensitiveOptions);
             if (projects?.Projects == null || projects.Projects.Count == 0)
             {
                 return null;
@@ -336,7 +337,7 @@ public class GeminiProvider : ProviderBase
             var json = File.ReadAllText(accountsPath);
             var accounts = JsonSerializer.Deserialize<GeminiGoogleAccounts>(
                 json,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                CaseInsensitiveOptions);
             return accounts?.Active;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
@@ -551,7 +552,7 @@ public class GeminiProvider : ProviderBase
             var remainingPercent = UsageMath.ClampPercent(representative.RemainingFraction * 100.0);
             var usedPercent = 100.0 - remainingPercent;
             var resetTime = ParseResetTimeUtc(representative.ResetTime);
-            var resetSuffix = resetTime.HasValue ? $" (Resets: ({resetTime.Value:MMM dd HH:mm}))" : string.Empty;
+            var resetSuffix = resetTime.HasValue ? $" (Resets: ({resetTime.Value.ToString("MMM dd HH:mm", CultureInfo.InvariantCulture)}))" : string.Empty;
 
             cards.Add(new ProviderUsage
             {
@@ -562,7 +563,7 @@ public class GeminiProvider : ProviderBase
                 CardId = $"model-{modelGroup.Key.ToLowerInvariant().Replace("/", "-", StringComparison.Ordinal)}",
                 GroupId = providerId,
                 ModelName = modelGroup.Key,
-                Description = $"{remainingPercent:F1}% remaining{resetSuffix}",
+                Description = $"{remainingPercent.ToString("F1", CultureInfo.InvariantCulture)}% remaining{resetSuffix}",
                 NextResetTime = resetTime,
                 UsedPercent = usedPercent,
                 IsQuotaBased = true,

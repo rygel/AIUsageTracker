@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Globalization;
 using System.Runtime.InteropServices;
 
 namespace AIUsageTracker.Core.Models;
@@ -43,8 +44,8 @@ public readonly record struct PaceBadgeResult(PaceTier Tier, double ProjectedPer
     /// </summary>
     public string ProjectedText => this.Tier switch
     {
-        PaceTier.OverPace => $"+{this.ProjectedPercent - 100:F0}%",
-        PaceTier.Headroom => $"-{100 - this.ProjectedPercent:F0}%",
-        _ => $"{this.ProjectedPercent:F0}%",
+        PaceTier.OverPace => $"+{(this.ProjectedPercent - 100).ToString("F0", CultureInfo.InvariantCulture)}%",
+        PaceTier.Headroom => $"-{(100 - this.ProjectedPercent).ToString("F0", CultureInfo.InvariantCulture)}%",
+        _ => $"{this.ProjectedPercent.ToString("F0", CultureInfo.InvariantCulture)}%",
     };
 }

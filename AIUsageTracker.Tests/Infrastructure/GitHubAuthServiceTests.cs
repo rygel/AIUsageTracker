@@ -30,6 +30,7 @@ public class GitHubAuthServiceTests : IDisposable
     public void Dispose()
     {
         this._httpClient.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     [Fact]

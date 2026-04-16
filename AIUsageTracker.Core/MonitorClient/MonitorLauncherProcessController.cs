@@ -4,6 +4,7 @@
 
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using AIUsageTracker.Core.Models;
 using Microsoft.Extensions.Logging;
 
@@ -53,7 +54,7 @@ internal static class MonitorLauncherProcessController
                 return false;
             }
 
-            MonitorService.LogDiagnostic($"Monitor process started via '{launchTarget}' (PID {process.Id}).");
+            MonitorService.LogDiagnostic($"Monitor process started via '{launchTarget}' (PID {process.Id.ToString(CultureInfo.InvariantCulture)}).");
             return true;
         }
         catch (Exception ex) when (ex is InvalidOperationException or Win32Exception or IOException)
@@ -157,7 +158,7 @@ internal static class MonitorLauncherProcessController
         }
         catch (Exception ex) when (ex is InvalidOperationException or Win32Exception or IOException)
         {
-            MonitorService.LogDiagnostic($"Failed to stop process {processId}: {ex.Message}");
+            MonitorService.LogDiagnostic($"Failed to stop process {processId.ToString(CultureInfo.InvariantCulture)}: {ex.Message}");
             return false;
         }
     }
@@ -167,7 +168,7 @@ internal static class MonitorLauncherProcessController
         return new ProcessStartInfo
         {
             FileName = agentPath,
-            Arguments = $"--urls \"http://localhost:{port}\" --debug",
+            Arguments = $"--urls \"http://localhost:{port.ToString(CultureInfo.InvariantCulture)}\" --debug",
             UseShellExecute = false,
             CreateNoWindow = true,
             WindowStyle = ProcessWindowStyle.Hidden,
@@ -234,7 +235,7 @@ internal static class MonitorLauncherProcessController
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"run --project \"{agentProjectDir}\" --urls \"http://localhost:{port}\" -- --debug",
+            Arguments = $"run --project \"{agentProjectDir}\" --urls \"http://localhost:{port.ToString(CultureInfo.InvariantCulture)}\" -- --debug",
             UseShellExecute = false,
             CreateNoWindow = true,
             WindowStyle = ProcessWindowStyle.Hidden,
@@ -261,7 +262,7 @@ internal static class MonitorLauncherProcessController
         }
         catch (TimeoutException)
         {
-            MonitorService.LogDiagnostic($"Timed out waiting for process {process.Id} to exit.");
+            MonitorService.LogDiagnostic($"Timed out waiting for process {process.Id.ToString(CultureInfo.InvariantCulture)} to exit.");
             return process.HasExited;
         }
         catch (InvalidOperationException)
@@ -270,7 +271,7 @@ internal static class MonitorLauncherProcessController
         }
         catch (Exception ex) when (ex is Win32Exception or IOException)
         {
-            MonitorService.LogDiagnostic($"Failed to stop process {process.Id}: {ex.Message}");
+            MonitorService.LogDiagnostic($"Failed to stop process {process.Id.ToString(CultureInfo.InvariantCulture)}: {ex.Message}");
             return false;
         }
     }

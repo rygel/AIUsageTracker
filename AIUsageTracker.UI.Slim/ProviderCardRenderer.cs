@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -383,7 +384,7 @@ internal sealed class ProviderCardRenderer
             case CardSlotContent.ProjectedPercent:
                 if (paceColor.IsPaceAdjusted)
                 {
-                    this.AddSlotText(panel, $"Projected: {paceColor.ProjectedPercent:F0}%", this._getResourceBrush(ResourceKeyTertiaryText, Brushes.Gray), 9);
+                    this.AddSlotText(panel, $"Projected: {paceColor.ProjectedPercent.ToString("F0", CultureInfo.InvariantCulture)}%", this._getResourceBrush(ResourceKeyTertiaryText, Brushes.Gray), 9);
                 }
 
                 break;
@@ -392,7 +393,7 @@ internal sealed class ProviderCardRenderer
                 if (usage.PeriodDuration.HasValue && usage.PeriodDuration.Value.TotalDays >= 1)
                 {
                     var dailyBudget = 100.0 / usage.PeriodDuration.Value.TotalDays;
-                    this.AddSlotText(panel, $"{dailyBudget:F0}%/day budget", this._getResourceBrush(ResourceKeyTertiaryText, Brushes.Gray), 9);
+                    this.AddSlotText(panel, $"{dailyBudget.ToString("F0", CultureInfo.InvariantCulture)}%/day budget", this._getResourceBrush(ResourceKeyTertiaryText, Brushes.Gray), 9);
                 }
 
                 break;
@@ -406,11 +407,11 @@ internal sealed class ProviderCardRenderer
                 break;
 
             case CardSlotContent.UsedPercent:
-                this.AddSlotText(panel, $"{usage.UsedPercent:F0}% used", this._getResourceBrush(ResourceKeySecondaryText, Brushes.Gray), 10);
+                this.AddSlotText(panel, $"{usage.UsedPercent.ToString("F0", CultureInfo.InvariantCulture)}% used", this._getResourceBrush(ResourceKeySecondaryText, Brushes.Gray), 10);
                 break;
 
             case CardSlotContent.RemainingPercent:
-                this.AddSlotText(panel, $"{Math.Max(0, 100 - usage.UsedPercent):F0}% remaining", this._getResourceBrush(ResourceKeySecondaryText, Brushes.Gray), 10);
+                this.AddSlotText(panel, $"{Math.Max(0, 100 - usage.UsedPercent).ToString("F0", CultureInfo.InvariantCulture)}% remaining", this._getResourceBrush(ResourceKeySecondaryText, Brushes.Gray), 10);
                 break;
 
             case CardSlotContent.ResetAbsolute:

@@ -29,5 +29,6 @@ public class FileLoggerTests : IDisposable
     public void Dispose()
     {
         TestTempPaths.CleanupPath(this._tempDirectory);
+        GC.SuppressFinalize(this);
     }
 }

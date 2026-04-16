@@ -11,6 +11,7 @@
     <Nullable>enable</Nullable>
     <OutputType>WinExe</OutputType>
     <IsTransformWebConfigDisabled>true</IsTransformWebConfigDisabled>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

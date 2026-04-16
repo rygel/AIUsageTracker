@@ -2,6 +2,8 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Globalization;
+
 namespace AIUsageTracker.Core.Utilities;
 
 /// <summary>
@@ -26,20 +28,20 @@ public static class UsageWindowLabelFormatter
 
             if (duration > 60 && duration % 60 == 0)
             {
-                return $"{duration / 60}h";
+                return $"{(duration / 60).ToString(CultureInfo.InvariantCulture)}h";
             }
 
-            return $"{duration}m";
+            return $"{duration.ToString(CultureInfo.InvariantCulture)}m";
         }
 
         if (string.Equals(unit, "TIME_UNIT_HOUR", StringComparison.Ordinal))
         {
-            return duration == 1 ? "Hourly" : $"{duration}h";
+            return duration == 1 ? "Hourly" : $"{duration.ToString(CultureInfo.InvariantCulture)}h";
         }
 
         if (string.Equals(unit, "TIME_UNIT_DAY", StringComparison.Ordinal))
         {
-            return $"{duration}d";
+            return $"{duration.ToString(CultureInfo.InvariantCulture)}d";
         }
 
         return unit;

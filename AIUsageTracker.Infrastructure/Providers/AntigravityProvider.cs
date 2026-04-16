@@ -22,6 +22,10 @@ namespace AIUsageTracker.Infrastructure.Providers;
 public class AntigravityProvider : ProviderBase
 {
     private const string AntigravityApiIdentifier = "antigravity";
+    private static readonly string[] ExtensionDataSortKeys = { "name", "label", "title", "id", "sortName", "sort_name" };
+    private static readonly string[] ExtensionDataGroupKeys = { "name", "label", "title", "groupName", "displayName", "group_label", "group_name" };
+    private static readonly string[] HttpSchemes = { "http" };
+    private static readonly char[] NewlineChars = { '\r', '\n' };
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<AntigravityProvider> _logger;
@@ -76,13 +80,13 @@ public class AntigravityProvider : ProviderBase
         {
             // 1. Find All Processes
             var processInfos = this.FindProcessInfos();
-            if (!processInfos.Any())
+            if (processInfos.Count == 0)
             {
                 if (this._cachedUsage != null)
                 {
                     var timeSinceRefresh = DateTime.UtcNow - this._cacheTimestamp;
                     var minutesAgo = (int)timeSinceRefresh.TotalMinutes;
-                    var description = $"Last refreshed: {minutesAgo}m ago";
+                    var description = $"Last refreshed: {minutesAgo.ToString(CultureInfo.InvariantCulture)}m ago";
 
                     // Check if the cached reset time has passed and update if so
                     if (this._cachedUsage.NextResetTime.HasValue)
@@ -133,12 +137,11 @@ public class AntigravityProvider : ProviderBase
                         },
                         config);
                 }
-                else
+
+                var appRunning = IsAntigravityDesktopRunning();
+                return new[]
                 {
-                    var appRunning = IsAntigravityDesktopRunning();
-                    return new[]
-                    {
-                        new ProviderUsage
+                    new ProviderUsage
                     {
                         ProviderId = this.ProviderId,
                         ProviderName = this.Definition.DisplayName,
@@ -152,8 +155,7 @@ public class AntigravityProvider : ProviderBase
                         IsQuotaBased = this.Definition.IsQuotaBased,
                         PlanType = this.Definition.PlanType,
                     },
-                    };
-                }
+                };
             }
 
             foreach (var info in processInfos)
@@ -182,7 +184,7 @@ public class AntigravityProvider : ProviderBase
 
                     if (!candidatePorts.Any())
                     {
-                        throw new InvalidOperationException($"No candidate Antigravity ports discovered for PID {pid}");
+                        throw new InvalidOperationException($"No candidate Antigravity ports discovered for PID {pid.ToString(CultureInfo.InvariantCulture)}");
                     }
 
                     // 3. Request
@@ -205,7 +207,7 @@ public class AntigravityProvider : ProviderBase
                     if (usageItems == null)
                     {
                         throw new InvalidOperationException(
-                            $"Failed to fetch Antigravity usage for PID {pid} on ports [{string.Join(", ", candidatePorts)}]",
+                            $"Failed to fetch Antigravity usage for PID {pid.ToString(CultureInfo.InvariantCulture)} on ports [{string.Join(", ", candidatePorts)}]",
                             lastPortException);
                     }
 
@@ -226,7 +228,7 @@ public class AntigravityProvider : ProviderBase
                 }
             }
 
-            if (!results.Any())
+            if (results.Count == 0)
             {
                 return new[]
                 {
@@ -246,7 +248,7 @@ public class AntigravityProvider : ProviderBase
             }
 
             // Cache the results for next refresh
-            if (results.Any())
+            if (results.Count > 0)
             {
                 this._cachedUsage = results.FirstOrDefault();
                 this._cacheTimestamp = DateTime.UtcNow;
@@ -321,7 +323,7 @@ public class AntigravityProvider : ProviderBase
 
         try
         {
-            return Process.GetProcessesByName("Antigravity").Any();
+            return Process.GetProcessesByName("Antigravity").Length > 0;
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
         {
@@ -366,7 +368,7 @@ public class AntigravityProvider : ProviderBase
             }
         }
 
-        if (!masterModelLabels.Any())
+        if (masterModelLabels.Count == 0)
         {
             masterModelLabels = modelConfigs
                 .Where(c => !string.IsNullOrWhiteSpace(c.Label))
@@ -403,7 +405,7 @@ public class AntigravityProvider : ProviderBase
             return (string.Empty, null);
         }
 
-        return ($" (Resets: ({dt:MMM dd HH:mm}))", dt);
+        return ($" (Resets: ({dt.ToString("MMM dd HH:mm", CultureInfo.InvariantCulture)}))", dt);
     }
 
     private static string ResolveDisplayModelName(string label)
@@ -520,8 +522,8 @@ public class AntigravityProvider : ProviderBase
 
         if (sort.ExtensionData != null)
         {
-            var resolved = new[] { "name", "label", "title", "id", "sortName", "sort_name" }
-                .Where(key => sort.ExtensionData.TryGetValue(key, out _))
+            var resolved = ExtensionDataSortKeys
+                .Where(key => sort.ExtensionData.ContainsKey(key))
                 .Select(key => sort.ExtensionData[key].ReadString())
                 .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
@@ -531,7 +533,7 @@ public class AntigravityProvider : ProviderBase
             }
         }
 
-        return $"Sort {index + 1}";
+        return $"Sort {(index + 1).ToString(CultureInfo.InvariantCulture)}";
     }
 
     private static string ResolveModelGroupName(ModelGroup group, string sortName, int index)
@@ -563,8 +565,8 @@ public class AntigravityProvider : ProviderBase
 
         if (group.ExtensionData != null)
         {
-            var resolved = new[] { "name", "label", "title", "groupName", "displayName", "group_label", "group_name" }
-                .Where(key => group.ExtensionData.TryGetValue(key, out _))
+            var resolved = ExtensionDataGroupKeys
+                .Where(key => group.ExtensionData.ContainsKey(key))
                 .Select(key => group.ExtensionData[key].ReadString())
                 .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
@@ -575,8 +577,8 @@ public class AntigravityProvider : ProviderBase
         }
 
         return string.IsNullOrWhiteSpace(sortName)
-            ? $"Group {index + 1}"
-            : $"{sortName} Group {index + 1}";
+            ? $"Group {(index + 1).ToString(CultureInfo.InvariantCulture)}"
+            : $"{sortName} Group {(index + 1).ToString(CultureInfo.InvariantCulture)}";
     }
 
     private List<(int Pid, string Token, int? Port)> FindProcessInfos()
@@ -669,8 +671,8 @@ public class AntigravityProvider : ProviderBase
 
         var output = await outputTask.ConfigureAwait(false);
 
-        var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-        var regex = new Regex($@"\s+TCP\s+(?:127\.0\.0\.1|\[::1\]):(\d+)\s+.*LISTENING\s+{pid}", RegexOptions.None, TimeSpan.FromSeconds(1));
+        var lines = output.Split(NewlineChars, StringSplitOptions.RemoveEmptyEntries);
+        var regex = new Regex($@"\s+TCP\s+(?:127\.0\.0\.1|\[::1\]):(\d+)\s+.*LISTENING\s+{pid.ToString(CultureInfo.InvariantCulture)}", RegexOptions.None, TimeSpan.FromSeconds(1));
         return lines
             .Select(line => regex.Match(line))
             .Where(match => match.Success && int.TryParse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture, out _))
@@ -686,9 +688,9 @@ public class AntigravityProvider : ProviderBase
         int httpStatus = 200;
         Exception? lastRequestException = null;
 
-        foreach (var scheme in new[] { "http" })
+        foreach (var scheme in HttpSchemes)
         {
-            var url = $"{scheme}://127.0.0.1:{port}/exa.language_server_pb.LanguageServerService/GetUserStatus";
+            var url = $"{scheme}://127.0.0.1:{port.ToString(CultureInfo.InvariantCulture)}/exa.language_server_pb.LanguageServerService/GetUserStatus";
             using var request = new HttpRequestMessage(HttpMethod.Post, url);
             request.Headers.Add("X-Codeium-Csrf-Token", csrfToken);
             request.Headers.Add("Connect-Protocol-Version", "1");
@@ -717,7 +719,7 @@ public class AntigravityProvider : ProviderBase
 
         if (responseString == null)
         {
-            throw new HttpRequestException($"No successful Antigravity response on port {port}", lastRequestException);
+            throw new HttpRequestException($"No successful Antigravity response on port {port.ToString(CultureInfo.InvariantCulture)}", lastRequestException);
         }
 
         var data = JsonSerializer.Deserialize<AntigravityResponse>(responseString);

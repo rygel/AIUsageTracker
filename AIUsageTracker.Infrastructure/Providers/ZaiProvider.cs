@@ -87,7 +87,7 @@ public class ZaiProvider : ProviderBase
         var limits = envelope?.Data?.Limits;
         this._logger.LogDebug("[ZAI] Parsed envelope - Data is null: {IsNull}, Limits count: {Count}", envelope?.Data == null, limits?.Count ?? 0);
 
-        if (limits == null || !limits.Any())
+        if (limits == null || limits.Count == 0)
         {
             this._logger.LogDebug("[ZAI] No limits found in response");
             return new[]
@@ -261,7 +261,7 @@ public class ZaiProvider : ProviderBase
             ? TimeSpan.FromHours(tokenLimit.Number.Value)
             : (TimeSpan?)null;
         var tokenWindowLabel = tokenWindowDuration.HasValue
-            ? $"{(int)tokenWindowDuration.Value.TotalHours}h window"
+            ? $"{((int)tokenWindowDuration.Value.TotalHours).ToString(CultureInfo.InvariantCulture)}h window"
             : null;
 
         DateTime? nextResetTime = null;
@@ -273,7 +273,7 @@ public class ZaiProvider : ProviderBase
             var ts = tokenLimit.NextResetTime.Value;
             this._logger.LogDebug("[ZAI] Active token window reset timestamp: {Ts}", ts);
             nextResetTime = ParseTimestamp(ts);
-            resetStr = $" (Resets: {nextResetTime:MMM dd, yyyy HH:mm} Local)";
+            resetStr = $" (Resets: {nextResetTime.Value.ToString("MMM dd, yyyy HH:mm", CultureInfo.InvariantCulture)} Local)";
         }
         else if (tokenWindowLabel != null)
         {
@@ -292,7 +292,7 @@ public class ZaiProvider : ProviderBase
             {
                 this._logger.LogDebug("[ZAI] Fallback reset timestamp: {Ts}", limitWithReset.NextResetTime!.Value);
                 nextResetTime = ParseTimestamp(limitWithReset.NextResetTime!.Value);
-                resetStr = $" (Resets: {nextResetTime:MMM dd, yyyy HH:mm} Local)";
+                resetStr = $" (Resets: {nextResetTime.Value.ToString("MMM dd, yyyy HH:mm", CultureInfo.InvariantCulture)} Local)";
             }
         }
 

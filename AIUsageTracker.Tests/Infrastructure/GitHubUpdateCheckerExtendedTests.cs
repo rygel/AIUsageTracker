@@ -32,6 +32,7 @@ public class GitHubUpdateCheckerExtendedTests : IDisposable
     public void Dispose()
     {
         this._httpClient.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     [Theory]

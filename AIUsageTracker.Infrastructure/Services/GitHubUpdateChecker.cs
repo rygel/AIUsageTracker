@@ -33,7 +33,7 @@ public class GitHubUpdateChecker
         this._httpClient = httpClient;
         this._channel = channel;
 
-        if (!this._httpClient.DefaultRequestHeaders.UserAgent.Any())
+        if (this._httpClient.DefaultRequestHeaders.UserAgent.Count == 0)
         {
             this._httpClient.DefaultRequestHeaders.Add("User-Agent", "AIUsageTracker");
         }
@@ -95,7 +95,7 @@ public class GitHubUpdateChecker
 
             var updateInfo = await sparkle.CheckForUpdatesQuietly().ConfigureAwait(false);
 
-            if (updateInfo?.Updates?.Any() == true)
+            if (updateInfo?.Updates?.Count > 0)
             {
                 var latest = updateInfo.Updates[0];
                 var currentVersion = System.Reflection.Assembly.GetEntryAssembly()?.GetName()?.Version ?? new Version(1, 0, 0);
@@ -373,13 +373,13 @@ public class GitHubUpdateChecker
         var downloadedBytes = 0L;
         var buffer = new byte[8192];
 
-        using (var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false))
+        await using (var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false))
         using (var fileStream = new FileStream(partialDownloadPath, FileMode.Create, FileAccess.Write, FileShare.None))
         {
             int read;
-            while ((read = await stream.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false)) > 0)
+            while ((read = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length)).ConfigureAwait(false)) > 0)
             {
-                await fileStream.WriteAsync(buffer, 0, read).ConfigureAwait(false);
+                await fileStream.WriteAsync(buffer.AsMemory(0, read)).ConfigureAwait(false);
                 downloadedBytes += read;
                 if (totalBytes > 0 && progress != null)
                 {

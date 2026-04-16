@@ -31,7 +31,7 @@ public sealed class ProviderDerivedModelSelector
 
     public IReadOnlyCollection<string> ModelNameContains { get; }
 
-    private static IReadOnlyCollection<string> NormalizeValues(IEnumerable<string>? values)
+    private static string[] NormalizeValues(IEnumerable<string>? values)
     {
         if (values == null)
         {

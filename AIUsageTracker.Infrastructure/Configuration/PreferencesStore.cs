@@ -40,7 +40,7 @@ public class PreferencesStore : IPreferencesStore
 
         // Use FileShare.ReadWrite so the read succeeds even when the monitor
         // or a previous app instance holds the file open for writing.
-        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         using var reader = new StreamReader(stream);
         var json = await reader.ReadToEndAsync().ConfigureAwait(false);
         return AppPreferences.Deserialize(json);

@@ -3,6 +3,7 @@
 // </copyright>
 
 using System.Data;
+using System.Globalization;
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
@@ -782,15 +783,15 @@ public class UsageDatabase : IUsageDatabase
         string ageLabel;
         if (age.TotalDays >= 1)
         {
-            ageLabel = $"{(int)age.TotalDays}d ago";
+            ageLabel = $"{((int)age.TotalDays).ToString(CultureInfo.InvariantCulture)}d ago";
         }
         else if (age.TotalHours >= 1)
         {
-            ageLabel = $"{(int)age.TotalHours}h ago";
+            ageLabel = $"{((int)age.TotalHours).ToString(CultureInfo.InvariantCulture)}h ago";
         }
         else
         {
-            ageLabel = $"{(int)age.TotalMinutes}m ago";
+            ageLabel = $"{((int)age.TotalMinutes).ToString(CultureInfo.InvariantCulture)}m ago";
         }
 
         var suffix = $"(last refreshed {ageLabel} — data may be outdated)";

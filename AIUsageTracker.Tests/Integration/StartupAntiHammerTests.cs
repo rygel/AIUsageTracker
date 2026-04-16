@@ -114,8 +114,7 @@ public class StartupAntiHammerTests
             });
 
         var processingPipeline = new ProviderUsageProcessingPipeline(NullLogger<ProviderUsageProcessingPipeline>.Instance);
-        var configSelector = new ProviderRefreshConfigSelector();
-        var configLoadingService = new ProviderRefreshConfigLoadingService(mockConfigService.Object, mockDb.Object, configSelector, NullLogger<ProviderRefreshConfigLoadingService>.Instance);
+        var configLoadingService = new ProviderRefreshConfigLoadingService(mockConfigService.Object, mockDb.Object, NullLogger<ProviderRefreshConfigLoadingService>.Instance);
         var usagePersistenceService = new ProviderUsagePersistenceService(mockDb.Object, NullLogger<ProviderUsagePersistenceService>.Instance);
         var connectivityCheckService = new ProviderConnectivityCheckService(mockConfigService.Object, processingPipeline);
         var refreshJobScheduler = new ProviderRefreshJobScheduler(mockJobScheduler.Object, NullLogger<ProviderRefreshJobScheduler>.Instance);
@@ -198,8 +197,7 @@ public class StartupAntiHammerTests
             });
 
         var processingPipeline = new ProviderUsageProcessingPipeline(NullLogger<ProviderUsageProcessingPipeline>.Instance);
-        var configSelector = new ProviderRefreshConfigSelector();
-        var configLoadingService = new ProviderRefreshConfigLoadingService(mockConfigService.Object, mockDb.Object, configSelector, NullLogger<ProviderRefreshConfigLoadingService>.Instance);
+        var configLoadingService = new ProviderRefreshConfigLoadingService(mockConfigService.Object, mockDb.Object, NullLogger<ProviderRefreshConfigLoadingService>.Instance);
         var usagePersistenceService = new ProviderUsagePersistenceService(mockDb.Object, NullLogger<ProviderUsagePersistenceService>.Instance);
         var connectivityCheckService = new ProviderConnectivityCheckService(mockConfigService.Object, processingPipeline);
         var refreshJobScheduler = new ProviderRefreshJobScheduler(mockJobScheduler.Object, NullLogger<ProviderRefreshJobScheduler>.Instance);

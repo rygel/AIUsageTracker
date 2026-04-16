@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -99,8 +100,8 @@ public class XiaomiProvider : ProviderBase
                 PlanType = this.Definition.PlanType,
                 IsAvailable = true,
                 Description = quota > 0
-                    ? $"{balance} remaining / {quota} total"
-                    : $"Balance: {balance}",
+                    ? $"{balance.ToString(CultureInfo.InvariantCulture)} remaining / {quota.ToString(CultureInfo.InvariantCulture)} total"
+                    : $"Balance: {balance.ToString(CultureInfo.InvariantCulture)}",
                 RawJson = content,
                 HttpStatus = (int)response.StatusCode,
             },

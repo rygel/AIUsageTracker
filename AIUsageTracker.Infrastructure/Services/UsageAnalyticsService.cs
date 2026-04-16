@@ -34,12 +34,12 @@ public class UsageAnalyticsService : IUsageAnalyticsService
         int maxSamplesPerProvider = 720)
     {
         var normalizedIds = NormalizeProviderIds(providerIds);
-        if (!normalizedIds.Any())
+        if (normalizedIds.Count == 0)
         {
             return new Dictionary<string, BurnRateForecast>(StringComparer.OrdinalIgnoreCase);
         }
 
-        var cacheKey = $"analytics:burn-rate:{lookbackHours}:{maxSamplesPerProvider}:{string.Join(",", normalizedIds)}";
+        var cacheKey = $"analytics:burn-rate:{lookbackHours.ToString(CultureInfo.InvariantCulture)}:{maxSamplesPerProvider.ToString(CultureInfo.InvariantCulture)}:{string.Join(",", normalizedIds)}";
         if (this._cache.TryGetValue<Dictionary<string, BurnRateForecast>>(cacheKey, out var cached) && cached != null)
         {
             return cached;
@@ -70,12 +70,12 @@ public class UsageAnalyticsService : IUsageAnalyticsService
         int maxSamplesPerProvider = 1000)
     {
         var normalizedIds = NormalizeProviderIds(providerIds);
-        if (!normalizedIds.Any())
+        if (normalizedIds.Count == 0)
         {
             return new Dictionary<string, ProviderReliabilitySnapshot>(StringComparer.OrdinalIgnoreCase);
         }
 
-        var cacheKey = $"analytics:reliability:{lookbackHours}:{maxSamplesPerProvider}:{string.Join(",", normalizedIds)}";
+        var cacheKey = $"analytics:reliability:{lookbackHours.ToString(CultureInfo.InvariantCulture)}:{maxSamplesPerProvider.ToString(CultureInfo.InvariantCulture)}:{string.Join(",", normalizedIds)}";
         if (this._cache.TryGetValue<Dictionary<string, ProviderReliabilitySnapshot>>(cacheKey, out var cached) && cached != null)
         {
             return cached;
@@ -108,12 +108,12 @@ public class UsageAnalyticsService : IUsageAnalyticsService
         int maxSamplesPerProvider = 720)
     {
         var normalizedIds = NormalizeProviderIds(providerIds);
-        if (!normalizedIds.Any())
+        if (normalizedIds.Count == 0)
         {
             return new Dictionary<string, UsageAnomalySnapshot>(StringComparer.OrdinalIgnoreCase);
         }
 
-        var cacheKey = $"analytics:anomalies:{lookbackHours}:{maxSamplesPerProvider}:{string.Join(",", normalizedIds)}";
+        var cacheKey = $"analytics:anomalies:{lookbackHours.ToString(CultureInfo.InvariantCulture)}:{maxSamplesPerProvider.ToString(CultureInfo.InvariantCulture)}:{string.Join(",", normalizedIds)}";
         if (this._cache.TryGetValue<Dictionary<string, UsageAnomalySnapshot>>(cacheKey, out var cached) && cached != null)
         {
             return cached;

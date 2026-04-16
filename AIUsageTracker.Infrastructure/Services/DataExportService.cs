@@ -13,6 +13,7 @@ namespace AIUsageTracker.Infrastructure.Services;
 
 public class DataExportService : IDataExportService
 {
+    private static readonly JsonSerializerOptions WriteIndentedOptions = new() { WriteIndented = true };
     private readonly IWebDatabaseRepository _repository;
     private readonly ILogger<DataExportService> _logger;
     private readonly string _dbPath;
@@ -53,7 +54,7 @@ public class DataExportService : IDataExportService
         try
         {
             var history = await this._repository.GetAllHistoryForExportAsync(limit: 10000).ConfigureAwait(false);
-            return JsonSerializer.Serialize(history, new JsonSerializerOptions { WriteIndented = true });
+            return JsonSerializer.Serialize(history, WriteIndentedOptions);
         }
         catch (Exception ex) when (ex is IOException or JsonException or FormatException)
         {

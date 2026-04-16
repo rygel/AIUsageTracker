@@ -12,6 +12,7 @@ namespace AIUsageTracker.Monitor.Tests;
 
 public class ExportServiceTests
 {
+    private static readonly JsonSerializerOptions CaseInsensitiveOptions = new() { PropertyNameCaseInsensitive = true };
     private readonly Mock<IUsageDatabase> _mockDatabase;
     private readonly ExportService _service;
 
@@ -45,7 +46,7 @@ public class ExportServiceTests
         Assert.EndsWith(".json", fileName, StringComparison.Ordinal);
 
         var json = Encoding.UTF8.GetString(content);
-        var deserialized = JsonSerializer.Deserialize<List<ProviderUsage>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var deserialized = JsonSerializer.Deserialize<List<ProviderUsage>>(json, CaseInsensitiveOptions);
 
         Assert.NotNull(deserialized);
         Assert.Single(deserialized);

@@ -3,6 +3,7 @@
 // </copyright>
 
 using System.Diagnostics;
+using System.Globalization;
 using System.Net.Http;
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
@@ -13,6 +14,7 @@ namespace AIUsageTracker.Core.MonitorClient;
 
 public class MonitorLauncher : IMonitorLauncher
 {
+    private static readonly JsonSerializerOptions CaseInsensitiveOptions = new() { PropertyNameCaseInsensitive = true };
     internal const int DefaultPort = 5000;
     internal const int MaxStaleMetadataBackups = 10;
     private const int MaxWaitSeconds = 30;
@@ -101,7 +103,7 @@ public class MonitorLauncher : IMonitorLauncher
                 IsRunning = true,
                 Port = metadataState.Info!.Port,
                 HasMetadata = true,
-                Message = $"Healthy on port {metadataState.Info.Port}.",
+                Message = $"Healthy on port {metadataState.Info.Port.ToString(CultureInfo.InvariantCulture)}.",
                 Error = null,
             };
         }
@@ -140,7 +142,7 @@ public class MonitorLauncher : IMonitorLauncher
                 IsRunning = true,
                 Port = port,
                 HasMetadata = hasMetadata,
-                Message = $"Healthy on port {port}.",
+                Message = $"Healthy on port {port.ToString(CultureInfo.InvariantCulture)}.",
                 Error = null,
             };
         }
@@ -151,7 +153,7 @@ public class MonitorLauncher : IMonitorLauncher
             Port = port,
             HasMetadata = hasMetadata,
             Message = hasMetadata
-                ? $"Monitor not reachable on port {port}."
+                ? $"Monitor not reachable on port {port.ToString(CultureInfo.InvariantCulture)}."
                 : "Monitor info file not found. Start Monitor to initialize it.",
             Error = hasMetadata ? "monitor-unreachable" : "agent-info-missing",
         };
@@ -415,10 +417,7 @@ public class MonitorLauncher : IMonitorLauncher
             if (path != null)
             {
                 var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
-                var info = JsonSerializer.Deserialize<MonitorInfo>(json, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true,
-                });
+                var info = JsonSerializer.Deserialize<MonitorInfo>(json, CaseInsensitiveOptions);
 
                 if (info != null)
                 {
@@ -510,7 +509,7 @@ public class MonitorLauncher : IMonitorLauncher
 
     private void InvalidateMonitorInfoPath(string infoPath)
     {
-        var backupPath = infoPath + ".stale." + DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var backupPath = infoPath + ".stale." + DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);
         File.Move(infoPath, backupPath, overwrite: true);
         this._logger?.LogDebug("Backed up stale metadata to: {BackupPath}", backupPath);
         CleanupOldStaleMetadataBackups(infoPath);
@@ -556,7 +555,7 @@ public class MonitorLauncher : IMonitorLauncher
 
         try
         {
-            var response = await this._healthCheckHttpClient.GetAsync($"http://localhost:{port}/api/health").ConfigureAwait(false);
+            var response = await this._healthCheckHttpClient.GetAsync($"http://localhost:{port.ToString(CultureInfo.InvariantCulture)}/api/health").ConfigureAwait(false);
             return response.IsSuccessStatusCode;
         }
         catch (HttpRequestException ex)
@@ -593,14 +592,14 @@ public class MonitorLauncher : IMonitorLauncher
             var process = Process.GetProcessById(processId);
             return Task.FromResult(!process.HasExited);
         }
-            catch (ArgumentException ex)
-            {
-                this._logger?.LogDebug(ex, "Monitor process {ProcessId} was not found.", processId);
+        catch (ArgumentException ex)
+        {
+            this._logger?.LogDebug(ex, "Monitor process {ProcessId} was not found.", processId);
             return Task.FromResult(false);
         }
-            catch (InvalidOperationException ex)
-            {
-                this._logger?.LogDebug(ex, "Failed to query monitor process {ProcessId}.", processId);
+        catch (InvalidOperationException ex)
+        {
+            this._logger?.LogDebug(ex, "Failed to query monitor process {ProcessId}.", processId);
             return Task.FromResult(false);
         }
     }

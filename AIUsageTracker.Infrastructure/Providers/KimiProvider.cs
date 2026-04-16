@@ -133,7 +133,7 @@ public class KimiProvider : ProviderBase
                     IsQuotaBased = this.Definition.IsQuotaBased,
                     PlanType = this.Definition.PlanType,
                     IsAvailable = true,
-                    Description = $"{remaining} remaining{(!string.IsNullOrEmpty(data.Usage.ResetTime) ? $" (Resets: {FormatResetTime(data.Usage.ResetTime)})" : string.Empty)}",
+                    Description = $"{remaining.ToString(CultureInfo.InvariantCulture)} remaining{(!string.IsNullOrEmpty(data.Usage.ResetTime) ? $" (Resets: {FormatResetTime(data.Usage.ResetTime)})" : string.Empty)}",
                     RawJson = content,
                     HttpStatus = (int)response.StatusCode,
                     NextResetTime = weeklyResetDt,
@@ -201,7 +201,7 @@ public class KimiProvider : ProviderBase
                     var dupCounter = 2;
                     while (!usedCardIds.Add(cardId))
                     {
-                        cardId = $"{baseCardId}-{dupCounter}";
+                        cardId = $"{baseCardId}-{dupCounter.ToString(CultureInfo.InvariantCulture)}";
                         dupCounter++;
                     }
 
@@ -219,7 +219,7 @@ public class KimiProvider : ProviderBase
                         IsQuotaBased = this.Definition.IsQuotaBased,
                         PlanType = this.Definition.PlanType,
                         IsAvailable = true,
-                        Description = $"{det.Remaining} / {det.Limit} remaining (Resets: {resetDisplay})",
+                        Description = $"{det.Remaining.ToString(CultureInfo.InvariantCulture)} / {det.Limit.ToString(CultureInfo.InvariantCulture)} remaining (Resets: {resetDisplay})",
                         RawJson = content,
                         HttpStatus = (int)response.StatusCode,
                         NextResetTime = itemResetDt,
@@ -298,7 +298,7 @@ public class KimiProvider : ProviderBase
     {
         if (DateTime.TryParse(resetTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
         {
-            return $"({dt:MMM dd HH:mm})";
+            return $"({dt.ToString("MMM dd HH:mm", CultureInfo.InvariantCulture)})";
         }
 
         return resetTime;

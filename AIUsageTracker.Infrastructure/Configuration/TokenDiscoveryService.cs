@@ -50,7 +50,7 @@ public class TokenDiscoveryService
         return discoveredConfigs;
     }
 
-    private static IReadOnlyList<ProviderSessionTokenResolver> BuildSessionResolvers(
+    private static ProviderSessionTokenResolver[] BuildSessionResolvers(
         ILogger<TokenDiscoveryService> logger,
         IAppPathProvider pathProvider)
     {
@@ -66,7 +66,7 @@ public class TokenDiscoveryService
 
     private string GetUserProfilePath() => this._pathProvider.GetUserProfileRoot();
 
-    private static IReadOnlyDictionary<string, string> GetNormalizedEnvironmentVariables()
+    private static Dictionary<string, string> GetNormalizedEnvironmentVariables()
     {
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var envVars = Environment.GetEnvironmentVariables();

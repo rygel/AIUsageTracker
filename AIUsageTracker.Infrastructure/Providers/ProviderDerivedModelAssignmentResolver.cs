@@ -94,7 +94,7 @@ public static class ProviderDerivedModelAssignmentResolver
         return assignments;
     }
 
-    private static IReadOnlyList<ProviderDerivedModelAssignment> BuildDynamicModelAssignments(
+    private static List<ProviderDerivedModelAssignment> BuildDynamicModelAssignments(
         string canonicalProviderId,
         IReadOnlyList<AgentGroupedModelUsage> orderedModels,
         IEnumerable<string>? reservedProviderIds = null,
