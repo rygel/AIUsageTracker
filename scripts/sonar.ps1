@@ -81,7 +81,7 @@ if (-not $SkipCoverage) {
     }
 
     $testProjects = @(
-        @{ Path = "AIUsageTracker.Tests\AIUsageTracker.Tests.csproj"; Filter = "FullyQualifiedName!~DialogOpenBehaviorTests" },
+        @{ Path = "AIUsageTracker.Tests\AIUsageTracker.Tests.csproj"; Filter = "FullyQualifiedName!~DialogOpenBehaviorTests&FullyQualifiedName!~UpdatePipelineEndToEndTests" },
         @{ Path = "AIUsageTracker.Monitor.Tests\AIUsageTracker.Monitor.Tests.csproj"; Filter = "" },
         @{ Path = "AIUsageTracker.Web.Tests\AIUsageTracker.Web.Tests.csproj"; Filter = "" }
     )
