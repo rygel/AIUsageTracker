@@ -91,124 +91,136 @@ public partial class MainWindow : Window
             Interval = hasUsages ? NormalPollingInterval : StartupPollingInterval,
         };
 
-        this._pollingTimer.Tick += async (s, e) =>
-        {
-            if (this._isPollingInProgress)
-            {
-                return;
-            }
+        this._pollingTimer.Tick += this.OnPollingTimerTick;
 
-            this._isPollingInProgress = true;
+        this._pollingTimer.Start();
+    }
+
+    private async void OnPollingTimerTick(object? sender, EventArgs e)
+    {
+        if (this._isPollingInProgress)
+        {
+            return;
+        }
+
+        this._isPollingInProgress = true;
+        try
+        {
+            var usages = await this.GetUsageForDisplayAsync().ConfigureAwait(true);
+
+            if (usages.Any())
+            {
+                this.ApplyFetchedUsages(usages, DateTime.Now);
+            }
+            else
+            {
+                await this.HandlePollingEmptyResultAsync().ConfigureAwait(true);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            this.HandlePollingError(ex);
+        }
+        finally
+        {
+            this._isPollingInProgress = false;
+        }
+    }
+
+    private async Task HandlePollingEmptyResultAsync()
+    {
+        var refreshDecision = MainWindowRuntimeLogic.CreatePollingRefreshDecision(
+            this._lastRefreshTrigger,
+            DateTime.Now,
+            RefreshCooldownSeconds);
+        if (refreshDecision.ShouldTriggerRefresh)
+        {
+            this._logger.LogDebug("Polling returned empty, triggering refresh");
+            this._lastRefreshTrigger = DateTime.Now;
             try
             {
-                var usages = await this.GetUsageForDisplayAsync().ConfigureAwait(true);
-
-                if (usages.Any())
-                {
-                    this.ApplyFetchedUsages(usages, DateTime.Now);
-                }
-                else
-                {
-                    var refreshDecision = MainWindowRuntimeLogic.CreatePollingRefreshDecision(
-                        this._lastRefreshTrigger,
-                        DateTime.Now,
-                        RefreshCooldownSeconds);
-                    if (refreshDecision.ShouldTriggerRefresh)
-                    {
-                        this._logger.LogDebug("Polling returned empty, triggering refresh");
-                        this._lastRefreshTrigger = DateTime.Now;
-                        try
-                        {
-                            await this._monitorService.TriggerRefreshAsync().ConfigureAwait(true);
-                        }
-                        catch (Exception ex) when (ex is not OperationCanceledException)
-                        {
-                            this._logger.LogWarning(ex, "TriggerRefreshAsync failed during polling retry");
-                        }
-                    }
-                    else
-                    {
-                        this._logger.LogDebug(
-                            "Polling returned empty, refresh cooldown active ({SecondsSinceLastRefresh:F0}s ago)",
-                            refreshDecision.SecondsSinceLastRefresh);
-                    }
-
-                    bool hasCurrentUsages;
-                    lock (this._dataLock)
-                    {
-                        hasCurrentUsages = this._usages.Any();
-                    }
-
-                    var now = DateTime.Now;
-                    string? noDataMessage = null;
-                    StatusType? noDataStatusType = null;
-                    var switchToStartupInterval = false;
-                    if (!hasCurrentUsages)
-                    {
-                        noDataMessage = "No data - waiting for Monitor";
-                        noDataStatusType = StatusType.Warning;
-                        switchToStartupInterval = true;
-                    }
-                    else if ((now - this._lastMonitorUpdate).TotalMinutes > 5)
-                    {
-                        noDataMessage = MainWindowRuntimeLogic.FormatMonitorOfflineStatus(this._lastMonitorUpdate, now);
-                        noDataStatusType = StatusType.Warning;
-                    }
-
-                    if (noDataMessage != null && noDataStatusType.HasValue)
-                    {
-                        this.ShowStatus(noDataMessage, noDataStatusType.Value);
-                    }
-
-                    if (switchToStartupInterval &&
-                        this._pollingTimer != null &&
-                        this._pollingTimer.Interval != StartupPollingInterval)
-                    {
-                        this._pollingTimer.Interval = StartupPollingInterval;
-                    }
-                }
+                await this._monitorService.TriggerRefreshAsync().ConfigureAwait(true);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                this._logger.LogWarning(ex, "Polling loop error");
-                bool hasOldData;
-                lock (this._dataLock)
-                {
-                    hasOldData = this._usages.Any();
-                }
-
-                var now = DateTime.Now;
-                string? exceptionMessage;
-                StatusType exceptionStatusType;
-                var switchToStartupInterval = false;
-                if (hasOldData)
-                {
-                    exceptionMessage = MainWindowRuntimeLogic.FormatMonitorOfflineStatus(this._lastMonitorUpdate, now);
-                    exceptionStatusType = StatusType.Warning;
-                }
-                else
-                {
-                    exceptionMessage = "Connection error";
-                    exceptionStatusType = StatusType.Error;
-                    switchToStartupInterval = true;
-                }
-
-                this.ShowStatus(exceptionMessage, exceptionStatusType);
-
-                if (switchToStartupInterval &&
-                    this._pollingTimer != null &&
-                    this._pollingTimer.Interval != StartupPollingInterval)
-                {
-                    this._pollingTimer.Interval = StartupPollingInterval;
-                }
+                this._logger.LogWarning(ex, "TriggerRefreshAsync failed during polling retry");
             }
-            finally
-            {
-                this._isPollingInProgress = false;
-            }
-        };
+        }
+        else
+        {
+            this._logger.LogDebug(
+                "Polling returned empty, refresh cooldown active ({SecondsSinceLastRefresh:F0}s ago)",
+                refreshDecision.SecondsSinceLastRefresh);
+        }
 
-        this._pollingTimer.Start();
+        bool hasCurrentUsages;
+        lock (this._dataLock)
+        {
+            hasCurrentUsages = this._usages.Any();
+        }
+
+        var now = DateTime.Now;
+        string? noDataMessage = null;
+        StatusType? noDataStatusType = null;
+        var switchToStartupInterval = false;
+        if (!hasCurrentUsages)
+        {
+            noDataMessage = "No data - waiting for Monitor";
+            noDataStatusType = StatusType.Warning;
+            switchToStartupInterval = true;
+        }
+        else if ((now - this._lastMonitorUpdate).TotalMinutes > 5)
+        {
+            noDataMessage = MainWindowRuntimeLogic.FormatMonitorOfflineStatus(this._lastMonitorUpdate, now);
+            noDataStatusType = StatusType.Warning;
+        }
+
+        if (noDataMessage != null && noDataStatusType.HasValue)
+        {
+            this.ShowStatus(noDataMessage, noDataStatusType.Value);
+        }
+
+        if (switchToStartupInterval &&
+            this._pollingTimer != null &&
+            this._pollingTimer.Interval != StartupPollingInterval)
+        {
+            this._pollingTimer.Interval = StartupPollingInterval;
+        }
+    }
+
+    private void HandlePollingError(Exception ex)
+    {
+        this._logger.LogWarning(ex, "Polling loop error");
+        bool hasOldData;
+        lock (this._dataLock)
+        {
+            hasOldData = this._usages.Any();
+        }
+
+        var now = DateTime.Now;
+        string exceptionMessage;
+        StatusType exceptionStatusType;
+        var switchToStartupInterval = false;
+        if (hasOldData)
+        {
+            exceptionMessage = MainWindowRuntimeLogic.FormatMonitorOfflineStatus(this._lastMonitorUpdate, now);
+            exceptionStatusType = StatusType.Warning;
+        }
+        else
+        {
+            exceptionMessage = "Connection error";
+            exceptionStatusType = StatusType.Error;
+            switchToStartupInterval = true;
+        }
+
+        this.ShowStatus(exceptionMessage, exceptionStatusType);
+
+        if (switchToStartupInterval &&
+            this._pollingTimer != null &&
+            this._pollingTimer.Interval != StartupPollingInterval)
+        {
+            this._pollingTimer.Interval = StartupPollingInterval;
+        }
     }
 
     private async Task UpdateTrayIconsAsync()

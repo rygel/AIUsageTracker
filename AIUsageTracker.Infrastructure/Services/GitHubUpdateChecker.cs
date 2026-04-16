@@ -242,8 +242,6 @@ public class GitHubUpdateChecker
 
     private async Task<AIUsageTracker.Core.Interfaces.UpdateInfo?> CheckForBetaUpdatesAsync()
     {
-        // /releases/latest only resolves to non-pre-release releases, so beta appcasts are
-        // never reachable via that URL. Use the GitHub Releases API directly instead.
         this._logger.LogDebug("Checking for beta updates via GitHub Releases API");
 
         var releasesUrl = $"{RepositoryApiBaseUrl}/releases?per_page=10";
@@ -259,54 +257,62 @@ public class GitHubUpdateChecker
 
         var currentVersionStr = GetCurrentInformationalVersion();
 
-        // Releases are returned newest-first; take the first pre-release that is newer.
         foreach (var release in doc.RootElement.EnumerateArray())
         {
-            var isPrerelease = release.TryGetProperty("prerelease", out var pre) && pre.GetBoolean();
-            if (!isPrerelease)
+            var update = TryParseBetaRelease(release, currentVersionStr);
+            if (update != null)
             {
-                continue;
+                return update;
             }
-
-            var tagName = release.TryGetProperty("tag_name", out var tag) ? tag.GetString() : null;
-            if (string.IsNullOrWhiteSpace(tagName))
-            {
-                continue;
-            }
-
-            var latestVersionStr = tagName.TrimStart('v');
-
-            if (!IsNewerVersion(latestVersionStr, currentVersionStr))
-            {
-                break; // sorted newest-first; nothing further can be newer
-            }
-
-            var publishedAt = release.TryGetProperty("published_at", out var pub) &&
-                              DateTime.TryParse(pub.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt)
-                ? dt
-                : DateTime.UtcNow;
-
-            var releaseBody = release.TryGetProperty("body", out var body)
-                ? body.GetString() ?? string.Empty
-                : string.Empty;
-
-            var arch = GetCurrentArchitectureName();
-            var downloadUrl = $"{RepositoryBaseUrl}/releases/download/{tagName}/AIUsageTracker_Setup_v{latestVersionStr}_win-{arch}.exe";
-
-            this._logger.LogInformation("Beta update available: {Version}", latestVersionStr);
-
-            return new AIUsageTracker.Core.Interfaces.UpdateInfo
-            {
-                Version = latestVersionStr,
-                ReleaseUrl = GetReleaseTagUrl(latestVersionStr),
-                DownloadUrl = downloadUrl,
-                ReleaseNotes = releaseBody,
-                PublishedAt = publishedAt,
-            };
         }
 
         this._logger.LogDebug("No beta updates available");
         return null;
+    }
+
+    private AIUsageTracker.Core.Interfaces.UpdateInfo? TryParseBetaRelease(JsonElement release, string currentVersionStr)
+    {
+        var isPrerelease = release.TryGetProperty("prerelease", out var pre) && pre.GetBoolean();
+        if (!isPrerelease)
+        {
+            return null;
+        }
+
+        var tagName = release.TryGetProperty("tag_name", out var tag) ? tag.GetString() : null;
+        if (string.IsNullOrWhiteSpace(tagName))
+        {
+            return null;
+        }
+
+        var latestVersionStr = tagName.TrimStart('v');
+
+        if (!IsNewerVersion(latestVersionStr, currentVersionStr))
+        {
+            return null;
+        }
+
+        var publishedAt = release.TryGetProperty("published_at", out var pub) &&
+                          DateTime.TryParse(pub.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt)
+            ? dt
+            : DateTime.UtcNow;
+
+        var releaseBody = release.TryGetProperty("body", out var body)
+            ? body.GetString() ?? string.Empty
+            : string.Empty;
+
+        var arch = GetCurrentArchitectureName();
+        var downloadUrl = $"{RepositoryBaseUrl}/releases/download/{tagName}/AIUsageTracker_Setup_v{latestVersionStr}_win-{arch}.exe";
+
+        this._logger.LogInformation("Beta update available: {Version}", latestVersionStr);
+
+        return new AIUsageTracker.Core.Interfaces.UpdateInfo
+        {
+            Version = latestVersionStr,
+            ReleaseUrl = GetReleaseTagUrl(latestVersionStr),
+            DownloadUrl = downloadUrl,
+            ReleaseNotes = releaseBody,
+            PublishedAt = publishedAt,
+        };
     }
 
     private static string GetInstallerDownloadPath(string version)

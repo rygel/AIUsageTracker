@@ -204,44 +204,7 @@ public class ConfigService : IConfigService
                 discovered.Count,
                 discoveredWithKeys.Count);
 
-            // Merge discovered with existing — only add providers that actually have keys
-            foreach (var newConfig in discovered)
-            {
-                // Skip providers the user deliberately removed via Settings.
-                if (suppressed.Contains(newConfig.ProviderId))
-                {
-                    this._logger.LogDebug("Skipping suppressed provider: {ProviderId}", newConfig.ProviderId);
-                    continue;
-                }
-
-                var existingConfig = existing.FirstOrDefault(c =>
-                    c.ProviderId.Equals(newConfig.ProviderId, StringComparison.OrdinalIgnoreCase));
-
-                if (existingConfig == null)
-                {
-                    // Never create empty skeleton configs for providers without keys
-                    if (string.IsNullOrWhiteSpace(newConfig.ApiKey))
-                    {
-                        continue;
-                    }
-
-                    existing.Add(newConfig);
-                    this._logger.LogInformation("Found: {ProviderId}", newConfig.ProviderId);
-                    addedWithKeys.Add($"{newConfig.ProviderId} ({newConfig.AuthSource ?? "unknown"})");
-                }
-                else if (string.IsNullOrEmpty(existingConfig.ApiKey) && !string.IsNullOrEmpty(newConfig.ApiKey))
-                {
-                    // Update with discovered key
-                    existingConfig.ApiKey = newConfig.ApiKey;
-                    existingConfig.AuthSource = newConfig.AuthSource ?? string.Empty;
-                    this._logger.LogInformation("Key updated: {ProviderId}", newConfig.ProviderId);
-                    updatedWithKeys.Add($"{newConfig.ProviderId} ({newConfig.AuthSource ?? "unknown"})");
-                }
-                else if (!string.IsNullOrWhiteSpace(newConfig.ApiKey))
-                {
-                    alreadyConfiguredWithKeys.Add($"{newConfig.ProviderId} ({newConfig.AuthSource ?? "unknown"})");
-                }
-            }
+            this.MergeDiscoveredProviders(discovered, existing, suppressed, addedWithKeys, updatedWithKeys, alreadyConfiguredWithKeys);
 
             ProviderMetadataCatalog.NormalizeCanonicalConfigurations(existing);
 
@@ -277,6 +240,50 @@ public class ConfigService : IConfigService
         {
             this._logger.LogError(ex, "Failed to scan for keys: {Message}", ex.Message);
             return new List<ProviderConfig>();
+        }
+    }
+
+    private void MergeDiscoveredProviders(
+        IReadOnlyList<ProviderConfig> discovered,
+        List<ProviderConfig> existing,
+        HashSet<string> suppressed,
+        List<string> addedWithKeys,
+        List<string> updatedWithKeys,
+        List<string> alreadyConfiguredWithKeys)
+    {
+        foreach (var newConfig in discovered)
+        {
+            if (suppressed.Contains(newConfig.ProviderId))
+            {
+                this._logger.LogDebug("Skipping suppressed provider: {ProviderId}", newConfig.ProviderId);
+                continue;
+            }
+
+            var existingConfig = existing.FirstOrDefault(c =>
+                c.ProviderId.Equals(newConfig.ProviderId, StringComparison.OrdinalIgnoreCase));
+
+            if (existingConfig == null)
+            {
+                if (string.IsNullOrWhiteSpace(newConfig.ApiKey))
+                {
+                    continue;
+                }
+
+                existing.Add(newConfig);
+                this._logger.LogInformation("Found: {ProviderId}", newConfig.ProviderId);
+                addedWithKeys.Add($"{newConfig.ProviderId} ({newConfig.AuthSource ?? "unknown"})");
+            }
+            else if (string.IsNullOrEmpty(existingConfig.ApiKey) && !string.IsNullOrEmpty(newConfig.ApiKey))
+            {
+                existingConfig.ApiKey = newConfig.ApiKey;
+                existingConfig.AuthSource = newConfig.AuthSource ?? string.Empty;
+                this._logger.LogInformation("Key updated: {ProviderId}", newConfig.ProviderId);
+                updatedWithKeys.Add($"{newConfig.ProviderId} ({newConfig.AuthSource ?? "unknown"})");
+            }
+            else if (!string.IsNullOrWhiteSpace(newConfig.ApiKey))
+            {
+                alreadyConfiguredWithKeys.Add($"{newConfig.ProviderId} ({newConfig.AuthSource ?? "unknown"})");
+            }
         }
     }
 

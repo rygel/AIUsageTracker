@@ -82,8 +82,6 @@ public class ZaiProvider : ProviderBase
         // Parse envelope
         var envelope = JsonSerializer.Deserialize<ZaiEnvelope<ZaiQuotaLimitResponse>>(responseString);
 
-        string planDescription = "API";
-
         var limits = envelope?.Data?.Limits;
         this._logger.LogDebug("[ZAI] Parsed envelope - Data is null: {IsNull}, Limits count: {Count}", envelope?.Data == null, limits?.Count ?? 0);
 
@@ -119,36 +117,14 @@ public class ZaiProvider : ProviderBase
                 limit.NextResetTime);
         }
 
-        // Helper to check if a limit is in the future (or has no expiry)
         var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var nowSec = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-
-        bool IsFuture(long? resetTime)
-        {
-            if (!resetTime.HasValue || resetTime.Value == 0)
-            {
-                return true; // No reset time = always active
-            }
-
-            var ts = resetTime.Value;
-
-            // Heuristic to detect milliseconds vs seconds (similar to logic below)
-            if (ts > 10000000000)
-            {
-                return ts > nowMs;
-            }
-
-            return ts > nowSec;
-        }
 
         var tokenLimits = limits.Where(l =>
             l.Type != null && (l.Type.Equals("TOKENS_LIMIT", StringComparison.OrdinalIgnoreCase) ||
                                l.Type.Equals("Tokens", StringComparison.OrdinalIgnoreCase))).ToList();
 
-        // Prefer active limits (future reset time or no reset time)
-        // If multiple active limits exist, pick the specific one that is most restrictive (lowest remaining)
-        // If no active limits, fall back to any limit (historical)
-        var tokenLimit = tokenLimits.Where(l => IsFuture(l.NextResetTime))
+        var tokenLimit = tokenLimits.Where(l => IsFutureTimestamp(l.NextResetTime, nowMs, nowSec))
                                     .OrderBy(l => l.Remaining ?? long.MaxValue)
                                     .FirstOrDefault()
                          ?? tokenLimits.FirstOrDefault();
@@ -162,141 +138,28 @@ public class ZaiProvider : ProviderBase
             tokenLimit != null,
             mcpLimit != null);
 
-        double? remainingPercent = null;
-        string detailInfo = string.Empty;
-
-        // Define variables to hold real values if available, otherwise default to percentage logic
-        double finalRequestsAvailable = 100;
-        double finalRequestsUsedReal = 0;
-        var hasRawLimitData = false;
-
-        if (tokenLimit != null)
-        {
-            planDescription = "Coding Plan";
-            this._logger.LogDebug(
-                "[ZAI] Processing TOKENS_LIMIT - Percentage={Pct} Total={Total} Current={Current} Remaining={Remaining}",
-                tokenLimit.Percentage,
-                tokenLimit.Total,
-                tokenLimit.CurrentValue,
-                tokenLimit.Remaining);
-
-            if (tokenLimit.Percentage.HasValue && tokenLimit.Total == null && tokenLimit.CurrentValue == null && tokenLimit.Remaining == null)
-            {
-                double usedPercent = tokenLimit.Percentage.Value;
-                double remainingPercentVal = 100 - usedPercent;
-                remainingPercent = remainingPercent.HasValue
-                    ? Math.Min(remainingPercent.Value, remainingPercentVal)
-                    : remainingPercentVal;
-                detailInfo = $"{remainingPercentVal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining";
-                this._logger.LogDebug("[ZAI] Percentage-only mode: {Used}% used, {Remaining}% remaining", usedPercent, remainingPercentVal);
-
-                finalRequestsUsedReal = 100 - remainingPercentVal;
-            }
-            else
-            {
-                double totalVal = tokenLimit.Total ?? 0;
-                double usedVal = tokenLimit.CurrentValue ?? 0;
-                double remainingVal = tokenLimit.Remaining ?? (totalVal - usedVal);
-
-                if (tokenLimit.Total > 50000000)
-                {
-                    planDescription = "Coding Plan (Ultra/Enterprise)";
-                }
-                else if (tokenLimit.Total > 10000000)
-                {
-                    planDescription = "Coding Plan (Pro)";
-                }
-
-                if (totalVal > 0)
-                {
-                    double remainingPercentVal = (remainingVal / totalVal) * 100.0;
-
-                    this._logger.LogDebug(
-                        "[ZAI] Calculation: Remaining={RemainingVal} / Total={TotalVal} = {Percent}%",
-                        remainingVal,
-                        totalVal,
-                        remainingPercentVal);
-
-                    remainingPercent = remainingPercent.HasValue
-                        ? Math.Min(remainingPercent.Value, remainingPercentVal)
-                        : remainingPercentVal;
-
-                    // Expose raw values for UI to display "X / Y used"
-                    finalRequestsAvailable = totalVal;
-                    finalRequestsUsedReal = usedVal;
-                    hasRawLimitData = true;
-                    detailInfo = $"{remainingPercentVal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining of {(totalVal / 1000000.0).ToString("F0", CultureInfo.InvariantCulture)}M tokens limit";
-                }
-                else if (tokenLimit.Percentage.HasValue)
-                {
-                    double usedPercent = tokenLimit.Percentage.Value;
-                    double remainingPercentVal = 100 - usedPercent;
-                    remainingPercent = remainingPercent.HasValue
-                        ? Math.Min(remainingPercent.Value, remainingPercentVal)
-                        : remainingPercentVal;
-                    detailInfo = $"{remainingPercentVal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining";
-                    finalRequestsUsedReal = 100 - remainingPercentVal;
-                }
-                else
-                {
-                    this._logger.LogDebug("[ZAI] Token limit missing usable quota metrics; usage unknown");
-                }
-            }
-        }
+        var tokenResult = this.ProcessTokenLimit(tokenLimit);
 
         if (mcpLimit != null && mcpLimit.Percentage > 0)
         {
             this._logger.LogDebug("[ZAI] Processing TIME_LIMIT - Percentage: {Percentage}", mcpLimit.Percentage);
             double mcpRemainingPercent = Math.Max(0, 100 - mcpLimit.Percentage.Value);
-            remainingPercent = remainingPercent.HasValue
-                ? Math.Min(remainingPercent.Value, mcpRemainingPercent)
-                : mcpRemainingPercent;
+            tokenResult = tokenResult with
+            {
+                RemainingPercent = tokenResult.RemainingPercent.HasValue
+                    ? Math.Min(tokenResult.RemainingPercent.Value, mcpRemainingPercent)
+                    : mcpRemainingPercent,
+            };
             this._logger.LogDebug("[ZAI] MCP remaining percent: {McpRemainingPercent}", mcpRemainingPercent);
         }
 
-        // Compute the token window duration from unit/number.
-        // Z.ai encodes: unit=3 → hours, number=N → N-hour rolling window.
-        // Verified from Coding Plan: unit=3, number=5 → 5-hour rolling window.
         var tokenWindowDuration = tokenLimit?.Unit == 3 && tokenLimit.Number.HasValue
             ? TimeSpan.FromHours(tokenLimit.Number.Value)
             : (TimeSpan?)null;
-        var tokenWindowLabel = tokenWindowDuration.HasValue
-            ? $"{((int)tokenWindowDuration.Value.TotalHours).ToString(CultureInfo.InvariantCulture)}h window"
-            : null;
 
-        DateTime? nextResetTime = null;
-        string resetStr = string.Empty;
+        var (nextResetTime, resetStr) = this.ResolveResetTimeInfo(tokenLimit, tokenWindowDuration, limits);
 
-        if (tokenLimit != null && tokenLimit.Percentage > 0 && tokenLimit.NextResetTime.HasValue && tokenLimit.NextResetTime.Value > 0)
-        {
-            // Active window: the API returns the current window's close time — use it.
-            var ts = tokenLimit.NextResetTime.Value;
-            this._logger.LogDebug("[ZAI] Active token window reset timestamp: {Ts}", ts);
-            nextResetTime = ParseTimestamp(ts);
-            resetStr = $" (Resets: {nextResetTime.Value.ToString("MMM dd, yyyy HH:mm", CultureInfo.InvariantCulture)} Local)";
-        }
-        else if (tokenWindowLabel != null)
-        {
-            // Fresh (0% used): the API returns the billing period end, not the rolling window close.
-            // Show the window size label instead of a misleading 7-day countdown.
-            resetStr = $" ({tokenWindowLabel})";
-        }
-        else
-        {
-            // Fallback: use the nearest nextResetTime from any limit.
-            var limitWithReset = limits
-                .Where(l => l.NextResetTime.HasValue && l.NextResetTime.Value > 0)
-                .OrderBy(l => l.NextResetTime!.Value)
-                .FirstOrDefault();
-            if (limitWithReset != null)
-            {
-                this._logger.LogDebug("[ZAI] Fallback reset timestamp: {Ts}", limitWithReset.NextResetTime!.Value);
-                nextResetTime = ParseTimestamp(limitWithReset.NextResetTime!.Value);
-                resetStr = $" (Resets: {nextResetTime.Value.ToString("MMM dd, yyyy HH:mm", CultureInfo.InvariantCulture)} Local)";
-            }
-        }
-
-        if (!remainingPercent.HasValue)
+        if (!tokenResult.RemainingPercent.HasValue)
         {
             return new[]
             {
@@ -305,7 +168,7 @@ public class ZaiProvider : ProviderBase
                 ProviderId = this.ProviderId,
                 ProviderName = providerLabel,
                 IsAvailable = false,
-                Description = FormatDescription("Usage unknown (missing quota metrics)", planDescription),
+                Description = FormatDescription("Usage unknown (missing quota metrics)", tokenResult.PlanDescription),
                 IsQuotaBased = this.Definition.IsQuotaBased,
                 PlanType = this.Definition.PlanType,
                 RawJson = responseString,
@@ -314,23 +177,26 @@ public class ZaiProvider : ProviderBase
             };
         }
 
-        var finalRemainingPercent = Math.Min(remainingPercent.Value, 100);
+        var finalRemainingPercent = Math.Min(tokenResult.RemainingPercent.Value, 100);
         var finalUsedPercent = Math.Max(0, 100.0 - finalRemainingPercent);
 
-        if (!hasRawLimitData)
+        if (!tokenResult.HasRawLimitData)
         {
-            finalRequestsAvailable = 100;
-            finalRequestsUsedReal = Math.Max(0, 100 - finalRemainingPercent);
+            tokenResult = tokenResult with
+            {
+                RequestsAvailable = 100,
+                RequestsUsed = Math.Max(0, 100 - finalRemainingPercent),
+            };
         }
 
-        var finalDescription = (string.IsNullOrEmpty(detailInfo) ? $"{finalRemainingPercent.ToString("F1", CultureInfo.InvariantCulture)}% remaining" : detailInfo) + resetStr;
+        var finalDescription = (string.IsNullOrEmpty(tokenResult.DetailInfo) ? $"{finalRemainingPercent.ToString("F1", CultureInfo.InvariantCulture)}% remaining" : tokenResult.DetailInfo) + resetStr;
 
         this._logger.LogInformation(
             "Z.AI Provider Usage - ProviderId: {ProviderId}, ProviderName: {ProviderName}, UsedPercent: {UsedPercent}%, RequestsUsed: {RequestsUsed}%, Description: {Description}, IsAvailable: {IsAvailable}",
             this.ProviderId,
             providerLabel,
             finalUsedPercent,
-            finalRequestsUsedReal,
+            tokenResult.RequestsUsed,
             finalDescription,
             true);
 
@@ -341,18 +207,147 @@ public class ZaiProvider : ProviderBase
             ProviderId = this.ProviderId,
             ProviderName = providerLabel,
             UsedPercent = finalUsedPercent,
-            RequestsUsed = finalRequestsUsedReal,  // Store actual used count/percentage
-            RequestsAvailable = finalRequestsAvailable, // Store actual total limit
+            RequestsUsed = tokenResult.RequestsUsed,
+            RequestsAvailable = tokenResult.RequestsAvailable,
             IsQuotaBased = this.Definition.IsQuotaBased,
             PlanType = this.Definition.PlanType,
-            DisplayAsFraction = finalRequestsAvailable > 100, // Explicitly request fraction display if we have real numbers
-            Description = FormatDescription(finalDescription, planDescription),
+            DisplayAsFraction = tokenResult.RequestsAvailable > 100,
+            Description = FormatDescription(finalDescription, tokenResult.PlanDescription),
             NextResetTime = nextResetTime,
             IsAvailable = true,
             RawJson = responseString,
             HttpStatus = httpStatus,
         },
         };
+    }
+
+    private readonly record struct TokenLimitResult(
+        double? RemainingPercent,
+        string DetailInfo,
+        string PlanDescription,
+        double RequestsAvailable,
+        double RequestsUsed,
+        bool HasRawLimitData);
+
+    private TokenLimitResult ProcessTokenLimit(ZaiQuotaLimitItem? tokenLimit)
+    {
+        if (tokenLimit == null)
+        {
+            return default;
+        }
+
+        var planDescription = "Coding Plan";
+        this._logger.LogDebug(
+            "[ZAI] Processing TOKENS_LIMIT - Percentage={Pct} Total={Total} Current={Current} Remaining={Remaining}",
+            tokenLimit.Percentage,
+            tokenLimit.Total,
+            tokenLimit.CurrentValue,
+            tokenLimit.Remaining);
+
+        if (tokenLimit.Percentage.HasValue && tokenLimit.Total == null && tokenLimit.CurrentValue == null && tokenLimit.Remaining == null)
+        {
+            double usedPercent = tokenLimit.Percentage.Value;
+            double remainingPercentVal = 100 - usedPercent;
+            return new TokenLimitResult(
+                remainingPercentVal,
+                $"{remainingPercentVal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining",
+                planDescription,
+                100,
+                100 - remainingPercentVal,
+                false);
+        }
+
+        double totalVal = tokenLimit.Total ?? 0;
+        double usedVal = tokenLimit.CurrentValue ?? 0;
+        double remainingVal = tokenLimit.Remaining ?? (totalVal - usedVal);
+
+        if (tokenLimit.Total > 50000000)
+        {
+            planDescription = "Coding Plan (Ultra/Enterprise)";
+        }
+        else if (tokenLimit.Total > 10000000)
+        {
+            planDescription = "Coding Plan (Pro)";
+        }
+
+        if (totalVal > 0)
+        {
+            double remainingPercentVal = (remainingVal / totalVal) * 100.0;
+            this._logger.LogDebug(
+                "[ZAI] Calculation: Remaining={RemainingVal} / Total={TotalVal} = {Percent}%",
+                remainingVal,
+                totalVal,
+                remainingPercentVal);
+
+            return new TokenLimitResult(
+                remainingPercentVal,
+                $"{remainingPercentVal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining of {(totalVal / 1000000.0).ToString("F0", CultureInfo.InvariantCulture)}M tokens limit",
+                planDescription,
+                totalVal,
+                usedVal,
+                true);
+        }
+
+        if (tokenLimit.Percentage.HasValue)
+        {
+            double usedPercent = tokenLimit.Percentage.Value;
+            double remainingPercentVal = 100 - usedPercent;
+            return new TokenLimitResult(
+                remainingPercentVal,
+                $"{remainingPercentVal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining",
+                planDescription,
+                100,
+                100 - remainingPercentVal,
+                false);
+        }
+
+        this._logger.LogDebug("[ZAI] Token limit missing usable quota metrics; usage unknown");
+        return default;
+    }
+
+    private static bool IsFutureTimestamp(long? resetTime, long nowMs, long nowSec)
+    {
+        if (!resetTime.HasValue || resetTime.Value == 0)
+        {
+            return true;
+        }
+
+        var ts = resetTime.Value;
+        return ts > 10000000000 ? ts > nowMs : ts > nowSec;
+    }
+
+    private (DateTime? ResetTime, string ResetString) ResolveResetTimeInfo(
+        ZaiQuotaLimitItem? tokenLimit, TimeSpan? tokenWindowDuration, List<ZaiQuotaLimitItem> limits)
+    {
+        var tokenWindowLabel = tokenWindowDuration.HasValue
+            ? $"{((int)tokenWindowDuration.Value.TotalHours).ToString(CultureInfo.InvariantCulture)}h window"
+            : null;
+
+        if (tokenLimit != null && tokenLimit.Percentage > 0 && tokenLimit.NextResetTime.HasValue && tokenLimit.NextResetTime.Value > 0)
+        {
+            var ts = tokenLimit.NextResetTime.Value;
+            this._logger.LogDebug("[ZAI] Active token window reset timestamp: {Ts}", ts);
+            var nextResetTime = ParseTimestamp(ts);
+            return (nextResetTime, $" (Resets: {nextResetTime.ToString("MMM dd, yyyy HH:mm", CultureInfo.InvariantCulture)} Local)");
+        }
+
+        if (tokenWindowLabel != null)
+        {
+            return (null, $" ({tokenWindowLabel})");
+        }
+
+        var limitWithReset = limits
+            .Where(l => l.NextResetTime.HasValue && l.NextResetTime.Value > 0)
+            .OrderBy(l => l.NextResetTime!.Value)
+            .FirstOrDefault();
+        if (limitWithReset != null)
+        {
+            this._logger.LogDebug("[ZAI] Fallback reset timestamp: {Ts}", limitWithReset.NextResetTime!.Value);
+            var nextResetTime = ParseTimestamp(limitWithReset.NextResetTime!.Value);
+            return (nextResetTime, $" (Resets: {nextResetTime.ToString("MMM dd, yyyy HH:mm", CultureInfo.InvariantCulture)} Local)");
+        }
+
+        return (null, string.Empty);
     }
 
     private static string FormatDescription(string description, string planDescription)

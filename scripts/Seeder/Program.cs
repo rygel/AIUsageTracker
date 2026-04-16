@@ -244,19 +244,7 @@ public class Program
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
-                latestHistory.Add(new HistoryFixture
-                {
-                    ProviderId = reader.IsDBNull(0) ? string.Empty : reader.GetString(0),
-                    RequestsUsed = reader.IsDBNull(1) ? 0 : reader.GetDouble(1),
-                    RequestsAvailable = reader.IsDBNull(2) ? 0 : reader.GetDouble(2),
-                    RequestsPercentage = reader.IsDBNull(3) ? 0 : reader.GetDouble(3),
-                    IsAvailable = reader.IsDBNull(4) ? 0 : reader.GetInt32(4),
-                    StatusMessage = reader.IsDBNull(5) ? string.Empty : reader.GetString(5),
-                    NextResetTime = reader.IsDBNull(6) ? null : reader.GetString(6),
-                    FetchedAt = reader.IsDBNull(7) ? string.Empty : reader.GetString(7),
-                    DetailsJson = reader.IsDBNull(8) ? null : reader.GetString(8),
-                    ResponseLatencyMs = reader.IsDBNull(9) ? 0 : reader.GetDouble(9),
-                });
+                latestHistory.Add(ReadHistoryFixture(reader));
             }
         }
 
@@ -278,23 +266,28 @@ public class Program
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
-                history7Days.Add(new HistoryFixture
-                {
-                    ProviderId = reader.IsDBNull(0) ? string.Empty : reader.GetString(0),
-                    RequestsUsed = reader.IsDBNull(1) ? 0 : reader.GetDouble(1),
-                    RequestsAvailable = reader.IsDBNull(2) ? 0 : reader.GetDouble(2),
-                    RequestsPercentage = reader.IsDBNull(3) ? 0 : reader.GetDouble(3),
-                    IsAvailable = reader.IsDBNull(4) ? 0 : reader.GetInt32(4),
-                    StatusMessage = reader.IsDBNull(5) ? string.Empty : reader.GetString(5),
-                    NextResetTime = reader.IsDBNull(6) ? null : reader.GetString(6),
-                    FetchedAt = reader.IsDBNull(7) ? string.Empty : reader.GetString(7),
-                    DetailsJson = reader.IsDBNull(8) ? null : reader.GetString(8),
-                    ResponseLatencyMs = reader.IsDBNull(9) ? 0 : reader.GetDouble(9),
-                });
+                history7Days.Add(ReadHistoryFixture(reader));
             }
         }
 
         return history7Days;
+    }
+
+    private static HistoryFixture ReadHistoryFixture(SqliteDataReader reader)
+    {
+        return new HistoryFixture
+        {
+            ProviderId = reader.IsDBNull(0) ? string.Empty : reader.GetString(0),
+            RequestsUsed = reader.IsDBNull(1) ? 0 : reader.GetDouble(1),
+            RequestsAvailable = reader.IsDBNull(2) ? 0 : reader.GetDouble(2),
+            RequestsPercentage = reader.IsDBNull(3) ? 0 : reader.GetDouble(3),
+            IsAvailable = reader.IsDBNull(4) ? 0 : reader.GetInt32(4),
+            StatusMessage = reader.IsDBNull(5) ? string.Empty : reader.GetString(5),
+            NextResetTime = reader.IsDBNull(6) ? null : reader.GetString(6),
+            FetchedAt = reader.IsDBNull(7) ? string.Empty : reader.GetString(7),
+            DetailsJson = reader.IsDBNull(8) ? null : reader.GetString(8),
+            ResponseLatencyMs = reader.IsDBNull(9) ? 0 : reader.GetDouble(9),
+        };
     }
 
     private static void WriteTestFixtureToFile(TestDataFixture fixture, string outputPath)

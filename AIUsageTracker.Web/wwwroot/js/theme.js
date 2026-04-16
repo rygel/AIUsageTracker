@@ -22,7 +22,7 @@ const ThemeManager = {
     init() {
         const saved = localStorage.getItem('theme');
         if (saved && this.themes.includes(saved)) {
-            document.documentElement.setAttribute('data-theme', saved);
+            document.documentElement.dataset.theme = saved;
         }
         this.setupSelect();
     },
@@ -31,12 +31,12 @@ const ThemeManager = {
         const select = document.getElementById('theme-select');
         if (!select) return;
         
-        const current = document.documentElement.getAttribute('data-theme') || 'dark';
+        const current = document.documentElement.dataset.theme || 'dark';
         select.value = current;
         
         select.addEventListener('change', (e) => {
             const theme = e.target.value;
-            document.documentElement.setAttribute('data-theme', theme);
+            document.documentElement.dataset.theme = theme;
             localStorage.setItem('theme', theme);
         });
     }

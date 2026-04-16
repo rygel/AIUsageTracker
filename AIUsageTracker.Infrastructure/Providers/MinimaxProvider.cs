@@ -288,80 +288,64 @@ public class MinimaxProvider : ProviderBase
     {
         var usages = new List<ProviderUsage>();
 
-        // Use only the first model as the primary display; additional models are
-        // included as named cards so they can be shown in grouped view.
         for (var i = 0; i < modelRemains.Count; i++)
         {
             var model = modelRemains[i];
             var modelName = model.ModelName ?? $"Model {(i + 1).ToString(CultureInfo.InvariantCulture)}";
             var modelSlug = modelName.ToLowerInvariant().Replace(" ", "-", StringComparison.Ordinal);
 
-            // 5h burst window — note: current_interval_usage_count is REMAINING, not used
             if (model.IntervalTotal > 0)
             {
-                var remaining = Math.Max(0, Math.Min(model.IntervalRemaining, model.IntervalTotal));
-                var used = model.IntervalTotal - remaining;
-                var usedPct = Math.Clamp((used / model.IntervalTotal) * 100.0, 0, 100);
-                var resetTime = model.IntervalEndMs > 0
-                    ? DateTimeOffset.FromUnixTimeMilliseconds(model.IntervalEndMs).UtcDateTime
-                    : (DateTime?)null;
-
-                usages.Add(new ProviderUsage
-                {
-                    ProviderId = providerId,
-                    ProviderName = providerLabel,
-                    CardId = i == 0 ? "burst" : $"{modelSlug}.burst",
-                    GroupId = providerId,
-                    Name = i == 0 ? "5h" : $"{modelName} 5h",
-                    WindowKind = WindowKind.Burst,
-                    UsedPercent = usedPct,
-                    RequestsUsed = used,
-                    RequestsAvailable = model.IntervalTotal,
-                    IsQuotaBased = true,
-                    PlanType = PlanType.Coding,
-                    IsAvailable = true,
-                    Description = $"{Math.Clamp(100.0 - usedPct, 0, 100).ToString("F0", CultureInfo.InvariantCulture)}% remaining ({modelName})",
-                    NextResetTime = resetTime,
-                    PeriodDuration = TimeSpan.FromHours(5),
-                    RawJson = rawJson,
-                    HttpStatus = httpStatus,
-                });
+                usages.Add(BuildModelWindowCard(providerId, providerLabel, modelName, modelSlug, i,
+                    model.IntervalTotal, model.IntervalRemaining, model.IntervalEndMs,
+                    "burst", "5h", WindowKind.Burst, TimeSpan.FromHours(5), rawJson, httpStatus));
             }
 
-            // Weekly rolling window — same naming convention, current_weekly_usage_count is REMAINING
             if (model.WeeklyTotal > 0)
             {
-                var remaining = Math.Max(0, Math.Min(model.WeeklyRemaining, model.WeeklyTotal));
-                var used = model.WeeklyTotal - remaining;
-                var usedPct = Math.Clamp((used / model.WeeklyTotal) * 100.0, 0, 100);
-                var resetTime = model.WeeklyEndMs > 0
-                    ? DateTimeOffset.FromUnixTimeMilliseconds(model.WeeklyEndMs).UtcDateTime
-                    : (DateTime?)null;
-
-                usages.Add(new ProviderUsage
-                {
-                    ProviderId = providerId,
-                    ProviderName = providerLabel,
-                    CardId = i == 0 ? "weekly" : $"{modelSlug}.weekly",
-                    GroupId = providerId,
-                    Name = i == 0 ? "Weekly" : $"{modelName} Weekly",
-                    WindowKind = WindowKind.Rolling,
-                    UsedPercent = usedPct,
-                    RequestsUsed = used,
-                    RequestsAvailable = model.WeeklyTotal,
-                    IsQuotaBased = true,
-                    PlanType = PlanType.Coding,
-                    IsAvailable = true,
-                    Description = $"{Math.Clamp(100.0 - usedPct, 0, 100).ToString("F0", CultureInfo.InvariantCulture)}% remaining ({modelName})",
-                    NextResetTime = resetTime,
-                    PeriodDuration = TimeSpan.FromDays(7),
-                    RawJson = rawJson,
-                    HttpStatus = httpStatus,
-                });
+                usages.Add(BuildModelWindowCard(providerId, providerLabel, modelName, modelSlug, i,
+                    model.WeeklyTotal, model.WeeklyRemaining, model.WeeklyEndMs,
+                    "weekly", "Weekly", WindowKind.Rolling, TimeSpan.FromDays(7), rawJson, httpStatus));
             }
         }
 
         return usages;
+    }
+
+    private static ProviderUsage BuildModelWindowCard(
+        string providerId, string providerLabel, string modelName, string modelSlug, int modelIndex,
+        double windowTotal, double windowRemaining, long resetMs,
+        string cardSuffix, string nameSuffix,
+        WindowKind windowKind, TimeSpan periodDuration,
+        string rawJson, int httpStatus)
+    {
+        var remaining = Math.Max(0, Math.Min(windowRemaining, windowTotal));
+        var used = windowTotal - remaining;
+        var usedPct = Math.Clamp((used / windowTotal) * 100.0, 0, 100);
+        var resetTime = resetMs > 0
+            ? DateTimeOffset.FromUnixTimeMilliseconds(resetMs).UtcDateTime
+            : (DateTime?)null;
+
+        return new ProviderUsage
+        {
+            ProviderId = providerId,
+            ProviderName = providerLabel,
+            CardId = modelIndex == 0 ? cardSuffix : $"{modelSlug}.{cardSuffix}",
+            GroupId = providerId,
+            Name = modelIndex == 0 ? nameSuffix : $"{modelName} {nameSuffix}",
+            WindowKind = windowKind,
+            UsedPercent = usedPct,
+            RequestsUsed = used,
+            RequestsAvailable = windowTotal,
+            IsQuotaBased = true,
+            PlanType = PlanType.Coding,
+            IsAvailable = true,
+            Description = $"{Math.Clamp(100.0 - usedPct, 0, 100).ToString("F0", CultureInfo.InvariantCulture)}% remaining ({modelName})",
+            NextResetTime = resetTime,
+            PeriodDuration = periodDuration,
+            RawJson = rawJson,
+            HttpStatus = httpStatus,
+        };
     }
 
     private sealed class MinimaxTokenResponse

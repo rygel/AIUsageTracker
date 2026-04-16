@@ -283,49 +283,7 @@ public class UsageDatabase : IUsageDatabase
             var toInsert = new List<HistoryInsertParams>();
             var toTouch = new List<HistoryTouchParams>();
 
-            foreach (var u in validUsages)
-            {
-                var fetchedAt = ToUnixEpoch(u.FetchedAt == default ? DateTime.UtcNow : u.FetchedAt);
-                var nextResetTime = u.NextResetTime?.ToString("O");
-                var statusMessage = u.Description ?? string.Empty;
-                var validityEval = u.EvaluateUpstreamResponseValidity();
-                var validityInt = (int)(u.UpstreamResponseValidity == UpstreamResponseValidity.Unknown
-                    ? validityEval.Validity
-                    : u.UpstreamResponseValidity);
-                var validityNote = string.IsNullOrWhiteSpace(u.UpstreamResponseNote)
-                    ? validityEval.Note
-                    : u.UpstreamResponseNote;
-
-                // Composite dedup key: provider_id + card_id (null card_id = legacy single-card provider)
-                var dedupKey = $"{u.ProviderId!}::{u.CardId ?? string.Empty}";
-                if (lastRows.TryGetValue(dedupKey, out var last)
-                    && IsHistoryUnchanged(u, last, nextResetTime, statusMessage))
-                {
-                    toTouch.Add(new HistoryTouchParams(last.Id, fetchedAt));
-                }
-                else
-                {
-                    toInsert.Add(new HistoryInsertParams(
-                        u.ProviderId!,
-                        u.RequestsUsed,
-                        u.RequestsAvailable,
-                        u.UsedPercent,
-                        u.IsAvailable ? 1 : 0,
-                        statusMessage,
-                        nextResetTime,
-                        fetchedAt,
-                        u.ResponseLatencyMs,
-                        u.HttpStatus,
-                        validityInt,
-                        validityNote,
-                        u.ParentProviderId,
-                        u.CardId,
-                        u.GroupId,
-                        (int)u.WindowKind,
-                        u.ModelName,
-                        u.Name));
-                }
-            }
+            this.ClassifyHistoryEntries(validUsages, lastRows, toInsert, toTouch);
 
             if (toInsert.Count > 0)
             {
@@ -384,6 +342,56 @@ public class UsageDatabase : IUsageDatabase
             && (long)usage.HttpStatus == last.HttpStatus
             && string.Equals(newStatusMessage, last.StatusMessage ?? string.Empty, StringComparison.Ordinal)
             && string.Equals(newNextResetTime, last.NextResetTime, StringComparison.Ordinal);
+    }
+
+    private void ClassifyHistoryEntries(
+        List<ProviderUsage> validUsages,
+        Dictionary<string, LastHistoryRow> lastRows,
+        List<HistoryInsertParams> toInsert,
+        List<HistoryTouchParams> toTouch)
+    {
+        foreach (var u in validUsages)
+        {
+            var fetchedAt = ToUnixEpoch(u.FetchedAt == default ? DateTime.UtcNow : u.FetchedAt);
+            var nextResetTime = u.NextResetTime?.ToString("O");
+            var statusMessage = u.Description ?? string.Empty;
+            var validityEval = u.EvaluateUpstreamResponseValidity();
+            var validityInt = (int)(u.UpstreamResponseValidity == UpstreamResponseValidity.Unknown
+                ? validityEval.Validity
+                : u.UpstreamResponseValidity);
+            var validityNote = string.IsNullOrWhiteSpace(u.UpstreamResponseNote)
+                ? validityEval.Note
+                : u.UpstreamResponseNote;
+
+            var dedupKey = $"{u.ProviderId!}::{u.CardId ?? string.Empty}";
+            if (lastRows.TryGetValue(dedupKey, out var last)
+                && IsHistoryUnchanged(u, last, nextResetTime, statusMessage))
+            {
+                toTouch.Add(new HistoryTouchParams(last.Id, fetchedAt));
+            }
+            else
+            {
+                toInsert.Add(new HistoryInsertParams(
+                    u.ProviderId!,
+                    u.RequestsUsed,
+                    u.RequestsAvailable,
+                    u.UsedPercent,
+                    u.IsAvailable ? 1 : 0,
+                    statusMessage,
+                    nextResetTime,
+                    fetchedAt,
+                    u.ResponseLatencyMs,
+                    u.HttpStatus,
+                    validityInt,
+                    validityNote,
+                    u.ParentProviderId,
+                    u.CardId,
+                    u.GroupId,
+                    (int)u.WindowKind,
+                    u.ModelName,
+                    u.Name));
+            }
+        }
     }
 
     private static async Task<Dictionary<string, LastHistoryRow>> LoadLastHistoryRowsAsync(

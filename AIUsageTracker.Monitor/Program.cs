@@ -98,67 +98,20 @@ public partial class Program
 
             if (!createdNew)
             {
-                var existingStatus = await monitorLauncher.GetAgentStatusInfoAsync().ConfigureAwait(false);
-                if (existingStatus.IsRunning)
+                var mutexAcquired = await TryAcquireStartupMutexAsync(monitorLauncher, startupMutex, logger).ConfigureAwait(false);
+                if (!mutexAcquired)
                 {
-                    logger.LogWarning(
-                        "Monitor is already running on port {Port}. Skipping duplicate startup request.",
-                        existingStatus.Port);
                     return;
                 }
 
-                logger.LogWarning("Startup lock already held and no healthy monitor detected, waiting up to 10 seconds.");
-                try
-                {
-                    if (!startupMutex.WaitOne(TimeSpan.FromSeconds(10)))
-                    {
-                        var statusAfterWait = await monitorLauncher.GetAgentStatusInfoAsync().ConfigureAwait(false);
-                        if (statusAfterWait.IsRunning)
-                        {
-                            logger.LogWarning(
-                                "Monitor became healthy on port {Port} while waiting. Skipping duplicate startup request.",
-                                statusAfterWait.Port);
-                            return;
-                        }
-
-                        logger.LogError(
-                            "Timeout waiting for monitor startup lock and no healthy monitor detected. Aborting duplicate startup.");
-                        return;
-                    }
-
-                    holdsStartupMutex = true;
-                }
-                catch (AbandonedMutexException ex)
-                {
-                    holdsStartupMutex = true;
-                    logger.LogWarning(ex, "Other Monitor instance exited unexpectedly. Proceeding.");
-                }
+                holdsStartupMutex = true;
             }
 
             MonitorInfoPersistence.SaveMonitorInfo(0, isDebugMode, logger, pathProvider, startupStatus: "starting");
 
             if (isDebugMode)
             {
-                // Allocate a console window for debugging
-                if (OperatingSystem.IsWindows())
-                {
-                    AllocConsole();
-                }
-
-#pragma warning disable CA2254 // Template strings are intentionally varied for debug banner output
-                logger.LogInformation(string.Empty);
-                logger.LogInformation(DebugBannerSeparator);
-#pragma warning restore CA2254
-                logger.LogInformation("  AIUsageTracker.Monitor - DEBUG MODE");
-                logger.LogInformation(DebugBannerSeparator);
-                logger.LogInformation("  Version: {Version} | PID: {ProcessId} | Started: {StartedAt}", monitorVersion, Environment.ProcessId, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture));
-                logger.LogInformation("  OS: {Os} | Runtime: {Runtime}", Environment.OSVersion, Environment.Version);
-                logger.LogInformation("  Working Dir: {WorkingDir}", Directory.GetCurrentDirectory());
-                logger.LogInformation("  Command Line: {CommandLine}", Environment.CommandLine);
-#pragma warning disable CA2254
-                logger.LogInformation(DebugBannerSeparator);
-                logger.LogInformation(string.Empty);
-#pragma warning restore CA2254
+                LogDebugStartupBanner(logger, monitorVersion);
             }
 
             // Reserve the canonical monitor port with retry for transient bind races.
@@ -195,74 +148,7 @@ public partial class Program
             builder.Services.ConfigureHttpJsonOptions(options =>
                 MonitorJsonSerializer.Configure(options.SerializerOptions));
 
-            if (isDebugMode)
-            {
-                logger.LogDebug("Registering services...");
-            }
-
-            builder.Services.AddSingleton(loggerFactory);
-            builder.Services.AddSingleton(pathProvider);
-            builder.Services.AddSingleton(typeof(ILogger<>), typeof(Logger<>));
-            builder.Services.AddSingleton<UsageDatabase>();
-            builder.Services.AddSingleton<IUsageDatabase>(sp => sp.GetRequiredService<UsageDatabase>());
-            builder.Services.AddSingleton<CachedGroupedUsageProjectionService>();
-            if (OperatingSystem.IsWindows())
-            {
-                builder.Services.AddSingleton<INotificationService, WindowsNotificationService>();
-            }
-            else
-            {
-                builder.Services.AddSingleton<INotificationService, NoOpNotificationService>();
-            }
-
-            builder.Services.AddSingleton<IConfigService, ConfigService>();
-            builder.Services.AddSingleton<IGitHubAuthService, GitHubAuthService>();
-            builder.Services.AddSingleton<IProviderDiscoveryService, ProviderDiscoveryService>();
-            builder.Services.AddProvidersFromAssembly();
-            builder.Services.AddSingleton<UsageAlertsService>();
-            builder.Services.AddSingleton<ProviderRefreshCircuitBreakerService>();
-            builder.Services.AddSingleton<IProviderUsageProcessingPipeline, ProviderUsageProcessingPipeline>();
-            builder.Services.AddSingleton<MonitorJobScheduler>();
-            builder.Services.AddSingleton<IMonitorJobScheduler>(sp => sp.GetRequiredService<MonitorJobScheduler>());
-            builder.Services.AddHostedService(sp => sp.GetRequiredService<MonitorJobScheduler>());
-            builder.Services.AddSingleton<ProviderRefreshConfigLoadingService>();
-            builder.Services.AddSingleton<ProviderUsagePersistenceService>();
-            builder.Services.AddSingleton<ProviderConnectivityCheckService>();
-            builder.Services.AddSingleton<ProviderRefreshJobScheduler>();
-            builder.Services.AddSingleton<ProviderManagerLifecycleService>();
-            builder.Services.AddSingleton<ProviderRefreshNotificationService>();
-            builder.Services.AddSingleton<StartupSequenceService>();
-            builder.Services.AddSingleton<ProviderRefreshService>();
-            builder.Services.AddHostedService(sp => sp.GetRequiredService<ProviderRefreshService>());
-
-            if (OperatingSystem.IsWindows())
-            {
-                builder.Services.AddSingleton<PowerStateListener>(sp =>
-                    new PowerStateListener(
-                        sp.GetRequiredService<ILogger<PowerStateListener>>(),
-                        sp.GetRequiredService<MonitorJobScheduler>(),
-                        sp.GetRequiredService<IAppPathProvider>(),
-                        onSuspend: () =>
-                        {
-                            sp.GetRequiredService<MonitorJobScheduler>().Pause();
-                            sp.GetRequiredService<ProviderRefreshService>().CancelActiveRefresh();
-                        },
-                        onResume: () =>
-                        {
-                            var scheduler = sp.GetRequiredService<MonitorJobScheduler>();
-                            scheduler.Resume();
-                            sp.GetRequiredService<ProviderRefreshService>().QueueManualRefresh(forceAll: true);
-                        }));
-                builder.Services.AddHostedService(sp => sp.GetRequiredService<PowerStateListener>());
-            }
-
-            // Configure HTTP clients
-            builder.Services.AddHttpClient();
-            builder.Services.AddConfiguredHttpClients();
-
-            // Register plain HttpClient for providers that need it (e.g., ClaudeCodeProvider, KimiProvider).
-            // Uses "PlainClient" — no Polly retry-on-429 policy, so providers control their own retry behavior.
-            builder.Services.AddSingleton(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("PlainClient"));
+            RegisterServices(builder, loggerFactory, pathProvider, logger, isDebugMode);
 
             var app = builder.Build();
 
@@ -299,20 +185,7 @@ public partial class Program
 
             if (isDebugMode)
             {
-#pragma warning disable CA2254 // Template strings are intentionally varied for debug banner output
-                logger.LogInformation(string.Empty);
-                logger.LogInformation(DebugBannerSeparator);
-                logger.LogInformation("  Agent ready! Listening on http://localhost:{Port}", port);
-                logger.LogInformation(DebugBannerSeparator);
-                logger.LogInformation(string.Empty);
-                logger.LogInformation("  API Endpoints:");
-                logger.LogInformation("    GET  http://localhost:{Port1}{Health} | GET  http://localhost:{Port2}{Usage} | GET  http://localhost:{Port3}{Config}", port, MonitorApiRoutes.Health, port, MonitorApiRoutes.Usage, port, MonitorApiRoutes.Config);
-                logger.LogInformation("    POST http://localhost:{Port}{Refresh}", port, MonitorApiRoutes.Refresh);
-                logger.LogInformation(string.Empty);
-                logger.LogInformation("  Press Ctrl+C to stop");
-                logger.LogInformation(DebugBannerSeparator);
-                logger.LogInformation(string.Empty);
-#pragma warning restore CA2254
+                LogDebugReadyBanner(logger, port);
             }
 
             // Update metadata only after successful bind/start.
@@ -340,6 +213,154 @@ public partial class Program
                 }
             }
         }
+    }
+
+    private static async Task<bool> TryAcquireStartupMutexAsync(MonitorLauncher monitorLauncher, Mutex startupMutex, ILogger logger)
+    {
+        var existingStatus = await monitorLauncher.GetAgentStatusInfoAsync().ConfigureAwait(false);
+        if (existingStatus.IsRunning)
+        {
+            logger.LogWarning(
+                "Monitor is already running on port {Port}. Skipping duplicate startup request.",
+                existingStatus.Port);
+            return false;
+        }
+
+        logger.LogWarning("Startup lock already held and no healthy monitor detected, waiting up to 10 seconds.");
+        try
+        {
+            if (!startupMutex.WaitOne(TimeSpan.FromSeconds(10)))
+            {
+                var statusAfterWait = await monitorLauncher.GetAgentStatusInfoAsync().ConfigureAwait(false);
+                if (statusAfterWait.IsRunning)
+                {
+                    logger.LogWarning(
+                        "Monitor became healthy on port {Port} while waiting. Skipping duplicate startup request.",
+                        statusAfterWait.Port);
+                    return false;
+                }
+
+                logger.LogError(
+                    "Timeout waiting for monitor startup lock and no healthy monitor detected. Aborting duplicate startup.");
+                return false;
+            }
+
+            return true;
+        }
+        catch (AbandonedMutexException ex)
+        {
+            logger.LogWarning(ex, "Other Monitor instance exited unexpectedly. Proceeding.");
+            return true;
+        }
+    }
+
+    private static void LogDebugStartupBanner(ILogger logger, string monitorVersion)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            AllocConsole();
+        }
+
+#pragma warning disable CA2254
+        logger.LogInformation(string.Empty);
+        logger.LogInformation(DebugBannerSeparator);
+#pragma warning restore CA2254
+        logger.LogInformation("  AIUsageTracker.Monitor - DEBUG MODE");
+        logger.LogInformation(DebugBannerSeparator);
+        logger.LogInformation("  Version: {Version} | PID: {ProcessId} | Started: {StartedAt}", monitorVersion, Environment.ProcessId, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture));
+        logger.LogInformation("  OS: {Os} | Runtime: {Runtime}", Environment.OSVersion, Environment.Version);
+        logger.LogInformation("  Working Dir: {WorkingDir}", Directory.GetCurrentDirectory());
+        logger.LogInformation("  Command Line: {CommandLine}", Environment.CommandLine);
+#pragma warning disable CA2254
+        logger.LogInformation(DebugBannerSeparator);
+        logger.LogInformation(string.Empty);
+#pragma warning restore CA2254
+    }
+
+    private static void LogDebugReadyBanner(ILogger logger, int port)
+    {
+#pragma warning disable CA2254
+        logger.LogInformation(string.Empty);
+        logger.LogInformation(DebugBannerSeparator);
+        logger.LogInformation("  Agent ready! Listening on http://localhost:{Port}", port);
+        logger.LogInformation(DebugBannerSeparator);
+        logger.LogInformation(string.Empty);
+        logger.LogInformation("  API Endpoints:");
+        logger.LogInformation("    GET  http://localhost:{Port1}{Health} | GET  http://localhost:{Port2}{Usage} | GET  http://localhost:{Port3}{Config}", port, MonitorApiRoutes.Health, port, MonitorApiRoutes.Usage, port, MonitorApiRoutes.Config);
+        logger.LogInformation("    POST http://localhost:{Port}{Refresh}", port, MonitorApiRoutes.Refresh);
+        logger.LogInformation(string.Empty);
+        logger.LogInformation("  Press Ctrl+C to stop");
+        logger.LogInformation(DebugBannerSeparator);
+        logger.LogInformation(string.Empty);
+#pragma warning restore CA2254
+    }
+
+    private static void RegisterServices(WebApplicationBuilder builder, ILoggerFactory loggerFactory, IAppPathProvider pathProvider, ILogger logger, bool isDebugMode)
+    {
+        if (isDebugMode)
+        {
+            logger.LogDebug("Registering services...");
+        }
+
+        builder.Services.AddSingleton(loggerFactory);
+        builder.Services.AddSingleton(pathProvider);
+        builder.Services.AddSingleton(typeof(ILogger<>), typeof(Logger<>));
+        builder.Services.AddSingleton<UsageDatabase>();
+        builder.Services.AddSingleton<IUsageDatabase>(sp => sp.GetRequiredService<UsageDatabase>());
+        builder.Services.AddSingleton<CachedGroupedUsageProjectionService>();
+        if (OperatingSystem.IsWindows())
+        {
+            builder.Services.AddSingleton<INotificationService, WindowsNotificationService>();
+        }
+        else
+        {
+            builder.Services.AddSingleton<INotificationService, NoOpNotificationService>();
+        }
+
+        builder.Services.AddSingleton<IConfigService, ConfigService>();
+        builder.Services.AddSingleton<IGitHubAuthService, GitHubAuthService>();
+        builder.Services.AddSingleton<IProviderDiscoveryService, ProviderDiscoveryService>();
+        builder.Services.AddProvidersFromAssembly();
+        builder.Services.AddSingleton<UsageAlertsService>();
+        builder.Services.AddSingleton<ProviderRefreshCircuitBreakerService>();
+        builder.Services.AddSingleton<IProviderUsageProcessingPipeline, ProviderUsageProcessingPipeline>();
+        builder.Services.AddSingleton<MonitorJobScheduler>();
+        builder.Services.AddSingleton<IMonitorJobScheduler>(sp => sp.GetRequiredService<MonitorJobScheduler>());
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<MonitorJobScheduler>());
+        builder.Services.AddSingleton<ProviderRefreshConfigLoadingService>();
+        builder.Services.AddSingleton<ProviderUsagePersistenceService>();
+        builder.Services.AddSingleton<ProviderConnectivityCheckService>();
+        builder.Services.AddSingleton<ProviderRefreshJobScheduler>();
+        builder.Services.AddSingleton<ProviderManagerLifecycleService>();
+        builder.Services.AddSingleton<ProviderRefreshNotificationService>();
+        builder.Services.AddSingleton<StartupSequenceService>();
+        builder.Services.AddSingleton<ProviderRefreshService>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<ProviderRefreshService>());
+
+        if (OperatingSystem.IsWindows())
+        {
+            builder.Services.AddSingleton<PowerStateListener>(sp =>
+                new PowerStateListener(
+                    sp.GetRequiredService<ILogger<PowerStateListener>>(),
+                    sp.GetRequiredService<MonitorJobScheduler>(),
+                    sp.GetRequiredService<IAppPathProvider>(),
+                    onSuspend: () =>
+                    {
+                        sp.GetRequiredService<MonitorJobScheduler>().Pause();
+                        sp.GetRequiredService<ProviderRefreshService>().CancelActiveRefresh();
+                    },
+                    onResume: () =>
+                    {
+                        var scheduler = sp.GetRequiredService<MonitorJobScheduler>();
+                        scheduler.Resume();
+                        sp.GetRequiredService<ProviderRefreshService>().QueueManualRefresh(forceAll: true);
+                    }));
+            builder.Services.AddHostedService(sp => sp.GetRequiredService<PowerStateListener>());
+        }
+
+        builder.Services.AddHttpClient();
+        builder.Services.AddConfiguredHttpClients();
+        builder.Services.AddSingleton(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("PlainClient"));
     }
 
     // P/Invoke to allocate console window
