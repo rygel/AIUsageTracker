@@ -44,11 +44,11 @@ internal static partial class MainWindowRuntimeLogic
         }
         else if (elapsed.TotalHours < 1)
         {
-            ago = $"{(int)elapsed.TotalMinutes}m ago";
+            ago = $"{((int)elapsed.TotalMinutes).ToString(CultureInfo.InvariantCulture)}m ago";
         }
         else
         {
-            ago = $"{(int)elapsed.TotalHours}h ago";
+            ago = $"{((int)elapsed.TotalHours).ToString(CultureInfo.InvariantCulture)}h ago";
         }
 
         return $"Monitor offline — last sync {ago}";

@@ -102,7 +102,7 @@ public class DeepSeekProvider : ProviderBase
                 };
             }
 
-            if (result.BalanceInfos == null || !result.BalanceInfos.Any())
+            if (result.BalanceInfos == null || result.BalanceInfos.Count == 0)
             {
                 return new[]
                 {

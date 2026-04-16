@@ -91,12 +91,9 @@ public class ProviderRefreshConfigLoadingServiceTests
 
     private ProviderRefreshConfigLoadingService CreateService()
     {
-        var selector = new ProviderRefreshConfigSelector();
-
         return new ProviderRefreshConfigLoadingService(
             this._configService.Object,
             this._database.Object,
-            selector,
             NullLogger<ProviderRefreshConfigLoadingService>.Instance);
     }
 }

@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Globalization;
 using AIUsageTracker.Core.Interfaces;
 using Microsoft.Extensions.Logging;
 
@@ -19,8 +20,8 @@ public class WindowsNotificationService : INotificationService
 
     public event EventHandler<NotificationClickedEventArgs>? OnNotificationClicked
     {
-        add { } // Intentionally ignored - notification failure is non-critical
-        remove { } // Intentionally ignored - notification failure is non-critical
+        add { _ = value; }
+        remove { _ = value; }
     }
 
     public void Initialize()
@@ -58,8 +59,8 @@ public class WindowsNotificationService : INotificationService
             _ => "Info",
         };
         var message = usagePercentage >= 100
-            ? $"Quota exceeded at {usagePercentage:F1}%."
-            : $"Usage is {usagePercentage:F1}%";
+            ? $"Quota exceeded at {usagePercentage.ToString("F1", CultureInfo.InvariantCulture)}%."
+            : $"Usage is {usagePercentage.ToString("F1", CultureInfo.InvariantCulture)}%";
 
         this.ShowNotification($"{providerName} - {level}", message, "showProvider", providerName);
     }

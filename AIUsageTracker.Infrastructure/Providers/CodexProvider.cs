@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
@@ -152,7 +153,7 @@ public class CodexProvider : ProviderBase
                 return new[]
                 {
                     this.CreateUnavailableUsageWithIdentity(
-                        $"HTTP {(int)response.StatusCode}: {response.ReasonPhrase}",
+                        $"HTTP {((int)response.StatusCode).ToString(CultureInfo.InvariantCulture)}: {response.ReasonPhrase}",
                         knownAccountIdentity),
                 };
             }
@@ -476,7 +477,7 @@ public class CodexProvider : ProviderBase
             IsQuotaBased = this.Definition.IsQuotaBased,
             PlanType = this.Definition.PlanType,
             IsAvailable = true,
-            Description = $"{Math.Clamp(100.0 - primaryUsedPercent, 0.0, 100.0):F0}% remaining | Plan: {planType}",
+            Description = $"{Math.Clamp(100.0 - primaryUsedPercent, 0.0, 100.0).ToString("F0", CultureInfo.InvariantCulture)}% remaining | Plan: {planType}",
             AccountName = accountIdentity ?? string.Empty,
             AuthSource = AuthSource.CodexNative(planType),
             NextResetTime = burstResetTime,
@@ -493,8 +494,8 @@ public class CodexProvider : ProviderBase
             var weeklyResetTime = ResolveResetTimeFromSeconds(secondaryResetSeconds);
             var weeklyRemaining = Math.Clamp(100.0 - secondaryUsedPercent.Value, 0.0, 100.0);
             var weeklyDesc = sparkWindow.HasWindowData && effectiveSparkPercent.HasValue
-                ? $"{weeklyRemaining:F0}% remaining | Plan: {planType} | Spark: {effectiveSparkPercent.Value:F0}% used"
-                : $"{weeklyRemaining:F0}% remaining | Plan: {planType}";
+                ? $"{weeklyRemaining.ToString("F0", CultureInfo.InvariantCulture)}% remaining | Plan: {planType} | Spark: {effectiveSparkPercent.Value.ToString("F0", CultureInfo.InvariantCulture)}% used"
+                : $"{weeklyRemaining.ToString("F0", CultureInfo.InvariantCulture)}% remaining | Plan: {planType}";
             usages.Add(new ProviderUsage
             {
                 ProviderId = this.ProviderId,
@@ -541,7 +542,7 @@ public class CodexProvider : ProviderBase
                 IsQuotaBased = this.Definition.IsQuotaBased,
                 PlanType = this.Definition.PlanType,
                 IsAvailable = true,
-                Description = $"{Math.Clamp(100.0 - sparkBurstUsed, 0.0, 100.0):F0}% remaining | Plan: {planType}",
+                Description = $"{Math.Clamp(100.0 - sparkBurstUsed, 0.0, 100.0).ToString("F0", CultureInfo.InvariantCulture)}% remaining | Plan: {planType}",
                 AccountName = accountIdentity ?? string.Empty,
                 AuthSource = AuthSource.CodexNative(planType),
                 NextResetTime = sparkBurstResetTime,
@@ -567,7 +568,7 @@ public class CodexProvider : ProviderBase
                 IsQuotaBased = this.Definition.IsQuotaBased,
                 PlanType = this.Definition.PlanType,
                 IsAvailable = true,
-                Description = $"{Math.Clamp(100.0 - sparkWeeklyUsed, 0.0, 100.0):F0}% remaining | Plan: {planType}",
+                Description = $"{Math.Clamp(100.0 - sparkWeeklyUsed, 0.0, 100.0).ToString("F0", CultureInfo.InvariantCulture)}% remaining | Plan: {planType}",
                 AccountName = accountIdentity ?? string.Empty,
                 AuthSource = AuthSource.CodexNative(planType),
                 NextResetTime = sparkWeeklyResetTime,

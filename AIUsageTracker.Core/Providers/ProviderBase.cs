@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
@@ -43,7 +44,7 @@ public abstract class ProviderBase : IProviderService
             return string.Empty;
         }
 
-        return $"Resets in {(int)resetAfterSeconds.Value}s";
+        return $"Resets in {((int)resetAfterSeconds.Value).ToString(CultureInfo.InvariantCulture)}s";
     }
 
     protected static DateTime? ResolveResetTimeFromSeconds(double? resetAfterSeconds)
@@ -135,12 +136,12 @@ public abstract class ProviderBase : IProviderService
 
         var description = ex.ErrorType switch
         {
-            ProviderErrorType.AuthenticationError => $"Authentication failed ({ex.HttpStatusCode})",
-            ProviderErrorType.AuthorizationError => $"Access denied ({ex.HttpStatusCode})",
+            ProviderErrorType.AuthenticationError => $"Authentication failed ({((int)ex.HttpStatusCode).ToString(CultureInfo.InvariantCulture)})",
+            ProviderErrorType.AuthorizationError => $"Access denied ({((int)ex.HttpStatusCode).ToString(CultureInfo.InvariantCulture)})",
             ProviderErrorType.NetworkError => "Connection failed - check network",
             ProviderErrorType.TimeoutError => "Request timed out",
             ProviderErrorType.RateLimitError => "Rate limit exceeded - please wait before retrying",
-            ProviderErrorType.ServerError => $"Server error ({ex.HttpStatusCode})",
+            ProviderErrorType.ServerError => $"Server error ({((int)ex.HttpStatusCode).ToString(CultureInfo.InvariantCulture)})",
             ProviderErrorType.ConfigurationError => "Configuration error",
             ProviderErrorType.DeserializationError => "Failed to parse response",
             ProviderErrorType.InvalidResponseError => "Invalid response from provider",
@@ -155,10 +156,10 @@ public abstract class ProviderBase : IProviderService
         var statusCodeValue = (int)statusCode;
         return statusCode switch
         {
-            HttpStatusCode.Unauthorized => $"Authentication failed ({statusCodeValue})",
-            HttpStatusCode.Forbidden => $"Access denied ({statusCodeValue})",
-            _ when statusCodeValue >= 500 => $"Server error ({statusCodeValue})",
-            _ => $"Request failed ({statusCodeValue})",
+            HttpStatusCode.Unauthorized => $"Authentication failed ({statusCodeValue.ToString(CultureInfo.InvariantCulture)})",
+            HttpStatusCode.Forbidden => $"Access denied ({statusCodeValue.ToString(CultureInfo.InvariantCulture)})",
+            _ when statusCodeValue >= 500 => $"Server error ({statusCodeValue.ToString(CultureInfo.InvariantCulture)})",
+            _ => $"Request failed ({statusCodeValue.ToString(CultureInfo.InvariantCulture)})",
         };
     }
 

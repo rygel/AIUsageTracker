@@ -10,6 +10,7 @@ namespace AIUsageTracker.Infrastructure.Configuration;
 internal static class JsonConfigFileStore
 {
     private static readonly JsonSerializerOptions IndentedOptions = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions CaseInsensitiveOptions = new() { PropertyNameCaseInsensitive = true };
 
     public static async Task<Dictionary<string, JsonElement>?> ReadJsonElementMapAsync(
         string path,
@@ -25,7 +26,7 @@ internal static class JsonConfigFileStore
             var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
             return JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
                 json,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                CaseInsensitiveOptions);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {

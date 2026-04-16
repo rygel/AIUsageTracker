@@ -201,7 +201,7 @@ public static class UsageMath
         }
 
         var lastKnown = resetTimes.Max();
-        var bestFuture = resetTimes.Where(t => t > nowUtc).Select(t => (DateTime?)t).Min();
+        var bestFuture = resetTimes.Where(t => t > nowUtc).Cast<DateTime?>().Min();
 
         return bestFuture ?? lastKnown;
     }
@@ -321,16 +321,16 @@ public static class UsageMath
 
         if (local.Date == DateTime.Today.AddDays(1))
         {
-            return $"Tomorrow {local:HH:mm}";
+            return $"Tomorrow {local.ToString("HH:mm", CultureInfo.InvariantCulture)}";
         }
 
-        return diff.TotalDays < 7 ? $"{local:dddd HH:mm}" : $"{local:MMM d HH:mm}";
+        return diff.TotalDays < 7 ? $"{local.ToString("dddd HH:mm", CultureInfo.InvariantCulture)}" : $"{local.ToString("MMM d HH:mm", CultureInfo.InvariantCulture)}";
     }
 
     public static string FormatAbsoluteDate(DateTime nextReset)
     {
         var local = AsUtc(nextReset).ToLocalTime();
-        return $"{local:MMM d, HH:mm}";
+        return $"{local.ToString("MMM d, HH:mm", CultureInfo.InvariantCulture)}";
     }
 
     public static string FormatRelativeTime(DateTime nextReset)
@@ -344,10 +344,10 @@ public static class UsageMath
 
         if (diff.TotalDays >= 1)
         {
-            return $"{diff.Days}d {diff.Hours}h";
+            return $"{diff.Days.ToString(CultureInfo.InvariantCulture)}d {diff.Hours.ToString(CultureInfo.InvariantCulture)}h";
         }
 
-        return diff.TotalHours >= 1 ? $"{diff.Hours}h {diff.Minutes}m" : $"{diff.Minutes}m";
+        return diff.TotalHours >= 1 ? $"{diff.Hours.ToString(CultureInfo.InvariantCulture)}h {diff.Minutes.ToString(CultureInfo.InvariantCulture)}m" : $"{diff.Minutes.ToString(CultureInfo.InvariantCulture)}m";
     }
 
     /// <summary>
@@ -377,7 +377,7 @@ public static class UsageMath
 
         // Check for no consumption trend - all samples have same usage (before any trimming or validation)
         var firstUsage = samples[0].RequestsUsed;
-        var allSame = samples.All(x => Math.Abs(x.RequestsUsed - firstUsage) < 0.001);
+        var allSame = samples.TrueForAll(x => Math.Abs(x.RequestsUsed - firstUsage) < 0.001);
         if (allSame)
         {
             return BurnRateForecast.Unavailable("No consumption trend");
@@ -602,7 +602,7 @@ public static class UsageMath
         }
 
         // Check for no consumption trend - all samples have same usage
-        var hasNoTrend = cycleSamples.All(x => Math.Abs(x.RequestsUsed - cycleSamples[0].RequestsUsed) < 0.001);
+        var hasNoTrend = cycleSamples.TrueForAll(x => Math.Abs(x.RequestsUsed - cycleSamples[0].RequestsUsed) < 0.001);
         if (hasNoTrend)
         {
             return BurnRateForecast.Unavailable("No consumption trend");

@@ -81,7 +81,7 @@ public static class MonitorApiContractEvaluator
         if (monitorContract.Major != clientContract.Major)
         {
             incompatibilityReason =
-                $"Agent API contract major mismatch: expected major {clientContract.Major}, got {monitorContract.Major}.";
+                $"Agent API contract major mismatch: expected major {clientContract.Major.ToString(CultureInfo.InvariantCulture)}, got {monitorContract.Major.ToString(CultureInfo.InvariantCulture)}.";
             return false;
         }
 

@@ -133,8 +133,8 @@ public class MonitorService : IMonitorService
                 var info = metadata.Info;
                 if (info.Port > 0)
                 {
-                    this.AgentUrl = $"http://localhost:{info.Port}";
-                    LogDiagnostic($"Found Monitor running on port {info.Port} from monitor.json");
+                    this.AgentUrl = $"http://localhost:{info.Port.ToString(CultureInfo.InvariantCulture)}";
+                    LogDiagnostic($"Found Monitor running on port {info.Port.ToString(CultureInfo.InvariantCulture)} from monitor.json");
                 }
 
                 this.LastAgentErrors = info.Errors ?? new List<string>();
@@ -170,7 +170,7 @@ public class MonitorService : IMonitorService
             return;
         }
 
-        this.AgentUrl = $"http://localhost:{status.Port}";
+        this.AgentUrl = $"http://localhost:{status.Port.ToString(CultureInfo.InvariantCulture)}";
         MonitorService.LogDiagnostic($"Using Monitor endpoint {this.AgentUrl}.");
         activity?.SetTag("monitor.agent_url.after", this.AgentUrl);
         activity?.SetStatus(ActivityStatusCode.Ok);
@@ -429,7 +429,7 @@ public class MonitorService : IMonitorService
             return new MonitorActionResult
             {
                 Success = false,
-                Message = $"Monitor returned {(int)response.StatusCode} ({response.ReasonPhrase}).",
+                Message = $"Monitor returned {((int)response.StatusCode).ToString(CultureInfo.InvariantCulture)} ({response.ReasonPhrase}).",
             };
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
@@ -565,7 +565,7 @@ public class MonitorService : IMonitorService
                 {
                     IsReachable = false,
                     IsCompatible = false,
-                    Message = $"Agent health check failed ({(int)response.StatusCode}).",
+                    Message = $"Agent health check failed ({((int)response.StatusCode).ToString(CultureInfo.InvariantCulture)}).",
                 };
             }
 
@@ -737,7 +737,7 @@ public class MonitorService : IMonitorService
         };
     }
 
-    private static IReadOnlyList<string> GetActionableMetadataErrors(IReadOnlyList<string>? errors)
+    private static List<string> GetActionableMetadataErrors(IReadOnlyList<string>? errors)
     {
         if (errors == null || errors.Count == 0)
         {
@@ -927,7 +927,7 @@ public class MonitorService : IMonitorService
 
         if (!response.IsSuccessStatusCode)
         {
-            return $"HTTP {(int)response.StatusCode}: {body}";
+            return $"HTTP {((int)response.StatusCode).ToString(CultureInfo.InvariantCulture)}: {body}";
         }
 
         return body;

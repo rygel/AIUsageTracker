@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Globalization;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -169,7 +170,7 @@ public class MinimaxProvider : ProviderBase
                     RequestsAvailable = total,
                     PlanType = this.Definition.PlanType,
                     IsQuotaBased = this.Definition.IsQuotaBased,
-                    Description = $"{used:N0} tokens used" + (total > 0 ? $" / {total:N0} limit" : string.Empty),
+                    Description = $"{used.ToString("N0", CultureInfo.InvariantCulture)} tokens used" + (total > 0 ? $" / {total.ToString("N0", CultureInfo.InvariantCulture)} limit" : string.Empty),
                     RawJson = responseString,
                     HttpStatus = httpStatus,
                 },
@@ -292,7 +293,7 @@ public class MinimaxProvider : ProviderBase
         for (var i = 0; i < modelRemains.Count; i++)
         {
             var model = modelRemains[i];
-            var modelName = model.ModelName ?? $"Model {i + 1}";
+            var modelName = model.ModelName ?? $"Model {(i + 1).ToString(CultureInfo.InvariantCulture)}";
             var modelSlug = modelName.ToLowerInvariant().Replace(" ", "-", StringComparison.Ordinal);
 
             // 5h burst window — note: current_interval_usage_count is REMAINING, not used
@@ -319,7 +320,7 @@ public class MinimaxProvider : ProviderBase
                     IsQuotaBased = true,
                     PlanType = PlanType.Coding,
                     IsAvailable = true,
-                    Description = $"{Math.Clamp(100.0 - usedPct, 0, 100):F0}% remaining ({modelName})",
+                    Description = $"{Math.Clamp(100.0 - usedPct, 0, 100).ToString("F0", CultureInfo.InvariantCulture)}% remaining ({modelName})",
                     NextResetTime = resetTime,
                     PeriodDuration = TimeSpan.FromHours(5),
                     RawJson = rawJson,
@@ -351,7 +352,7 @@ public class MinimaxProvider : ProviderBase
                     IsQuotaBased = true,
                     PlanType = PlanType.Coding,
                     IsAvailable = true,
-                    Description = $"{Math.Clamp(100.0 - usedPct, 0, 100):F0}% remaining ({modelName})",
+                    Description = $"{Math.Clamp(100.0 - usedPct, 0, 100).ToString("F0", CultureInfo.InvariantCulture)}% remaining ({modelName})",
                     NextResetTime = resetTime,
                     PeriodDuration = TimeSpan.FromDays(7),
                     RawJson = rawJson,

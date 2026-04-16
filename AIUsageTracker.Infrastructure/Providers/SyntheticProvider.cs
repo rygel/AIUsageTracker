@@ -387,6 +387,6 @@ public sealed class SyntheticProvider : ProviderBase
 
         var localTime = parsed.ToUniversalTime().ToLocalTime();
         nextResetTime = localTime;
-        return $" (Resets: {localTime:MMM dd HH:mm})";
+        return $" (Resets: {localTime.ToString("MMM dd HH:mm", CultureInfo.InvariantCulture)})";
     }
 }

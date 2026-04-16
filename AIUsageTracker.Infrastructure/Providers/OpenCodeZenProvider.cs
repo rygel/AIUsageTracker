@@ -383,7 +383,7 @@ public class OpenCodeZenProvider : ProviderBase
                 var costStr = m.Cost > 0
                     ? string.Create(CultureInfo.InvariantCulture, $" ${m.Cost:F2}")
                     : string.Empty;
-                return $"{m.Name} ({m.Messages}msgs{costStr})";
+                return $"{m.Name} ({m.Messages.ToString(CultureInfo.InvariantCulture)}msgs{costStr})";
             });
             parts.Add("Models: " + string.Join(", ", modelSummaries));
         }
@@ -440,7 +440,7 @@ public class OpenCodeZenProvider : ProviderBase
         // Strategy 1: Check if opencode is in PATH
         if (await this.IsInPathAsync(DefaultCliCommand).ConfigureAwait(false))
         {
-            var resolved = await this.ResolvePathLocationAsync(DefaultCliCommand).ConfigureAwait(false);
+            var resolved = await ResolvePathLocationAsync(DefaultCliCommand).ConfigureAwait(false);
             if (resolved != null)
             {
                 this._logger.LogDebug("Found opencode via PATH: {Path}", resolved);
@@ -512,13 +512,13 @@ public class OpenCodeZenProvider : ProviderBase
                 this._logger.LogDebug(ex, "Failed to kill timed-out OpenCode CLI process");
             }
 
-            throw new TimeoutException($"OpenCode CLI timed out after {this._cliTimeout.TotalSeconds:F0}s");
+            throw new TimeoutException($"OpenCode CLI timed out after {this._cliTimeout.TotalSeconds.ToString("F0", CultureInfo.InvariantCulture)}s");
         }
 
         var standardError = await standardErrorTask.ConfigureAwait(false);
         if (process.ExitCode != 0)
         {
-            throw new InvalidOperationException($"CLI Error: {process.ExitCode} - {standardError}");
+            throw new InvalidOperationException($"CLI Error: {process.ExitCode.ToString(CultureInfo.InvariantCulture)} - {standardError}");
         }
 
         return await standardOutputTask.ConfigureAwait(false);
@@ -650,7 +650,7 @@ public class OpenCodeZenProvider : ProviderBase
         return null;
     }
 
-    private async Task<string?> ResolvePathLocationAsync(string command)
+    private static async Task<string?> ResolvePathLocationAsync(string command)
     {
         try
         {

@@ -3,6 +3,7 @@
 // </copyright>
 
 using System;
+using System.Globalization;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -229,7 +230,7 @@ public static class HttpRequestBuilderExtensions
                 new ProviderRateLimitException(providerId, GetRetryAfter(response)),
 
             HttpFailureClassification.Server =>
-                new ProviderServerException(providerId, statusCode, $"Server error ({statusCode})"),
+                new ProviderServerException(providerId, statusCode, $"Server error ({((int)statusCode).ToString(CultureInfo.InvariantCulture)})"),
 
             HttpFailureClassification.Client when response.StatusCode == HttpStatusCode.NotFound =>
                 new ProviderException(
@@ -241,7 +242,7 @@ public static class HttpRequestBuilderExtensions
             _ =>
                 new ProviderException(
                     providerId,
-                    $"Request failed ({statusCode})",
+                    $"Request failed ({((int)statusCode).ToString(CultureInfo.InvariantCulture)})",
                     ProviderErrorType.InvalidResponseError,
                     statusCode),
         };

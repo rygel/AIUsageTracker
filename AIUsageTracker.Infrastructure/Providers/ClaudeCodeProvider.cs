@@ -251,7 +251,7 @@ public class ClaudeCodeProvider : ProviderBase
         }
     }
 
-    private IReadOnlyList<ProviderUsage> ParseOAuthUsageResponse(OAuthUsageResponse response, string rawJson, int httpStatus)
+    private List<ProviderUsage> ParseOAuthUsageResponse(OAuthUsageResponse response, string rawJson, int httpStatus)
     {
         var results = new List<ProviderUsage>();
 
@@ -273,7 +273,7 @@ public class ClaudeCodeProvider : ProviderBase
                 IsAvailable = true,
                 RawJson = rawJson,
                 HttpStatus = httpStatus,
-                Description = $"{response.FiveHour.Utilization:F0}% used",
+                Description = $"{response.FiveHour.Utilization.ToString("F0", CultureInfo.InvariantCulture)}% used",
             });
         }
 
@@ -294,7 +294,7 @@ public class ClaudeCodeProvider : ProviderBase
                 IsAvailable = true,
                 RawJson = rawJson,
                 HttpStatus = httpStatus,
-                Description = $"{response.SevenDaySonnet.Utilization:F0}% used",
+                Description = $"{response.SevenDaySonnet.Utilization.ToString("F0", CultureInfo.InvariantCulture)}% used",
             });
         }
 
@@ -315,14 +315,14 @@ public class ClaudeCodeProvider : ProviderBase
                 IsAvailable = true,
                 RawJson = rawJson,
                 HttpStatus = httpStatus,
-                Description = $"{response.SevenDayOpus.Utilization:F0}% used",
+                Description = $"{response.SevenDayOpus.Utilization.ToString("F0", CultureInfo.InvariantCulture)}% used",
             });
         }
 
         // All-models 7-day rolling quota
         if (response.SevenDay != null)
         {
-            var desc = $"5h: {response.FiveHour?.Utilization ?? 0:F0}% | 7d: {response.SevenDay.Utilization:F0}% used";
+            var desc = $"5h: {(response.FiveHour?.Utilization ?? 0).ToString("F0", CultureInfo.InvariantCulture)}% | 7d: {response.SevenDay.Utilization.ToString("F0", CultureInfo.InvariantCulture)}% used";
             if (response.ExtraUsage?.IsEnabled == true)
             {
                 desc += " | Extra usage enabled";
@@ -407,7 +407,7 @@ public class ClaudeCodeProvider : ProviderBase
                 }
 
                 // Build description with rate limit info
-                var description = $"Tier: {rateLimitHeaders.GetTierName()} | RPM: {rateLimitHeaders.RequestsRemaining}/{rateLimitHeaders.RequestsLimit} | Tokens/min: {rateLimitHeaders.InputTokensRemaining}/{rateLimitHeaders.InputTokensLimit}";
+                var description = $"Tier: {rateLimitHeaders.GetTierName()} | RPM: {rateLimitHeaders.RequestsRemaining.ToString(CultureInfo.InvariantCulture)}/{rateLimitHeaders.RequestsLimit.ToString(CultureInfo.InvariantCulture)} | Tokens/min: {rateLimitHeaders.InputTokensRemaining.ToString(CultureInfo.InvariantCulture)}/{rateLimitHeaders.InputTokensLimit.ToString(CultureInfo.InvariantCulture)}";
 
                 return new ProviderUsage
                 {
@@ -619,7 +619,7 @@ public class ClaudeCodeProvider : ProviderBase
     /// <summary>
     /// Response model for the OAuth usage endpoint.
     /// </summary>
-    internal class OAuthUsageResponse
+    internal sealed class OAuthUsageResponse
     {
         [JsonPropertyName("five_hour")]
         public OAuthQuotaBucket? FiveHour { get; set; }
@@ -640,7 +640,7 @@ public class ClaudeCodeProvider : ProviderBase
     /// <summary>
     /// Quota bucket with utilization percentage and reset time.
     /// </summary>
-    internal class OAuthQuotaBucket
+    internal sealed class OAuthQuotaBucket
     {
         [JsonPropertyName("utilization")]
         public double Utilization { get; set; }
@@ -652,7 +652,7 @@ public class ClaudeCodeProvider : ProviderBase
     /// <summary>
     /// Model-specific quota information.
     /// </summary>
-    internal class OAuthModelQuota
+    internal sealed class OAuthModelQuota
     {
         [JsonPropertyName("utilization")]
         public double Utilization { get; set; }
@@ -661,7 +661,7 @@ public class ClaudeCodeProvider : ProviderBase
     /// <summary>
     /// Extra usage (overage) information.
     /// </summary>
-    internal class OAuthExtraUsage
+    internal sealed class OAuthExtraUsage
     {
         [JsonPropertyName("is_enabled")]
         public bool IsEnabled { get; set; }

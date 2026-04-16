@@ -327,12 +327,12 @@ public class OpenAIProvider : ProviderBase
 
         if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
         {
-            return new[] { this.CreateUnavailableUsage($"Session invalid ({(int)response.StatusCode})", (int)response.StatusCode) };
+            return new[] { this.CreateUnavailableUsage($"Session invalid ({((int)response.StatusCode).ToString(CultureInfo.InvariantCulture)})", (int)response.StatusCode) };
         }
 
         if (!response.IsSuccessStatusCode)
         {
-            return new[] { this.CreateUnavailableUsage($"Session usage request failed ({(int)response.StatusCode})", (int)response.StatusCode) };
+            return new[] { this.CreateUnavailableUsage($"Session usage request failed ({((int)response.StatusCode).ToString(CultureInfo.InvariantCulture)})", (int)response.StatusCode) };
         }
 
         using var doc = JsonDocument.Parse(content);
@@ -423,7 +423,7 @@ public class OpenAIProvider : ProviderBase
                 UsedPercent = used,
                 RequestsUsed = used,
                 RequestsAvailable = 100,
-                Description = $"{remaining:F0}% remaining ({used:F0}% used) | Plan: {planType}{creditsDesc}",
+                Description = $"{remaining.ToString("F0", CultureInfo.InvariantCulture)}% remaining ({used.ToString("F0", CultureInfo.InvariantCulture)}% used) | Plan: {planType}{creditsDesc}",
                 AuthSource = AuthSource.OpenCodeSession,
                 NextResetTime = ResolveResetTime(doc.RootElement),
                 RawJson = content,

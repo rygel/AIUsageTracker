@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Globalization;
 using System.Net.Http;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
@@ -244,7 +245,7 @@ public class GitHubCopilotProvider : ProviderBase
     {
         if (state.HasCopilotQuotaData)
         {
-            var description = $"{state.PrimaryQuotaWindowName}: {state.CostLimit - state.CostUsed:F0}/{state.CostLimit:F0} Remaining";
+            var description = $"{state.PrimaryQuotaWindowName}: {(state.CostLimit - state.CostUsed).ToString("F0", CultureInfo.InvariantCulture)}/{state.CostLimit.ToString("F0", CultureInfo.InvariantCulture)} Remaining";
             if (!string.IsNullOrEmpty(state.PlanName))
             {
                 description += $" ({state.PlanName})";
@@ -430,7 +431,7 @@ public class GitHubCopilotProvider : ProviderBase
                     selectedWindowRemaining = normalizedRemaining;
                     selectedWindowRemainingPercent = remainingPercent;
                     state.WeeklyUsedPercent = usedPercent;
-                    state.WeeklyDescription = $"{normalizedRemaining:F0} / {entitlement:F0} remaining";
+                    state.WeeklyDescription = $"{normalizedRemaining.ToString("F0", CultureInfo.InvariantCulture)} / {entitlement.ToString("F0", CultureInfo.InvariantCulture)} remaining";
                     state.WeeklyEntitlement = entitlement;
                     state.WeeklyUsed = entitlement - normalizedRemaining;
                 }
@@ -450,7 +451,7 @@ public class GitHubCopilotProvider : ProviderBase
                     }
 
                     state.BurstUsedPercent = uUsedPercent;
-                    state.BurstDescription = $"{normalizedRemaining:F0} / {uEnt:F0} remaining";
+                    state.BurstDescription = $"{normalizedRemaining.ToString("F0", CultureInfo.InvariantCulture)} / {uEnt.ToString("F0", CultureInfo.InvariantCulture)} remaining";
                     state.BurstEntitlement = uEnt;
                     state.BurstUsed = uEnt - normalizedRemaining;
                 }

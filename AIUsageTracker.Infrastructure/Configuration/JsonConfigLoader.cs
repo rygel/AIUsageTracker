@@ -14,6 +14,7 @@ namespace AIUsageTracker.Infrastructure.Configuration;
 
 public class JsonConfigLoader : IConfigLoader
 {
+    private static readonly JsonSerializerOptions CaseInsensitiveOptions = new() { PropertyNameCaseInsensitive = true };
     private const string AuthConfigFileName = "auth.json";
 
     private readonly ILogger<JsonConfigLoader> _logger;
@@ -227,11 +228,11 @@ public class JsonConfigLoader : IConfigLoader
             return;
         }
 
-        var config = this.GetOrCreateMergedConfig(mergedConfigs, providerId);
+        var config = GetOrCreateMergedConfig(mergedConfigs, providerId);
         this.ApplyFileConfig(config, entry.Value, providerId, path, isAuthFile);
     }
 
-    private ProviderConfig GetOrCreateMergedConfig(Dictionary<string, ProviderConfig> mergedConfigs, string providerId)
+    private static ProviderConfig GetOrCreateMergedConfig(Dictionary<string, ProviderConfig> mergedConfigs, string providerId)
     {
         if (!mergedConfigs.TryGetValue(providerId, out var config))
         {
@@ -301,7 +302,7 @@ public class JsonConfigLoader : IConfigLoader
         {
             return JsonSerializer.Deserialize<List<AIModelConfig>>(
                        modelsProp.GetRawText(),
-                       new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                       CaseInsensitiveOptions)
                    ?? new List<AIModelConfig>();
         }
         catch (Exception ex) when (ex is JsonException)

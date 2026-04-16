@@ -3,6 +3,7 @@
 // </copyright>
 
 using System.Diagnostics;
+using System.Globalization;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using Microsoft.Extensions.Logging;
@@ -197,7 +198,7 @@ public class ProviderManager : IDisposable
         {
             ProviderId = config.ProviderId,
             ProviderName = defaults.DisplayName,
-            Description = $"[Error] Timeout after {ProviderRequestTimeout.TotalSeconds:F0}s",
+            Description = $"[Error] Timeout after {ProviderRequestTimeout.TotalSeconds.ToString("F0", CultureInfo.InvariantCulture)}s",
             State = ProviderUsageState.Error,
             UsedPercent = 0,
             IsAvailable = false,

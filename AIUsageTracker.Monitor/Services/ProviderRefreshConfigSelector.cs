@@ -7,7 +7,7 @@ using AIUsageTracker.Infrastructure.Providers;
 
 namespace AIUsageTracker.Monitor.Services;
 
-public sealed class ProviderRefreshConfigSelector
+public static class ProviderRefreshConfigSelector
 {
     public static ProviderRefreshConfigSelection SelectActiveConfigs(
         IReadOnlyCollection<ProviderConfig> configs,

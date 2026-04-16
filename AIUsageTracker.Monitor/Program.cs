@@ -3,6 +3,7 @@
 // </copyright>
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
@@ -22,11 +23,13 @@ using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Monitor;
 
-public class Program
+public partial class Program
 {
     private const string DebugBannerSeparator = "═══════════════════════════════════════════════════════════════";
 
-    protected Program() { }
+    protected Program()
+    {
+    }
 
     public static async Task Main(string[] args)
     {
@@ -222,7 +225,6 @@ public class Program
             builder.Services.AddSingleton<MonitorJobScheduler>();
             builder.Services.AddSingleton<IMonitorJobScheduler>(sp => sp.GetRequiredService<MonitorJobScheduler>());
             builder.Services.AddHostedService(sp => sp.GetRequiredService<MonitorJobScheduler>());
-            builder.Services.AddSingleton<ProviderRefreshConfigSelector>();
             builder.Services.AddSingleton<ProviderRefreshConfigLoadingService>();
             builder.Services.AddSingleton<ProviderUsagePersistenceService>();
             builder.Services.AddSingleton<ProviderConnectivityCheckService>();
@@ -304,7 +306,7 @@ public class Program
                 logger.LogInformation(DebugBannerSeparator);
                 logger.LogInformation(string.Empty);
                 logger.LogInformation("  API Endpoints:");
-                logger.LogInformation("    GET  http://localhost:{Port}{Health} | GET  http://localhost:{Port}{Usage} | GET  http://localhost:{Port}{Config}", port, MonitorApiRoutes.Health, port, MonitorApiRoutes.Usage, port, MonitorApiRoutes.Config);
+                logger.LogInformation("    GET  http://localhost:{Port1}{Health} | GET  http://localhost:{Port2}{Usage} | GET  http://localhost:{Port3}{Config}", port, MonitorApiRoutes.Health, port, MonitorApiRoutes.Usage, port, MonitorApiRoutes.Config);
                 logger.LogInformation("    POST http://localhost:{Port}{Refresh}", port, MonitorApiRoutes.Refresh);
                 logger.LogInformation(string.Empty);
                 logger.LogInformation("  Press Ctrl+C to stop");
@@ -341,8 +343,9 @@ public class Program
     }
 
     // P/Invoke to allocate console window
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool AllocConsole();
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool AllocConsole();
 
     // Compatibility wrapper kept for tests and external callers.
     public static void SaveMonitorInfo(int port, bool debug, ILogger logger, IAppPathProvider pathProvider, string? startupStatus = null)

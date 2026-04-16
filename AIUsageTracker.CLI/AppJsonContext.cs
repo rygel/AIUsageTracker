@@ -9,6 +9,6 @@ namespace AIUsageTracker.CLI;
 
 [JsonSerializable(typeof(List<ProviderUsage>))]
 [JsonSerializable(typeof(List<ProviderConfig>))]
-internal partial class AppJsonContext : JsonSerializerContext
+internal sealed partial class AppJsonContext : JsonSerializerContext
 {
 }

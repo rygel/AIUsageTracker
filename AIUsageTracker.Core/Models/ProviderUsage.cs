@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Globalization;
 using System.Text.Json.Serialization;
 
 namespace AIUsageTracker.Core.Models;
@@ -191,10 +192,10 @@ public class ProviderUsage
         {
             if (this.HttpStatus is >= 200 and <= 299)
             {
-                return (UpstreamResponseValidity.Valid, $"HTTP {this.HttpStatus}");
+                return (UpstreamResponseValidity.Valid, $"HTTP {this.HttpStatus.ToString(CultureInfo.InvariantCulture)}");
             }
 
-            return (UpstreamResponseValidity.Invalid, $"HTTP {this.HttpStatus}");
+            return (UpstreamResponseValidity.Invalid, $"HTTP {this.HttpStatus.ToString(CultureInfo.InvariantCulture)}");
         }
 
         if (!string.IsNullOrWhiteSpace(this.RawJson))
@@ -213,8 +214,8 @@ public class ProviderUsage
     {
         return validity switch
         {
-            UpstreamResponseValidity.Valid when httpStatus is >= 100 and <= 599 => $"HTTP {httpStatus}",
-            UpstreamResponseValidity.Invalid when httpStatus is >= 100 and <= 599 => $"HTTP {httpStatus}",
+            UpstreamResponseValidity.Valid when httpStatus is >= 100 and <= 599 => $"HTTP {httpStatus.ToString(CultureInfo.InvariantCulture)}",
+            UpstreamResponseValidity.Invalid when httpStatus is >= 100 and <= 599 => $"HTTP {httpStatus.ToString(CultureInfo.InvariantCulture)}",
             UpstreamResponseValidity.NotAttempted => "Upstream call was not attempted",
             UpstreamResponseValidity.Valid => "Upstream response valid",
             UpstreamResponseValidity.Invalid => "Upstream response invalid",

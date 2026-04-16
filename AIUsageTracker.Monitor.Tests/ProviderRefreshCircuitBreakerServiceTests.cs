@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Globalization;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Monitor.Services;
 using Microsoft.Extensions.Logging;
@@ -343,8 +344,8 @@ public class ProviderRefreshCircuitBreakerServiceTests
 
         // Backoff should be ~5 min (the RetryAfter), not the default exponential 1 min
         var remaining = diagnostic.CircuitOpenUntilUtc!.Value - DateTime.UtcNow;
-        Assert.True(remaining > TimeSpan.FromMinutes(4), $"Expected >4 min backoff, got {remaining.TotalMinutes:F1} min");
-        Assert.True(remaining <= TimeSpan.FromMinutes(5.1), $"Expected ≤5 min backoff, got {remaining.TotalMinutes:F1} min");
+        Assert.True(remaining > TimeSpan.FromMinutes(4), $"Expected >4 min backoff, got {remaining.TotalMinutes.ToString("F1", CultureInfo.InvariantCulture)} min");
+        Assert.True(remaining <= TimeSpan.FromMinutes(5.1), $"Expected ≤5 min backoff, got {remaining.TotalMinutes.ToString("F1", CultureInfo.InvariantCulture)} min");
     }
 
     [Fact]
@@ -378,7 +379,7 @@ public class ProviderRefreshCircuitBreakerServiceTests
 
         // Backoff should be base (1 min), NOT the exponential 4 min that 5 failures would normally produce
         var remaining = diagnostic.CircuitOpenUntilUtc!.Value - DateTime.UtcNow;
-        Assert.True(remaining <= TimeSpan.FromMinutes(1.1), $"Expected ≤1 min base backoff, got {remaining.TotalMinutes:F1} min");
+        Assert.True(remaining <= TimeSpan.FromMinutes(1.1), $"Expected ≤1 min base backoff, got {remaining.TotalMinutes.ToString("F1", CultureInfo.InvariantCulture)} min");
     }
 
     [Fact]
@@ -405,7 +406,7 @@ public class ProviderRefreshCircuitBreakerServiceTests
         Assert.True(diagnostic.IsCircuitOpen);
 
         var remaining = diagnostic.CircuitOpenUntilUtc!.Value - DateTime.UtcNow;
-        Assert.True(remaining > TimeSpan.FromMinutes(3.5), $"Expected >3.5 min exponential backoff, got {remaining.TotalMinutes:F1} min");
+        Assert.True(remaining > TimeSpan.FromMinutes(3.5), $"Expected >3.5 min exponential backoff, got {remaining.TotalMinutes.ToString("F1", CultureInfo.InvariantCulture)} min");
     }
 
     [Fact]

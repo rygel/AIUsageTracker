@@ -258,7 +258,7 @@ public static class ProviderMetadataCatalog
         NormalizeConfigOwnership(configs);
     }
 
-    private static IReadOnlyList<ProviderDefinition> LoadDefinitions()
+    private static List<ProviderDefinition> LoadDefinitions()
     {
         var definitions = new List<ProviderDefinition>
         {
@@ -418,7 +418,7 @@ public static class ProviderMetadataCatalog
     {
         var duplicateProviderIds = definitions
             .GroupBy(definition => definition.ProviderId, StringComparer.OrdinalIgnoreCase)
-            .Where(group => group.Count() > 1)
+            .Where(group => group.Skip(1).Any())
             .Select(group => group.Key)
             .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -439,7 +439,7 @@ public static class ProviderMetadataCatalog
                 definition.ProviderId,
             }))
             .GroupBy(item => item.HandledId, StringComparer.OrdinalIgnoreCase)
-            .Where(group => group.Select(item => item.ProviderId).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
+            .Where(group => group.Select(item => item.ProviderId).Distinct(StringComparer.OrdinalIgnoreCase).Skip(1).Any())
             .Select(group => group.Key)
             .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
             .ToList();

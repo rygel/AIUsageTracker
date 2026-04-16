@@ -78,11 +78,9 @@ public class ProviderRefreshServiceTests
         var circuitBreakerLogger = new Mock<ILogger<ProviderRefreshCircuitBreakerService>>();
         this._providerRefreshCircuitBreakerService = new ProviderRefreshCircuitBreakerService(circuitBreakerLogger.Object);
 
-        var configSelector = new ProviderRefreshConfigSelector();
         var configLoadingService = new ProviderRefreshConfigLoadingService(
             this._mockConfigService.Object,
             this._mockDatabase.Object,
-            configSelector,
             NullLogger<ProviderRefreshConfigLoadingService>.Instance);
         var usagePersistenceService = new ProviderUsagePersistenceService(
             this._mockDatabase.Object,
@@ -674,11 +672,9 @@ public class ProviderRefreshServiceTests
             .Returns(true);
 
         var providers = new[] { provider };
-        var configSelector = new ProviderRefreshConfigSelector();
         var configLoadingService = new ProviderRefreshConfigLoadingService(
             configService,
             database,
-            configSelector,
             NullLogger<ProviderRefreshConfigLoadingService>.Instance);
         var usagePersistenceService = new ProviderUsagePersistenceService(
             database,

@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Globalization;
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
@@ -16,11 +17,14 @@ namespace AIUsageTracker.CLI;
 
 public static class Program
 {
+    private static readonly JsonSerializerOptions WriteIndentedOptions = new() { WriteIndented = true };
+    private static readonly string[] DescriptionSplitSeparators = ["\r\n", "\r", "\n"];
+
     public static async Task Main(string[] args)
     {
         ArgumentNullException.ThrowIfNull(args);
 
-        using var serviceProvider = CreateServiceProvider();
+        await using var serviceProvider = CreateServiceProvider();
 
         // Ensure Agent is running
         var lifecycleService = serviceProvider.GetRequiredService<MonitorLifecycleService>();
@@ -228,7 +232,7 @@ public static class Program
     {
         string format = "csv";
         int days = 30;
-        string output = $"usage_export_{DateTime.Now:yyyyMMdd}.csv";
+        string output = $"usage_export_{DateTime.Now.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}.csv";
 
         for (int i = 1; i < args.Length; i++)
         {
@@ -253,7 +257,7 @@ public static class Program
             output = Path.ChangeExtension(output, ".json");
         }
 
-        Console.WriteLine($"Exporting {days} days of history to {output} ({format})...");
+        Console.WriteLine($"Exporting {days.ToString(CultureInfo.InvariantCulture)} days of history to {output} ({format})...");
 
         var stream = await service.ExportDataAsync(format, days).ConfigureAwait(false);
         if (stream != null)
@@ -279,7 +283,7 @@ public static class Program
 
         if (json)
         {
-            Console.WriteLine(JsonSerializer.Serialize(history, new JsonSerializerOptions { WriteIndented = true }));
+            Console.WriteLine(JsonSerializer.Serialize(history, WriteIndentedOptions));
             return;
         }
 
@@ -296,7 +300,7 @@ public static class Program
         foreach (var item in history)
         {
             var used = item.IsCurrencyUsage
-                ? $"${item.RequestsUsed:F2}"
+                ? $"${item.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture)}"
                 : item.RequestsUsed.ToString(System.Globalization.CultureInfo.InvariantCulture);
             var providerDisplayName = ProviderMetadataCatalog.ResolveDisplayLabel(item.ProviderId, item.ProviderName);
             Console.WriteLine($"{item.FetchedAt.ToShortDateString(),-12} | {providerDisplayName,-20} | {"(Total)",-25} | {used,-15}");
@@ -384,7 +388,7 @@ public static class Program
         var loader = new JsonConfigLoader();
         var prefs = await loader.LoadPreferencesAsync().ConfigureAwait(false);
         Console.WriteLine("Current Configuration:");
-        Console.WriteLine(JsonSerializer.Serialize(prefs, new JsonSerializerOptions { WriteIndented = true }));
+        Console.WriteLine(JsonSerializer.Serialize(prefs, WriteIndentedOptions));
     }
 
     private static async Task SetConfigAsync(string key, string value)
@@ -442,7 +446,7 @@ public static class Program
                 var port = await lifecycleService.GetAgentPortAsync().ConfigureAwait(false);
                 var running = await lifecycleService.IsAgentRunningAsync().ConfigureAwait(false);
                 Console.WriteLine($"Agent Status: {(running ? "Running" : "Stopped")}");
-                Console.WriteLine($"Port: {port}");
+                Console.WriteLine($"Port: {port.ToString(CultureInfo.InvariantCulture)}");
                 break;
             case "stop":
                 Console.WriteLine("Stopping Agent...");
@@ -518,7 +522,7 @@ public static class Program
             foreach (var u in usage)
             {
                 var usedPct = u.UsedPercent;
-                var pct = u.IsAvailable ? $"{usedPct:F0}%" : "-";
+                var pct = u.IsAvailable ? $"{usedPct.ToString("F0", CultureInfo.InvariantCulture)}%" : "-";
 
                 // Handle missing PlanType or IsQuotaBased if relying on serialized data
                 var type = u.IsQuotaBased ? "Quota" : "Pay-As-You-Go";
@@ -538,7 +542,7 @@ public static class Program
                     description += accountInfo;
                 }
 
-                var lines = description.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+                var lines = description.Split(DescriptionSplitSeparators, StringSplitOptions.None);
 
                 Console.WriteLine($"{providerDisplayName,-36} | {type,-14} | {pct,-10} | {lines[0]}");
 
