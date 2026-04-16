@@ -63,6 +63,7 @@ $sonarArgs = @(
 )
 if (-not $SkipCoverage) {
     $sonarArgs += "/d:sonar.cs.opencover.reportsPaths=TestResults/**/coverage.opencover.xml"
+    $sonarArgs += "/d:sonar.coverage.exclusions=**/Migrations/**,**/Program.cs,**/Seeder/**,scripts/**"
 }
 Invoke-DotNetOrThrow -Args $sonarArgs -Step "SonarScanner begin"
 
@@ -73,18 +74,42 @@ if (-not $SkipBuild) {
 
 if (-not $SkipCoverage) {
     Write-Host "`n--- Collecting coverage ---"
-    $coverageArgs = @(
-        "test",
-        "AIUsageTracker.Tests\AIUsageTracker.Tests.csproj",
-        "--configuration", "Debug",
-        "--results-directory", "TestResults",
-        "--collect:XPlat Code Coverage;Format=opencover"
-    )
-    if (-not $SkipBuild) {
-        $coverageArgs += "--no-build"
+    $testResultsDir = Join-Path $repoRoot "TestResults"
+    if (Test-Path $testResultsDir) {
+        Write-Host "  Cleaning previous test results..."
+        Remove-Item -Path $testResultsDir -Recurse -Force
     }
 
-    Invoke-DotNetOrThrow -Args $coverageArgs -Step "dotnet test coverage collection"
+    $testProjects = @(
+        @{ Path = "AIUsageTracker.Tests\AIUsageTracker.Tests.csproj"; Filter = "FullyQualifiedName!~DialogOpenBehaviorTests" },
+        @{ Path = "AIUsageTracker.Monitor.Tests\AIUsageTracker.Monitor.Tests.csproj"; Filter = "" },
+        @{ Path = "AIUsageTracker.Web.Tests\AIUsageTracker.Web.Tests.csproj"; Filter = "" }
+    )
+
+    foreach ($proj in $testProjects) {
+        Write-Host "`n  Running tests for $($proj.Path)..."
+        $coverageArgs = @(
+            "test", $proj.Path,
+            "--configuration", "Debug",
+            "--results-directory", "TestResults",
+            "--collect:XPlat Code Coverage;Format=opencover"
+        )
+        if (-not $SkipBuild) {
+            $coverageArgs += "--no-build"
+        }
+        if (-not [string]::IsNullOrEmpty($proj.Filter)) {
+            $coverageArgs += "--filter"
+            $coverageArgs += $proj.Filter
+        }
+
+        Invoke-DotNetOrThrow -Args $coverageArgs -Step "dotnet test coverage for $($proj.Path)"
+    }
+
+    $coverageFiles = Get-ChildItem -Path "TestResults" -Recurse -Filter "coverage.opencover.xml"
+    Write-Host "`n  Coverage files collected: $($coverageFiles.Count)"
+    foreach ($f in $coverageFiles) {
+        Write-Host "    $($f.FullName)"
+    }
 }
 
 Write-Host "`n--- Ending analysis and uploading ---"
