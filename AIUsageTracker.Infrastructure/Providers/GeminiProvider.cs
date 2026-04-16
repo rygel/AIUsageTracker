@@ -2,6 +2,8 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+#pragma warning disable S6418 // OAuth client secrets are public, intentionally shipped with gemini-cli tool
+
 using System.Globalization;
 using System.Net.Http.Json;
 using System.Text;
