@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Security;
 using System.Text.RegularExpressions;
 using AIUsageTracker.Core.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -57,7 +58,7 @@ public class GitHubAuthService : IGitHubAuthService
             var result = await response.Content.ReadFromJsonAsync<DeviceFlowResponse>().ConfigureAwait(false);
             if (result == null)
             {
-                throw new Exception("Failed to parse device flow response.");
+                throw new InvalidOperationException("Failed to parse device flow response.");
             }
 
             return (result.Device_code, result.User_code, result.Verification_uri, result.Expires_in, result.Interval);
@@ -112,12 +113,12 @@ public class GitHubAuthService : IGitHubAuthService
 
                 if (string.Equals(code, "expired_token", StringComparison.Ordinal))
                 {
-                    throw new Exception("Token expired");
+                    throw new SecurityException("Token expired");
                 }
 
                 if (string.Equals(code, "access_denied", StringComparison.Ordinal))
                 {
-                    throw new Exception("Access denied");
+                    throw new SecurityException("Access denied");
                 }
             }
 

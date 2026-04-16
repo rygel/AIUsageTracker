@@ -96,11 +96,19 @@ internal static class MonitorDiagnosticsEndpoints
             .OrderBy(providerId => providerId, StringComparer.OrdinalIgnoreCase)
             .ToArray();
         var providersInBackoff = refreshTelemetry.ProviderDiagnostics.Count(diagnostic => diagnostic.IsCircuitOpen);
-        var refreshStatus = refreshTelemetry.LastRefreshAttemptUtc == null
-            ? "idle"
-            : (providersInBackoff > 0 || failingProviders.Length > 0 || !string.IsNullOrWhiteSpace(refreshTelemetry.LastError)
-                ? "degraded"
-                : "healthy");
+        string refreshStatus;
+        if (refreshTelemetry.LastRefreshAttemptUtc == null)
+        {
+            refreshStatus = "idle";
+        }
+        else if (providersInBackoff > 0 || failingProviders.Length > 0 || !string.IsNullOrWhiteSpace(refreshTelemetry.LastError))
+        {
+            refreshStatus = "degraded";
+        }
+        else
+        {
+            refreshStatus = "healthy";
+        }
 
         return new MonitorHealthSnapshot
         {

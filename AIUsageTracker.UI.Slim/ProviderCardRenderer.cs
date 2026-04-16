@@ -46,11 +46,19 @@ internal sealed class ProviderCardRenderer
     public FrameworkElement CreateProviderCard(ProviderUsage usage, bool showUsed, bool isChild = false, ProviderDefinition? definition = null)
     {
         var providerId = usage.ProviderId ?? string.Empty;
-        var friendlyName = !string.IsNullOrEmpty(usage.CardId)
-            ? (usage.ProviderName ?? string.Empty)
-            : definition != null
-                ? (definition.ResolveDisplayName(providerId) ?? usage.ProviderName)
-                : ProviderMetadataCatalog.ResolveDisplayLabel(usage);
+        string friendlyName;
+        if (!string.IsNullOrEmpty(usage.CardId))
+        {
+            friendlyName = usage.ProviderName ?? string.Empty;
+        }
+        else if (definition != null)
+        {
+            friendlyName = definition.ResolveDisplayName(providerId) ?? usage.ProviderName;
+        }
+        else
+        {
+            friendlyName = ProviderMetadataCatalog.ResolveDisplayLabel(usage);
+        }
         var presentation = MainWindowRuntimeLogic.Create(usage, showUsed, this._preferences.EnablePaceAdjustment);
 
         var isCompact = this._preferences.CardCompactMode;

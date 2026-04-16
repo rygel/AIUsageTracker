@@ -48,7 +48,7 @@ public static class GroupedUsageProjectionService
                 .OrderBy(reset => reset)
                 .FirstOrDefault();
 
-        var displayName = ResolveProviderDisplayName(primary, canonicalProviderId);
+        var displayName = ResolveProviderDisplayName(canonicalProviderId);
         // Flat cards with WindowKind != None are the quota-window cards for this group.
         var providerDetails = (IReadOnlyList<ProviderUsage>)group
             .Where(u => u.WindowKind != WindowKind.None && !u.IsStale)
@@ -75,7 +75,7 @@ public static class GroupedUsageProjectionService
         };
     }
 
-    private static string ResolveProviderDisplayName(ProviderUsage primary, string canonicalProviderId)
+    private static string ResolveProviderDisplayName(string canonicalProviderId)
     {
         return ProviderMetadataCatalog.GetConfiguredDisplayName(canonicalProviderId);
     }
@@ -108,7 +108,7 @@ public static class GroupedUsageProjectionService
                 !string.IsNullOrWhiteSpace(u.CardId) && !u.IsCurrencyUsage).ToList();
             if (allCards.Count > 0)
             {
-                return BuildModelsFromFlatCards(allCards, canonicalProviderId);
+                return BuildModelsFromFlatCards(allCards);
             }
         }
 
@@ -122,7 +122,7 @@ public static class GroupedUsageProjectionService
             !string.IsNullOrWhiteSpace(u.CardId) && !u.IsCurrencyUsage && u.WindowKind == WindowKind.None).ToList();
         if (flatModelCards.Count > 0)
         {
-            return BuildModelsFromFlatCards(flatModelCards, canonicalProviderId);
+            return BuildModelsFromFlatCards(flatModelCards);
         }
 
         if ((definition?.UseChildProviderRowsForGroupedModels ?? false) &&
@@ -131,12 +131,11 @@ public static class GroupedUsageProjectionService
             return BuildModelsFromExplicitChildRows(usages, canonicalProviderId);
         }
 
-        return BuildModelsFromDetails(usages);
+        return BuildModelsFromDetails();
     }
 
     private static IReadOnlyList<AgentGroupedModelUsage> BuildModelsFromFlatCards(
-        IEnumerable<ProviderUsage> group,
-        string canonicalProviderId)
+        IEnumerable<ProviderUsage> group)
     {
         return group
             .Where(u => !string.IsNullOrWhiteSpace(u.CardId))
@@ -163,7 +162,7 @@ public static class GroupedUsageProjectionService
             .ToList();
     }
 
-    private static IReadOnlyList<AgentGroupedModelUsage> BuildModelsFromDetails(IEnumerable<ProviderUsage> group)
+    private static IReadOnlyList<AgentGroupedModelUsage> BuildModelsFromDetails()
     {
         // Legacy path: providers that neither emit flat cards nor use explicit child rows.
         // With all providers now emitting flat cards, this path returns empty.
@@ -219,60 +218,6 @@ public static class GroupedUsageProjectionService
                 return model;
             })
             .ToList();
-    }
-
-    private static IReadOnlyList<AgentGroupedQuotaBucketUsage> BuildQuotaBucketsFromCards(
-        IEnumerable<ProviderUsage> windowCards)
-    {
-        var buckets = new List<AgentGroupedQuotaBucketUsage>();
-        var usedBucketIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var card in windowCards
-                     .Where(card => !string.IsNullOrWhiteSpace(card.Name))
-                     .OrderBy(card => card.NextResetTime ?? DateTime.MaxValue)
-                     .ThenBy(card => card.Name, StringComparer.OrdinalIgnoreCase))
-        {
-            var usedPercent = UsageMath.ClampPercent(card.UsedPercent);
-            var remainingPercent = UsageMath.ClampPercent(card.RemainingPercent);
-
-            var baseBucketId = card.CardId ?? CreateModelIdFromName(card.Name!);
-            var bucketId = baseBucketId;
-            var duplicateCounter = 2;
-            while (!usedBucketIds.Add(bucketId))
-            {
-                bucketId = $"{baseBucketId}-{duplicateCounter}";
-                duplicateCounter++;
-            }
-
-            buckets.Add(new AgentGroupedQuotaBucketUsage
-            {
-                BucketId = bucketId,
-                BucketName = card.Name!,
-                UsedPercentage = usedPercent,
-                RemainingPercentage = remainingPercent,
-                NextResetTime = card.NextResetTime,
-                Description = card.Description ?? string.Empty,
-                QuotaBucketKind = card.WindowKind,
-            });
-        }
-
-        return buckets;
-    }
-
-    private static string CreateModelIdFromName(string name)
-    {
-        var chars = name
-            .Trim()
-            .ToLowerInvariant()
-            .Select(ch => char.IsLetterOrDigit(ch) ? ch : '-')
-            .ToArray();
-        var value = new string(chars).Trim('-');
-        while (value.Contains("--", StringComparison.Ordinal))
-        {
-            value = value.Replace("--", "-", StringComparison.Ordinal);
-        }
-
-        return string.IsNullOrWhiteSpace(value) ? "model" : value;
     }
 
     private static IReadOnlyList<AgentGroupedQuotaBucketUsage> BuildSummaryQuotaBuckets(

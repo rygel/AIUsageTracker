@@ -37,11 +37,19 @@ internal static partial class MainWindowRuntimeLogic
         }
 
         var elapsed = now - lastMonitorUpdate;
-        var ago = elapsed.TotalSeconds < 60
-            ? $"{(int)elapsed.TotalSeconds}s ago"
-            : elapsed.TotalHours < 1
-                ? $"{(int)elapsed.TotalMinutes}m ago"
-                : $"{(int)elapsed.TotalHours}h ago";
+        string ago;
+        if (elapsed.TotalSeconds < 60)
+        {
+            ago = $"{(int)elapsed.TotalSeconds}s ago";
+        }
+        else if (elapsed.TotalHours < 1)
+        {
+            ago = $"{(int)elapsed.TotalMinutes}m ago";
+        }
+        else
+        {
+            ago = $"{(int)elapsed.TotalHours}h ago";
+        }
 
         return $"Monitor offline — last sync {ago}";
     }

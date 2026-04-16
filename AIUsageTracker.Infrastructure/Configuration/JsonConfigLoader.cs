@@ -51,11 +51,9 @@ public class JsonConfigLoader : IConfigLoader
         this.EnsureParentDirectoryExists(providersPath);
 
         var exportAuth = await this.LoadExportPayloadAsync(
-            authPath,
-            "auth config").ConfigureAwait(false);
+            authPath).ConfigureAwait(false);
         var exportProviders = await this.LoadExportPayloadAsync(
-            providersPath,
-            "provider config").ConfigureAwait(false);
+            providersPath).ConfigureAwait(false);
 
         JsonProviderConfigExportBuilder.RemoveNonPersistedProviders(exportAuth);
         JsonProviderConfigExportBuilder.RemoveNonPersistedProviders(exportProviders);
@@ -362,7 +360,7 @@ public class JsonConfigLoader : IConfigLoader
         }
     }
 
-    private async Task<Dictionary<string, object>> LoadExportPayloadAsync(string path, string payloadDescription)
+    private async Task<Dictionary<string, object>> LoadExportPayloadAsync(string path)
     {
         return await JsonConfigFileStore.ReadAsync<Dictionary<string, object>>(
                    path,

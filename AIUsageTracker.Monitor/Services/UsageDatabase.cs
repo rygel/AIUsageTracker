@@ -16,8 +16,6 @@ namespace AIUsageTracker.Monitor.Services;
 
 public class UsageDatabase : IUsageDatabase
 {
-    private static readonly TimeSpan DetailFadeWindow = TimeSpan.FromDays(7);
-
     /// <summary>
     /// Rows older than this are flagged as stale so the UI can warn the user
     /// that the data may not reflect the current provider state.
@@ -144,6 +142,12 @@ public class UsageDatabase : IUsageDatabase
         public ILogger CreateLogger(string categoryName) => this._logger;
 
         public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
         {
         }
     }
@@ -775,11 +779,19 @@ public class UsageDatabase : IUsageDatabase
 
         usage.IsStale = true;
         var age = now - fetchedAt;
-        var ageLabel = age.TotalDays >= 1
-            ? $"{(int)age.TotalDays}d ago"
-            : age.TotalHours >= 1
-                ? $"{(int)age.TotalHours}h ago"
-                : $"{(int)age.TotalMinutes}m ago";
+        string ageLabel;
+        if (age.TotalDays >= 1)
+        {
+            ageLabel = $"{(int)age.TotalDays}d ago";
+        }
+        else if (age.TotalHours >= 1)
+        {
+            ageLabel = $"{(int)age.TotalHours}h ago";
+        }
+        else
+        {
+            ageLabel = $"{(int)age.TotalMinutes}m ago";
+        }
         var suffix = $"(last refreshed {ageLabel} — data may be outdated)";
         usage.Description = string.IsNullOrWhiteSpace(usage.Description)
             ? suffix

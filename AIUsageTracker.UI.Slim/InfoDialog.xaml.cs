@@ -205,7 +205,7 @@ public partial class InfoDialog : Window
         return suffix.Replace('.', ' ');
     }
 
-    private async Task PrivacyBtn_ClickAsync(object sender, RoutedEventArgs e)
+    private async Task PrivacyBtn_ClickAsync()
     {
         try
         {
@@ -222,7 +222,7 @@ public partial class InfoDialog : Window
     }
 
 #pragma warning disable VSTHRD100 // XAML click handlers must be async void wrappers.
-    private async void PrivacyBtn_Click(object sender, RoutedEventArgs e) => await this.PrivacyBtn_ClickAsync(sender, e).ConfigureAwait(true);
+    private async void PrivacyBtn_Click(object sender, RoutedEventArgs e) => await this.PrivacyBtn_ClickAsync().ConfigureAwait(true);
 #pragma warning restore VSTHRD100
 
     private void ConfigDir_Click(object sender, RoutedEventArgs e)

@@ -328,9 +328,15 @@ public partial class SettingsWindow
         var isConnected = usage?.IsAvailable == true;
         var accountInfo = usage?.AccountName;
         var hasAccountInfo = !string.IsNullOrWhiteSpace(accountInfo) && accountInfo is not ("Unknown" or "User");
-        var displayAccount = hasAccountInfo
-            ? (isPrivacyMode ? PrivacyHelper.MaskAccountIdentifier(accountInfo!) : accountInfo!)
-            : "No account detected";
+        string displayAccount;
+        if (hasAccountInfo)
+        {
+            displayAccount = isPrivacyMode ? PrivacyHelper.MaskAccountIdentifier(accountInfo!) : accountInfo!;
+        }
+        else
+        {
+            displayAccount = "No account detected";
+        }
         var secondaryLines = new List<StatusSecondaryLine>();
 
         return new StatusPanelPresentation(
@@ -351,13 +357,23 @@ public partial class SettingsWindow
         var isAuthenticated = !string.IsNullOrWhiteSpace(config.ApiKey) ||
                               usage?.IsAvailable == true ||
                               hasUsername;
-        var displayText = !isAuthenticated
-            ? "Not Authenticated"
-            : !hasUsername
-                ? "Authenticated"
-                : isPrivacyMode
-                    ? $"Authenticated ({PrivacyHelper.MaskAccountIdentifier(username!)})"
-                    : $"Authenticated ({username})";
+        string displayText;
+        if (!isAuthenticated)
+        {
+            displayText = "Not Authenticated";
+        }
+        else if (!hasUsername)
+        {
+            displayText = "Authenticated";
+        }
+        else if (isPrivacyMode)
+        {
+            displayText = $"Authenticated ({PrivacyHelper.MaskAccountIdentifier(username!)})";
+        }
+        else
+        {
+            displayText = $"Authenticated ({username})";
+        }
 
         return new StatusPanelPresentation(
             UseHorizontalLayout: true,
@@ -549,43 +565,6 @@ public partial class SettingsWindow
         return status;
     }
 
-    private CheckBox CreateSubTrayCheckBox(ProviderConfig config, string detailName)
-    {
-        var enabledSubTrays = config.EnabledSubTrays ?? new List<string>();
-        var checkBox = new CheckBox
-        {
-            Content = detailName,
-            IsChecked = enabledSubTrays.Contains(detailName, StringComparer.OrdinalIgnoreCase),
-            FontSize = 10,
-            Margin = new Thickness(0, 1, 0, 1),
-            Cursor = Cursors.Hand,
-        };
-        checkBox.SetResourceReference(CheckBox.ForegroundProperty, "SecondaryText");
-        checkBox.Checked += (_, _) =>
-        {
-            var trackedConfig = this.GetOrCreateTrackedConfig(config);
-            trackedConfig.EnabledSubTrays ??= new List<string>();
-            if (!trackedConfig.EnabledSubTrays.Contains(detailName, StringComparer.OrdinalIgnoreCase))
-            {
-                var enabledSubTrays = trackedConfig.EnabledSubTrays.ToList();
-                enabledSubTrays.Add(detailName);
-                trackedConfig.EnabledSubTrays = enabledSubTrays;
-            }
-
-            this.MarkSettingsChanged(refreshTrayIcons: true);
-        };
-        checkBox.Unchecked += (_, _) =>
-        {
-            var trackedConfig = this.GetOrCreateTrackedConfig(config);
-            trackedConfig.EnabledSubTrays ??= new List<string>();
-            var enabledSubTrays = trackedConfig.EnabledSubTrays.ToList();
-            enabledSubTrays.RemoveAll(name => name.Equals(detailName, StringComparison.OrdinalIgnoreCase));
-            trackedConfig.EnabledSubTrays = enabledSubTrays;
-            this.MarkSettingsChanged(refreshTrayIcons: true);
-        };
-        return checkBox;
-    }
-
     private FrameworkElement BuildApiKeyEditor(ProviderConfig config)
     {
         var keyBox = new TextBox
@@ -722,6 +701,7 @@ public partial class SettingsWindow
         }
         catch (Exception ex) when (ex is System.IO.IOException or InvalidOperationException or System.ComponentModel.Win32Exception)
         {
+            // Intentionally ignored - notepad launch failure is non-critical
         }
     }
 

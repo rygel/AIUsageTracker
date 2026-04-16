@@ -100,7 +100,7 @@ public class MonitorClientTests
     {
         var launcher = new MonitorLauncher();
 
-        // Act & Assert
-        await launcher.InvalidateMonitorInfoAsync();
+        var exception = await Record.ExceptionAsync(() => launcher.InvalidateMonitorInfoAsync());
+        Assert.Null(exception);
     }
 }

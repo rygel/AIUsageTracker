@@ -71,7 +71,7 @@ public class ZaiProvider : ProviderBase
         if (!response.IsSuccessStatusCode)
         {
             this._logger.LogError("[ZAI] API returned {StatusCode}", response.StatusCode);
-            throw new Exception($"Z.AI API returned {response.StatusCode}");
+            throw new HttpRequestException($"Z.AI API returned {response.StatusCode}");
         }
 
         var responseString = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);

@@ -127,14 +127,9 @@ public class AppStartupTests : IDisposable
     {
         var theme = AppTheme.Dark;
 
-        try
-        {
-            App.ApplyTheme(theme);
-        }
-        catch (NullReferenceException)
-        {
-            // Expected in test context since Application.Current is null
-        }
+        var exception = Record.Exception(() => App.ApplyTheme(theme));
+
+        Assert.Null(exception);
     }
 
     [Fact]

@@ -9,7 +9,7 @@ try
 {
     var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
     var app = WebApplicationBootstrapper.Build(args, appData);
-    app.Run();
+    await app.RunAsync();
 }
 catch (Exception ex)
 {
@@ -17,12 +17,10 @@ catch (Exception ex)
 }
 finally
 {
-    Log.CloseAndFlush();
+    await Log.CloseAndFlushAsync();
 }
 
 public partial class Program
 {
-    public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
-    {
-    }
+    protected Program() { }
 }

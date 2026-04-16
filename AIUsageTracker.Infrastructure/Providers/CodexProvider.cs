@@ -215,7 +215,7 @@ public class CodexProvider : ProviderBase
 
     private static string? ResolveKnownAccountIdentity(params string?[] candidates)
     {
-        return candidates.Where(c => !string.IsNullOrWhiteSpace(c)).FirstOrDefault();
+        return candidates.FirstOrDefault(c => !string.IsNullOrWhiteSpace(c));
     }
 
     private static string? ResolveAccountIdentity(
@@ -251,54 +251,6 @@ public class CodexProvider : ProviderBase
         }
 
         return null;
-    }
-
-    private static string BuildUsageDescription(
-        double remainingPercent,
-        double primaryUsedPercent,
-        double? sparkUsedPercent,
-        string planType)
-    {
-        var description = $"{remainingPercent:F0}% remaining ({primaryUsedPercent:F0}% used) | Plan: {planType}";
-        if (sparkUsedPercent.HasValue)
-        {
-            description += $" | Spark: {sparkUsedPercent.Value:F0}% used";
-        }
-
-        return description;
-    }
-
-    private static string? NormalizeModelName(string? raw, string? fallback)
-    {
-        if (string.IsNullOrWhiteSpace(raw))
-        {
-            return fallback;
-        }
-
-        var normalized = raw.Trim();
-        normalized = normalized.Replace('_', '-');
-        normalized = normalized.Replace("  ", " ", StringComparison.Ordinal);
-        return string.IsNullOrWhiteSpace(normalized) ? fallback : normalized;
-    }
-
-    private static double ResolveEffectiveUsedPercent(
-        double primaryUsedPercent,
-        double? secondaryUsedPercent,
-        double? sparkPrimaryUsedPercent,
-        double? sparkSecondaryUsedPercent)
-    {
-        // Return the highest usage percentage across all windows.
-        // This ensures the parent entry shows meaningful data even if the API
-        // returns 0 for rate_limit.primary_window but has usage in other windows.
-        var candidates = new[]
-        {
-            primaryUsedPercent,
-            secondaryUsedPercent ?? 0.0,
-            sparkPrimaryUsedPercent ?? 0.0,
-            sparkSecondaryUsedPercent ?? 0.0,
-        };
-
-        return candidates.Max();
     }
 
     private static SparkWindow ExtractSparkWindow(JsonElement root)
@@ -665,16 +617,6 @@ public class CodexProvider : ProviderBase
         {
             yield return path;
         }
-    }
-
-    private static string ResolveModelName(JsonElement root)
-    {
-        var primaryRaw = root.ReadString("model_name")
-                         ?? root.ReadString("model")
-                         ?? root.ReadString("rate_limit", "primary_window", "model_name")
-                         ?? root.ReadString("rate_limit", "primary_window", "model")
-                         ?? root.ReadString("rate_limit", "primary_window", "limit_name");
-        return NormalizeModelName(primaryRaw, "OpenAI") ?? "OpenAI";
     }
 
     private readonly record struct SparkWindow(

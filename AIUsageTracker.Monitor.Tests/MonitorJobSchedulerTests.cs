@@ -230,7 +230,7 @@ public class MonitorJobSchedulerTests
             activity => string.Equals(activity.OperationName, "monitor.scheduler.execute_job", StringComparison.Ordinal));
         Assert.Equal("activity-job", jobActivity.TagObjects.FirstOrDefault(tag => string.Equals(tag.Key, "job.name", StringComparison.Ordinal)).Value);
         Assert.Equal("High", jobActivity.TagObjects.FirstOrDefault(tag => string.Equals(tag.Key, "job.priority", StringComparison.Ordinal)).Value);
-        Assert.Equal(false, jobActivity.TagObjects.FirstOrDefault(tag => string.Equals(tag.Key, "job.coalesced", StringComparison.Ordinal)).Value);
+        Assert.False((bool)jobActivity.TagObjects.FirstOrDefault(tag => string.Equals(tag.Key, "job.coalesced", StringComparison.Ordinal)).Value!);
         Assert.Equal(ActivityStatusCode.Ok, jobActivity.Status);
     }
 
