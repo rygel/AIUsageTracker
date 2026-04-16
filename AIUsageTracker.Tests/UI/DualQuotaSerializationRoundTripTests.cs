@@ -50,7 +50,7 @@ public sealed class DualQuotaSerializationRoundTripTests
             UsedPercent = 51,
             ProviderDetails = new[]
             {
-                new ProviderUsage { ProviderId = "codex", Name = "5h",     WindowKind = WindowKind.Burst,   UsedPercent = 4.0  },
+                new ProviderUsage { ProviderId = "codex", Name = "5h",     WindowKind = WindowKind.Burst,   UsedPercent = 4.0 },
                 new ProviderUsage { ProviderId = "codex", Name = "Weekly", WindowKind = WindowKind.Rolling, UsedPercent = 51.0 },
             },
         };
@@ -92,7 +92,7 @@ public sealed class DualQuotaSerializationRoundTripTests
                     UsedPercent = 4,
                     ProviderDetails = new[]
                     {
-                        new ProviderUsage { ProviderId = "codex", Name = "5h",     WindowKind = WindowKind.Burst,   UsedPercent = 4.0  },
+                        new ProviderUsage { ProviderId = "codex", Name = "5h",     WindowKind = WindowKind.Burst,   UsedPercent = 4.0 },
                         new ProviderUsage { ProviderId = "codex", Name = "Weekly", WindowKind = WindowKind.Rolling, UsedPercent = 51.0 },
                     },
                 },
@@ -114,7 +114,8 @@ public sealed class DualQuotaSerializationRoundTripTests
         // Create() should produce dual buckets
         var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
 
-        Assert.True(presentation.HasDualBuckets,
+        Assert.True(
+            presentation.HasDualBuckets,
             "HasDualBuckets must be true after JSON round-trip");
         Assert.Equal("5h", presentation.DualBar!.Primary.Label);
         Assert.Equal("Weekly", presentation.DualBar.Secondary.Label);
@@ -138,7 +139,7 @@ public sealed class DualQuotaSerializationRoundTripTests
                     UsedPercent = 51,
                     ProviderDetails = new[]
                     {
-                        new ProviderUsage { ProviderId = "claude-code", Name = "Current Session", WindowKind = WindowKind.Burst,   UsedPercent = 4.0  },
+                        new ProviderUsage { ProviderId = "claude-code", Name = "Current Session", WindowKind = WindowKind.Burst,   UsedPercent = 4.0 },
                         new ProviderUsage { ProviderId = "claude-code", Name = "All Models",      WindowKind = WindowKind.Rolling, UsedPercent = 51.0 },
                     },
                 },
@@ -157,7 +158,8 @@ public sealed class DualQuotaSerializationRoundTripTests
 
         var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
 
-        Assert.True(presentation.HasDualBuckets,
+        Assert.True(
+            presentation.HasDualBuckets,
             "claude-code must produce dual bars: Current Session (Burst) + All Models (Rolling)");
         Assert.Equal("Current Session", presentation.DualBar!.Primary.Label);
         Assert.Equal("All Models", presentation.DualBar.Secondary.Label);

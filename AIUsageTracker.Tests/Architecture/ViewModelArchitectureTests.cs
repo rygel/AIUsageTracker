@@ -75,5 +75,4 @@ public class ViewModelArchitectureTests
             $"All ViewModels should inherit from BaseViewModel for consistent MVVM patterns.{Environment.NewLine}" +
             string.Join(Environment.NewLine, violations));
     }
-
 }

@@ -92,7 +92,6 @@ public class DeepSeekProviderTests : HttpProviderTestBase<DeepSeekProvider>
     }
 
     // --- Phase 4: FailureContext attachment ---
-
     [Theory]
     [InlineData(HttpStatusCode.Unauthorized, HttpFailureClassification.Authentication, false)]
     [InlineData(HttpStatusCode.Forbidden, HttpFailureClassification.Authorization, false)]

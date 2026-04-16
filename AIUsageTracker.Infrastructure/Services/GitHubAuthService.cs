@@ -423,8 +423,8 @@ public class GitHubAuthService : IGitHubAuthService
 
         public string Verification_uri { get; set; } = string.Empty;
 
-        public int Expires_in { get; set; }
+        public int Expires_in { get; }
 
-        public int Interval { get; set; }
+        public int Interval { get; }
     }
 }

@@ -135,14 +135,19 @@ public class MonitorLauncher : IMonitorLauncher
         {
             return new MonitorAgentStatus
             {
-                IsRunning = true, Port = port, HasMetadata = hasMetadata,
-                Message = $"Healthy on port {port}.", Error = null,
+                IsRunning = true,
+                Port = port,
+                HasMetadata = hasMetadata,
+                Message = $"Healthy on port {port}.",
+                Error = null,
             };
         }
 
         return new MonitorAgentStatus
         {
-            IsRunning = false, Port = port, HasMetadata = hasMetadata,
+            IsRunning = false,
+            Port = port,
+            HasMetadata = hasMetadata,
             Message = hasMetadata
                 ? $"Monitor not reachable on port {port}."
                 : "Monitor info file not found. Start Monitor to initialize it.",

@@ -47,6 +47,8 @@ public sealed class ConfigServiceSaveValidationTests : IntegrationTestBase
     public async Task SaveConfigAsync_KnownProviderId_DoesNotThrowAsync()
     {
         var service = this.CreateConfigService();
+
+        // "claude-code" is a well-known provider in ProviderMetadataCatalog
         var config = new ProviderConfig { ProviderId = "claude-code", ApiKey = "sk-test" };
 
         var exception = await Record.ExceptionAsync(() => service.SaveConfigAsync(config));

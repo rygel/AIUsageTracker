@@ -80,10 +80,9 @@ public sealed class UpdateChannelConfigurationEndToEndTests : IDisposable
     // Regression guard: if env vars are provided (as they are in the CI publish pipeline),
     // the generated enclosure length must equal the supplied size for every architecture.
     // length="0" in a committed appcast means the publish pipeline failed to pass sizes.
-
     [Theory]
-    [InlineData("2.2.28",       "stable", 10_000_000L, 9_500_000L,  9_800_000L)]
-    [InlineData("2.2.28-beta.5", "beta",  19_451_188L, 18_831_779L, 18_802_141L)]
+    [InlineData("2.2.28", "stable", 10_000_000L, 9_500_000L, 9_800_000L)]
+    [InlineData("2.2.28-beta.5", "beta", 19_451_188L, 18_831_779L, 18_802_141L)]
     public async Task GenerateAppcastScript_PopulatesInstallerLengthFromEnvVarsAsync(
         string version, string channel, long x64Size, long x86Size, long arm64Size)
     {
@@ -152,6 +151,7 @@ public sealed class UpdateChannelConfigurationEndToEndTests : IDisposable
             GitHubUpdateChecker.GetReleaseTagUrl(version),
             item.Element(sparkle + "releaseNotesLink")?.Value);
         Assert.Equal(expectedDownloadUrl, enclosure!.Attribute("url")?.Value);
+
         // For beta releases (e.g. "2.2.28-beta.21") the script encodes the pre-release number
         // as a 4th component ("2.2.28.21") so NetSparkle can compare builds numerically.
         const string betaPrefix = "-beta.";

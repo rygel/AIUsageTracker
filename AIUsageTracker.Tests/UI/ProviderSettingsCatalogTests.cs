@@ -76,7 +76,6 @@ public sealed class ProviderSettingsCatalogTests
     }
 
     // ── Clear-key removal precondition ────────────────────────────────────────
-
     [Theory]
     [InlineData("deepseek")]
     [InlineData("mistral")]

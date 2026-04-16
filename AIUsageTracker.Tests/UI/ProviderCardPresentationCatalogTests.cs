@@ -137,7 +137,7 @@ public sealed class ProviderCardPresentationCatalogTests
             NextResetTime = new DateTime(2026, 3, 7, 1, 0, 0),
             WindowCards = new[]
             {
-                new ProviderUsage { ProviderId = "codex", Name = "5h",     WindowKind = WindowKind.Burst,   UsedPercent = 4.0  },
+                new ProviderUsage { ProviderId = "codex", Name = "5h",     WindowKind = WindowKind.Burst,   UsedPercent = 4.0 },
                 new ProviderUsage { ProviderId = "codex", Name = "Weekly", WindowKind = WindowKind.Rolling, UsedPercent = 51.0 },
             },
         };
@@ -160,7 +160,7 @@ public sealed class ProviderCardPresentationCatalogTests
             UsedPercent = 25,
             WindowCards = new[]
             {
-                new ProviderUsage { ProviderId = "kimi-for-coding", Name = "5h Limit",     WindowKind = WindowKind.Burst,   UsedPercent = 0.0  },
+                new ProviderUsage { ProviderId = "kimi-for-coding", Name = "5h Limit",     WindowKind = WindowKind.Burst,   UsedPercent = 0.0 },
                 new ProviderUsage { ProviderId = "kimi-for-coding", Name = "Weekly Limit", WindowKind = WindowKind.Rolling, UsedPercent = 25.0 },
             },
         };
@@ -195,7 +195,7 @@ public sealed class ProviderCardPresentationCatalogTests
                     ProviderDetails = new[]
                     {
                         new ProviderUsage { ProviderId = "kimi-for-coding", Name = "Weekly Limit", WindowKind = WindowKind.Rolling, UsedPercent = 25.0 },
-                        new ProviderUsage { ProviderId = "kimi-for-coding", Name = "5h Limit",     WindowKind = WindowKind.Burst,   UsedPercent = 0.0  },
+                        new ProviderUsage { ProviderId = "kimi-for-coding", Name = "5h Limit",     WindowKind = WindowKind.Burst,   UsedPercent = 0.0 },
                     },
                 },
             },
@@ -232,7 +232,7 @@ public sealed class ProviderCardPresentationCatalogTests
                     Models = Array.Empty<AgentGroupedModelUsage>(),
                     ProviderDetails = new[]
                     {
-                        new ProviderUsage { ProviderId = "claude-code", Name = "Current Session", WindowKind = WindowKind.Burst,   UsedPercent = 4.0  },
+                        new ProviderUsage { ProviderId = "claude-code", Name = "Current Session", WindowKind = WindowKind.Burst,   UsedPercent = 4.0 },
                         new ProviderUsage { ProviderId = "claude-code", Name = "All Models",      WindowKind = WindowKind.Rolling, UsedPercent = 51.0 },
                     },
                 },
@@ -403,4 +403,3 @@ public sealed class ProviderCardPresentationCatalogTests
         Assert.Equal("Subscription expired", presentation.StatusText);
     }
 }
-

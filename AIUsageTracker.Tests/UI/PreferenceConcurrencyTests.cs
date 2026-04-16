@@ -136,6 +136,7 @@ public sealed class PreferenceConcurrencyTests : IDisposable
 
         var final = await this._store.LoadAsync();
         Assert.True(final.EnablePaceAdjustment);
+
         // This FAILS — ShowUsedPercentages was reverted by the stale save.
         // This is the exact bug we fixed by sharing a single instance.
         Assert.False(

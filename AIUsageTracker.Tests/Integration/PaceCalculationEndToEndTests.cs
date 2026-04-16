@@ -151,7 +151,8 @@ public class PaceCalculationEndToEndTests
             usage.UsedPercent, usage.NextResetTime, usage.PeriodDuration, nowUtc: now);
 
         // 10% / 0.4 = 25%
-        Assert.True(paceColor.ProjectedPercent >= 24 && paceColor.ProjectedPercent <= 26,
+        Assert.True(
+            paceColor.ProjectedPercent >= 24 && paceColor.ProjectedPercent <= 26,
             $"Projected {paceColor.ProjectedPercent:F1}% should be ~25%");
         Assert.Equal("Headroom", paceColor.BadgeText);
     }

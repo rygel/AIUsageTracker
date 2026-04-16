@@ -19,8 +19,8 @@ public class WindowsNotificationService : INotificationService
 
     public event EventHandler<NotificationClickedEventArgs>? OnNotificationClicked
     {
-        add { } // Intentionally empty - click handling not yet implemented
-        remove { } // Intentionally empty - click handling not yet implemented
+        add { } // Intentionally ignored - notification failure is non-critical
+        remove { } // Intentionally ignored - notification failure is non-critical
     }
 
     public void Initialize()

@@ -36,6 +36,7 @@ public class UsageDatabase : IUsageDatabase
     private readonly string _connectionString;
     private readonly ILogger<UsageDatabase> _logger;
     private readonly IAppPathProvider _pathProvider;
+
     // Serialize writes/maintenance only. Read operations use independent connections so
     // SQLite WAL can serve them concurrently with refresh writes.
     private readonly SemaphoreSlim _semaphore = new(1, 1);

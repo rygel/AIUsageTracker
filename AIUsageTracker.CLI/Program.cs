@@ -546,7 +546,6 @@ public static class Program
                 {
                     Console.WriteLine($"{string.Empty,-36} | {string.Empty,-14} | {string.Empty,-10} | {lines[i]}");
                 }
-
             }
         }
     }

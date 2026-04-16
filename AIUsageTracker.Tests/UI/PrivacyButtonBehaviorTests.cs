@@ -49,7 +49,8 @@ public class PrivacyButtonBehaviorTests
                 // If Dispatcher.CheckAccess() returned false inside OnPrivacyChanged,
                 // _isPrivacyMode won't have updated yet (BeginInvoke deferred it).
                 // This test will catch THAT scenario.
-                Assert.True((bool)GetPrivateField(mainWindow, "_isPrivacyMode")!,
+                Assert.True(
+                    (bool)GetPrivateField(mainWindow, "_isPrivacyMode")!,
                     "OnPrivacyChanged did not synchronously update _isPrivacyMode. " +
                     "Dispatcher.CheckAccess() likely returned false on this thread.");
 

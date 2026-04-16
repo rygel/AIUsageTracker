@@ -15,7 +15,6 @@ namespace AIUsageTracker.Tests.Infrastructure;
 public class HttpFailureMapperTests
 {
     // --- ClassifyResponse: status code mapping ---
-
     [Theory]
     [InlineData(401, HttpFailureClassification.Authentication, false)]
     [InlineData(403, HttpFailureClassification.Authorization, false)]
@@ -41,7 +40,6 @@ public class HttpFailureMapperTests
     }
 
     // --- ClassifyResponse: RetryAfter extraction ---
-
     [Fact]
     public void ClassifyResponse_ExtractsRetryAfterDelta()
     {
@@ -92,7 +90,6 @@ public class HttpFailureMapperTests
     }
 
     // --- ClassifyException: exception type mapping ---
-
     [Fact]
     public void ClassifyException_TaskCanceledMapsToTimeout()
     {

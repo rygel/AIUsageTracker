@@ -129,5 +129,4 @@ public class ProviderManagerTests
             maxConcurrentProviderRequests: 300);
         Assert.Equal(ProviderManager.MaxMaxConcurrentProviderRequests, managerHigh.MaxConcurrentProviderRequests);
     }
-
 }

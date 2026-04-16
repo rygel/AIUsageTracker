@@ -340,7 +340,7 @@ public class Program
 
     // P/Invoke to allocate console window
     [DllImport("kernel32.dll", SetLastError = true)]
-    public static extern bool AllocConsole();
+    private static extern bool AllocConsole();
 
     // Compatibility wrapper kept for tests and external callers.
     public static void SaveMonitorInfo(int port, bool debug, ILogger logger, IAppPathProvider pathProvider, string? startupStatus = null)

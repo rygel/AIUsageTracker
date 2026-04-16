@@ -164,5 +164,4 @@ public sealed class ProviderSettingsDisplayCatalogTests
         Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "codex", StringComparison.Ordinal));
         Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "codex.spark", StringComparison.Ordinal));
     }
-
 }

@@ -64,4 +64,3 @@ public sealed class ProviderAccountDisplayCatalogTests
         Assert.Equal(string.Empty, result);
     }
 }
-

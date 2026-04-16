@@ -81,7 +81,6 @@ public class ProviderRefreshTelemetryManagerTests
     }
 
     // ── Phase 6: OpenCircuitsByClassification telemetry dimension ────────────
-
     [Fact]
     public void GetSnapshot_OpenCircuits_GroupedByClassification()
     {

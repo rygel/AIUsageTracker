@@ -51,7 +51,7 @@ public class MonitorService : IMonitorService
     {
         this._httpClient = httpClient;
         this._logger = logger;
-        this._monitorLauncher = monitorLauncher ?? new MonitorLauncher(logger: null);
+        this._monitorLauncher = monitorLauncher ?? new MonitorLauncher(logger: null!);
         this._jsonOptions = MonitorJsonSerializer.DefaultOptions;
 
         // Note: Port discovery is now done explicitly via RefreshPortAsync()

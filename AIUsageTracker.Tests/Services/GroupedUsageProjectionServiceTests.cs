@@ -75,6 +75,7 @@ public sealed class GroupedUsageProjectionServiceTests
         var snapshot = GroupedUsageProjectionService.Build(usages);
 
         var provider = Assert.Single(snapshot.Providers);
+
         // Description must come from the most recent entry, not the stale successful one.
         Assert.Equal("HTTP 401: Unauthorized", provider.Description);
     }

@@ -311,7 +311,6 @@ public class ProviderRefreshCircuitBreakerServiceTests
     }
 
     // ── Phase 5: classification-aware backoff ─────────────────────────────────
-
     [Fact]
     public void UpdateProviderFailureStates_RateLimitWithRetryAfter_UsesRetryAfterAsBackoff()
     {
@@ -471,6 +470,7 @@ public class ProviderRefreshCircuitBreakerServiceTests
 
         var diagnostic = Assert.Single(this._service.GetProviderDiagnostics());
         Assert.False(diagnostic.IsCircuitOpen);
+
         // Classification is from previous failure state; null after reset
         Assert.Null(diagnostic.LastFailureClassification);
     }

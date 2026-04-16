@@ -22,7 +22,6 @@ public sealed class AppcastXmlConsistencyTests
     private static readonly XNamespace Sparkle = "http://www.andymatuschak.org/xml-namespaces/sparkle";
 
     // ── File existence ────────────────────────────────────────────────────────
-
     [Theory]
     [InlineData("appcast.xml")]
     [InlineData("appcast_x64.xml")]
@@ -42,7 +41,6 @@ public sealed class AppcastXmlConsistencyTests
     // ── Default appcast must be identical to x64 variant ─────────────────────
     // The arch-neutral file (appcast.xml / appcast_beta.xml) is a copy of the x64 feed.
     // If they diverge, x64 users on the default update URL receive stale data.
-
     [Theory]
     [InlineData("appcast.xml", "appcast_x64.xml")]
     [InlineData("appcast_beta.xml", "appcast_beta_x64.xml")]
@@ -57,15 +55,14 @@ public sealed class AppcastXmlConsistencyTests
     }
 
     // ── Enclosure URL contains correct architecture ───────────────────────────
-
     [Theory]
-    [InlineData("appcast.xml",            "x64")]
-    [InlineData("appcast_x64.xml",        "x64")]
-    [InlineData("appcast_x86.xml",        "x86")]
-    [InlineData("appcast_arm64.xml",      "arm64")]
-    [InlineData("appcast_beta.xml",       "x64")]
-    [InlineData("appcast_beta_x64.xml",   "x64")]
-    [InlineData("appcast_beta_x86.xml",   "x86")]
+    [InlineData("appcast.xml", "x64")]
+    [InlineData("appcast_x64.xml", "x64")]
+    [InlineData("appcast_x86.xml", "x86")]
+    [InlineData("appcast_arm64.xml", "arm64")]
+    [InlineData("appcast_beta.xml", "x64")]
+    [InlineData("appcast_beta_x64.xml", "x64")]
+    [InlineData("appcast_beta_x86.xml", "x86")]
     [InlineData("appcast_beta_arm64.xml", "arm64")]
     public void AppcastFile_EnclosureUrl_ContainsCorrectArchitecture(string fileName, string arch)
     {
@@ -77,7 +74,6 @@ public sealed class AppcastXmlConsistencyTests
     }
 
     // ── Enclosure URL starts with the expected GitHub base ────────────────────
-
     [Theory]
     [InlineData("appcast.xml")]
     [InlineData("appcast_x64.xml")]
@@ -97,7 +93,6 @@ public sealed class AppcastXmlConsistencyTests
     }
 
     // ── Enclosure URL version matches item <title> ────────────────────────────
-
     [Theory]
     [InlineData("appcast.xml")]
     [InlineData("appcast_x64.xml")]
@@ -118,7 +113,6 @@ public sealed class AppcastXmlConsistencyTests
     }
 
     // ── sparkle:releaseNotesLink matches version ──────────────────────────────
-
     [Theory]
     [InlineData("appcast.xml")]
     [InlineData("appcast_x64.xml")]
@@ -147,7 +141,6 @@ public sealed class AppcastXmlConsistencyTests
     // If this test fails it means the beta appcast was committed without running the
     // full publish pipeline — copy the real installer byte count into the appcast or
     // re-run scripts/generate-appcast.sh with the INSTALLER_SIZE_* env vars set.
-
     [Theory]
     [InlineData("appcast_beta.xml")]
     [InlineData("appcast_beta_x64.xml")]
@@ -174,7 +167,6 @@ public sealed class AppcastXmlConsistencyTests
     // NetSparkle requires a strictly-increasing version number for update detection.
     // Beta releases encode the pre-release suffix as a 4th component so that
     // beta.8 (→ 2.3.4.8) compares as greater than beta.7 (→ 2.3.4.7).
-
     [Theory]
     [InlineData("appcast_beta.xml")]
     [InlineData("appcast_beta_x64.xml")]
@@ -195,7 +187,6 @@ public sealed class AppcastXmlConsistencyTests
     }
 
     // ── Beta: sparkle:shortVersionString contains -beta. ─────────────────────
-
     [Theory]
     [InlineData("appcast_beta.xml")]
     [InlineData("appcast_beta_x64.xml")]
@@ -209,7 +200,6 @@ public sealed class AppcastXmlConsistencyTests
 
     // ── Beta: sparkle:version is derived consistently from shortVersionString ─
     // e.g. shortVersionString="2.3.4-beta.11" → sparkle:version must be "2.3.4.11"
-
     [Theory]
     [InlineData("appcast_beta.xml")]
     [InlineData("appcast_beta_x64.xml")]
@@ -238,7 +228,6 @@ public sealed class AppcastXmlConsistencyTests
     // ── All beta files reference the same version ─────────────────────────────
     // If the arch-specific files disagree on version, some users would receive the
     // wrong installer or be stuck on the wrong version depending on their architecture.
-
     [Fact]
     public void BetaAppcastFiles_AllReferenceTheSameVersion()
     {
@@ -253,7 +242,6 @@ public sealed class AppcastXmlConsistencyTests
     }
 
     // ── All stable files reference the same version ───────────────────────────
-
     [Fact]
     public void StableAppcastFiles_AllReferenceTheSameVersion()
     {
@@ -276,7 +264,6 @@ public sealed class AppcastXmlConsistencyTests
     }
 
     // ── sparkle:os must be "windows" ─────────────────────────────────────────
-
     [Theory]
     [InlineData("appcast.xml")]
     [InlineData("appcast_x64.xml")]
@@ -292,7 +279,6 @@ public sealed class AppcastXmlConsistencyTests
     }
 
     // ── type must be application/octet-stream ─────────────────────────────────
-
     [Theory]
     [InlineData("appcast.xml")]
     [InlineData("appcast_x64.xml")]
@@ -308,7 +294,6 @@ public sealed class AppcastXmlConsistencyTests
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-
     private static string GetAppcastPath(string fileName) =>
         Path.Combine(RepoRoot, "appcast", fileName);
 

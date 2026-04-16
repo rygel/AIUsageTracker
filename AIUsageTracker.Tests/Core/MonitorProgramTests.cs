@@ -171,4 +171,3 @@ public sealed class MonitorProgramTests : IDisposable
         public string GetMonitorInfoFilePath() => Path.Combine(this.GetAppDataRoot(), "monitor.json");
     }
 }
-

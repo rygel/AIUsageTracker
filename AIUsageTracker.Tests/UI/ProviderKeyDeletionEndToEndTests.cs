@@ -20,7 +20,6 @@ public sealed class ProviderKeyDeletionEndToEndTests
     // ───────────────────────────────────────────────────────────
     //  Settings: cards are ALWAYS visible (configuration slots)
     // ───────────────────────────────────────────────────────────
-
     [Fact]
     public void Settings_SyntheticCardAlwaysVisible_EvenWithoutConfig()
     {
@@ -72,7 +71,6 @@ public sealed class ProviderKeyDeletionEndToEndTests
     //  Main window: state does not affect visibility (filtering
     //  of unconfigured providers happens upstream in the monitor)
     // ───────────────────────────────────────────────────────────
-
     [Fact]
     public void MainWindow_ShowsMissingState_ForSessionAuthProviders()
     {
@@ -144,7 +142,6 @@ public sealed class ProviderKeyDeletionEndToEndTests
     // ───────────────────────────────────────────────────────────
     //  Provider metadata assertions
     // ───────────────────────────────────────────────────────────
-
     [Fact]
     public void Synthetic_IsDefaultSettingsProvider()
     {
@@ -178,7 +175,6 @@ public sealed class ProviderKeyDeletionEndToEndTests
     // ───────────────────────────────────────────────────────────
     //  Expired state: subscription lapsed but key still present
     // ───────────────────────────────────────────────────────────
-
     [Fact]
     public void MainWindow_ShowsExpiredState_ForStandardApiKeyProviders()
     {
@@ -225,7 +221,6 @@ public sealed class ProviderKeyDeletionEndToEndTests
     // ───────────────────────────────────────────────────────────
     //  External auth source warning on key removal
     // ───────────────────────────────────────────────────────────
-
     [Theory]
     [InlineData("Env: SYNTHETIC_API_KEY", true)]
     [InlineData("Roo Code: C:\\Users\\user\\.roo\\secrets.json", true)]
@@ -242,7 +237,6 @@ public sealed class ProviderKeyDeletionEndToEndTests
     // ───────────────────────────────────────────────────────────
     //  Provider behavior with empty key
     // ───────────────────────────────────────────────────────────
-
     [Fact]
     public async Task SyntheticProvider_NoKey_ReturnsMissingState()
     {
@@ -261,7 +255,6 @@ public sealed class ProviderKeyDeletionEndToEndTests
     // ───────────────────────────────────────────────────────────
     //  Helpers
     // ───────────────────────────────────────────────────────────
-
     private static ProviderUsage CreateUsage(
         string providerId,
         bool isAvailable = true,

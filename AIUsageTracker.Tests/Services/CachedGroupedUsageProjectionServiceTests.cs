@@ -21,6 +21,7 @@ public sealed class CachedGroupedUsageProjectionServiceTests
         {
             // openrouter row with no state info (as it comes from the DB)
             new() { ProviderId = "openrouter", ProviderName = "OpenRouter", IsAvailable = false, Description = "API Key missing." },
+
             // A configured provider that should appear
             new() { ProviderId = "mistral", ProviderName = "Mistral", IsAvailable = true, UsedPercent = 20 },
         };
@@ -29,6 +30,7 @@ public sealed class CachedGroupedUsageProjectionServiceTests
         {
             // openrouter has no API key → unconfigured StandardApiKey provider
             new() { ProviderId = "openrouter", ApiKey = string.Empty },
+
             // mistral has a key → should appear
             new() { ProviderId = "mistral", ApiKey = "sk-test-key" },
         };
@@ -136,7 +138,8 @@ public sealed class CachedGroupedUsageProjectionServiceTests
 
         // The group must reflect the minimax-io data (available, 30% used),
         // not the "API Key not found" data from the unconfigured minimax entry.
-        Assert.True(minimaxGroup.IsAvailable,
+        Assert.True(
+            minimaxGroup.IsAvailable,
             "MiniMax group should be available because minimax-io has a key; " +
             "the unconfigured minimax entry must have been excluded before Build.");
     }

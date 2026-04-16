@@ -34,7 +34,6 @@ public sealed class UpdatePipelineEndToEndTests : IDisposable
     }
 
     // ── Beta update check: GitHub Releases API ────────────────────────────
-
     [Fact]
     public async Task BetaUpdateCheck_FindsLatestPreRelease()
     {
@@ -138,7 +137,6 @@ public sealed class UpdatePipelineEndToEndTests : IDisposable
 
     // ── Release asset completeness ────────────────────────────────────────
     // Every release must have installer .exe files for all 3 architectures.
-
     [Fact]
     public async Task LatestBetaRelease_HasInstallerForEveryArchitecture()
     {
@@ -189,7 +187,6 @@ public sealed class UpdatePipelineEndToEndTests : IDisposable
     }
 
     // ── Appcast files on the release ─────────────────────────────────────
-
     [Fact]
     public async Task LatestBetaRelease_HasAllBetaAppcastFiles()
     {
@@ -259,7 +256,8 @@ public sealed class UpdatePipelineEndToEndTests : IDisposable
 
         // length is non-zero
         var lengthStr = enclosure.Attribute("length")?.Value ?? "0";
-        Assert.True(long.TryParse(lengthStr, out var length) && length > 0,
+        Assert.True(
+            long.TryParse(lengthStr, out var length) && length > 0,
             $"Appcast {fileName} has length={lengthStr}. Must be > 0.");
 
         // The download URL in the appcast actually resolves
@@ -271,7 +269,6 @@ public sealed class UpdatePipelineEndToEndTests : IDisposable
     }
 
     // ── Stable channel: appcast URL resolves ──────────────────────────────
-
     [Theory]
     [InlineData("x64")]
     [InlineData("x86")]
@@ -297,7 +294,6 @@ public sealed class UpdatePipelineEndToEndTests : IDisposable
     }
 
     // ── Download URL construction matches real assets ─────────────────────
-
     [Theory]
     [InlineData("x64")]
     [InlineData("x86")]
@@ -340,7 +336,6 @@ public sealed class UpdatePipelineEndToEndTests : IDisposable
 
     // ── Version comparison guards ─────────────────────────────────────────
     // These are critical: if IsNewerVersion breaks, no user ever gets an update.
-
     [Fact]
     public async Task BetaUpdateCheck_DetectedVersion_IsNewerThanPreviousRelease()
     {
@@ -366,7 +361,6 @@ public sealed class UpdatePipelineEndToEndTests : IDisposable
     }
 
     // ── GitHub Releases API contract ──────────────────────────────────────
-
     [Fact]
     public async Task GitHubReleasesApi_ReturnsExpectedStructure()
     {
@@ -400,7 +394,6 @@ public sealed class UpdatePipelineEndToEndTests : IDisposable
     // the FileStream open until end-of-method, causing File.Move to fail
     // with an IOException because the file is still locked.  The fix uses a
     // "using block" so the stream is disposed before the move.
-
     [Fact]
     public async Task DownloadToPartialFile_ThenMove_Succeeds()
     {
@@ -458,7 +451,6 @@ public sealed class UpdatePipelineEndToEndTests : IDisposable
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
-
     private async Task<JsonElement?> FetchLatestBetaReleaseAsync()
     {
         var releases = await this.FetchRecentReleasesAsync(5);

@@ -11,7 +11,6 @@ public sealed class ProviderSubDetailSectionCatalogTests
 {
     // Build() and GetDisplayableDetails() were removed when ProviderUsageDetail was replaced
     // by flat ProviderUsage cards. The collapse/expand preference helpers remain.
-
     [Fact]
     public void SetIsCollapsed_ProviderWithoutSharedPolicy_DoesNotMutateSharedPreference()
     {

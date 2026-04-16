@@ -221,8 +221,10 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
         try
         {
             var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
+
             // In the flat-card model, a codex.spark card is emitted when spark window data exists.
             var sparkCard = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex.spark", StringComparison.Ordinal) && usage.WindowKind == WindowKind.Burst);
+
             // Spark card: bound by primary (40% used) since no secondary window
             Assert.Equal(40, sparkCard.UsedPercent, precision: 0);
         }
@@ -341,6 +343,7 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
         try
         {
             var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
+
             // Codex: burst (20%), weekly (10%). Spark: burst (40%), weekly (75%).
             Assert.Contains(usages, u => u.ProviderId == "codex" && u.CardId == "burst" && u.WindowKind == WindowKind.Burst);
             Assert.Contains(usages, u => u.ProviderId == "codex" && u.CardId == "weekly" && u.WindowKind == WindowKind.Rolling);

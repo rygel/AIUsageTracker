@@ -9,7 +9,6 @@ namespace AIUsageTracker.Tests.Core;
 public class HttpFailureClassificationTests
 {
     // --- HttpFailureClassification shape ---
-
     [Fact]
     public void Classification_Unknown_IsDefaultZero()
     {
@@ -39,7 +38,6 @@ public class HttpFailureClassificationTests
     }
 
     // --- HttpFailureContext defaults ---
-
     [Fact]
     public void Context_DefaultClassificationIsUnknown()
     {
@@ -72,7 +70,6 @@ public class HttpFailureClassificationTests
     }
 
     // --- FromHttpStatus factory ---
-
     [Theory]
     [InlineData(401, HttpFailureClassification.Authentication, false)]
     [InlineData(403, HttpFailureClassification.Authorization, false)]
@@ -109,7 +106,6 @@ public class HttpFailureClassificationTests
     }
 
     // --- FromException factory ---
-
     [Theory]
     [InlineData(HttpFailureClassification.Network, true)]
     [InlineData(HttpFailureClassification.Timeout, true)]
@@ -142,7 +138,6 @@ public class HttpFailureClassificationTests
     }
 
     // --- Immutability ---
-
     [Fact]
     public void Context_CanBeConstructedWithInitializer()
     {

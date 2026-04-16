@@ -631,7 +631,7 @@ public class ProviderRefreshServiceTests
             PlanType.Usage,
             isQuotaBased: false)
         {
-            };
+        };
         var provider = new Mock<IProviderService>();
         provider.SetupGet(p => p.ProviderId).Returns("codex");
         provider.SetupGet(p => p.Definition).Returns(providerDefinition);

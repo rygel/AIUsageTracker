@@ -538,7 +538,7 @@ public class GroupedUsageDisplayAdapterTests
                     ProviderDetails = new[]
                     {
                         new ProviderUsage { ProviderId = "kimi-for-coding", Name = "Weekly Limit", WindowKind = WindowKind.Rolling, UsedPercent = 25.0 },
-                        new ProviderUsage { ProviderId = "kimi-for-coding", Name = "5h Limit",     WindowKind = WindowKind.Burst,   UsedPercent = 0.0  },
+                        new ProviderUsage { ProviderId = "kimi-for-coding", Name = "5h Limit",     WindowKind = WindowKind.Burst,   UsedPercent = 0.0 },
                     },
                 },
             },
@@ -691,12 +691,12 @@ public class GroupedUsageDisplayAdapterTests
         Assert.Equal(3, usages.Count(u => string.Equals(u.ProviderId, "claude-code", StringComparison.Ordinal)));
 
         var currentSession = Assert.Single(usages, u => string.Equals(u.ProviderId, "claude-code", StringComparison.Ordinal) && string.Equals(u.CardId, "current-session", StringComparison.Ordinal));
-        var sonnet         = Assert.Single(usages, u => string.Equals(u.ProviderId, "claude-code", StringComparison.Ordinal) && string.Equals(u.CardId, "sonnet",          StringComparison.Ordinal));
-        var allModels      = Assert.Single(usages, u => string.Equals(u.ProviderId, "claude-code", StringComparison.Ordinal) && string.Equals(u.CardId, "all-models",      StringComparison.Ordinal));
+        var sonnet = Assert.Single(usages, u => string.Equals(u.ProviderId, "claude-code", StringComparison.Ordinal) && string.Equals(u.CardId, "sonnet", StringComparison.Ordinal));
+        var allModels = Assert.Single(usages, u => string.Equals(u.ProviderId, "claude-code", StringComparison.Ordinal) && string.Equals(u.CardId, "all-models", StringComparison.Ordinal));
 
         Assert.Equal("Claude Code (Current Session)", currentSession.ProviderName);
-        Assert.Equal("Claude Code (Sonnet)",          sonnet.ProviderName);
-        Assert.Equal("Claude Code (All Models)",      allModels.ProviderName);
+        Assert.Equal("Claude Code (Sonnet)", sonnet.ProviderName);
+        Assert.Equal("Claude Code (All Models)", allModels.ProviderName);
 
         Assert.Equal(3, currentSession.UsedPercent, 1);
         Assert.Equal(2, sonnet.UsedPercent, 1);

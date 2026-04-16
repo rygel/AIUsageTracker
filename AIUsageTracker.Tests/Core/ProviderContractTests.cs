@@ -46,7 +46,6 @@ public class ProviderContractTests
     private readonly TestProvider _provider = new();
 
     // --- FailureContext is null by default ---
-
     [Fact]
     public void CreateUnavailableUsage_FailureContextNullByDefault()
     {
@@ -62,7 +61,6 @@ public class ProviderContractTests
     }
 
     // --- FailureContext is attached when supplied ---
-
     [Fact]
     public void CreateUnavailableUsage_AttachesFailureContext()
     {
@@ -100,7 +98,6 @@ public class ProviderContractTests
     }
 
     // --- FailureContext does not affect existing ProviderUsage fields ---
-
     [Fact]
     public void CreateUnavailableUsage_WithContext_ExistingFieldsUnchanged()
     {
@@ -118,7 +115,6 @@ public class ProviderContractTests
     }
 
     // --- FailureContext is not serialised ---
-
     [Fact]
     public void ProviderUsage_FailureContextIsJsonIgnored()
     {

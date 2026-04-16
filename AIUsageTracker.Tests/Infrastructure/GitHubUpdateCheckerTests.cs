@@ -14,12 +14,11 @@ namespace AIUsageTracker.Tests.Infrastructure;
 public class GitHubUpdateCheckerTests
 {
     // ── ParseAppVersion ───────────────────────────────────────────────────────
-
     [Theory]
-    [InlineData("2.3.4-beta.8",  2, 3, 4, 8)]
-    [InlineData("2.3.4-beta.1",  2, 3, 4, 1)]
-    [InlineData("2.3.4",         2, 3, 4, int.MaxValue)]  // stable sorts above any beta
-    [InlineData("1.0.0",         1, 0, 0, int.MaxValue)]
+    [InlineData("2.3.4-beta.8", 2, 3, 4, 8)]
+    [InlineData("2.3.4-beta.1", 2, 3, 4, 1)]
+    [InlineData("2.3.4", 2, 3, 4, int.MaxValue)] // stable sorts above any beta
+    [InlineData("1.0.0", 1, 0, 0, int.MaxValue)]
     [InlineData("10.2.3-beta.99", 10, 2, 3, 99)]
     public void ParseAppVersion_ReturnsExpectedTuple(
         string version, int major, int minor, int patch, int preRelease)
@@ -29,24 +28,22 @@ public class GitHubUpdateCheckerTests
     }
 
     // ── IsNewerVersion ────────────────────────────────────────────────────────
-
     [Theory]
-    [InlineData("2.3.4-beta.8", "2.3.4-beta.7", true)]   // newer beta
-    [InlineData("2.3.4-beta.7", "2.3.4-beta.8", false)]  // older beta
-    [InlineData("2.3.4-beta.7", "2.3.4-beta.7", false)]  // same beta
-    [InlineData("2.3.4",        "2.3.4-beta.8", true)]   // stable > any beta of same core
-    [InlineData("2.3.4-beta.8", "2.3.4",        false)]  // beta < stable of same core
-    [InlineData("2.3.5-beta.1", "2.3.4-beta.9", true)]   // higher patch wins
-    [InlineData("2.4.0",        "2.3.99",        true)]   // higher minor wins
-    [InlineData("3.0.0",        "2.99.99",       true)]   // higher major wins
-    [InlineData("v2.3.4-beta.8","2.3.4-beta.7", true)]   // v-prefix stripped
+    [InlineData("2.3.4-beta.8", "2.3.4-beta.7", true)] // newer beta
+    [InlineData("2.3.4-beta.7", "2.3.4-beta.8", false)] // older beta
+    [InlineData("2.3.4-beta.7", "2.3.4-beta.7", false)] // same beta
+    [InlineData("2.3.4", "2.3.4-beta.8", true)] // stable > any beta of same core
+    [InlineData("2.3.4-beta.8", "2.3.4", false)] // beta < stable of same core
+    [InlineData("2.3.5-beta.1", "2.3.4-beta.9", true)] // higher patch wins
+    [InlineData("2.4.0", "2.3.99", true)] // higher minor wins
+    [InlineData("3.0.0", "2.99.99", true)] // higher major wins
+    [InlineData("v2.3.4-beta.8", "2.3.4-beta.7", true)] // v-prefix stripped
     public void IsNewerVersion_ReturnsExpectedResult(string candidate, string current, bool expected)
     {
         Assert.Equal(expected, GitHubUpdateChecker.IsNewerVersion(candidate, current));
     }
 
     // ── Beta channel must NOT use the /releases/latest/download/ appcast URL ─
-
     [Fact]
     public void GetAppcastUrl_BetaChannel_DoesNotUseLatestDownloadPath()
     {
@@ -67,7 +64,6 @@ public class GitHubUpdateCheckerTests
     }
 
     // ── Stable channel appcast URL shape ─────────────────────────────────────
-
     [Fact]
     public void GetAppcastUrl_StableChannel_UsesStableAppcastFile()
     {
@@ -77,11 +73,11 @@ public class GitHubUpdateCheckerTests
     }
 
     [Theory]
-    [InlineData("x64",   "appcast_x64.xml")]
-    [InlineData("x86",   "appcast_x86.xml")]
+    [InlineData("x64", "appcast_x64.xml")]
+    [InlineData("x86", "appcast_x86.xml")]
     [InlineData("arm64", "appcast_arm64.xml")]
-    [InlineData("arm",   "appcast_arm64.xml")]  // arm maps to arm64
-    [InlineData("X64",   "appcast_x64.xml")]    // case-insensitive
+    [InlineData("arm", "appcast_arm64.xml")] // arm maps to arm64
+    [InlineData("X64", "appcast_x64.xml")] // case-insensitive
     public void GetAppcastUrl_ArchitectureNormalisation_CorrectFile(string arch, string expectedFile)
     {
         var url = GitHubUpdateChecker.GetAppcastUrl(arch, isBeta: false);
@@ -89,7 +85,6 @@ public class GitHubUpdateCheckerTests
     }
 
     // ── GetAppcastUrlForCurrentArchitecture (used by stable channel only) ────
-
     [Fact]
     public void GetAppcastUrlForCurrentArchitecture_StableChannel_MatchesExpected()
     {
@@ -107,7 +102,6 @@ public class GitHubUpdateCheckerTests
     }
 
     // ── GetCurrentInformationalVersion ───────────────────────────────────────
-
     [Fact]
     public void GetCurrentInformationalVersion_StripsBuildMetadata()
     {
@@ -119,7 +113,6 @@ public class GitHubUpdateCheckerTests
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-
     private static string InvokeGetAppcastUrlForCurrentArchitecture(GitHubUpdateChecker checker)
     {
         var method = typeof(GitHubUpdateChecker).GetMethod(

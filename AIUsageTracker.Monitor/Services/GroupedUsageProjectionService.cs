@@ -49,6 +49,7 @@ public static class GroupedUsageProjectionService
                 .FirstOrDefault();
 
         var displayName = ResolveProviderDisplayName(canonicalProviderId);
+
         // Flat cards with WindowKind != None are the quota-window cards for this group.
         var providerDetails = (IReadOnlyList<ProviderUsage>)group
             .Where(u => u.WindowKind != WindowKind.None && !u.IsStale)

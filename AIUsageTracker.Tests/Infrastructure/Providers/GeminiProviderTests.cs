@@ -526,7 +526,6 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
     }
 
     // --- Phase 4: FailureContext attachment ---
-
     [Fact]
     public async Task GetUsageAsync_AllAccountsFail_AttachesFailureContextOnUnavailableRowAsync()
     {

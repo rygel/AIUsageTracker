@@ -207,10 +207,8 @@ public sealed class ProviderUsageDisplayCatalogTests
 
         var gemini = Assert.Single(preparation);
         Assert.Equal("gemini-cli", gemini.ProviderId);
+
         // The preferred entry has NextResetTime set
         Assert.NotNull(gemini.NextResetTime);
     }
-
 }
-
-
