@@ -403,7 +403,7 @@ public static class UsageMath
             return forecastResult;
         }
 
-        var burnRatePerDay = CalculateBurnRatePerDay(cycleSamples, out var elapsedDays);
+        var burnRatePerDay = CalculateBurnRatePerDay(cycleSamples, out _);
         if (!ValidateBurnRate(burnRatePerDay, out forecastResult))
         {
             return forecastResult;

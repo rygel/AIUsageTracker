@@ -217,6 +217,8 @@ public partial class MainWindow : Window
         return (header, container);
     }
 
+    // MA0147: async void is required for MouseButtonEventHandler delegate
+#pragma warning disable MA0147
     private MouseButtonEventHandler CreateHeaderClickHandler(
         Func<bool> getCollapsed,
         Action<bool> setCollapsed,
@@ -238,6 +240,7 @@ public partial class MainWindow : Window
                 this._logger.LogWarning(ex, "Failed to save collapse state");
             }
         };
+#pragma warning restore MA0147
     }
 
     private ProviderCardRenderer CreateProviderCardRenderer()
