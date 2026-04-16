@@ -322,7 +322,7 @@ public partial class MainWindow : Window
 
         var contextMenu = new ContextMenu();
         var designerItem = new MenuItem { Header = "Card settings..." };
-        designerItem.Click += async (_, _) => await this.OpenCardSettings().ConfigureAwait(false);
+        designerItem.Click += async (_, _) => await this.OpenCardSettings();
         contextMenu.Items.Add(designerItem);
         card.ContextMenu = contextMenu;
 
