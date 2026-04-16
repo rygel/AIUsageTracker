@@ -45,6 +45,21 @@ public class ReliabilityModel : PageModel
         }
     }
 
+    public static string GetFailureClass(double failureRatePercent)
+    {
+        if (failureRatePercent >= 20)
+        {
+            return "critical";
+        }
+
+        if (failureRatePercent >= 5)
+        {
+            return "warning";
+        }
+
+        return "success";
+    }
+
     public static string GetReliabilityClass(ProviderReliabilitySnapshot snapshot)
     {
         ArgumentNullException.ThrowIfNull(snapshot);

@@ -101,7 +101,7 @@ public sealed class UpdateChannelConfigurationEndToEndTests : IDisposable
             return;
         }
 
-        var prefix = channel == "beta" ? "appcast_beta" : "appcast";
+        var prefix = string.Equals(channel, "beta", StringComparison.Ordinal) ? "appcast_beta" : "appcast";
         AssertInstallerLength(Path.Combine(workingDirectory, "appcast", $"{prefix}.xml"), x64Size);
         AssertInstallerLength(Path.Combine(workingDirectory, "appcast", $"{prefix}_x64.xml"), x64Size);
         AssertInstallerLength(Path.Combine(workingDirectory, "appcast", $"{prefix}_x86.xml"), x86Size);
@@ -122,7 +122,7 @@ public sealed class UpdateChannelConfigurationEndToEndTests : IDisposable
         Assert.NotNull(enclosure);
         var lengthStr = enclosure!.Attribute("length")?.Value;
         Assert.False(string.IsNullOrEmpty(lengthStr), $"Missing length attribute in {appcastFilePath}.");
-        Assert.True(long.TryParse(lengthStr, out var actualLength), $"Non-numeric length '{lengthStr}' in {appcastFilePath}.");
+        Assert.True(long.TryParse(lengthStr, System.Globalization.CultureInfo.InvariantCulture, out var actualLength), $"Non-numeric length '{lengthStr}' in {appcastFilePath}.");
         Assert.Equal(expectedLength, actualLength);
     }
 

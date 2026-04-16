@@ -50,7 +50,7 @@ internal static class WebDatabasePathResolver
             _ = command.ExecuteScalar();
             return true;
         }
-        catch (Exception ex)
+        catch (SqliteException ex)
         {
             Log.Warning(ex, "Web UI could not open SQLite database at {DatabasePath}", databasePath);
             return false;
@@ -85,6 +85,7 @@ internal static class WebDatabasePathResolver
 
             return true;
         }
+#pragma warning disable CA1031 // File system operations can throw varied exception types
         catch (Exception ex)
         {
             Log.Warning(
@@ -93,6 +94,7 @@ internal static class WebDatabasePathResolver
                 sourceDatabasePath,
                 destinationDatabasePath);
             return false;
+#pragma warning restore CA1031
         }
     }
 

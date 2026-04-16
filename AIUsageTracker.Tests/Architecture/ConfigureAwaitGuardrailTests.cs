@@ -109,7 +109,7 @@ public class ConfigureAwaitGuardrailTests
                     if (line.Contains("ConfigureAwait(true)", StringComparison.Ordinal))
                     {
                         var trimmed = line.TrimStart();
-                        if (trimmed.StartsWith("//") || trimmed.StartsWith("*"))
+                        if (trimmed.StartsWith("//", StringComparison.Ordinal) || trimmed.StartsWith("*", StringComparison.Ordinal))
                         {
                             continue;
                         }

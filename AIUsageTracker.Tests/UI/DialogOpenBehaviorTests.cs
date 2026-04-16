@@ -131,7 +131,9 @@ public class DialogOpenBehaviorTests
 
             var preferences = new AppPreferences { ShowUsedPercentages = true };
             var mainWindow = CreateMainWindowForTesting();
+#pragma warning disable SYSLIB0050
             var settingsWindow = (SettingsWindow)FormatterServices.GetUninitializedObject(typeof(SettingsWindow));
+#pragma warning restore SYSLIB0050
 
             SetPrivateField(mainWindow, "_preferences", preferences);
             SetPrivateField(settingsWindow, "_preferences", preferences);
@@ -168,7 +170,9 @@ public class DialogOpenBehaviorTests
                 ColorThresholdYellow = 60,
                 ColorThresholdRed = 80,
             };
+#pragma warning disable SYSLIB0050
             var settingsWindow = (SettingsWindow)FormatterServices.GetUninitializedObject(typeof(SettingsWindow));
+#pragma warning restore SYSLIB0050
             var dualModeCombo = new ComboBox
             {
                 ItemsSource = new[]

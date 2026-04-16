@@ -397,7 +397,8 @@ public class ProviderManager : IDisposable
         {
             // Timeout cancellation — return timeout usage.
             stopwatch.Stop();
-            this._logger.LogWarning(ex,
+            this._logger.LogWarning(
+                ex,
                 "Provider {ProviderId} timed out after {TimeoutSeconds}s",
                 config.ProviderId,
                 ProviderRequestTimeout.TotalSeconds);

@@ -103,7 +103,7 @@ public class ThemeApplicationTests
             for (int i = 0; i < lines.Length; i++)
             {
                 var line = lines[i].TrimStart();
-                if (line.StartsWith("//") || line.StartsWith("*"))
+                if (line.StartsWith("//", StringComparison.Ordinal) || line.StartsWith("*", StringComparison.Ordinal))
                 {
                     continue;
                 }
@@ -155,7 +155,7 @@ public class ThemeApplicationTests
                 palette.TryGetValue("Background", out var bg),
                 $"Theme {theme} missing Background key");
 
-            var luminance = 0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B;
+            var luminance = (0.299 * bg.R) + (0.587 * bg.G) + (0.114 * bg.B);
             Assert.True(
                 luminance < 100,
                 $"Theme {theme} Background ({bg}) is too bright for a dark theme (luminance={luminance:F0})");
@@ -179,7 +179,7 @@ public class ThemeApplicationTests
                 palette.TryGetValue("Background", out var bg),
                 $"Theme {theme} missing Background key");
 
-            var luminance = 0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B;
+            var luminance = (0.299 * bg.R) + (0.587 * bg.G) + (0.114 * bg.B);
             Assert.True(
                 luminance > 150,
                 $"Theme {theme} Background ({bg}) is too dark for a light theme (luminance={luminance:F0})");
@@ -237,7 +237,7 @@ public class ThemeApplicationTests
         r = r <= 0.03928 ? r / 12.92 : Math.Pow((r + 0.055) / 1.055, 2.4);
         g = g <= 0.03928 ? g / 12.92 : Math.Pow((g + 0.055) / 1.055, 2.4);
         b = b <= 0.03928 ? b / 12.92 : Math.Pow((b + 0.055) / 1.055, 2.4);
-        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        return (0.2126 * r) + (0.7152 * g) + (0.0722 * b);
     }
 
     private static string? FindXamlFile(Type windowType)

@@ -1237,7 +1237,7 @@ public partial class SettingsWindow : Window
 
     private static string NormalizeQuietHour(string value, string fallback)
     {
-        if (TimeSpan.TryParse(value, out var parsed))
+        if (TimeSpan.TryParse(value, System.Globalization.CultureInfo.InvariantCulture, out var parsed))
         {
             var normalized = new TimeSpan(parsed.Hours, parsed.Minutes, 0);
             return normalized.ToString("hh\\:mm", System.Globalization.CultureInfo.InvariantCulture);

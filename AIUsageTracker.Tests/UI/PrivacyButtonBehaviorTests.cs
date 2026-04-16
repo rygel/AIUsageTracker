@@ -44,7 +44,7 @@ public class PrivacyButtonBehaviorTests
 
                 // Directly invoke OnPrivacyChanged — bypasses PrivacyBtn_Click entirely
                 var args = new PrivacyChangedEventArgs(true);
-                InvokePrivateMethod(mainWindow, "OnPrivacyChanged", new object?[] { null, args });
+                InvokePrivateMethod(mainWindow, "OnPrivacyChanged", new object[] { null!, args });
 
                 // If Dispatcher.CheckAccess() returned false inside OnPrivacyChanged,
                 // _isPrivacyMode won't have updated yet (BeginInvoke deferred it).

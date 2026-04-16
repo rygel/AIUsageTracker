@@ -511,7 +511,7 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
             return false;
         }
 
-        var content = await request.Content.ReadAsStringAsync();
+        var content = await request.Content.ReadAsStringAsync().ConfigureAwait(false);
         return content?.Contains(value, StringComparison.Ordinal) == true;
     }
 

@@ -295,6 +295,7 @@ public sealed class WebDatabaseServiceTests : IDisposable
         public string GetAppDataRoot() => this._root;
 
         public string GetDatabasePath() => Path.Combine(this._root, "monitor.db");
+
         public string GetLogDirectory() => Path.Combine(this._root, "logs");
 
         public string GetAuthFilePath() => Path.Combine(this._root, "auth.json");

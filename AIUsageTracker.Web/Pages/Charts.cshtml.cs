@@ -43,10 +43,10 @@ public class ChartsModel : PageModel
             var chartTask = this._dbService.GetChartDataAsync(hours);
             var colorTask = this.GetProviderColorsAsync();
 
-            await Task.WhenAll(chartTask, colorTask);
+            await Task.WhenAll(chartTask, colorTask).ConfigureAwait(false);
 
-            this.ChartData = await chartTask;
-            this.ProviderColors = await colorTask;
+            this.ChartData = await chartTask.ConfigureAwait(false);
+            this.ProviderColors = await colorTask.ConfigureAwait(false);
         }
     }
 
@@ -57,7 +57,7 @@ public class ChartsModel : PageModel
             return new JsonResult(Array.Empty<ResetEvent>());
         }
 
-        var events = await this._dbService.GetRecentResetEventsAsync(hours);
+        var events = await this._dbService.GetRecentResetEventsAsync(hours).ConfigureAwait(false);
         return new JsonResult(events);
     }
 
@@ -74,12 +74,12 @@ public class ChartsModel : PageModel
 
         var chartTask = this._dbService.GetChartDataAsync(hours);
         var resetTask = this._dbService.GetRecentResetEventsAsync(hours);
-        await Task.WhenAll(chartTask, resetTask);
+        await Task.WhenAll(chartTask, resetTask).ConfigureAwait(false);
 
         return new JsonResult(new
         {
-            chartData = await chartTask,
-            resetEvents = await resetTask,
+            chartData = await chartTask.ConfigureAwait(false),
+            resetEvents = await resetTask.ConfigureAwait(false),
         });
     }
 
@@ -90,13 +90,13 @@ public class ChartsModel : PageModel
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
 
             var colors = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            var configs = await this._configLoader.LoadConfigAsync();
+            var configs = await this._configLoader.LoadConfigAsync().ConfigureAwait(false);
             foreach (var model in configs
                 .Where(cfg => cfg.Models != null)
                 .SelectMany(cfg => cfg.Models!)
                 .Where(m => !string.IsNullOrEmpty(m.Color) && !string.IsNullOrEmpty(m.Name)))
             {
-                colors[model.Name] = model.Color;
+                colors[model.Name!] = model.Color!;
             }
 
             return colors;

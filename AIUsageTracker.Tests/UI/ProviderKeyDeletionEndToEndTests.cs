@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.UI.Slim;
@@ -83,7 +84,7 @@ public sealed class ProviderKeyDeletionEndToEndTests
 
         var items = MainWindowRuntimeLogic.PrepareForMainWindow(usages);
 
-        Assert.Contains(items, item => item.ProviderId == "github-copilot");
+        Assert.Contains(items, item => string.Equals(item.ProviderId, "github-copilot", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -97,7 +98,7 @@ public sealed class ProviderKeyDeletionEndToEndTests
 
         var items = MainWindowRuntimeLogic.PrepareForMainWindow(usages);
 
-        Assert.Contains(items, item => item.ProviderId == "synthetic");
+        Assert.Contains(items, item => string.Equals(item.ProviderId, "synthetic", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -110,7 +111,7 @@ public sealed class ProviderKeyDeletionEndToEndTests
 
         var items = MainWindowRuntimeLogic.PrepareForMainWindow(usages);
 
-        Assert.Contains(items, item => item.ProviderId == "synthetic");
+        Assert.Contains(items, item => string.Equals(item.ProviderId, "synthetic", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -123,7 +124,7 @@ public sealed class ProviderKeyDeletionEndToEndTests
 
         var items = MainWindowRuntimeLogic.PrepareForMainWindow(usages, new[] { "synthetic" });
 
-        Assert.DoesNotContain(items, item => item.ProviderId == "synthetic");
+        Assert.DoesNotContain(items, item => string.Equals(item.ProviderId, "synthetic", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -136,7 +137,7 @@ public sealed class ProviderKeyDeletionEndToEndTests
 
         var items = MainWindowRuntimeLogic.PrepareForMainWindow(usages);
 
-        Assert.DoesNotContain(items, item => item.ProviderId == "synthetic");
+        Assert.DoesNotContain(items, item => string.Equals(item.ProviderId, "synthetic", StringComparison.Ordinal));
     }
 
     // ───────────────────────────────────────────────────────────
@@ -186,7 +187,7 @@ public sealed class ProviderKeyDeletionEndToEndTests
 
         var items = MainWindowRuntimeLogic.PrepareForMainWindow(usages);
 
-        Assert.Contains(items, item => item.ProviderId == "synthetic");
+        Assert.Contains(items, item => string.Equals(item.ProviderId, "synthetic", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -215,7 +216,7 @@ public sealed class ProviderKeyDeletionEndToEndTests
 
         var expiredItems = MainWindowRuntimeLogic.PrepareForMainWindow(expiredUsages);
 
-        Assert.Contains(expiredItems, item => item.ProviderId == "synthetic");
+        Assert.Contains(expiredItems, item => string.Equals(item.ProviderId, "synthetic", StringComparison.Ordinal));
     }
 
     // ───────────────────────────────────────────────────────────

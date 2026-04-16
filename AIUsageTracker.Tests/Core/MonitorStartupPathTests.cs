@@ -296,12 +296,12 @@ public sealed class MonitorStartupPathTests : IDisposable
         {
             Port = 6111,
             ProcessId = 6111,
-        })).ConfigureAwait(false);
+        }));
         await File.WriteAllTextAsync(secondPath, JsonSerializer.Serialize(new MonitorInfo
         {
             Port = 6222,
             ProcessId = 6222,
-        })).ConfigureAwait(false);
+        }));
 
         var gate = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
         var readyCount = 0;
@@ -318,13 +318,14 @@ public sealed class MonitorStartupPathTests : IDisposable
                 gate.SetResult(null);
             }
 
-            await gate.Task.ConfigureAwait(false);
+            var gateTask = gate.Task;
+            await gateTask.ConfigureAwait(false);
             return await launcher.GetAgentStatusInfoAsync().ConfigureAwait(false);
         }
 
         var firstStatusTask = ResolveStatusAsync(firstPath, 6111, 6111);
         var secondStatusTask = ResolveStatusAsync(secondPath, 6222, 6222);
-        var statuses = await Task.WhenAll(firstStatusTask, secondStatusTask).ConfigureAwait(false);
+        var statuses = await Task.WhenAll(firstStatusTask, secondStatusTask);
 
         Assert.Contains(statuses, status => status.IsRunning && status.Port == 6111);
         Assert.Contains(statuses, status => status.IsRunning && status.Port == 6222);

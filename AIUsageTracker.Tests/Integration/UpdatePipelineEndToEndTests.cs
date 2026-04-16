@@ -454,7 +454,7 @@ public sealed class UpdatePipelineEndToEndTests : IDisposable
     // ── Helpers ───────────────────────────────────────────────────────────
     private async Task<JsonElement?> FetchLatestBetaReleaseAsync()
     {
-        var releases = await this.FetchRecentReleasesAsync(5);
+        var releases = await this.FetchRecentReleasesAsync(5).ConfigureAwait(false);
         if (releases == null)
         {
             return null;
@@ -477,13 +477,13 @@ public sealed class UpdatePipelineEndToEndTests : IDisposable
         {
             var url = $"https://api.github.com/repos/rygel/AIUsageTracker/releases?per_page={count}";
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            using var response = await this._httpClient.SendAsync(request);
+            using var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 return null;
             }
 
-            var json = await response.Content.ReadAsStringAsync();
+            var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             return JsonDocument.Parse(json).RootElement;
         }
         catch (HttpRequestException)

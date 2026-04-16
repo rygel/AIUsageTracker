@@ -150,7 +150,7 @@ internal static class MonitorUsageEndpoints
 
         return headerValues
             .Where(h => !string.IsNullOrWhiteSpace(h))
-            .SelectMany(h => h.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            .SelectMany(h => h!.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
             .Any(candidate => string.Equals(candidate, "*", StringComparison.Ordinal) ||
                               string.Equals(candidate, currentETag, StringComparison.Ordinal));
     }

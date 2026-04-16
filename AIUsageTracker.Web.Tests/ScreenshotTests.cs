@@ -358,7 +358,7 @@ public class ScreenshotTests : WebTestBase
                 () => getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim()
                 """);
 
-            Assert.AreEqual(theme, appliedTheme, $"Theme '{theme}' was not applied to data-theme.");
+            Assert.AreEqual(theme, appliedTheme, StringComparer.Ordinal, $"Theme '{theme}' was not applied to data-theme.");
             Assert.IsFalse(string.IsNullOrWhiteSpace(bgPrimary), $"Theme '{theme}' did not resolve --bg-primary.");
         }
     }
@@ -406,7 +406,7 @@ public class ScreenshotTests : WebTestBase
                 var appliedTheme = await page.EvaluateAsync<string>("""
                     () => document.documentElement.getAttribute('data-theme') || ''
                     """);
-                Assert.AreEqual(theme, appliedTheme, $"Theme '{theme}' was not applied before screenshot capture.");
+                Assert.AreEqual(theme, appliedTheme, StringComparer.Ordinal, $"Theme '{theme}' was not applied before screenshot capture.");
 
                 var filePath = Path.Combine(themeOutputDirectory, $"screenshot_web_theme_{theme}.png");
                 await page.ScreenshotAsync(new() { Path = filePath, FullPage = true });
@@ -472,7 +472,7 @@ public class ScreenshotTests : WebTestBase
             var appliedTheme = await page.EvaluateAsync<string>("""
                 () => document.documentElement.getAttribute('data-theme') || ''
                 """);
-            Assert.AreEqual(theme, appliedTheme, $"Theme '{theme}' was not applied before CSS token assertions.");
+            Assert.AreEqual(theme, appliedTheme, StringComparer.Ordinal, $"Theme '{theme}' was not applied before CSS token assertions.");
 
             var tokens = await page.EvaluateAsync<string[]>("""
                 () => {
@@ -486,8 +486,8 @@ public class ScreenshotTests : WebTestBase
 
             Assert.IsNotNull(tokens, $"Theme '{theme}' token payload should not be null.");
             Assert.AreEqual(3, tokens.Length, $"Theme '{theme}' should return three token values.");
-            Assert.AreEqual(expectedTokens.BgPrimary, tokens[0], $"Theme '{theme}' unexpected --bg-primary.");
-            Assert.AreEqual(expectedTokens.AccentPrimary, tokens[1], $"Theme '{theme}' unexpected --accent-primary.");
+            Assert.AreEqual(expectedTokens.BgPrimary, tokens[0], StringComparer.Ordinal, $"Theme '{theme}' unexpected --bg-primary.");
+            Assert.AreEqual(expectedTokens.AccentPrimary, tokens[1], StringComparer.Ordinal, $"Theme '{theme}' unexpected --accent-primary.");
 
             var contrast = ScreenshotTests.ContrastRatio(tokens[2], tokens[0]);
             Assert.IsTrue(contrast >= 4.5, $"Theme '{theme}' has insufficient text/background contrast ({contrast:F2}).");

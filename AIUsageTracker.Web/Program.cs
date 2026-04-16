@@ -11,8 +11,10 @@ try
     var app = WebApplicationBootstrapper.Build(args, appData);
     await app.RunAsync().ConfigureAwait(false);
 }
+#pragma warning disable CA1031 // Top-level application exception handler
 catch (Exception ex)
 {
+#pragma warning restore CA1031
     Log.Fatal(ex, "Application terminated unexpectedly");
 }
 finally

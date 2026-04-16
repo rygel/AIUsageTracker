@@ -379,7 +379,8 @@ public partial class MainWindow : Window
             var sw = System.Diagnostics.Stopwatch.StartNew();
             try
             {
-                var monitorReady = await App.MonitorWarmupTask.ConfigureAwait(true);
+                var warmupTask = App.MonitorWarmupTask;
+                var monitorReady = await warmupTask.ConfigureAwait(true);
                 sw.Stop();
                 this.LogDiagnostic($"[DIAGNOSTIC] Monitor warmup completed in {sw.ElapsedMilliseconds}ms, ready={monitorReady}");
 

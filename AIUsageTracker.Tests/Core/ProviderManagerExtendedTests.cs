@@ -151,10 +151,12 @@ public class ProviderManagerExtendedTests
         {
             ProviderId = "slow-provider",
             UsageHandler = _ => Task.Delay(TimeSpan.FromSeconds(30))
-                .ContinueWith(_ => (IEnumerable<ProviderUsage>)new[]
-                {
-                    new ProviderUsage { ProviderId = "slow-provider", IsAvailable = true },
-                }, TaskScheduler.Default),
+                .ContinueWith(
+                    _ => (IEnumerable<ProviderUsage>)new[]
+                    {
+                        new ProviderUsage { ProviderId = "slow-provider", IsAvailable = true },
+                    },
+                    TaskScheduler.Default),
         };
 
         var providers = new List<IProviderService> { mockProvider };

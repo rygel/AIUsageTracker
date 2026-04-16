@@ -33,8 +33,8 @@
                     var successRate = snapshot.IsAvailable
                         ? Math.Clamp(100 - snapshot.FailureRatePercent, 0, 100)
                         : 0;
-                    var failureClass = snapshot.FailureRatePercent >= 20 ? "critical" : (snapshot.FailureRatePercent >= 5 ? "warning" : "success");
-                    
+                    var failureClass = ReliabilityModel.GetFailureClass(snapshot.FailureRatePercent);
+
                     <div class="reliability-card">
                         <div class="reliability-header">
                             <span class="provider-name">@usage.ProviderName</span>

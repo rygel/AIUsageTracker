@@ -47,7 +47,7 @@ public sealed class CachedGroupedUsageProjectionServiceTests
 
         var service = new CachedGroupedUsageProjectionService(mockDb.Object, mockConfig.Object);
 
-        var snapshot = await service.GetGroupedUsageAsync().ConfigureAwait(false);
+        var snapshot = await service.GetGroupedUsageAsync();
 
         // OpenRouter must not be in the snapshot
         Assert.DoesNotContain(snapshot.Providers, p =>
@@ -84,7 +84,7 @@ public sealed class CachedGroupedUsageProjectionServiceTests
 
         var service = new CachedGroupedUsageProjectionService(mockDb.Object, mockConfig.Object);
 
-        var snapshot = await service.GetGroupedUsageAsync().ConfigureAwait(false);
+        var snapshot = await service.GetGroupedUsageAsync();
 
         Assert.Contains(snapshot.Providers, p =>
             string.Equals(p.ProviderId, "openrouter", StringComparison.OrdinalIgnoreCase));
@@ -129,7 +129,7 @@ public sealed class CachedGroupedUsageProjectionServiceTests
 
         var service = new CachedGroupedUsageProjectionService(mockDb.Object, mockConfig.Object);
 
-        var snapshot = await service.GetGroupedUsageAsync().ConfigureAwait(false);
+        var snapshot = await service.GetGroupedUsageAsync();
 
         // The MiniMax family (canonical "minimax") must appear — minimax-io has a key.
         var minimaxGroup = snapshot.Providers

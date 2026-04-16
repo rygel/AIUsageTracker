@@ -20,8 +20,8 @@ public class WindowsNotificationService : INotificationService
 
     public event EventHandler<NotificationClickedEventArgs>? OnNotificationClicked
     {
-        add { _ = value; }
-        remove { _ = value; }
+        add { _ = value; } // Intentionally ignored - notification failure is non-critical
+        remove { _ = value; } // Intentionally ignored - notification failure is non-critical
     }
 
     public void Initialize()

@@ -1,4 +1,4 @@
-const fs = require('fs');
+const fs = require('node:fs');
 
 let content = fs.readFileSync('AIConsumptionTracker.UI/MainWindow.xaml.cs', 'utf8');
 

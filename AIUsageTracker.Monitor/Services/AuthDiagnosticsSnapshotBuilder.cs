@@ -142,7 +142,8 @@ internal static class AuthDiagnosticsSnapshotBuilder
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            logger?.LogDebug(ex,
+            logger?.LogDebug(
+                ex,
                 "Auth diagnostics token age calculation failed for provider {ProviderId} and source {AuthSource}.",
                 providerId,
                 authSource);

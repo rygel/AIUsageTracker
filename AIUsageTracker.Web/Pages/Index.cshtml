@@ -55,7 +55,7 @@
                     var successRate = snapshot.IsAvailable
                         ? Math.Clamp(100 - snapshot.FailureRatePercent, 0, 100)
                         : 0;
-                    var failureClass = snapshot.FailureRatePercent >= 20 ? "critical" : (snapshot.FailureRatePercent >= 5 ? "warning" : "success");
+                    var failureClass = GetFailureClass(snapshot.FailureRatePercent);
                     <div class="reliability-card">
                         <div class="reliability-header">
                             <span class="provider-name">@usage.ProviderName</span>
@@ -302,7 +302,7 @@
             <div class="budget-grid">
                 @foreach (var budget in Model.BudgetStatuses)
                 {
-                    var budgetClass = budget.IsOverBudget ? "over-budget" : (budget.IsWarning ? "warning" : "healthy");
+                    var budgetClass = GetBudgetClass(budget.IsOverBudget, budget.IsWarning);
                     <div class="budget-card @budgetClass">
                         <div class="budget-header">
                             <span class="budget-name">@budget.ProviderName</span>
@@ -344,7 +344,7 @@
             <div class="comparison-grid">
                 @foreach (var comparison in Model.UsageComparisons.Take(12))
                 {
-                    var changeClass = comparison.ChangeAbsolute > 0 ? "increase" : (comparison.ChangeAbsolute < 0 ? "decrease" : "neutral");
+                    var changeClass = GetChangeClass(comparison.ChangeAbsolute);
                     <div class="comparison-card">
                         <div class="comparison-header">
                             <span class="provider-name">@comparison.ProviderName</span>
@@ -436,6 +436,27 @@
 </script>
 
 @functions {
+    static string GetFailureClass(double failureRatePercent)
+    {
+        if (failureRatePercent >= 20) return "critical";
+        if (failureRatePercent >= 5) return "warning";
+        return "success";
+    }
+
+    static string GetBudgetClass(bool isOverBudget, bool isWarning)
+    {
+        if (isOverBudget) return "over-budget";
+        if (isWarning) return "warning";
+        return "healthy";
+    }
+
+    static string GetChangeClass(double changeAbsolute)
+    {
+        if (changeAbsolute > 0) return "increase";
+        if (changeAbsolute < 0) return "decrease";
+        return "neutral";
+    }
+
     string GetUsageClass(double usage) => usage switch
     {
         var u when u >= Model.ColorThresholdRed => "danger",
@@ -461,12 +482,12 @@
             return "Never";
         }
 
-        if (DateTime.TryParse(lastUpdate, out var parsed))
+        if (DateTime.TryParse(lastUpdate, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsed))
         {
             return parsed.ToString("g");
         }
 
-        if (long.TryParse(lastUpdate, out var unixValue))
+        if (long.TryParse(lastUpdate, System.Globalization.CultureInfo.InvariantCulture, out var unixValue))
         {
             try
             {
@@ -624,7 +645,7 @@
         return $"{direction} ({severity}) {latestText}/day vs {baselineText}/day";
     }
 
-    static bool TryGetDualWindowPercentages(AIUsageTracker.Core.Models.ProviderUsage usage, out double primaryUsed, out double secondaryUsed, out string primaryName, out string secondaryName)
+    static bool TryGetDualWindowPercentages(AIUsageTracker.Core.Models.ProviderUsage _, out double primaryUsed, out double secondaryUsed, out string primaryName, out string secondaryName)
     {
         // Dual-window data now comes from flat ProviderUsage cards (WindowKind != None).
         // The web page operates on root ProviderUsage objects which no longer carry sub-details.

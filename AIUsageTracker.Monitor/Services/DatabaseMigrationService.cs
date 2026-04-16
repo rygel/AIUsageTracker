@@ -60,7 +60,8 @@ public class DatabaseMigrationService
             }
             catch (EvolveException ex) when (HasApplicationTables(connection) && IsExistingSchemaConflict(ex))
             {
-                this._logger.LogWarning(ex,
+                this._logger.LogWarning(
+                    ex,
                     "Evolve migration conflicted with an existing schema ({Message}). Applying compatibility bootstrap instead.",
                     ex.Message);
                 this.EnsureSchemaCompatibility(connection);

@@ -68,9 +68,11 @@ public class MonitorProcessService
             activity?.SetStatus(ActivityStatusCode.Ok);
             return CreateStatusResult(status, healthSnapshot, contractHandshake);
         }
+#pragma warning disable CA1031 // Network and HTTP calls can throw varied exception types
         catch (Exception ex)
         {
             this._logger.LogWarning(ex, "Failed to collect monitor health snapshot for web status API.");
+#pragma warning restore CA1031
             activity?.SetTag("error.type", ex.GetType().Name);
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             return CreateStatusResult(status, healthSnapshot: null, contractHandshake: null);

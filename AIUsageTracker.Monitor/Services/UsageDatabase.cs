@@ -277,7 +277,7 @@ public class UsageDatabase : IUsageDatabase
             // something meaningful has changed. When data is unchanged, we UPDATE the
             // existing row's fetched_at so the stale-data detector keeps seeing a fresh
             // timestamp even though no new row was written.
-            var providerIds = validUsages.Select(u => u.ProviderId!).Distinct().ToList();
+            var providerIds = validUsages.Select(u => u.ProviderId!).Distinct(StringComparer.Ordinal).ToList();
             var lastRows = await LoadLastHistoryRowsAsync(connection, providerIds).ConfigureAwait(false);
 
             var toInsert = new List<HistoryInsertParams>();

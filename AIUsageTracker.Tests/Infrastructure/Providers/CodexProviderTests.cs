@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -284,11 +285,11 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
         {
             var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
 
-            var sparkBurst = Assert.Single(usages, usage => usage.ProviderId == "codex.spark" && usage.WindowKind == WindowKind.Burst);
+            var sparkBurst = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex.spark", StringComparison.Ordinal) && usage.WindowKind == WindowKind.Burst);
             Assert.Equal(0, sparkBurst.UsedPercent, precision: 0);
 
             // No cross-window fallback: spark.weekly shows 0% because spark has no own secondary window.
-            var sparkWeekly = Assert.Single(usages, usage => usage.ProviderId == "codex.spark" && usage.WindowKind == WindowKind.Rolling);
+            var sparkWeekly = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex.spark", StringComparison.Ordinal) && usage.WindowKind == WindowKind.Rolling);
             Assert.Equal(0, sparkWeekly.UsedPercent, precision: 0);
         }
         finally
@@ -345,11 +346,11 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
             var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
 
             // Codex: burst (20%), weekly (10%). Spark: burst (40%), weekly (75%).
-            Assert.Contains(usages, u => u.ProviderId == "codex" && u.CardId == "burst" && u.WindowKind == WindowKind.Burst);
-            Assert.Contains(usages, u => u.ProviderId == "codex" && u.CardId == "weekly" && u.WindowKind == WindowKind.Rolling);
-            var sparkBurst = Assert.Single(usages, u => u.ProviderId == "codex.spark" && u.WindowKind == WindowKind.Burst);
+            Assert.Contains(usages, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal) && string.Equals(u.CardId, "burst", StringComparison.Ordinal) && u.WindowKind == WindowKind.Burst);
+            Assert.Contains(usages, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal) && string.Equals(u.CardId, "weekly", StringComparison.Ordinal) && u.WindowKind == WindowKind.Rolling);
+            var sparkBurst = Assert.Single(usages, u => string.Equals(u.ProviderId, "codex.spark", StringComparison.Ordinal) && u.WindowKind == WindowKind.Burst);
             Assert.Equal(40, sparkBurst.UsedPercent, precision: 0);
-            var sparkWeekly = Assert.Single(usages, u => u.ProviderId == "codex.spark" && u.WindowKind == WindowKind.Rolling);
+            var sparkWeekly = Assert.Single(usages, u => string.Equals(u.ProviderId, "codex.spark", StringComparison.Ordinal) && u.WindowKind == WindowKind.Rolling);
             Assert.Equal(75, sparkWeekly.UsedPercent, precision: 0);
         }
         finally
@@ -412,9 +413,9 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
             var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
 
             // Spark burst = 40%, Spark weekly = 75% (from spark's own secondary_window).
-            var sparkBurst = Assert.Single(usages, u => u.ProviderId == "codex.spark" && u.WindowKind == WindowKind.Burst);
+            var sparkBurst = Assert.Single(usages, u => string.Equals(u.ProviderId, "codex.spark", StringComparison.Ordinal) && u.WindowKind == WindowKind.Burst);
             Assert.Equal(40, sparkBurst.UsedPercent, precision: 0);
-            var sparkWeekly = Assert.Single(usages, u => u.ProviderId == "codex.spark" && u.WindowKind == WindowKind.Rolling);
+            var sparkWeekly = Assert.Single(usages, u => string.Equals(u.ProviderId, "codex.spark", StringComparison.Ordinal) && u.WindowKind == WindowKind.Rolling);
             Assert.Equal(75, sparkWeekly.UsedPercent, precision: 0);
 
             // The weekly card is absent because there is no main secondary_window in this test response.
@@ -487,9 +488,9 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
             var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
 
             // Spark burst: 0% (just reset, API omitted used_percent). Spark weekly: 19%.
-            var sparkBurst = Assert.Single(usages, u => u.ProviderId == "codex.spark" && u.WindowKind == WindowKind.Burst);
+            var sparkBurst = Assert.Single(usages, u => string.Equals(u.ProviderId, "codex.spark", StringComparison.Ordinal) && u.WindowKind == WindowKind.Burst);
             Assert.Equal(0, sparkBurst.UsedPercent, precision: 0);
-            var sparkWeekly = Assert.Single(usages, u => u.ProviderId == "codex.spark" && u.WindowKind == WindowKind.Rolling);
+            var sparkWeekly = Assert.Single(usages, u => string.Equals(u.ProviderId, "codex.spark", StringComparison.Ordinal) && u.WindowKind == WindowKind.Rolling);
             Assert.Equal(19, sparkWeekly.UsedPercent, precision: 0);
 
             // Parent burst card: main primary was 20% used
@@ -622,16 +623,16 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
             var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
 
             // Burst card: 0% used (just reset)
-            var burstCard = Assert.Single(usages, u => u.ProviderId == "codex" && u.CardId == "burst");
+            var burstCard = Assert.Single(usages, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal) && string.Equals(u.CardId, "burst", StringComparison.Ordinal));
             Assert.Equal(0, burstCard.UsedPercent, precision: 0);
 
             // No main secondary_window → no weekly card
-            Assert.DoesNotContain(usages, u => u.ProviderId == "codex" && u.CardId == "weekly");
+            Assert.DoesNotContain(usages, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal) && string.Equals(u.CardId, "weekly", StringComparison.Ordinal));
 
             // Spark burst: 0% (just reset). Spark weekly: 100% (fully consumed).
-            var sparkBurst = Assert.Single(usages, u => u.ProviderId == "codex.spark" && u.WindowKind == WindowKind.Burst);
+            var sparkBurst = Assert.Single(usages, u => string.Equals(u.ProviderId, "codex.spark", StringComparison.Ordinal) && u.WindowKind == WindowKind.Burst);
             Assert.Equal(0, sparkBurst.UsedPercent, precision: 0);
-            var sparkWeekly = Assert.Single(usages, u => u.ProviderId == "codex.spark" && u.WindowKind == WindowKind.Rolling);
+            var sparkWeekly = Assert.Single(usages, u => string.Equals(u.ProviderId, "codex.spark", StringComparison.Ordinal) && u.WindowKind == WindowKind.Rolling);
             Assert.Equal(100, sparkWeekly.UsedPercent, precision: 0);
         }
         finally
@@ -689,13 +690,13 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
             var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
 
             // Weekly card: driven by main secondary → 98% used
-            var weeklyCard = Assert.Single(usages, u => u.ProviderId == "codex" && u.CardId == "weekly");
+            var weeklyCard = Assert.Single(usages, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal) && string.Equals(u.CardId, "weekly", StringComparison.Ordinal));
             Assert.Equal(98, weeklyCard.UsedPercent, precision: 0);
 
             // Spark burst: 0% (just reset). Spark weekly: uses its OWN secondary (19%), NOT main (98%).
-            var sparkBurst = Assert.Single(usages, u => u.ProviderId == "codex.spark" && u.WindowKind == WindowKind.Burst);
+            var sparkBurst = Assert.Single(usages, u => string.Equals(u.ProviderId, "codex.spark", StringComparison.Ordinal) && u.WindowKind == WindowKind.Burst);
             Assert.Equal(0, sparkBurst.UsedPercent, precision: 0);
-            var sparkWeekly = Assert.Single(usages, u => u.ProviderId == "codex.spark" && u.WindowKind == WindowKind.Rolling);
+            var sparkWeekly = Assert.Single(usages, u => string.Equals(u.ProviderId, "codex.spark", StringComparison.Ordinal) && u.WindowKind == WindowKind.Rolling);
             Assert.Equal(19, sparkWeekly.UsedPercent, precision: 0);
         }
         finally

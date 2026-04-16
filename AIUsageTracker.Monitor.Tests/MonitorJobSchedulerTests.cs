@@ -350,7 +350,8 @@ public class MonitorJobSchedulerTests
                 async _ =>
                 {
                     firstJobStarted.TrySetResult(true);
-                    await firstJobCanFinish.Task.ConfigureAwait(false);
+                    var finishTask = firstJobCanFinish.Task;
+                    await finishTask.ConfigureAwait(false);
                 },
                 MonitorJobPriority.Normal);
 

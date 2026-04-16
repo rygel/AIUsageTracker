@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System;
 using System.Net;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
@@ -89,22 +90,22 @@ public class ProviderResponseDeserializationTests
         Assert.All(usages, u => Assert.Equal(200, u.HttpStatus));
 
         // Burst card (primary_window, 5h)
-        var burstCard = usages.First(u => u.CardId == "burst");
+        var burstCard = usages.First(u => string.Equals(u.CardId, "burst", StringComparison.Ordinal));
         Assert.Equal("codex", burstCard.ProviderId);
         Assert.Equal(42.5, burstCard.UsedPercent, precision: 1);
         Assert.NotNull(burstCard.NextResetTime);
 
         // Weekly card (secondary_window, 7d)
-        var weeklyCard = usages.First(u => u.CardId == "weekly");
+        var weeklyCard = usages.First(u => string.Equals(u.CardId, "weekly", StringComparison.Ordinal));
         Assert.Equal("codex", weeklyCard.ProviderId);
         Assert.Equal(28.0, weeklyCard.UsedPercent, precision: 1);
         Assert.NotNull(weeklyCard.NextResetTime);
 
         // Spark cards (additional_rate_limits) — independent provider with burst+rolling
-        var sparkBurst = usages.First(u => u.CardId == "spark.burst");
+        var sparkBurst = usages.First(u => string.Equals(u.CardId, "spark.burst", StringComparison.Ordinal));
         Assert.Equal("codex.spark", sparkBurst.ProviderId);
         Assert.Contains("Spark", sparkBurst.ProviderName, StringComparison.OrdinalIgnoreCase);
-        var sparkWeekly = usages.First(u => u.CardId == "spark.weekly");
+        var sparkWeekly = usages.First(u => string.Equals(u.CardId, "spark.weekly", StringComparison.Ordinal));
         Assert.Equal("codex.spark", sparkWeekly.ProviderId);
 
         // All cards share the same GroupId for visual grouping
@@ -144,7 +145,7 @@ public class ProviderResponseDeserializationTests
         Assert.Equal(85.0, burstCard.UsedPercent, precision: 1);
 
         // No weekly card
-        Assert.DoesNotContain(usages, u => u.CardId == "weekly");
+        Assert.DoesNotContain(usages, u => string.Equals(u.CardId, "weekly", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -183,17 +184,17 @@ public class ProviderResponseDeserializationTests
         var usages = (await provider.GetUsageAsync(config)).ToList();
 
         // Main window cards must use only their own reset_after_seconds — no cross-window fallback.
-        var burstCard = usages.First(u => u.CardId == "burst");
+        var burstCard = usages.First(u => string.Equals(u.CardId, "burst", StringComparison.Ordinal));
         Assert.Null(burstCard.NextResetTime);
 
-        var weeklyCard = usages.First(u => u.CardId == "weekly");
+        var weeklyCard = usages.First(u => string.Equals(u.CardId, "weekly", StringComparison.Ordinal));
         Assert.Null(weeklyCard.NextResetTime);
 
         // Spark cards carry their own reset times from additional_rate_limits.
-        var sparkBurst = usages.First(u => u.CardId == "spark.burst");
+        var sparkBurst = usages.First(u => string.Equals(u.CardId, "spark.burst", StringComparison.Ordinal));
         Assert.NotNull(sparkBurst.NextResetTime);
 
-        var sparkWeekly = usages.First(u => u.CardId == "spark.weekly");
+        var sparkWeekly = usages.First(u => string.Equals(u.CardId, "spark.weekly", StringComparison.Ordinal));
         Assert.NotNull(sparkWeekly.NextResetTime);
     }
 
@@ -244,20 +245,20 @@ public class ProviderResponseDeserializationTests
         Assert.All(cards, c => Assert.True(c.IsAvailable));
 
         // Current Session card (5-hour burst)
-        var currentSession = cards.First(c => c.CardId == "current-session");
+        var currentSession = cards.First(c => string.Equals(c.CardId, "current-session", StringComparison.Ordinal));
         Assert.Equal(35.0, currentSession.UsedPercent, precision: 1);
         Assert.NotNull(currentSession.NextResetTime);
 
         // Sonnet card (7-day model-specific)
-        var sonnetCard = cards.First(c => c.CardId == "sonnet");
+        var sonnetCard = cards.First(c => string.Equals(c.CardId, "sonnet", StringComparison.Ordinal));
         Assert.Equal(52.0, sonnetCard.UsedPercent, precision: 1);
 
         // Opus card (7-day model-specific)
-        var opusCard = cards.First(c => c.CardId == "opus");
+        var opusCard = cards.First(c => string.Equals(c.CardId, "opus", StringComparison.Ordinal));
         Assert.Equal(10.0, opusCard.UsedPercent, precision: 1);
 
         // All Models card (7-day rolling)
-        var allModelsCard = cards.First(c => c.CardId == "all-models");
+        var allModelsCard = cards.First(c => string.Equals(c.CardId, "all-models", StringComparison.Ordinal));
         Assert.Equal(48.0, allModelsCard.UsedPercent, precision: 1);
         Assert.NotNull(allModelsCard.NextResetTime);
 
@@ -297,7 +298,7 @@ public class ProviderResponseDeserializationTests
         Assert.Equal(90.0, currentSession.UsedPercent, precision: 1);
 
         // No all-models card since seven_day is absent
-        Assert.DoesNotContain(cards, c => c.CardId == "all-models");
+        Assert.DoesNotContain(cards, c => string.Equals(c.CardId, "all-models", StringComparison.Ordinal));
     }
 
     /// <summary>

@@ -101,7 +101,7 @@ public class GitHubAuthServiceTests : IDisposable
     [Fact]
     public async Task RefreshTokenAsync_ReturnsNull()
     {
-        var result = await this._service.RefreshTokenAsync("some-refresh-token").ConfigureAwait(false);
+        var result = await this._service.RefreshTokenAsync("some-refresh-token");
         Assert.Null(result);
     }
 

@@ -78,7 +78,7 @@ public class ConfigServiceScanTests : IDisposable
     public async Task ScanForKeysAsync_DoesNotGrowConfigFileWithKeylessProvidersAsync()
     {
         // Seed with one existing provider (keys are discovered at runtime, not stored in JSON)
-        var seed = new Dictionary<string, object>
+        var seed = new Dictionary<string, object>(StringComparer.Ordinal)
         {
             ["claude-code"] = new { type = "quota-based", show_in_tray = true },
         };

@@ -154,7 +154,7 @@ public sealed class AppcastXmlConsistencyTests
             string.IsNullOrEmpty(lengthStr),
             $"Missing 'length' attribute in {fileName}.");
         Assert.True(
-            long.TryParse(lengthStr, out var length),
+            long.TryParse(lengthStr, System.Globalization.CultureInfo.InvariantCulture, out var length),
             $"Non-numeric 'length' attribute in {fileName}: '{lengthStr}'.");
         Assert.True(
             length > 0,
@@ -181,7 +181,7 @@ public sealed class AppcastXmlConsistencyTests
         foreach (var part in parts)
         {
             Assert.True(
-                int.TryParse(part, out _),
+                int.TryParse(part, System.Globalization.CultureInfo.InvariantCulture, out _),
                 $"Non-numeric component '{part}' in sparkle:version '{sparkleVersion}' in {fileName}.");
         }
     }

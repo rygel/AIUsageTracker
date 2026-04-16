@@ -139,17 +139,17 @@ public class IndexModel : PageModel
         var latestUsageTask = this._dbService.GetLatestUsageAsync(includeInactive: this.ShowInactiveProviders);
         var summaryTask = this._dbService.GetUsageSummaryAsync();
 
-        await Task.WhenAll(latestUsageTask, summaryTask);
+        await Task.WhenAll(latestUsageTask, summaryTask).ConfigureAwait(false);
 
-        this.LatestUsage = await latestUsageTask;
-        this.Summary = await summaryTask;
+        this.LatestUsage = await latestUsageTask.ConfigureAwait(false);
+        this.Summary = await summaryTask.ConfigureAwait(false);
 
         if (this.LatestUsage.Count == 0)
         {
             return;
         }
 
-        await this.LoadAnalyticsAsync(this.LatestUsage.Select(x => x.ProviderId).ToList());
+        await this.LoadAnalyticsAsync(this.LatestUsage.Select(x => x.ProviderId).ToList()).ConfigureAwait(false);
     }
 
     private async Task LoadAnalyticsAsync(IReadOnlyList<string> providerIds)
@@ -160,26 +160,26 @@ public class IndexModel : PageModel
         if (this.EnableExperimentalAnomalyDetection)
         {
             anomalyTask = this._analyticsService.GetUsageAnomaliesAsync(providerIds);
-            await Task.WhenAll(forecastTask, reliabilityTask, anomalyTask);
+            await Task.WhenAll(forecastTask, reliabilityTask, anomalyTask).ConfigureAwait(false);
         }
         else
         {
-            await Task.WhenAll(forecastTask, reliabilityTask);
+            await Task.WhenAll(forecastTask, reliabilityTask).ConfigureAwait(false);
         }
 
-        this.ForecastsByProvider = await forecastTask;
-        this.ReliabilityByProvider = await reliabilityTask;
-        var anomalies = anomalyTask != null ? (await anomalyTask).ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase) : null;
+        this.ForecastsByProvider = await forecastTask.ConfigureAwait(false);
+        this.ReliabilityByProvider = await reliabilityTask.ConfigureAwait(false);
+        var anomalies = anomalyTask != null ? (await anomalyTask.ConfigureAwait(false)).ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase) : null;
         this.AnomaliesByProvider = anomalies ?? new Dictionary<string, UsageAnomalySnapshot>(StringComparer.OrdinalIgnoreCase);
 
         if (this.EnableExperimentalBudgetPolicies)
         {
-            this.BudgetStatuses = (await this._analyticsService.GetBudgetStatusesAsync(providerIds)).ToList();
+            this.BudgetStatuses = (await this._analyticsService.GetBudgetStatusesAsync(providerIds).ConfigureAwait(false)).ToList();
         }
 
         if (this.EnableExperimentalComparison)
         {
-            this.UsageComparisons = (await this._analyticsService.GetUsageComparisonsAsync(providerIds)).ToList();
+            this.UsageComparisons = (await this._analyticsService.GetUsageComparisonsAsync(providerIds).ConfigureAwait(false)).ToList();
         }
     }
 

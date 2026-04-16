@@ -19,8 +19,8 @@ public class NoOpNotificationService : INotificationService
 
     public event EventHandler<NotificationClickedEventArgs>? OnNotificationClicked
     {
-        add { _ = value; }
-        remove { _ = value; }
+        add { _ = value; } // Intentionally ignored - no-op notification service
+        remove { _ = value; } // Intentionally ignored - no-op notification service
     }
 
     public void Initialize()

@@ -87,9 +87,10 @@ public sealed class MonitorStartupOrchestrator
             while (!cancellationToken.IsCancellationRequested)
             {
                 this._activeResumeSignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var resumeSignalTask = this._activeResumeSignal.Task;
                 await Task.WhenAny(
                     Task.Delay(this.CurrentWatchdogInterval, cancellationToken),
-                    this._activeResumeSignal.Task).ConfigureAwait(false);
+                    resumeSignalTask).ConfigureAwait(false);
 
                 if (cancellationToken.IsCancellationRequested)
                 {
@@ -152,9 +153,11 @@ public sealed class MonitorStartupOrchestrator
                     backoffSeconds);
             }
         }
+#pragma warning disable CA1031 // Watchdog must catch all failures to maintain service continuity
         catch (Exception ex)
         {
             this._consecutiveFailures++;
+#pragma warning restore CA1031
             var backoffSeconds = Math.Min(
                 BaseInterval.TotalSeconds * Math.Pow(2, this._consecutiveFailures - 1),
                 MaxInterval.TotalSeconds);

@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Monitor.Services;
 
@@ -69,8 +70,8 @@ public class ProviderRefreshConfigSelectorTests
 
         var selection = ProviderRefreshConfigSelector.SelectActiveConfigs(configs, forceAll: true, includeProviderIds: null);
 
-        Assert.DoesNotContain(selection.ActiveConfigs, c => c.ProviderId == "mistral");
-        Assert.Contains(selection.ActiveConfigs, c => c.ProviderId == "codex");
+        Assert.DoesNotContain(selection.ActiveConfigs, c => string.Equals(c.ProviderId, "mistral", StringComparison.Ordinal));
+        Assert.Contains(selection.ActiveConfigs, c => string.Equals(c.ProviderId, "codex", StringComparison.Ordinal));
     }
 
     [Fact]
