@@ -91,7 +91,7 @@ public class BrowserService : IBrowserService
         catch (Exception ex)
         {
             this._logger.LogError(ex, "Failed to open Web UI");
-            throw;
+            throw new InvalidOperationException("Failed to open Web UI.", ex);
         }
     }
 

@@ -287,10 +287,10 @@ public class OpenAIProvider : ProviderBase
                 new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
-                        ProviderName = providerLabel,
-                        IsAvailable = false,
-                        State = ProviderUsageState.Error,
-                        Description = $"Invalid Key ({response.StatusCode})",
+                    ProviderName = providerLabel,
+                    IsAvailable = false,
+                    State = ProviderUsageState.Error,
+                    Description = $"Invalid Key ({response.StatusCode})",
                     IsQuotaBased = this.Definition.IsQuotaBased,
                     PlanType = this.Definition.PlanType,
                 },

@@ -78,7 +78,7 @@ public class DatabaseMigrationService
         catch (Exception ex)
         {
             this._logger.LogError(ex, "Database migration failed: {Message}", ex.Message);
-            throw;
+            throw new InvalidOperationException("Database migration failed.", ex);
         }
     }
 

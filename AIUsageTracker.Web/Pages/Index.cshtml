@@ -184,7 +184,7 @@
                         </div>
                         
                         @{
-                            bool hasDual = TryGetDualWindowPercentages(usage, out var pUsed, out var sUsed, out var pName, out var sName);
+                            bool hasDual = TryGetDualWindowPercentages(out var pUsed, out var sUsed, out var pName, out var sName);
                         }
 
                         <div class="progress-container">
@@ -644,9 +644,7 @@
         return $"{direction} ({severity}) {latestText}/day vs {baselineText}/day";
     }
 
-#pragma warning disable S1172
-    static bool TryGetDualWindowPercentages(AIUsageTracker.Core.Models.ProviderUsage _, out double primaryUsed, out double secondaryUsed, out string primaryName, out string secondaryName)
-#pragma warning restore S1172
+    static bool TryGetDualWindowPercentages(out double primaryUsed, out double secondaryUsed, out string primaryName, out string secondaryName)
     {
         // Dual-window data now comes from flat ProviderUsage cards (WindowKind != None).
         // The web page operates on root ProviderUsage objects which no longer carry sub-details.

@@ -259,7 +259,7 @@ public class GitHubUpdateChecker
 
         foreach (var release in doc.RootElement.EnumerateArray())
         {
-            var update = TryParseBetaRelease(release, currentVersionStr);
+            var update = this.TryParseBetaRelease(release, currentVersionStr);
             if (update != null)
             {
                 return update;

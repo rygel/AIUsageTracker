@@ -296,57 +296,92 @@ public class MinimaxProvider : ProviderBase
 
             if (model.IntervalTotal > 0)
             {
-                usages.Add(BuildModelWindowCard(providerId, providerLabel, modelName, modelSlug, i,
-                    model.IntervalTotal, model.IntervalRemaining, model.IntervalEndMs,
-                    "burst", "5h", WindowKind.Burst, TimeSpan.FromHours(5), rawJson, httpStatus));
+                usages.Add(BuildModelWindowCard(new ModelWindowCardSpec(
+                    providerId,
+                    providerLabel,
+                    modelName,
+                    modelSlug,
+                    i,
+                    model.IntervalTotal,
+                    model.IntervalRemaining,
+                    model.IntervalEndMs,
+                    "burst",
+                    "5h",
+                    WindowKind.Burst,
+                    TimeSpan.FromHours(5),
+                    rawJson,
+                    httpStatus)));
             }
 
             if (model.WeeklyTotal > 0)
             {
-                usages.Add(BuildModelWindowCard(providerId, providerLabel, modelName, modelSlug, i,
-                    model.WeeklyTotal, model.WeeklyRemaining, model.WeeklyEndMs,
-                    "weekly", "Weekly", WindowKind.Rolling, TimeSpan.FromDays(7), rawJson, httpStatus));
+                usages.Add(BuildModelWindowCard(new ModelWindowCardSpec(
+                    providerId,
+                    providerLabel,
+                    modelName,
+                    modelSlug,
+                    i,
+                    model.WeeklyTotal,
+                    model.WeeklyRemaining,
+                    model.WeeklyEndMs,
+                    "weekly",
+                    "Weekly",
+                    WindowKind.Rolling,
+                    TimeSpan.FromDays(7),
+                    rawJson,
+                    httpStatus)));
             }
         }
 
         return usages;
     }
 
-    private static ProviderUsage BuildModelWindowCard(
-        string providerId, string providerLabel, string modelName, string modelSlug, int modelIndex,
-        double windowTotal, double windowRemaining, long resetMs,
-        string cardSuffix, string nameSuffix,
-        WindowKind windowKind, TimeSpan periodDuration,
-        string rawJson, int httpStatus)
+    private static ProviderUsage BuildModelWindowCard(ModelWindowCardSpec spec)
     {
-        var remaining = Math.Max(0, Math.Min(windowRemaining, windowTotal));
-        var used = windowTotal - remaining;
-        var usedPct = Math.Clamp((used / windowTotal) * 100.0, 0, 100);
-        var resetTime = resetMs > 0
-            ? DateTimeOffset.FromUnixTimeMilliseconds(resetMs).UtcDateTime
+        var remaining = Math.Max(0, Math.Min(spec.WindowRemaining, spec.WindowTotal));
+        var used = spec.WindowTotal - remaining;
+        var usedPct = Math.Clamp((used / spec.WindowTotal) * 100.0, 0, 100);
+        var resetTime = spec.ResetMs > 0
+            ? DateTimeOffset.FromUnixTimeMilliseconds(spec.ResetMs).UtcDateTime
             : (DateTime?)null;
 
         return new ProviderUsage
         {
-            ProviderId = providerId,
-            ProviderName = providerLabel,
-            CardId = modelIndex == 0 ? cardSuffix : $"{modelSlug}.{cardSuffix}",
-            GroupId = providerId,
-            Name = modelIndex == 0 ? nameSuffix : $"{modelName} {nameSuffix}",
-            WindowKind = windowKind,
+            ProviderId = spec.ProviderId,
+            ProviderName = spec.ProviderLabel,
+            CardId = spec.ModelIndex == 0 ? spec.CardSuffix : $"{spec.ModelSlug}.{spec.CardSuffix}",
+            GroupId = spec.ProviderId,
+            Name = spec.ModelIndex == 0 ? spec.NameSuffix : $"{spec.ModelName} {spec.NameSuffix}",
+            WindowKind = spec.WindowKind,
             UsedPercent = usedPct,
             RequestsUsed = used,
-            RequestsAvailable = windowTotal,
+            RequestsAvailable = spec.WindowTotal,
             IsQuotaBased = true,
             PlanType = PlanType.Coding,
             IsAvailable = true,
-            Description = $"{Math.Clamp(100.0 - usedPct, 0, 100).ToString("F0", CultureInfo.InvariantCulture)}% remaining ({modelName})",
+            Description = $"{Math.Clamp(100.0 - usedPct, 0, 100).ToString("F0", CultureInfo.InvariantCulture)}% remaining ({spec.ModelName})",
             NextResetTime = resetTime,
-            PeriodDuration = periodDuration,
-            RawJson = rawJson,
-            HttpStatus = httpStatus,
+            PeriodDuration = spec.PeriodDuration,
+            RawJson = spec.RawJson,
+            HttpStatus = spec.HttpStatus,
         };
     }
+
+    private readonly record struct ModelWindowCardSpec(
+        string ProviderId,
+        string ProviderLabel,
+        string ModelName,
+        string ModelSlug,
+        int ModelIndex,
+        double WindowTotal,
+        double WindowRemaining,
+        long ResetMs,
+        string CardSuffix,
+        string NameSuffix,
+        WindowKind WindowKind,
+        TimeSpan PeriodDuration,
+        string RawJson,
+        int HttpStatus);
 
     private sealed class MinimaxTokenResponse
     {

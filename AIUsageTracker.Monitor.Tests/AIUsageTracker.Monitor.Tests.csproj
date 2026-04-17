@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
-    <NoWarn>CS0618</NoWarn>
+    <NoWarn>$(NoWarn);CS0618;VSTHRD111</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -32,4 +32,3 @@
   </ItemGroup>
 
 </Project>
-

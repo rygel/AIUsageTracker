@@ -237,7 +237,7 @@ public partial class MainWindow : Window
     }
 
 #pragma warning disable VSTHRD100
-    private async void OnWindowClosed(object? s, EventArgs e)
+    private void OnWindowClosed(object? s, EventArgs e)
     {
         PrivacyChangedWeakEventManager.RemoveHandler(this._privacyChangedHandler);
         this._watchdogCts.Cancel();
@@ -494,6 +494,7 @@ public partial class MainWindow : Window
         {
             this._isApplyingPreferences = false;
         }
+
         this.UpdatePrivacyButtonState();
         this.EnsureAlwaysOnTop();
 
