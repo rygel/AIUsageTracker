@@ -211,7 +211,7 @@ public class AppStartupTests : IDisposable
                     WindowLeft = 10 + index,
                     WindowTop = 20 + index,
                 };
-                return await this._store.SaveAsync(prefs);
+                return await this._store.SaveAsync(prefs).ConfigureAwait(false);
             });
 
 #pragma warning disable MA0004 // xUnit test methods should avoid ConfigureAwait(false) (xUnit1030).

@@ -118,7 +118,7 @@ public class ClaudeCodeProvider : ProviderBase
         // Try OAuth usage endpoint first (for subscription users)
         try
         {
-                var oauthUsages = await this.GetUsageFromOAuthAsync(effectiveApiKey, providerLabel).ConfigureAwait(false);
+            var oauthUsages = await this.GetUsageFromOAuthAsync(effectiveApiKey, providerLabel).ConfigureAwait(false);
             if (oauthUsages != null)
             {
                 return oauthUsages;

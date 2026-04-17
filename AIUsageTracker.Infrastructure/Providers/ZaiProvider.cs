@@ -168,13 +168,13 @@ public class ZaiProvider : ProviderBase
 
     private TokenLimitResult ApplyMcpAdjustment(TokenLimitResult tokenResult, ZaiQuotaLimitItem? mcpLimit)
     {
-        if (mcpLimit == null || mcpLimit.Percentage <= 0)
+        if (mcpLimit?.Percentage is not double mcpPercentage || mcpPercentage <= 0)
         {
             return tokenResult;
         }
 
-        this._logger.LogDebug("[ZAI] Processing TIME_LIMIT - Percentage: {Percentage}", mcpLimit.Percentage);
-        double mcpRemainingPercent = Math.Max(0, 100 - mcpLimit.Percentage.Value);
+        this._logger.LogDebug("[ZAI] Processing TIME_LIMIT - Percentage: {Percentage}", mcpPercentage);
+        double mcpRemainingPercent = Math.Max(0, 100 - mcpPercentage);
         var adjusted = tokenResult with
         {
             RemainingPercent = tokenResult.RemainingPercent.HasValue

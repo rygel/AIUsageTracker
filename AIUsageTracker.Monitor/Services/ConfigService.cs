@@ -115,7 +115,7 @@ public class ConfigService : IConfigService
         catch (Exception ex)
         {
             this._logger.LogError(ex, "Failed to save config for {ProviderId}: {Message}", config.ProviderId, ex.Message);
-            throw;
+            throw new InvalidOperationException($"Failed to save config for {config.ProviderId}.", ex);
         }
     }
 
@@ -133,7 +133,7 @@ public class ConfigService : IConfigService
         catch (Exception ex)
         {
             this._logger.LogError(ex, "Failed to remove config for {ProviderId}: {Message}", providerId, ex.Message);
-            throw;
+            throw new InvalidOperationException($"Failed to remove config for {providerId}.", ex);
         }
     }
 
@@ -180,7 +180,7 @@ public class ConfigService : IConfigService
         catch (Exception ex)
         {
             this._logger.LogError(ex, "Failed to save preferences: {Message}", ex.Message);
-            throw;
+            throw new InvalidOperationException("Failed to save preferences.", ex);
         }
     }
 

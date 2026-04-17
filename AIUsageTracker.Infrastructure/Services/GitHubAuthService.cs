@@ -67,7 +67,7 @@ public class GitHubAuthService : IGitHubAuthService
         catch (Exception ex)
         {
             this._logger.LogError(ex, "Error initiating device flow");
-            throw;
+            throw new InvalidOperationException("Error initiating device flow.", ex);
         }
     }
 

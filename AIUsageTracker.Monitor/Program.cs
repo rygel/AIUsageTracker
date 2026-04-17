@@ -113,7 +113,7 @@ public partial class Program
         {
             logger.LogError(ex, "Monitor startup failed");
             MonitorInfoPersistence.SaveMonitorInfo(0, isDebugMode, logger, pathProvider, startupStatus: $"failed: {ex.Message}");
-            throw;
+            throw new InvalidOperationException("Monitor startup failed.", ex);
         }
         finally
         {
@@ -306,8 +306,16 @@ public partial class Program
         logger.LogInformation("  Agent ready! Listening on http://localhost:{Port}", port);
         logger.LogInformation(DebugBannerSeparator);
         logger.LogInformation(string.Empty);
-        logger.LogInformation("  API Endpoints: GET http://localhost:{Port}{Health} | GET http://localhost:{Port}{Usage} | GET http://localhost:{Port}{Config} | POST http://localhost:{Port}{Refresh}",
-            port, MonitorApiRoutes.Health, port, MonitorApiRoutes.Usage, port, MonitorApiRoutes.Config, port, MonitorApiRoutes.Refresh);
+        logger.LogInformation(
+            "  API Endpoints: GET http://localhost:{HealthPort}{Health} | GET http://localhost:{UsagePort}{Usage} | GET http://localhost:{ConfigPort}{Config} | POST http://localhost:{RefreshPort}{Refresh}",
+            port,
+            MonitorApiRoutes.Health,
+            port,
+            MonitorApiRoutes.Usage,
+            port,
+            MonitorApiRoutes.Config,
+            port,
+            MonitorApiRoutes.Refresh);
         logger.LogInformation(string.Empty);
         logger.LogInformation("  Press Ctrl+C to stop");
         logger.LogInformation(DebugBannerSeparator);
