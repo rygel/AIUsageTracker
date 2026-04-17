@@ -1,10 +1,12 @@
 [extend]
 useDefault = true
 
-[[allowlists]]
-description = "Ignore generated gitleaks artifacts accidentally committed in PR work"
+[allowlist]
+description = "Ignore generated scan artifacts accidentally committed in PR work"
 paths = [
     '''^\.gitleaks-bin/''',
     '''^gitleaks-report\.json$''',
     '''^gitleaks_.*\.zip$''',
+    '''^sonarqube_info_issues\.json$''',
+    '''^sonarqube_issues\.json$''',
 ]
