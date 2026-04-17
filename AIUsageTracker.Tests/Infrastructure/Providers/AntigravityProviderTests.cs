@@ -151,7 +151,8 @@ public class AntigravityProviderTests : HttpProviderTestBase<AntigravityProvider
         var method = typeof(AntigravityProvider).GetMethod("FetchUsageAsync", BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.NotNull(method);
 
-        var task = (Task<List<ProviderUsage>>)method!.Invoke(provider, new object[] { port, csrfToken, config })!;
+        var providerLabel = ProviderMetadataCatalog.GetConfiguredDisplayName("antigravity");
+        var task = (Task<List<ProviderUsage>>)method!.Invoke(provider, new object[] { port, csrfToken, config, providerLabel })!;
         return await task.ConfigureAwait(false);
     }
 }

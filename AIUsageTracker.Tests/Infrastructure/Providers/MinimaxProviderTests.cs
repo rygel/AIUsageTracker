@@ -216,7 +216,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         var definition = MinimaxProvider.StaticDefinition;
 
         Assert.Equal("minimax", definition.ProviderId); // provider-id-guardrail-allow: test assertion
-        Assert.Equal("MiniMax.chat", definition.DisplayName);
+        Assert.Equal("MiniMax.com", definition.DisplayName);
         Assert.True(definition.IsQuotaBased);
         Assert.Contains("MINIMAX_API_KEY", definition.DiscoveryEnvironmentVariables);
     }
@@ -243,7 +243,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         // Assert
         var usage = result.Single();
         Assert.Equal("minimax", usage.ProviderId); // provider-id-guardrail-allow: test assertion
-        Assert.Equal("MiniMax.chat", usage.ProviderName);
+        Assert.Equal("MiniMax.com", usage.ProviderName);
     }
 
     [Fact]

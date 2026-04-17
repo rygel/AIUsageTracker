@@ -59,6 +59,8 @@ public class DeepSeekProvider : ProviderBase
             };
         }
 
+        var providerLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId);
+
         try
         {
             var request = CreateBearerRequest(HttpMethod.Get, UserBalanceEndpoint, config.ApiKey);
@@ -76,7 +78,7 @@ public class DeepSeekProvider : ProviderBase
                     new ProviderUsage
                     {
                         ProviderId = this.ProviderId,
-                        ProviderName = this.Definition.DisplayName ?? this.ProviderId,
+                        ProviderName = providerLabel ?? this.ProviderId,
                         IsAvailable = true, // Key exists, just failed request
                         Description = $"API Error ({response.StatusCode})",
                         PlanType = this.Definition.PlanType,
@@ -109,7 +111,7 @@ public class DeepSeekProvider : ProviderBase
                     new ProviderUsage
                     {
                         ProviderId = this.ProviderId,
-                        ProviderName = this.Definition.DisplayName,
+                        ProviderName = providerLabel,
                         IsAvailable = true,
                         UsedPercent = 0,
                         RequestsUsed = 0,
@@ -131,7 +133,7 @@ public class DeepSeekProvider : ProviderBase
                 flatCards.Add(new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
-                    ProviderName = this.Definition.DisplayName,
+                    ProviderName = providerLabel,
                     Name = $"Balance ({currencyCode})",
                     CardId = $"balance-{currencyCode.ToLowerInvariant()}",
                     GroupId = this.ProviderId,

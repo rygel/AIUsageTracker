@@ -54,30 +54,6 @@ public static class ProviderMetadataCatalog
         return !string.IsNullOrWhiteSpace(mapped) ? mapped : definition.DisplayName;
     }
 
-    public static string ResolveDisplayLabel(ProviderUsage usage)
-    {
-        ArgumentNullException.ThrowIfNull(usage);
-        return ResolveDisplayLabel(usage.ProviderId ?? string.Empty, usage.ProviderName);
-    }
-
-    public static string ResolveDisplayLabel(string providerId, string? runtimeLabel = null)
-    {
-        var definition = Find(providerId);
-        if (definition == null)
-        {
-            return !string.IsNullOrWhiteSpace(runtimeLabel) ? runtimeLabel : (providerId ?? string.Empty);
-        }
-
-        var isDerived = !string.Equals(providerId, definition.ProviderId, StringComparison.OrdinalIgnoreCase);
-        if (isDerived && !string.IsNullOrWhiteSpace(runtimeLabel))
-        {
-            return runtimeLabel;
-        }
-
-        var mapped = definition.ResolveDisplayName(providerId);
-        return !string.IsNullOrWhiteSpace(mapped) ? mapped : definition.DisplayName;
-    }
-
     public static string GetDerivedModelDisplayName(string providerId, string modelName)
     {
         if (string.IsNullOrWhiteSpace(modelName))

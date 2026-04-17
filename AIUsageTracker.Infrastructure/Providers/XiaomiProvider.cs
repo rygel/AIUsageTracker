@@ -45,6 +45,8 @@ public class XiaomiProvider : ProviderBase
     {
         ArgumentNullException.ThrowIfNull(config);
 
+        var providerLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId);
+
         if (string.IsNullOrEmpty(config.ApiKey))
         {
             return new[]
@@ -52,7 +54,7 @@ public class XiaomiProvider : ProviderBase
                 new ProviderUsage
             {
                 ProviderId = config.ProviderId,
-                ProviderName = this.Definition.DisplayName,
+                ProviderName = providerLabel,
                 IsAvailable = false,
                 IsQuotaBased = this.Definition.IsQuotaBased,
                 PlanType = this.Definition.PlanType,
@@ -92,7 +94,7 @@ public class XiaomiProvider : ProviderBase
                 new ProviderUsage
             {
                 ProviderId = config.ProviderId,
-                ProviderName = this.Definition.DisplayName,
+                ProviderName = providerLabel,
                 UsedPercent = usedPercent,
                 RequestsUsed = used,
                 RequestsAvailable = quota > 0 ? quota : balance,
@@ -115,7 +117,7 @@ public class XiaomiProvider : ProviderBase
                 new ProviderUsage
             {
                 ProviderId = config.ProviderId,
-                ProviderName = this.Definition.DisplayName,
+                ProviderName = providerLabel,
                 IsAvailable = false,
                 IsQuotaBased = this.Definition.IsQuotaBased,
                 PlanType = this.Definition.PlanType,

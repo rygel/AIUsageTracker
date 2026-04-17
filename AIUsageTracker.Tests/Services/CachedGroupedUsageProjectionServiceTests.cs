@@ -107,7 +107,7 @@ public sealed class CachedGroupedUsageProjectionServiceTests
         // "API Key not found" data from the unconfigured minimax entry.
         var dbUsages = new List<ProviderUsage>
         {
-            new() { ProviderId = "minimax", ProviderName = "MiniMax.chat", IsAvailable = false, Description = "API Key not found." },
+            new() { ProviderId = "minimax", ProviderName = "MiniMax.com", IsAvailable = false, Description = "API Key not found." },
             new() { ProviderId = "minimax-io", ProviderName = "MiniMax.io", IsAvailable = true, UsedPercent = 30 },
         };
 

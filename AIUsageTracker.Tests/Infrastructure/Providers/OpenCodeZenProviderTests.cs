@@ -428,7 +428,8 @@ public class OpenCodeZenProviderTests : HttpProviderTestBase<OpenCodeZenProvider
         var parseOutput = typeof(OpenCodeZenProvider).GetMethod(
             "ParseOutput", BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(parseOutput);
-        return (ProviderUsage)parseOutput.Invoke(this._provider, new object[] { output, this.Config })!;
+        var providerLabel = ProviderMetadataCatalog.GetConfiguredDisplayName("opencode-zen");
+        return (ProviderUsage)parseOutput.Invoke(this._provider, new object[] { output, this.Config, providerLabel })!;
     }
 
     private static (string ScriptPath, string TempDir) CreateMockCliScript(string output)

@@ -29,7 +29,7 @@ internal static class WebProviderDisplayNameMapper
     {
         foreach (var provider in providers)
         {
-            provider.ProviderName = ProviderMetadataCatalog.ResolveDisplayLabel(provider.ProviderId, provider.ProviderName);
+            provider.ProviderName = provider.ProviderName ?? ProviderMetadataCatalog.GetConfiguredDisplayName(provider.ProviderId ?? string.Empty);
         }
     }
 
@@ -37,7 +37,7 @@ internal static class WebProviderDisplayNameMapper
     {
         foreach (var point in points)
         {
-            point.ProviderName = ProviderMetadataCatalog.ResolveDisplayLabel(point.ProviderId, point.ProviderName);
+            point.ProviderName = point.ProviderName ?? ProviderMetadataCatalog.GetConfiguredDisplayName(point.ProviderId ?? string.Empty);
         }
     }
 
@@ -45,7 +45,7 @@ internal static class WebProviderDisplayNameMapper
     {
         foreach (var resetEvent in resetEvents)
         {
-            resetEvent.ProviderName = ProviderMetadataCatalog.ResolveDisplayLabel(resetEvent.ProviderId, resetEvent.ProviderName);
+            resetEvent.ProviderName = resetEvent.ProviderName ?? ProviderMetadataCatalog.GetConfiguredDisplayName(resetEvent.ProviderId ?? string.Empty);
         }
     }
 }

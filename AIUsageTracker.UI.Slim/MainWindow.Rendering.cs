@@ -291,7 +291,7 @@ public partial class MainWindow : Window
             this.AddProviderCard(groupCards[0], container, cardRenderer, isChild: false);
 
             var (groupHeader, groupContainer) = this.CreateCollapsibleHeader(
-                $"{ProviderMetadataCatalog.ResolveDisplayLabel(groupCards[0])} Details",
+                $"{groupCards[0].ProviderName ?? ProviderMetadataCatalog.GetConfiguredDisplayName(groupCards[0].ProviderId ?? string.Empty)} Details",
                 System.Windows.Media.Brushes.DeepSkyBlue,
                 isGroupHeader: false,
                 groupKey: null,

@@ -173,7 +173,7 @@ public class ProviderRefreshCircuitBreakerService
                     ? $"Temporarily paused after repeated failures — next check at {retryLocal:HH:mm}"
                     : $"Temporarily paused — next check at {retryLocal:HH:mm} (last error: {state.LastError})";
 
-                var displayName = ProviderMetadataCatalog.ResolveDisplayLabel(config.ProviderId, config.ProviderId);
+                var displayName = ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId);
                 result.Add(new ProviderUsage
                 {
                     ProviderId = config.ProviderId,

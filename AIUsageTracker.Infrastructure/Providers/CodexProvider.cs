@@ -461,6 +461,7 @@ public class CodexProvider : ProviderBase
         string? rawJson = null,
         int httpStatus = 200)
     {
+        var providerLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(this.ProviderId);
         var planType = root.ReadString("plan_type") ?? jwtPlanType ?? "unknown";
         var primaryUsedPercent = root.ReadDouble(JsonKeyRateLimit, JsonKeyPrimaryWindow, JsonKeyUsedPercent) ?? 0.0;
         var primaryResetSeconds = root.ReadDouble(JsonKeyRateLimit, JsonKeyPrimaryWindow, JsonKeyResetAfterSeconds);
@@ -478,7 +479,7 @@ public class CodexProvider : ProviderBase
         var burstCard = new ProviderUsage
         {
             ProviderId = this.ProviderId,
-            ProviderName = StaticDefinition.DisplayName,
+            ProviderName = providerLabel,
             CardId = "burst",
             GroupId = this.ProviderId,
             Name = "5h",
@@ -511,7 +512,7 @@ public class CodexProvider : ProviderBase
             usages.Add(new ProviderUsage
             {
                 ProviderId = this.ProviderId,
-                ProviderName = StaticDefinition.DisplayName,
+                ProviderName = providerLabel,
                 CardId = "weekly",
                 GroupId = this.ProviderId,
                 Name = WeeklyWindowLabel,
@@ -536,7 +537,7 @@ public class CodexProvider : ProviderBase
         // the "OpenAI (GPT-5.3 Codex Spark)" card is dual-bar capable.
         if (sparkWindow.HasWindowData)
         {
-            var sparkDisplayName = StaticDefinition.DisplayNameOverrides.GetValueOrDefault(CodexSparkProviderId, "OpenAI (GPT-5.3 Codex Spark)");
+            var sparkDisplayName = ProviderMetadataCatalog.GetConfiguredDisplayName(CodexSparkProviderId);
             var sparkBurstUsed = sparkWindow.PrimaryUsedPercent ?? 0.0;
             var sparkBurstResetTime = ResolveResetTimeFromSeconds(sparkWindow.PrimaryResetAfterSeconds);
 

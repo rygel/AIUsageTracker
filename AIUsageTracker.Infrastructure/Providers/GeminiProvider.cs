@@ -93,6 +93,10 @@ public class GeminiProvider : ProviderBase
     /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(config);
+
+        var providerLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId);
+
         // 1. Load Accounts
         var accounts = this.LoadAccounts();
         if (accounts == null || accounts.Accounts == null || accounts.Accounts.Count == 0)
@@ -102,7 +106,7 @@ public class GeminiProvider : ProviderBase
                 new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
-                    ProviderName = this.Definition.DisplayName,
+                    ProviderName = providerLabel,
                     IsAvailable = false,
                     IsQuotaBased = this.Definition.IsQuotaBased,
                     PlanType = this.Definition.PlanType,
@@ -125,7 +129,7 @@ public class GeminiProvider : ProviderBase
                 var accessToken = await this.RefreshTokenAsync(account.RefreshToken).ConfigureAwait(false);
                 var buckets = await this.FetchQuotaAsync(accessToken, account.ProjectId).ConfigureAwait(false);
                 var allBuckets = buckets ?? new List<Bucket>();
-                var modelQuotaCards = BuildModelQuotaCards(this.ProviderId, this.Definition.DisplayName, allBuckets, account.Email);
+                var modelQuotaCards = BuildModelQuotaCards(this.ProviderId, providerLabel, allBuckets, account.Email);
                 this._logger.LogDebug(
                     "Gemini quota received {BucketCount} bucket(s) and resolved {ModelCount} model card(s): {BucketSummary}",
                     allBuckets.Count,

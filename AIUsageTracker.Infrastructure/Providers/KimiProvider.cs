@@ -90,7 +90,7 @@ public class KimiProvider : ProviderBase
                 return new[] { this.CreateUnavailableUsage("Response missing usage data", authSource: config.AuthSource) };
             }
 
-            return this.BuildUsageCards(data, content, (int)response.StatusCode, config.AuthSource);
+            return this.BuildUsageCards(data, content, (int)response.StatusCode, config.AuthSource, ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId));
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
@@ -99,7 +99,7 @@ public class KimiProvider : ProviderBase
         }
     }
 
-    private IEnumerable<ProviderUsage> BuildUsageCards(KimiUsageResponse data, string content, int statusCode, string? authSource)
+    private IEnumerable<ProviderUsage> BuildUsageCards(KimiUsageResponse data, string content, int statusCode, string? authSource, string providerLabel)
     {
         var flatCards = new List<ProviderUsage>();
         var usedCardIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -107,7 +107,7 @@ public class KimiProvider : ProviderBase
         var hasRollingFromLimits = data.Limits?.Any(l =>
             l.Window != null && DetermineWindowKind(l.Window.Duration, l.Window.TimeUnit) == WindowKind.Rolling) ?? false;
 
-        var weeklyCard = this.TryBuildWeeklyCard(data.Usage!, hasRollingFromLimits, content, statusCode, authSource);
+        var weeklyCard = this.TryBuildWeeklyCard(data.Usage!, hasRollingFromLimits, content, statusCode, authSource, providerLabel);
         if (weeklyCard != null)
         {
             flatCards.Add(weeklyCard);
@@ -116,7 +116,7 @@ public class KimiProvider : ProviderBase
 
         if (data.Limits != null)
         {
-            this.AddLimitCards(data.Limits, flatCards, usedCardIds, content, statusCode, authSource);
+            this.AddLimitCards(data.Limits, flatCards, usedCardIds, content, statusCode, authSource, providerLabel);
         }
 
         if (flatCards.Count == 0)
@@ -126,7 +126,7 @@ public class KimiProvider : ProviderBase
                 new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
-                    ProviderName = this.Definition.DisplayName,
+                    ProviderName = providerLabel,
                     UsedPercent = data.Usage!.Limit > 0 ? UsageMath.CalculateUsedPercent(data.Usage!.Used, data.Usage!.Limit) : 0,
                     RequestsUsed = data.Usage!.Used,
                     RequestsAvailable = data.Usage!.Limit,
@@ -144,7 +144,7 @@ public class KimiProvider : ProviderBase
         return flatCards;
     }
 
-    private ProviderUsage? TryBuildWeeklyCard(KimiUsageData usage, bool hasRollingFromLimits, string content, int statusCode, string? authSource)
+    private ProviderUsage? TryBuildWeeklyCard(KimiUsageData usage, bool hasRollingFromLimits, string content, int statusCode, string? authSource, string providerLabel)
     {
         if (usage.Limit <= 0 || usage.Remaining < 0 || hasRollingFromLimits)
         {
@@ -162,7 +162,7 @@ public class KimiProvider : ProviderBase
         return new ProviderUsage
         {
             ProviderId = this.ProviderId,
-            ProviderName = this.Definition.DisplayName,
+            ProviderName = providerLabel,
             CardId = "weekly",
             GroupId = this.ProviderId,
             Name = "Weekly Limit",
@@ -182,11 +182,11 @@ public class KimiProvider : ProviderBase
         };
     }
 
-    private void AddLimitCards(List<KimiLimitItem> limits, List<ProviderUsage> flatCards, HashSet<string> usedCardIds, string content, int statusCode, string? authSource)
+    private void AddLimitCards(List<KimiLimitItem> limits, List<ProviderUsage> flatCards, HashSet<string> usedCardIds, string content, int statusCode, string? authSource, string providerLabel)
     {
         foreach (var limitItem in limits)
         {
-            var card = this.TryBuildLimitCard(limitItem, usedCardIds, content, statusCode, authSource);
+            var card = this.TryBuildLimitCard(limitItem, usedCardIds, content, statusCode, authSource, providerLabel);
             if (card != null)
             {
                 flatCards.Add(card);
@@ -194,7 +194,7 @@ public class KimiProvider : ProviderBase
         }
     }
 
-    private ProviderUsage? TryBuildLimitCard(KimiLimitItem limitItem, HashSet<string> usedCardIds, string content, int statusCode, string? authSource)
+    private ProviderUsage? TryBuildLimitCard(KimiLimitItem limitItem, HashSet<string> usedCardIds, string content, int statusCode, string? authSource, string providerLabel)
     {
         if (limitItem.Detail == null || limitItem.Window == null)
         {
@@ -227,7 +227,7 @@ public class KimiProvider : ProviderBase
         return new ProviderUsage
         {
             ProviderId = this.ProviderId,
-            ProviderName = this.Definition.DisplayName,
+            ProviderName = providerLabel,
             CardId = cardId,
             GroupId = this.ProviderId,
             Name = name,

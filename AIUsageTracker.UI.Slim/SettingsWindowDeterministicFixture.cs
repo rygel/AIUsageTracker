@@ -68,7 +68,7 @@ internal static class SettingsWindowDeterministicFixture
         return new ProviderUsage
         {
             ProviderId = scenario.ProviderId,
-            ProviderName = ProviderMetadataCatalog.ResolveDisplayLabel(scenario.ProviderId),
+            ProviderName = ProviderMetadataCatalog.GetConfiguredDisplayName(scenario.ProviderId),
             IsAvailable = isAvailable,
             IsQuotaBased = isQuotaBased,
             PlanType = planType,
@@ -90,7 +90,7 @@ internal static class SettingsWindowDeterministicFixture
 
         return new SettingsWindowHistoryRow
         {
-            ProviderName = ProviderMetadataCatalog.ResolveDisplayLabel(providerId),
+            ProviderName = ProviderMetadataCatalog.GetConfiguredDisplayName(providerId),
             UsagePercentage = scenario.UsagePercentage,
             Used = scenario.Used,
             Limit = scenario.Limit,

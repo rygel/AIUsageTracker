@@ -74,6 +74,8 @@ public class AntigravityProvider : ProviderBase
     {
         ArgumentNullException.ThrowIfNull(config);
 
+        var providerLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId);
+
         var results = new List<ProviderUsage>();
 
         try
@@ -82,10 +84,10 @@ public class AntigravityProvider : ProviderBase
             var processInfos = this.FindProcessInfos();
             if (processInfos.Count == 0)
             {
-                return this.BuildNoProcessResult(config);
+                return this.BuildNoProcessResult(config, providerLabel);
             }
 
-            await this.CollectInstanceUsagesAsync(processInfos, results, config).ConfigureAwait(false);
+            await this.CollectInstanceUsagesAsync(processInfos, results, config, providerLabel).ConfigureAwait(false);
 
             if (results.Count == 0)
             {
@@ -121,17 +123,17 @@ public class AntigravityProvider : ProviderBase
         };
     }
 
-    private IEnumerable<ProviderUsage> BuildNoProcessResult(ProviderConfig config)
+    private IEnumerable<ProviderUsage> BuildNoProcessResult(ProviderConfig config, string providerLabel)
     {
         if (this._cachedUsage != null)
         {
-            return this.BuildCachedOfflineResult(config);
+            return this.BuildCachedOfflineResult(config, providerLabel);
         }
 
         return new[] { CreateNotRunningUsage(this.ProviderId, this.Definition) };
     }
 
-    private IEnumerable<ProviderUsage> BuildCachedOfflineResult(ProviderConfig config)
+    private IEnumerable<ProviderUsage> BuildCachedOfflineResult(ProviderConfig config, string providerLabel)
     {
         var timeSinceRefresh = DateTime.UtcNow - this._cacheTimestamp;
         var minutesAgo = (int)timeSinceRefresh.TotalMinutes;
@@ -150,7 +152,7 @@ public class AntigravityProvider : ProviderBase
                     new ProviderUsage
                     {
                         ProviderId = this.ProviderId,
-                        ProviderName = this.Definition.DisplayName,
+                        ProviderName = providerLabel,
                         IsAvailable = true,
                         UsedPercent = 0,
                         RequestsUsed = 0,
@@ -173,7 +175,7 @@ public class AntigravityProvider : ProviderBase
             new ProviderUsage
             {
                 ProviderId = this.ProviderId,
-                ProviderName = this.Definition.DisplayName,
+                ProviderName = providerLabel,
                 IsAvailable = true,
                 UsedPercent = 0,
                 RequestsUsed = 0,
@@ -189,7 +191,8 @@ public class AntigravityProvider : ProviderBase
     private async Task CollectInstanceUsagesAsync(
         List<(int Pid, string Token, int? Port)> processInfos,
         List<ProviderUsage> results,
-        ProviderConfig config)
+        ProviderConfig config,
+        string providerLabel)
     {
         foreach (var info in processInfos)
         {
@@ -205,7 +208,7 @@ public class AntigravityProvider : ProviderBase
 
                 var candidatePorts = await this.ResolveCandidatePortsAsync(pid, commandLinePort).ConfigureAwait(false);
 
-                var usageItems = await this.TryFetchUsageFromPortsAsync(candidatePorts, csrfToken, config, pid).ConfigureAwait(false);
+                var usageItems = await this.TryFetchUsageFromPortsAsync(candidatePorts, csrfToken, config, pid, providerLabel).ConfigureAwait(false);
 
                 var mainItem = usageItems.FirstOrDefault(u => string.Equals(u.ProviderId, this.ProviderId, StringComparison.Ordinal));
 
@@ -244,7 +247,7 @@ public class AntigravityProvider : ProviderBase
         return candidatePorts;
     }
 
-    private async Task<List<ProviderUsage>> TryFetchUsageFromPortsAsync(List<int> candidatePorts, string csrfToken, ProviderConfig config, int pid)
+    private async Task<List<ProviderUsage>> TryFetchUsageFromPortsAsync(List<int> candidatePorts, string csrfToken, ProviderConfig config, int pid, string providerLabel)
     {
         List<ProviderUsage>? usageItems = null;
         Exception? lastPortException = null;
@@ -252,7 +255,7 @@ public class AntigravityProvider : ProviderBase
         {
             try
             {
-                usageItems = await this.FetchUsageAsync(candidatePort, csrfToken, config).ConfigureAwait(false);
+                usageItems = await this.FetchUsageAsync(candidatePort, csrfToken, config, providerLabel).ConfigureAwait(false);
                 break;
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
@@ -684,7 +687,7 @@ public class AntigravityProvider : ProviderBase
             .ToList();
     }
 
-    private async Task<List<ProviderUsage>> FetchUsageAsync(int port, string csrfToken, ProviderConfig config)
+    private async Task<List<ProviderUsage>> FetchUsageAsync(int port, string csrfToken, ProviderConfig config, string providerLabel)
     {
         var body = new { metadata = new { ideName = AntigravityApiIdentifier, extensionName = AntigravityApiIdentifier, ideVersion = "unknown", locale = "en" } };
         string? responseString = null;
@@ -770,7 +773,7 @@ public class AntigravityProvider : ProviderBase
                 new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
-                    ProviderName = this.Definition.DisplayName,
+                    ProviderName = providerLabel,
                     IsAvailable = true,
                     UsedPercent = 0,
                     RequestsUsed = 0,
@@ -784,7 +787,7 @@ public class AntigravityProvider : ProviderBase
         }
 
         var sortedEntries = SortEntries(entries);
-        var summary = this.BuildSummaryUsage(data.UserStatus, sortedEntries, minRemaining.Value, responseString, httpStatus);
+        var summary = this.BuildSummaryUsage(data.UserStatus, sortedEntries, minRemaining.Value, responseString, httpStatus, providerLabel);
         ApplySummaryRawNumbers(summary, configMap);
 
         var results = this.BuildChildUsages(sortedEntries, configMap, config, data.UserStatus.Email ?? string.Empty);
@@ -829,12 +832,12 @@ public class AntigravityProvider : ProviderBase
         return null;
     }
 
-    private ProviderUsage BuildSummaryUsage(UserStatus userStatus, List<ModelEntry> sortedEntries, double remainingPctTotal, string? rawJson = null, int httpStatus = 200)
+    private ProviderUsage BuildSummaryUsage(UserStatus userStatus, List<ModelEntry> sortedEntries, double remainingPctTotal, string? rawJson, int httpStatus, string providerLabel)
     {
         return new ProviderUsage
         {
             ProviderId = this.ProviderId,
-            ProviderName = this.Definition.DisplayName,
+            ProviderName = providerLabel,
             UsedPercent = 100 - remainingPctTotal,
             RequestsUsed = 100 - remainingPctTotal,
             RequestsAvailable = 100,

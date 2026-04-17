@@ -96,6 +96,8 @@ public class OpenCodeZenProvider : ProviderBase
     {
         ArgumentNullException.ThrowIfNull(config);
 
+        var providerLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId);
+
         var cliPath = await this.ResolveCliPathAsync().ConfigureAwait(false);
         if (cliPath == null)
         {
@@ -107,14 +109,15 @@ public class OpenCodeZenProvider : ProviderBase
                     config.AuthSource,
                     "Searched: PATH, fallback paths: " + string.Join(", ", FallbackPaths),
                     404,
-                    ProviderUsageState.Missing),
+                    ProviderUsageState.Missing,
+                    providerLabel),
             };
         }
 
         try
         {
             var output = await this.RunCliAsync(cliPath).ConfigureAwait(false);
-            return new[] { this.ParseOutput(output, config) };
+            return new[] { this.ParseOutput(output, config, providerLabel) };
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException or TimeoutException)
         {
@@ -126,7 +129,9 @@ public class OpenCodeZenProvider : ProviderBase
                     $"CLI Error: {ex.Message} (Check log or clear storage if JSON error)",
                     config.AuthSource,
                     ex.ToString(),
-                    500),
+                    500,
+                    ProviderUsageState.Error,
+                    providerLabel),
             };
         }
     }
@@ -137,12 +142,13 @@ public class OpenCodeZenProvider : ProviderBase
         string? authSource,
         string rawJson,
         int httpStatus,
-        ProviderUsageState state = ProviderUsageState.Error)
+        ProviderUsageState state,
+        string? providerLabel = null)
     {
         return new ProviderUsage
         {
             ProviderId = providerId,
-            ProviderName = ProviderDisplayName,
+            ProviderName = providerLabel ?? ProviderDisplayName,
             IsAvailable = false,
             Description = description,
             State = state,
@@ -534,7 +540,7 @@ public class OpenCodeZenProvider : ProviderBase
         return await standardOutputTask.ConfigureAwait(false);
     }
 
-    private ProviderUsage ParseOutput(string output, ProviderConfig config)
+    private ProviderUsage ParseOutput(string output, ProviderConfig config, string providerLabel)
     {
         var cleaned = CleanAnsiOutput(output);
 
@@ -563,7 +569,7 @@ public class OpenCodeZenProvider : ProviderBase
         return new ProviderUsage
         {
             ProviderId = this.ProviderId,
-            ProviderName = ProviderDisplayName,
+            ProviderName = providerLabel ?? ProviderDisplayName,
             UsedPercent = 0.0,
             RequestsUsed = totalCost,
             RequestsAvailable = 0.0,

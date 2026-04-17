@@ -78,7 +78,7 @@ public partial class App
                         dualQuotaSingleBarMode);
                 }
 
-                var providerLabel = ProviderMetadataCatalog.ResolveDisplayLabel(usage);
+                var providerLabel = usage.ProviderName ?? ProviderMetadataCatalog.GetConfiguredDisplayName(usage.ProviderId ?? string.Empty);
                 var paceColor = UsageMath.ComputePaceColor(
                     usage.UsedPercent,
                     usage.NextResetTime,

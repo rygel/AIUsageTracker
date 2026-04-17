@@ -58,7 +58,7 @@ public class ZaiProvider : ProviderBase
             throw new ArgumentException("API Key not found for Z.AI provider.", nameof(config));
         }
 
-        var providerLabel = this.Definition.DisplayName;
+        var providerLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId);
 
         using var request = new HttpRequestMessage(HttpMethod.Get, QuotaLimitEndpoint);
 

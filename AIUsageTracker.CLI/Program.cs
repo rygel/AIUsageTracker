@@ -322,7 +322,7 @@ public static class Program
             var used = item.IsCurrencyUsage
                 ? $"${item.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture)}"
                 : item.RequestsUsed.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            var providerDisplayName = ProviderMetadataCatalog.ResolveDisplayLabel(item.ProviderId, item.ProviderName);
+            var providerDisplayName = item.ProviderName ?? ProviderMetadataCatalog.GetConfiguredDisplayName(item.ProviderId ?? string.Empty);
             Console.WriteLine($"{item.FetchedAt.ToShortDateString(),-12} | {providerDisplayName,-20} | {"(Total)",-25} | {used,-15}");
         }
     }
@@ -555,7 +555,7 @@ public static class Program
 
         var type = u.IsQuotaBased ? "Quota" : "Pay-As-You-Go";
         var accountInfo = !string.IsNullOrWhiteSpace(u.AccountName) ? $" [{u.AccountName}]" : string.Empty;
-        var providerDisplayName = ProviderMetadataCatalog.ResolveDisplayLabel(u.ProviderId, u.ProviderName);
+        var providerDisplayName = u.ProviderName ?? ProviderMetadataCatalog.GetConfiguredDisplayName(u.ProviderId ?? string.Empty);
 
         var description = u.Description;
 
@@ -587,7 +587,7 @@ public static class Program
         }
         else
         {
-            Console.WriteLine(string.Join(Environment.NewLine, configs.Select(c => $"ID: {c.ProviderId}, Name: {ProviderMetadataCatalog.ResolveDisplayLabel(c.ProviderId)}")));
+            Console.WriteLine(string.Join(Environment.NewLine, configs.Select(c => $"ID: {c.ProviderId}, Name: {ProviderMetadataCatalog.GetConfiguredDisplayName(c.ProviderId)}")));
         }
     }
 }

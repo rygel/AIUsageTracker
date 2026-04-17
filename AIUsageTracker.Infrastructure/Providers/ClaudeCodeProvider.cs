@@ -77,6 +77,8 @@ public class ClaudeCodeProvider : ProviderBase
     {
         ArgumentNullException.ThrowIfNull(config);
 
+        var providerLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId);
+
         // Check if API key is configured
         if (string.IsNullOrEmpty(config.ApiKey))
         {
@@ -85,7 +87,7 @@ public class ClaudeCodeProvider : ProviderBase
                 new ProviderUsage
             {
                 ProviderId = this.ProviderId,
-                ProviderName = this.Definition.DisplayName,
+                ProviderName = providerLabel,
                 IsAvailable = false,
                 Description = "No API key configured",
                 State = ProviderUsageState.Missing,
@@ -116,7 +118,7 @@ public class ClaudeCodeProvider : ProviderBase
         // Try OAuth usage endpoint first (for subscription users)
         try
         {
-            var oauthUsages = await this.GetUsageFromOAuthAsync(effectiveApiKey).ConfigureAwait(false);
+                var oauthUsages = await this.GetUsageFromOAuthAsync(effectiveApiKey, providerLabel).ConfigureAwait(false);
             if (oauthUsages != null)
             {
                 return oauthUsages;
@@ -133,7 +135,7 @@ public class ClaudeCodeProvider : ProviderBase
         {
             try
             {
-                var apiUsage = await this.GetUsageFromApiAsync(effectiveApiKey).ConfigureAwait(false);
+                var apiUsage = await this.GetUsageFromApiAsync(effectiveApiKey, providerLabel).ConfigureAwait(false);
                 if (apiUsage != null)
                 {
                     return new[] { apiUsage };
@@ -146,7 +148,7 @@ public class ClaudeCodeProvider : ProviderBase
         }
 
         // Fall back to CLI if API fails
-        return await this.GetUsageFromCliAsync().ConfigureAwait(false);
+        return await this.GetUsageFromCliAsync(providerLabel).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -154,7 +156,7 @@ public class ClaudeCodeProvider : ProviderBase
     /// </summary>
     /// <param name="accessToken">The OAuth access token from credentials file.</param>
     /// <returns>Provider usages if successful, null otherwise.</returns>
-    internal async Task<IEnumerable<ProviderUsage>?> GetUsageFromOAuthAsync(string accessToken)
+    internal async Task<IEnumerable<ProviderUsage>?> GetUsageFromOAuthAsync(string accessToken, string providerLabel)
     {
         try
         {
@@ -180,7 +182,7 @@ public class ClaudeCodeProvider : ProviderBase
                 return null;
             }
 
-            return this.ParseOAuthUsageResponse(usageResponse, responseBody, (int)statusCode);
+            return this.ParseOAuthUsageResponse(usageResponse, responseBody, (int)statusCode, providerLabel);
         }
         catch (HttpRequestException ex)
         {
@@ -251,17 +253,16 @@ public class ClaudeCodeProvider : ProviderBase
         }
     }
 
-    private List<ProviderUsage> ParseOAuthUsageResponse(OAuthUsageResponse response, string rawJson, int httpStatus)
+    private List<ProviderUsage> ParseOAuthUsageResponse(OAuthUsageResponse response, string rawJson, int httpStatus, string providerLabel)
     {
         var results = new List<ProviderUsage>();
 
-        // Current session (5-hour burst quota)
         if (response.FiveHour != null)
         {
             results.Add(new ProviderUsage
             {
                 ProviderId = this.ProviderId,
-                ProviderName = this.Definition.DisplayName,
+                ProviderName = providerLabel,
                 CardId = "current-session",
                 GroupId = this.ProviderId,
                 Name = "Current Session",
@@ -282,7 +283,7 @@ public class ClaudeCodeProvider : ProviderBase
             results.Add(new ProviderUsage
             {
                 ProviderId = this.ProviderId,
-                ProviderName = this.Definition.DisplayName,
+                ProviderName = providerLabel,
                 CardId = "sonnet",
                 GroupId = this.ProviderId,
                 Name = "Sonnet",
@@ -303,7 +304,7 @@ public class ClaudeCodeProvider : ProviderBase
             results.Add(new ProviderUsage
             {
                 ProviderId = this.ProviderId,
-                ProviderName = this.Definition.DisplayName,
+                ProviderName = providerLabel,
                 CardId = "opus",
                 GroupId = this.ProviderId,
                 Name = "Opus",
@@ -331,7 +332,7 @@ public class ClaudeCodeProvider : ProviderBase
             results.Add(new ProviderUsage
             {
                 ProviderId = this.ProviderId,
-                ProviderName = this.Definition.DisplayName,
+                ProviderName = providerLabel,
                 CardId = "all-models",
                 GroupId = this.ProviderId,
                 Name = "All Models",
@@ -352,7 +353,7 @@ public class ClaudeCodeProvider : ProviderBase
             results.Add(new ProviderUsage
             {
                 ProviderId = this.ProviderId,
-                ProviderName = this.Definition.DisplayName,
+                ProviderName = providerLabel,
                 IsQuotaBased = true,
                 PlanType = this.Definition.PlanType,
                 IsAvailable = true,
@@ -365,7 +366,7 @@ public class ClaudeCodeProvider : ProviderBase
         return results;
     }
 
-    private async Task<ProviderUsage?> GetUsageFromApiAsync(string apiKey)
+    private async Task<ProviderUsage?> GetUsageFromApiAsync(string apiKey, string providerLabel)
     {
         try
         {
@@ -412,7 +413,7 @@ public class ClaudeCodeProvider : ProviderBase
                 return new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
-                    ProviderName = this.Definition.DisplayName,
+                    ProviderName = providerLabel,
                     UsedPercent = usagePercentage,
                     RequestsUsed = 0, // Anthropic doesn't provide cost via API
                     RequestsAvailable = 0,
@@ -467,7 +468,7 @@ public class ClaudeCodeProvider : ProviderBase
         return info;
     }
 
-    private async Task<IEnumerable<ProviderUsage>> GetUsageFromCliAsync()
+    private async Task<IEnumerable<ProviderUsage>> GetUsageFromCliAsync(string providerLabel)
     {
         return await Task.Run(async () =>
         {
@@ -492,7 +493,7 @@ public class ClaudeCodeProvider : ProviderBase
                         new ProviderUsage
                     {
                         ProviderId = this.ProviderId,
-                        ProviderName = this.Definition.DisplayName,
+                        ProviderName = providerLabel,
                         IsAvailable = true,
                         Description = "Connected (API key configured)",
                         IsStatusOnly = true,
@@ -529,7 +530,7 @@ public class ClaudeCodeProvider : ProviderBase
                         new ProviderUsage
                     {
                         ProviderId = this.ProviderId,
-                        ProviderName = this.Definition.DisplayName,
+                        ProviderName = providerLabel,
                         IsAvailable = true,
                         Description = "Connected (API key configured)",
                         IsStatusOnly = true,
@@ -541,7 +542,7 @@ public class ClaudeCodeProvider : ProviderBase
                     };
                 }
 
-                return new[] { this.ParseCliOutput(output) };
+                return new[] { this.ParseCliOutput(output, providerLabel) };
             }
             catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
             {
@@ -553,7 +554,7 @@ public class ClaudeCodeProvider : ProviderBase
                     new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
-                    ProviderName = this.Definition.DisplayName,
+                    ProviderName = providerLabel,
                     IsAvailable = true,
                     Description = "Connected (API key configured)",
                     IsStatusOnly = true,
@@ -567,7 +568,7 @@ public class ClaudeCodeProvider : ProviderBase
         }).ConfigureAwait(false);
     }
 
-    private ProviderUsage ParseCliOutput(string output)
+    private ProviderUsage ParseCliOutput(string output, string providerLabel)
     {
         // Parse Claude Code usage output
         double currentUsage = 0;
@@ -600,7 +601,7 @@ public class ClaudeCodeProvider : ProviderBase
         return new ProviderUsage
         {
             ProviderId = this.ProviderId,
-            ProviderName = this.Definition.DisplayName,
+            ProviderName = providerLabel,
             UsedPercent = Math.Min(usagePercentage, 100),
             RequestsUsed = currentUsage,
             RequestsAvailable = budgetLimit,

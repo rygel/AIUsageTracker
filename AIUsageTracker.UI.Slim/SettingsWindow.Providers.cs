@@ -132,7 +132,7 @@ public partial class SettingsWindow
         displayItems.AddRange(derivedItems);
 
         return displayItems
-            .OrderBy(item => ProviderMetadataCatalog.ResolveDisplayLabel(item.Config.ProviderId), StringComparer.OrdinalIgnoreCase)
+            .OrderBy(item => ProviderMetadataCatalog.GetConfiguredDisplayName(item.Config.ProviderId), StringComparer.OrdinalIgnoreCase)
             .ThenBy(item => item.Config.ProviderId, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }

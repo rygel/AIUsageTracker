@@ -45,7 +45,7 @@ public class AllProvidersWorkingTests
         mockMinimax.Setup(p => p.ProviderId).Returns("minimax");
         mockMinimax.Setup(p => p.Definition).Returns(new ProviderDefinition(
             "minimax",
-            "MiniMax.chat",
+            "MiniMax.com",
             PlanType.Coding,
             isQuotaBased: true)
         {

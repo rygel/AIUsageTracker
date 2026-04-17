@@ -51,6 +51,8 @@ public class MistralProvider : ProviderBase
     {
         ArgumentNullException.ThrowIfNull(config);
 
+        var providerLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId);
+
         var apiKey = config.ApiKey;
 
         if (string.IsNullOrEmpty(apiKey) && this.DiscoveryService != null)
@@ -78,7 +80,7 @@ public class MistralProvider : ProviderBase
                     new ProviderUsage
                     {
                         ProviderId = this.ProviderId,
-                        ProviderName = this.Definition.DisplayName,
+                        ProviderName = providerLabel,
                         IsAvailable = true,
                         UsedPercent = 0,
                         IsQuotaBased = this.Definition.IsQuotaBased,

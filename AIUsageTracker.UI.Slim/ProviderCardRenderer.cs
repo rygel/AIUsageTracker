@@ -52,7 +52,7 @@ internal sealed class ProviderCardRenderer
     public FrameworkElement CreateProviderCard(ProviderUsage usage, bool showUsed, bool isChild = false, ProviderDefinition? definition = null)
     {
         var providerId = usage.ProviderId ?? string.Empty;
-        var friendlyName = ResolveFriendlyName(usage, definition, providerId);
+        var friendlyName = usage.ProviderName ?? providerId;
 
         var presentation = MainWindowRuntimeLogic.Create(usage, showUsed, this._preferences.EnablePaceAdjustment);
 
@@ -171,21 +171,6 @@ internal sealed class ProviderCardRenderer
         providerIcon.Height = iconSize;
         providerIcon.VerticalAlignment = VerticalAlignment.Center;
         AddDockedElement(contentPanel, providerIcon, Dock.Left);
-    }
-
-    private static string ResolveFriendlyName(ProviderUsage usage, ProviderDefinition? definition, string providerId)
-    {
-        if (!string.IsNullOrEmpty(usage.CardId))
-        {
-            return usage.ProviderName ?? string.Empty;
-        }
-
-        if (definition != null)
-        {
-            return definition.ResolveDisplayName(providerId) ?? usage.ProviderName;
-        }
-
-        return ProviderMetadataCatalog.ResolveDisplayLabel(usage);
     }
 
     private void AddCardBackground(Grid grid, Grid pGrid, ProviderCardPresentation presentation, PaceColorResult cardPaceColor)

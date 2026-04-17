@@ -688,8 +688,6 @@ public class UsageDatabase : IUsageDatabase
                 }
             }
 
-            usage.ProviderName = ProviderMetadataCatalog.ResolveDisplayLabel(usage.ProviderId ?? string.Empty, usage.ProviderName);
-
             ApplyUpstreamResponseValidity(usage);
             MarkStaleIfOutdated(usage, now);
         }

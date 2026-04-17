@@ -59,7 +59,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         this.SetupOAuthResponse(HttpStatusCode.OK, responseJson);
 
         // Act
-        var results = await this._provider.GetUsageFromOAuthAsync("test-token");
+        var results = await this._provider.GetUsageFromOAuthAsync("test-token", "Claude Code");
 
         // Assert — flat cards returned
         Assert.NotNull(results);
@@ -121,7 +121,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         this.SetupOAuthResponse(HttpStatusCode.OK, responseJson);
 
         // Act
-        var results = await this._provider.GetUsageFromOAuthAsync("test-token");
+        var results = await this._provider.GetUsageFromOAuthAsync("test-token", "Claude Code");
 
         // Assert
         Assert.NotNull(results);
@@ -166,7 +166,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         this.SetupOAuthResponse(HttpStatusCode.OK, responseJson);
 
         // Act
-        var results = await this._provider.GetUsageFromOAuthAsync("test-token");
+        var results = await this._provider.GetUsageFromOAuthAsync("test-token", "Claude Code");
 
         // Assert
         Assert.NotNull(results);
@@ -212,7 +212,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         this.SetupOAuthResponse(HttpStatusCode.OK, responseJson);
 
         // Act
-        var results = await this._provider.GetUsageFromOAuthAsync("test-token");
+        var results = await this._provider.GetUsageFromOAuthAsync("test-token", "Claude Code");
 
         // Assert
         Assert.NotNull(results);
@@ -256,7 +256,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         this.SetupOAuthResponse(HttpStatusCode.OK, responseJson);
 
         // Act
-        var results = await this._provider.GetUsageFromOAuthAsync("test-token");
+        var results = await this._provider.GetUsageFromOAuthAsync("test-token", "Claude Code");
 
         // Assert
         Assert.NotNull(results);
@@ -295,7 +295,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         this.SetupOAuthResponse(HttpStatusCode.OK, responseJson);
 
         // Act
-        var results = await this._provider.GetUsageFromOAuthAsync("test-token");
+        var results = await this._provider.GetUsageFromOAuthAsync("test-token", "Claude Code");
 
         // Assert
         Assert.NotNull(results);
@@ -330,7 +330,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         this.SetupOAuthResponse(HttpStatusCode.OK, responseJson);
 
         // Act
-        var results = await this._provider.GetUsageFromOAuthAsync("test-token");
+        var results = await this._provider.GetUsageFromOAuthAsync("test-token", "Claude Code");
 
         // Assert
         Assert.NotNull(results);
@@ -347,7 +347,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         this.SetupOAuthResponse(HttpStatusCode.Unauthorized, """{"error": "invalid_token"}""");
 
         // Act
-        var result = await this._provider.GetUsageFromOAuthAsync("invalid-token");
+        var result = await this._provider.GetUsageFromOAuthAsync("invalid-token", "Claude Code");
 
         // Assert
         Assert.Null(result);
@@ -360,7 +360,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         this.SetupOAuthResponse(HttpStatusCode.InternalServerError, """{"error": "internal_error"}""");
 
         // Act
-        var result = await this._provider.GetUsageFromOAuthAsync("test-token");
+        var result = await this._provider.GetUsageFromOAuthAsync("test-token", "Claude Code");
 
         // Assert
         Assert.Null(result);
@@ -373,7 +373,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         this.SetupOAuthResponse(HttpStatusCode.OK, "not valid json");
 
         // Act
-        var result = await this._provider.GetUsageFromOAuthAsync("test-token");
+        var result = await this._provider.GetUsageFromOAuthAsync("test-token", "Claude Code");
 
         // Assert
         Assert.Null(result);
@@ -394,7 +394,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
             }));
 
         // Act
-        var result = await this._provider.GetUsageFromOAuthAsync("test-token");
+        var result = await this._provider.GetUsageFromOAuthAsync("test-token", "Claude Code");
 
         // Assert — returns null after retry
         Assert.Null(result);

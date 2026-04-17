@@ -47,6 +47,8 @@ public sealed class SyntheticProvider : ProviderBase
     {
         ArgumentNullException.ThrowIfNull(config);
 
+        var providerLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId);
+
         if (string.IsNullOrWhiteSpace(config.ApiKey))
         {
             return new[] { this.CreateUnavailableUsage("API Key missing", 401, config.AuthSource, state: ProviderUsageState.Missing) };
@@ -100,7 +102,7 @@ public sealed class SyntheticProvider : ProviderBase
                 new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
-                    ProviderName = this.Definition.DisplayName,
+                    ProviderName = providerLabel,
                     UsedPercent = Math.Clamp(used / total * 100.0, 0, 100),
                     RequestsUsed = used,
                     RequestsAvailable = total,

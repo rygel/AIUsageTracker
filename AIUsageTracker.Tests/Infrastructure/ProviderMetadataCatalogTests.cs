@@ -52,7 +52,7 @@ public class ProviderMetadataCatalogTests
 
         Assert.NotNull(definition);
         Assert.Equal(expectedDefinitionId, definition!.ProviderId);
-        Assert.Equal(expectedDisplayName, ProviderMetadataCatalog.ResolveDisplayLabel(providerId));
+        Assert.Equal(expectedDisplayName, ProviderMetadataCatalog.GetConfiguredDisplayName(providerId));
     }
 
     [Theory]
@@ -63,14 +63,14 @@ public class ProviderMetadataCatalogTests
         string expectedDisplayName,
         string expectedSessionLabel)
     {
-        Assert.Equal(expectedDisplayName, ProviderMetadataCatalog.ResolveDisplayLabel(providerId));
+        Assert.Equal(expectedDisplayName, ProviderMetadataCatalog.GetConfiguredDisplayName(providerId));
         Assert.Equal(expectedSessionLabel, ProviderMetadataCatalog.Find(providerId)?.SessionStatusLabel);
     }
 
     [Theory]
     [InlineData("codex.spark", "OpenAI (GPT-5.3 Codex Spark)")]
     [InlineData("antigravity.gpt-oss", "Google Antigravity")]
-    [InlineData("minimax", "MiniMax.chat")]
+    [InlineData("minimax", "MiniMax.com")]
     [InlineData("minimax-io", "MiniMax.io")]
     [InlineData("minimax-global", "MiniMax.io")]
     [InlineData("minimax-coding-plan", "Minimax.io Coding Plan")]
@@ -80,14 +80,13 @@ public class ProviderMetadataCatalogTests
     }
 
     [Theory]
-    [InlineData("antigravity.gpt-oss", "GPT OSS (Anti-Gravity)", "GPT OSS (Anti-Gravity)")]
-    [InlineData("gemini-cli.minute", "Gemini 2.5 Flash Lite [Gemini CLI]", "Gemini 2.5 Flash Lite [Gemini CLI]")]
-    public void ResolveDisplayLabel_PreservesIntentionalRuntimeLabels_ForDynamicChildren(
+    [InlineData("antigravity.gpt-oss", "Google Antigravity")]
+    [InlineData("gemini-cli.minute", "Gemini CLI (Minute)")]
+    public void GetConfiguredDisplayName_ResolvesDerivedProviderIds(
         string providerId,
-        string runtimeLabel,
         string expectedDisplayLabel)
     {
-        Assert.Equal(expectedDisplayLabel, ProviderMetadataCatalog.ResolveDisplayLabel(providerId, runtimeLabel));
+        Assert.Equal(expectedDisplayLabel, ProviderMetadataCatalog.GetConfiguredDisplayName(providerId));
     }
 
     [Fact]

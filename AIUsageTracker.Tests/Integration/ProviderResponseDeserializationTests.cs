@@ -235,7 +235,7 @@ public class ProviderResponseDeserializationTests
         var provider = new ClaudeCodeProvider(NullLogger<ClaudeCodeProvider>.Instance, httpClient);
 
         // Act — GetUsageFromOAuthAsync returns IEnumerable<ProviderUsage>?
-        var results = await provider.GetUsageFromOAuthAsync("test-oauth-token");
+        var results = await provider.GetUsageFromOAuthAsync("test-oauth-token", "Claude Code");
 
         // Assert — flat cards: current-session, sonnet, opus, all-models
         Assert.NotNull(results);
@@ -286,7 +286,7 @@ public class ProviderResponseDeserializationTests
         var httpClient = CreateMockHttpClient(responseJson, HttpStatusCode.OK);
         var provider = new ClaudeCodeProvider(NullLogger<ClaudeCodeProvider>.Instance, httpClient);
 
-        var results = await provider.GetUsageFromOAuthAsync("test-token");
+        var results = await provider.GetUsageFromOAuthAsync("test-token", "Claude Code");
 
         Assert.NotNull(results);
         var cards = results!.ToList();
@@ -333,7 +333,7 @@ public class ProviderResponseDeserializationTests
         var httpClient = CreateMockHttpClient("{\"error\": \"unauthorized\"}", HttpStatusCode.Unauthorized);
         var provider = new ClaudeCodeProvider(NullLogger<ClaudeCodeProvider>.Instance, httpClient);
 
-        var usage = await provider.GetUsageFromOAuthAsync("bad-token");
+        var usage = await provider.GetUsageFromOAuthAsync("bad-token", "Claude Code");
 
         Assert.Null(usage);
     }

@@ -93,9 +93,11 @@ public class OpenAIProvider : ProviderBase
     {
         ArgumentNullException.ThrowIfNull(config);
 
+        var providerLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId);
+
         if (!string.IsNullOrWhiteSpace(config.ApiKey) && IsApiKey(config.ApiKey))
         {
-            return await this.GetApiKeyUsageAsync(config.ApiKey).ConfigureAwait(false);
+            return await this.GetApiKeyUsageAsync(config.ApiKey, providerLabel).ConfigureAwait(false);
         }
 
         var accessToken = config.ApiKey;
@@ -118,7 +120,7 @@ public class OpenAIProvider : ProviderBase
 
         try
         {
-            return await this.GetNativeUsageAsync(accessToken, accountId).ConfigureAwait(false);
+            return await this.GetNativeUsageAsync(accessToken, accountId, providerLabel).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
@@ -237,7 +239,7 @@ public class OpenAIProvider : ProviderBase
         return null;
     }
 
-    private async Task<IEnumerable<ProviderUsage>> GetApiKeyUsageAsync(string apiKey)
+    private async Task<IEnumerable<ProviderUsage>> GetApiKeyUsageAsync(string apiKey, string providerLabel)
     {
         if (apiKey.StartsWith("sk-proj", StringComparison.OrdinalIgnoreCase))
         {
@@ -246,7 +248,7 @@ public class OpenAIProvider : ProviderBase
                 new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
-                    ProviderName = this.Definition.DisplayName,
+                    ProviderName = providerLabel,
                     IsAvailable = false,
                     State = ProviderUsageState.Missing,
                     Description = "Project keys (sk-proj-...) not supported yet. Use a standard user API key.",
@@ -269,7 +271,7 @@ public class OpenAIProvider : ProviderBase
                     new ProviderUsage
                     {
                         ProviderId = this.ProviderId,
-                        ProviderName = this.Definition.DisplayName,
+                        ProviderName = providerLabel,
                         IsAvailable = true,
                         UsedPercent = 0,
                         IsQuotaBased = this.Definition.IsQuotaBased,
@@ -285,10 +287,10 @@ public class OpenAIProvider : ProviderBase
                 new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
-                    ProviderName = this.Definition.DisplayName,
-                    IsAvailable = false,
-                    State = ProviderUsageState.Error,
-                    Description = $"Invalid Key ({response.StatusCode})",
+                        ProviderName = providerLabel,
+                        IsAvailable = false,
+                        State = ProviderUsageState.Error,
+                        Description = $"Invalid Key ({response.StatusCode})",
                     IsQuotaBased = this.Definition.IsQuotaBased,
                     PlanType = this.Definition.PlanType,
                 },
@@ -302,7 +304,7 @@ public class OpenAIProvider : ProviderBase
                 new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
-                    ProviderName = this.Definition.DisplayName,
+                    ProviderName = providerLabel,
                     IsAvailable = false,
                     State = ProviderUsageState.Error,
                     Description = "Connection Failed",
@@ -313,7 +315,7 @@ public class OpenAIProvider : ProviderBase
         }
     }
 
-    private async Task<IEnumerable<ProviderUsage>> GetNativeUsageAsync(string accessToken, string? accountId)
+    private async Task<IEnumerable<ProviderUsage>> GetNativeUsageAsync(string accessToken, string? accountId, string providerLabel)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, WhamUsageEndpoint);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
@@ -358,7 +360,7 @@ public class OpenAIProvider : ProviderBase
             results.Add(new ProviderUsage
             {
                 ProviderId = this.ProviderId,
-                ProviderName = this.Definition.DisplayName,
+                ProviderName = providerLabel,
                 CardId = "burst",
                 GroupId = this.ProviderId,
                 Name = "5-hour quota",
@@ -385,7 +387,7 @@ public class OpenAIProvider : ProviderBase
             results.Add(new ProviderUsage
             {
                 ProviderId = this.ProviderId,
-                ProviderName = this.Definition.DisplayName,
+                ProviderName = providerLabel,
                 CardId = "weekly",
                 GroupId = this.ProviderId,
                 Name = "Weekly quota",
@@ -415,7 +417,7 @@ public class OpenAIProvider : ProviderBase
             results.Add(new ProviderUsage
             {
                 ProviderId = this.ProviderId,
-                ProviderName = this.Definition.DisplayName,
+                ProviderName = providerLabel,
                 AccountName = accountIdentity,
                 IsAvailable = true,
                 IsQuotaBased = this.Definition.IsQuotaBased,
