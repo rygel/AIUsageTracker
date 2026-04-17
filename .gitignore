@@ -226,6 +226,11 @@ memory.md
 problems.md
 task.md
 
+# Local gitleaks artifacts (generated during manual secret scans)
+.gitleaks-bin/
+gitleaks-report.json
+gitleaks_*.zip
+
 # Stale root-level Inno Setup template (canonical script lives in scripts/setup.iss)
 /setup.iss
 
