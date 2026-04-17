@@ -55,6 +55,7 @@ public partial class MainWindow : Window
     private bool _isPrivacyMode = App.IsPrivacyMode;
     private readonly EventHandler<PrivacyChangedEventArgs> _privacyChangedHandler;
     private bool _isLoading;
+    private bool _isApplyingPreferences;
     private DateTime _lastMonitorUpdate = DateTime.MinValue;
     private DateTime _lastRefreshTrigger = DateTime.MinValue;
     private bool _isPollingInProgress;
@@ -483,8 +484,16 @@ public partial class MainWindow : Window
         this.FontStyle = this._preferences.FontItalic ? FontStyles.Italic : FontStyles.Normal;
 
         // Apply UI controls
-        this.AlwaysOnTopCheck.IsChecked = this._preferences.AlwaysOnTop;
-        this.ApplyDisplayModePreference();
+        this._isApplyingPreferences = true;
+        try
+        {
+            this.AlwaysOnTopCheck.IsChecked = this._preferences.AlwaysOnTop;
+            this.ApplyDisplayModePreference();
+        }
+        finally
+        {
+            this._isApplyingPreferences = false;
+        }
         this.UpdatePrivacyButtonState();
         this.EnsureAlwaysOnTop();
 
@@ -759,7 +768,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            if (!this.IsLoaded)
+            if (!this.IsLoaded || this._isApplyingPreferences)
             {
                 return;
             }
@@ -786,7 +795,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            if (!this.IsLoaded)
+            if (!this.IsLoaded || this._isApplyingPreferences)
             {
                 return;
             }
