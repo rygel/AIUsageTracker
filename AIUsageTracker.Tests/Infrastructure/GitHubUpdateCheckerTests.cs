@@ -2,12 +2,10 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System.Net.Http;
 using System.Reflection;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Services;
 using Microsoft.Extensions.Logging.Abstractions;
-using Xunit;
 
 namespace AIUsageTracker.Tests.Infrastructure;
 
@@ -119,7 +117,7 @@ public class GitHubUpdateCheckerTests
             "GetAppcastUrlForCurrentArchitecture",
             BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.NotNull(method);
-        return (string)method!.Invoke(checker, null)!;
+        return (string)method!.Invoke(checker, parameters: null)!;
     }
 
     private static string GetExpectedArchitecture()

@@ -8,7 +8,6 @@ using AIUsageTracker.UI.Slim.Services;
 using AIUsageTracker.UI.Slim.ViewModels;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Xunit;
 
 namespace AIUsageTracker.Tests.UI;
 

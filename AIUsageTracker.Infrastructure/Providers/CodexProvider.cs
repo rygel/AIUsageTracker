@@ -3,7 +3,6 @@
 // </copyright>
 
 using System.Globalization;
-using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using AIUsageTracker.Core.Helpers;
@@ -57,7 +56,7 @@ public class CodexProvider : ProviderBase
     };
 
     /// <summary>
-    /// Standalone provider definition for the Spark sub-model.
+    /// Gets standalone provider definition for the Spark sub-model.
     /// Registered in the catalog so it is grouped independently from the main codex provider,
     /// enabling a separate dual-bar card (5h burst + weekly rolling) in the main window.
     /// </summary>
@@ -275,7 +274,7 @@ public class CodexProvider : ProviderBase
         candidates = ParseRateLimitProperties(root);
 
         var preferredRateLimitCandidate = SelectPreferredSparkCandidate(candidates);
-        return preferredRateLimitCandidate ?? new SparkWindow(null, null, null, null, null, null);
+        return preferredRateLimitCandidate ?? new SparkWindow(Label: null, ModelName: null, PrimaryUsedPercent: null, PrimaryResetAfterSeconds: null, SecondaryUsedPercent: null, SecondaryResetAfterSeconds: null);
     }
 
     private static List<SparkWindow> ParseAdditionalRateLimits(JsonElement root)

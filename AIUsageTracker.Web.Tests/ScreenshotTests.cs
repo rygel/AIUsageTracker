@@ -8,7 +8,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using AIUsageTracker.Tests.Infrastructure;
 using Microsoft.Playwright;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace AIUsageTracker.Web.Tests;
 

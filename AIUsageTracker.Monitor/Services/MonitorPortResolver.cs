@@ -5,8 +5,6 @@
 using System.Net;
 using System.Net.Sockets;
 
-using Microsoft.Extensions.Logging;
-
 namespace AIUsageTracker.Monitor.Services;
 
 internal static class MonitorPortResolver

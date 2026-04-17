@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System.Threading;
-
 namespace AIUsageTracker.Tests.Infrastructure;
 
 public static class TestTempPaths

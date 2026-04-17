@@ -67,7 +67,7 @@ public class JsonConfigLoaderPathEntryTests
         var pathProvider = CreatePathProvider(
             "C:\\test\\config\\auth.json",
             "C:\\test\\config\\providers.json",
-            null,
+            appDataRoot: null,
             "C:\\Users\\test");
 
         var entries = JsonConfigLoader.BuildConfigEntries(pathProvider.Object);

@@ -4,7 +4,6 @@
 
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.MonitorClient;
-using AIUsageTracker.Infrastructure.Services;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.UI.Slim.Services;

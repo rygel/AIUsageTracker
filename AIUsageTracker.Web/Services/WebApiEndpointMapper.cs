@@ -5,8 +5,6 @@
 using System.Text;
 
 using AIUsageTracker.Core.Interfaces;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 
 namespace AIUsageTracker.Web.Services;
 

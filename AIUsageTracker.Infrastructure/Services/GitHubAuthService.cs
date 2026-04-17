@@ -3,7 +3,6 @@
 // </copyright>
 
 using System.Diagnostics;
-using System.IO;
 using System.Net.Http.Json;
 using System.Security;
 using System.Text.Json;

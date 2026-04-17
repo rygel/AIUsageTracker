@@ -3,7 +3,6 @@
 // </copyright>
 
 using AIUsageTracker.Core.Interfaces;
-using AIUsageTracker.Core.Models;
 using AIUsageTracker.Web.Services;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -16,7 +15,7 @@ public sealed class WebDatabaseServiceTests : IDisposable
     private readonly string _tempDir;
     private readonly string _dbPath;
     private readonly WebDatabaseService _service;
-    private readonly IMemoryCache _cache;
+    private readonly MemoryCache _cache;
 
     public WebDatabaseServiceTests()
     {

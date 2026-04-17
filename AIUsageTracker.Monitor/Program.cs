@@ -2,24 +2,16 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using AIUsageTracker.Core.Interfaces;
-using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
-using AIUsageTracker.Infrastructure.Configuration;
 using AIUsageTracker.Infrastructure.Extensions;
 using AIUsageTracker.Infrastructure.Helpers;
-using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Infrastructure.Services;
 using AIUsageTracker.Monitor.Endpoints;
 using AIUsageTracker.Monitor.Hubs;
 using AIUsageTracker.Monitor.Logging;
 using AIUsageTracker.Monitor.Services;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Monitor;
 
@@ -66,7 +58,7 @@ public partial class Program
         // Machine-wide mutex to prevent concurrent launches
         string mutexName = @"Global\AIUsageTracker_Monitor_" + Environment.UserName;
         bool createdNew;
-        using var startupMutex = new Mutex(true, mutexName, out createdNew);
+        using var startupMutex = new Mutex(initiallyOwned: true, name: mutexName, createdNew: out createdNew);
         holdsStartupMutex = createdNew;
 
         try
@@ -97,7 +89,7 @@ public partial class Program
             logger.LogDebug("Configuring web host on port {Port}...", port);
             logger.LogDebug("Base Directory: {BaseDir}", AppDomain.CurrentDomain.BaseDirectory);
 
-            var app = await BuildAndStartWebApp(args, port, loggerFactory, pathProvider, logger, isDebugMode).ConfigureAwait(false);
+            var app = await BuildAndStartWebAppAsync(args, port, loggerFactory, pathProvider, logger, isDebugMode).ConfigureAwait(false);
 
             if (isDebugMode)
             {
@@ -153,7 +145,7 @@ public partial class Program
         }
     }
 
-    private static async Task<WebApplication> BuildAndStartWebApp(
+    private static async Task<WebApplication> BuildAndStartWebAppAsync(
         string[] args,
         int port,
         ILoggerFactory loggerFactory,
@@ -282,45 +274,29 @@ public partial class Program
             AllocConsole();
         }
 
-#pragma warning disable CA2254
-        logger.LogInformation(string.Empty);
         logger.LogInformation(DebugBannerSeparator);
-#pragma warning restore CA2254
         logger.LogInformation("  AIUsageTracker.Monitor - DEBUG MODE");
         logger.LogInformation(DebugBannerSeparator);
         logger.LogInformation("  Version: {Version} | PID: {ProcessId} | Started: {StartedAt}", monitorVersion, Environment.ProcessId, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture));
         logger.LogInformation("  OS: {Os} | Runtime: {Runtime}", Environment.OSVersion, Environment.Version);
         logger.LogInformation("  Working Dir: {WorkingDir}", Directory.GetCurrentDirectory());
         logger.LogInformation("  Command Line: {CommandLine}", Environment.CommandLine);
-#pragma warning disable CA2254
         logger.LogInformation(DebugBannerSeparator);
-        logger.LogInformation(string.Empty);
-#pragma warning restore CA2254
     }
 
     private static void LogDebugReadyBanner(ILogger logger, int port)
     {
-#pragma warning disable CA2254
-        logger.LogInformation(string.Empty);
         logger.LogInformation(DebugBannerSeparator);
         logger.LogInformation("  Agent ready! Listening on http://localhost:{Port}", port);
         logger.LogInformation(DebugBannerSeparator);
-        logger.LogInformation(string.Empty);
         logger.LogInformation(
             "  API Endpoints: GET http://localhost:{HealthPort}{Health} | GET http://localhost:{UsagePort}{Usage} | GET http://localhost:{ConfigPort}{Config} | POST http://localhost:{RefreshPort}{Refresh}",
-            port,
-            MonitorApiRoutes.Health,
-            port,
-            MonitorApiRoutes.Usage,
-            port,
-            MonitorApiRoutes.Config,
-            port,
-            MonitorApiRoutes.Refresh);
-        logger.LogInformation(string.Empty);
+            port, MonitorApiRoutes.Health,
+            port, MonitorApiRoutes.Usage,
+            port, MonitorApiRoutes.Config,
+            port, MonitorApiRoutes.Refresh);
         logger.LogInformation("  Press Ctrl+C to stop");
         logger.LogInformation(DebugBannerSeparator);
-        logger.LogInformation(string.Empty);
-#pragma warning restore CA2254
     }
 
     private static void RegisterServices(WebApplicationBuilder builder, ILoggerFactory loggerFactory, IAppPathProvider pathProvider, ILogger logger, bool isDebugMode)

@@ -6,10 +6,8 @@ using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.Configuration;
 using AIUsageTracker.Infrastructure.Helpers;
-using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Infrastructure.Services;
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Web.Services;
 

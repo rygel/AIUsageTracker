@@ -3,7 +3,6 @@
 // </copyright>
 
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Infrastructure.Helpers;
 using AIUsageTracker.UI.Slim;
 
 namespace AIUsageTracker.Tests.UI;

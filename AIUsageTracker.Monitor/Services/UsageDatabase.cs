@@ -7,11 +7,9 @@ using System.Globalization;
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.Providers;
 using Dapper;
 using Microsoft.Data.Sqlite;
-using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Monitor.Services;
 
@@ -71,6 +69,7 @@ public class UsageDatabase : IUsageDatabase
     }
 
     /// <summary>
+    /// Initializes static members of the <see cref="UsageDatabase"/> class.
     /// Registers Dapper type handlers once per process. All DateTime values read from
     /// the database are tagged Kind=Utc, matching the storage convention.
     /// </summary>
@@ -144,7 +143,7 @@ public class UsageDatabase : IUsageDatabase
 
         public void Dispose()
         {
-            this.Dispose(true);
+            this.Dispose(disposing: true);
             GC.SuppressFinalize(this);
         }
 
@@ -283,7 +282,7 @@ public class UsageDatabase : IUsageDatabase
             var toInsert = new List<HistoryInsertParams>();
             var toTouch = new List<HistoryTouchParams>();
 
-            this.ClassifyHistoryEntries(validUsages, lastRows, toInsert, toTouch);
+            ClassifyHistoryEntries(validUsages, lastRows, toInsert, toTouch);
 
             if (toInsert.Count > 0)
             {
@@ -344,7 +343,7 @@ public class UsageDatabase : IUsageDatabase
             && string.Equals(newNextResetTime, last.NextResetTime, StringComparison.Ordinal);
     }
 
-    private void ClassifyHistoryEntries(
+    private static void ClassifyHistoryEntries(
         List<ProviderUsage> validUsages,
         Dictionary<string, LastHistoryRow> lastRows,
         List<HistoryInsertParams> toInsert,

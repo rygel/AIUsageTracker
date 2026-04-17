@@ -44,6 +44,7 @@ public sealed class PreferenceConcurrencyTests : IDisposable
     /// Changing "Show Used" on the main window and then "Pace-aware colours" in
     /// settings must preserve both changes.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task SharedInstance_MainWindowShowUsed_ThenSettingsPaceAdjustment_BothSurvive()
     {
@@ -81,6 +82,7 @@ public sealed class PreferenceConcurrencyTests : IDisposable
     /// Reverse direction: settings changes "Pace-aware colours" first, then
     /// main window toggles "Show Used".
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task SharedInstance_SettingsPaceAdjustment_ThenMainWindowShowUsed_BothSurvive()
     {
@@ -112,6 +114,7 @@ public sealed class PreferenceConcurrencyTests : IDisposable
     /// Proves the bug existed: if two separate instances are loaded from disk,
     /// saving the stale one reverts the other's changes.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task SeparateInstances_StaleWriteRevertsChange()
     {

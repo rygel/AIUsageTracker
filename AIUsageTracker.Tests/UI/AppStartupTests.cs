@@ -9,7 +9,6 @@ using AIUsageTracker.Tests.Infrastructure;
 using AIUsageTracker.UI.Slim;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using Xunit;
 
 namespace AIUsageTracker.Tests.UI;
 

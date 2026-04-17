@@ -142,7 +142,7 @@ public static class ProviderDerivedModelAssignmentResolver
     private static bool TrySelectModelForDerivedProvider(
         ProviderDerivedModelSelector selector,
         IReadOnlyList<AgentGroupedModelUsage> models,
-        ISet<string> usedModelIds,
+        HashSet<string> usedModelIds,
         out AgentGroupedModelUsage? matched)
     {
         matched = null;

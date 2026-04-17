@@ -552,7 +552,7 @@ string.Equals(schema.AccessTokenProperty, "accessToken", StringComparison.Ordina
         Assert.Equal("codex", visible[0].ProviderId);
     }
 
-    private static IReadOnlyList<string> GetMissingDerivedModelSelectorProviderIds(string providerId)
+    private static List<string> GetMissingDerivedModelSelectorProviderIds(string providerId)
     {
         var def = ProviderMetadataCatalog.Find(providerId);
         var visibleDerivedProviderIds = def?.VisibleDerivedProviderIds ?? (IReadOnlyCollection<string>)Array.Empty<string>();
@@ -566,7 +566,7 @@ string.Equals(schema.AccessTokenProperty, "accessToken", StringComparison.Ordina
             .ToList();
     }
 
-    private static IReadOnlyList<string> GetUnknownDerivedModelSelectorProviderIds(string providerId)
+    private static List<string> GetUnknownDerivedModelSelectorProviderIds(string providerId)
     {
         var def = ProviderMetadataCatalog.Find(providerId);
         var visibleDerivedProviderIds = (def?.VisibleDerivedProviderIds ?? (IReadOnlyCollection<string>)Array.Empty<string>())

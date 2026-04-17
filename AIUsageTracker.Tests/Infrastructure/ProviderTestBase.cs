@@ -6,7 +6,6 @@ using System.Reflection;
 using AIUsageTracker.Core.Models;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Xunit;
 
 namespace AIUsageTracker.Tests.Infrastructure;
 

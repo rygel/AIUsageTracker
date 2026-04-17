@@ -2,9 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System;
 using System.Net.Http.Headers;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace AIUsageTracker.Web.Tests;
 

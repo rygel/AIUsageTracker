@@ -3,7 +3,6 @@
 // </copyright>
 
 using AIUsageTracker.Core.Models;
-using Xunit;
 
 namespace AIUsageTracker.Tests.Core;
 

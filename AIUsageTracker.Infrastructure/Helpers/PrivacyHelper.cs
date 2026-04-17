@@ -96,6 +96,7 @@ public static partial class PrivacyHelper
     /// Masks an account identifier. If it looks like an email, the local and domain parts
     /// are masked separately (preserving dots in the domain). Otherwise falls back to <see cref="MaskString"/>.
     /// </summary>
+    /// <returns></returns>
     public static string MaskAccountIdentifier(string input)
     {
         if (string.IsNullOrWhiteSpace(input))

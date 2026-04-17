@@ -51,16 +51,16 @@ public class PreferencesStore : IPreferencesStore
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
-            this._logger.LogWarning(ex, "Failed to load preferences from {Path}", path);
             var backupPath = GetBackupPath(path);
-            if (!File.Exists(backupPath))
+            if (File.Exists(backupPath))
             {
-                throw;
+                this._logger.LogWarning(ex, "Failed to load preferences from {Path}. Attempting backup from {BackupPath}", path, backupPath);
+                var backupJson = await File.ReadAllTextAsync(backupPath).ConfigureAwait(false);
+                return AppPreferences.Deserialize(backupJson);
             }
 
-            this._logger.LogWarning("Attempting to load preferences backup from {BackupPath}", backupPath);
-            var backupJson = await File.ReadAllTextAsync(backupPath).ConfigureAwait(false);
-            return AppPreferences.Deserialize(backupJson);
+            this._logger.LogWarning(ex, "Failed to load preferences from {Path} and no backup available", path);
+            throw;
         }
     }
 

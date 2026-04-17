@@ -3,7 +3,6 @@
 // </copyright>
 
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using AIUsageTracker.Infrastructure.Configuration;
 using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.Extensions.Logging;

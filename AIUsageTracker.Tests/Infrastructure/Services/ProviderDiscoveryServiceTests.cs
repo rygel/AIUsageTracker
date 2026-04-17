@@ -1,14 +1,9 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Text.Json;
-using System.Threading.Tasks;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Services;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Xunit;
 
 namespace AIUsageTracker.Tests.Infrastructure.Services;
 
@@ -44,7 +39,7 @@ public class ProviderDiscoveryServiceTests : IDisposable
             "test-provider",
             "Test Provider",
             PlanType.Usage,
-            false)
+            isQuotaBased: false)
         {
             DiscoveryEnvironmentVariables = new[] { envVarName },
         };
@@ -60,7 +55,7 @@ public class ProviderDiscoveryServiceTests : IDisposable
         }
         finally
         {
-            Environment.SetEnvironmentVariable(envVarName, null);
+            Environment.SetEnvironmentVariable(envVarName, value: null);
         }
     }
 

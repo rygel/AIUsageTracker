@@ -5,7 +5,6 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Documents;
 using System.Windows.Media;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.UI.Slim.Services;

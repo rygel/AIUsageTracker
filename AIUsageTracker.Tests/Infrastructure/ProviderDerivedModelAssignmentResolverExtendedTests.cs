@@ -154,7 +154,7 @@ public sealed class ProviderDerivedModelAssignmentResolverExtendedTests
     [Fact]
     public void ContainsAnyToken_ReturnsFalse_ForNullSource()
     {
-        Assert.False(InvokeContainsAnyToken(null, new[] { "test" }));
+        Assert.False(InvokeContainsAnyToken(source: null, tokens: new[] { "test" }));
     }
 
     [Fact]

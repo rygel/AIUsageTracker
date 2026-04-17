@@ -7,7 +7,6 @@ using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Configuration;
 using AIUsageTracker.Infrastructure.Providers;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AIUsageTracker.Monitor.Services;
@@ -95,8 +94,8 @@ public class ConfigService : IConfigService
             var configs = (await this._configLoader.LoadConfigAsync().ConfigureAwait(false)).ToList();
 
             // Update or add
-            var existing = configs.FirstOrDefault(c =>
-                c.ProviderId.Equals(config.ProviderId, StringComparison.OrdinalIgnoreCase));
+            var existing = configs.FirstOrDefault(cfg =>
+                cfg.ProviderId.Equals(config.ProviderId, StringComparison.OrdinalIgnoreCase));
 
             if (existing != null)
             {
@@ -109,7 +108,7 @@ public class ConfigService : IConfigService
             }
 
             await this._configLoader.SaveConfigAsync(configs).ConfigureAwait(false);
-            Volatile.Write(ref this._cachedConfigs, null);
+            Volatile.Write<IReadOnlyList<ProviderConfig>?>(ref this._cachedConfigs, null);
             this._logger.LogInformation("Saved: {ProviderId}", config.ProviderId);
         }
         catch (Exception ex)
@@ -124,10 +123,10 @@ public class ConfigService : IConfigService
         try
         {
             var configs = (await this._configLoader.LoadConfigAsync().ConfigureAwait(false)).ToList();
-            configs.RemoveAll(c => c.ProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase));
+            configs.RemoveAll(config => config.ProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase));
             await this._configLoader.SaveConfigAsync(configs).ConfigureAwait(false);
-            Volatile.Write(ref this._cachedConfigs, null);
-            Volatile.Write(ref this._cachedPreferences, null); // force ScanForKeysAsync to reload suppressed list from disk
+            Volatile.Write<IReadOnlyList<ProviderConfig>?>(ref this._cachedConfigs, null);
+            Volatile.Write<AppPreferences?>(ref this._cachedPreferences, null); // force ScanForKeysAsync to reload suppressed list from disk
             this._logger.LogInformation("Removed: {ProviderId}", providerId);
         }
         catch (Exception ex)
@@ -174,7 +173,7 @@ public class ConfigService : IConfigService
         try
         {
             await this._configLoader.SavePreferencesAsync(preferences).ConfigureAwait(false);
-            Volatile.Write(ref this._cachedPreferences, null);
+            Volatile.Write<AppPreferences?>(ref this._cachedPreferences, null);
             this._logger.LogInformation("Prefs saved");
         }
         catch (Exception ex)
@@ -233,7 +232,7 @@ public class ConfigService : IConfigService
             }
 
             await this._configLoader.SaveConfigAsync(existing).ConfigureAwait(false);
-            Volatile.Write(ref this._cachedConfigs, null);
+            Volatile.Write<IReadOnlyList<ProviderConfig>?>(ref this._cachedConfigs, null);
             return discovered.ToList();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)

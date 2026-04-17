@@ -9,7 +9,6 @@ using AIUsageTracker.Web.Services;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace AIUsageTracker.Web.Tests.Services;
 

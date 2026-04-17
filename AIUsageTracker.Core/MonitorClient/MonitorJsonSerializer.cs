@@ -15,7 +15,7 @@ namespace AIUsageTracker.Core.MonitorClient;
 public static class MonitorJsonSerializer
 {
     /// <summary>
-    /// Canonical options: snake_case property names, case-insensitive reads, string enums in snake_case.
+    /// Gets canonical options: snake_case property names, case-insensitive reads, string enums in snake_case.
     /// </summary>
     public static JsonSerializerOptions DefaultOptions { get; } = CreateDefaultOptions();
 

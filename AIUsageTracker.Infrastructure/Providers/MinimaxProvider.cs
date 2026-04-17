@@ -3,7 +3,6 @@
 // </copyright>
 
 using System.Globalization;
-using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AIUsageTracker.Core.Models;
@@ -279,7 +278,7 @@ public class MinimaxProvider : ProviderBase
         }
     }
 
-    private static IEnumerable<ProviderUsage> BuildCodingPlanUsages(
+    private static List<ProviderUsage> BuildCodingPlanUsages(
         string providerId,
         string providerLabel,
         IReadOnlyList<MinimaxModelRemains> modelRemains,
@@ -424,7 +423,7 @@ public class MinimaxProvider : ProviderBase
         [JsonPropertyName("current_interval_total_count")]
         public double IntervalTotal { get; set; }
 
-        /// <summary>Remaining count for the 5h window (misleadingly named "usage" in the API).</summary>
+        /// <summary>Gets or sets remaining count for the 5h window (misleadingly named "usage" in the API).</summary>
         [JsonPropertyName("current_interval_usage_count")]
         public double IntervalRemaining { get; set; }
 
@@ -434,7 +433,7 @@ public class MinimaxProvider : ProviderBase
         [JsonPropertyName("current_weekly_total_count")]
         public double WeeklyTotal { get; set; }
 
-        /// <summary>Remaining count for the weekly window (misleadingly named "usage" in the API).</summary>
+        /// <summary>Gets or sets remaining count for the weekly window (misleadingly named "usage" in the API).</summary>
         [JsonPropertyName("current_weekly_usage_count")]
         public double WeeklyRemaining { get; set; }
 

@@ -39,8 +39,8 @@ public sealed class ScreenshotBaselineTests
         "screenshot_info_privacy.png",
     ];
 
-    public static IEnumerable<object[]> ScreenshotNames =>
-        ScreenshotFileNames.Select(f => new object[] { f });
+    public static TheoryData<string> ScreenshotNames =>
+        new TheoryData<string>(ScreenshotFileNames);
 
     [Theory]
     [MemberData(nameof(ScreenshotNames))]

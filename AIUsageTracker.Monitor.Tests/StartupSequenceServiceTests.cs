@@ -29,7 +29,7 @@ public class StartupSequenceServiceTests
                 "startup-provider-seeding"))
             .Callback<string, Func<CancellationToken, Task>, MonitorJobPriority, string?>(
                 (_, job, _, _) => queuedJob = job)
-            .Returns(true);
+            .Returns(value: true);
 
         var service = this.CreateService();
         var refreshCalls = 0;
@@ -62,7 +62,7 @@ public class StartupSequenceServiceTests
                 "startup-provider-seeding"))
             .Callback<string, Func<CancellationToken, Task>, MonitorJobPriority, string?>(
                 (_, job, _, _) => queuedJob = job)
-            .Returns(true);
+            .Returns(value: true);
 
         var service = this.CreateService();
         var refreshCalls = 0;
@@ -91,7 +91,7 @@ public class StartupSequenceServiceTests
                 "startup-targeted-provider-refresh"))
             .Callback<string, Func<CancellationToken, Task>, MonitorJobPriority, string?>(
                 (_, job, _, _) => queuedJob = job)
-            .Returns(true);
+            .Returns(value: true);
 
         var service = this.CreateService();
         IReadOnlyCollection<string>? providerIds = null;
@@ -120,7 +120,7 @@ public class StartupSequenceServiceTests
                 "startup-targeted-provider-refresh"))
             .Callback<string, Func<CancellationToken, Task>, MonitorJobPriority, string?>(
                 (_, job, _, _) => queuedJob = job)
-            .Returns(true);
+            .Returns(value: true);
 
         var service = this.CreateService();
         service.QueueStartupTargetedRefresh((_, _) => throw new InvalidOperationException("refresh failed"));

@@ -3,7 +3,6 @@
 // </copyright>
 
 using System.Globalization;
-using System.Net.Http;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Providers;
@@ -387,13 +386,13 @@ public class GitHubCopilotProvider : ProviderBase
             }
             else
             {
-                state.Description = BuildAuthenticatedDescription(state.Username, null);
+                state.Description = BuildAuthenticatedDescription(state.Username, planName: null);
             }
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {
             this._logger.LogDebug(ex, "Failed to resolve GitHub Copilot plan name");
-            state.Description = BuildAuthenticatedDescription(state.Username, null);
+            state.Description = BuildAuthenticatedDescription(state.Username, planName: null);
         }
     }
 
@@ -460,7 +459,7 @@ public class GitHubCopilotProvider : ProviderBase
         }
     }
 
-    private IEnumerable<ProviderUsage> BuildUsageResults(CopilotUsageState state, string providerLabel)
+    private ProviderUsage[] BuildUsageResults(CopilotUsageState state, string providerLabel)
     {
         var accountName = HasMeaningfulUsername(state.Username) ? state.Username : string.Empty;
         var authSource = string.IsNullOrEmpty(state.PlanName) ? AuthSource.Unknown : state.PlanName;

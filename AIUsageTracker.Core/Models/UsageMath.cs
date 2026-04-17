@@ -209,6 +209,7 @@ public static class UsageMath
     /// <summary>
     /// Returns the pace badge result for an already-computed projected percent.
     /// </summary>
+    /// <returns></returns>
     public static PaceBadgeResult ClassifyPace(double projectedPercent)
     {
         var tier = projectedPercent switch
@@ -226,6 +227,7 @@ public static class UsageMath
     /// All UI and alert code should call this instead of the individual methods.
     /// The result guarantees that badge tier and color percent always agree.
     /// </summary>
+    /// <returns></returns>
     public static PaceColorResult ComputePaceColor(
         double usedPercent,
         DateTime? nextResetTime,
@@ -286,6 +288,7 @@ public static class UsageMath
     /// <summary>
     /// Calculates how many days have elapsed in the current period. Returns 0 if data is invalid.
     /// </summary>
+    /// <returns></returns>
     public static double GetElapsedDays(DateTime? nextResetTime, TimeSpan? periodDuration, DateTime? nowUtc = null)
     {
         if (!nextResetTime.HasValue || !periodDuration.HasValue || periodDuration.Value.TotalDays < 1)
@@ -355,6 +358,7 @@ public static class UsageMath
     /// round-trip via Dapper/SQLite) are assumed UTC. Local kinds are converted.
     /// All internal code should use UTC; convert to local only at the display boundary.
     /// </summary>
+    /// <returns></returns>
     public static DateTime AsUtc(DateTime value)
     {
         return value.Kind switch

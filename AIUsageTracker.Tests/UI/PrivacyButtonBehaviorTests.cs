@@ -3,7 +3,6 @@
 // </copyright>
 
 using System.Reflection;
-using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using AIUsageTracker.Core.Interfaces;
@@ -313,7 +312,7 @@ public class PrivacyButtonBehaviorTests
         method.Invoke(target, parameters);
     }
 
-    private static Task RunInStaAsync(Func<Task> testBody)
+    private static Task<object?> RunInStaAsync(Func<Task> testBody)
     {
         var tcs = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
 

@@ -126,7 +126,7 @@ public class ZaiProvider : ProviderBase
         return new[] { this.BuildUsageResult(tokenResult, providerLabel, responseString, httpStatus, nextResetTime, resetStr) };
     }
 
-    private IEnumerable<ProviderUsage> BuildNoLimitsResult(string providerLabel, string responseString, int httpStatus)
+    private ProviderUsage[] BuildNoLimitsResult(string providerLabel, string responseString, int httpStatus)
     {
         this._logger.LogDebug("[ZAI] No limits found in response");
         return new[]
@@ -185,7 +185,7 @@ public class ZaiProvider : ProviderBase
         return adjusted;
     }
 
-    private IEnumerable<ProviderUsage> BuildUnknownUsageResult(string providerLabel, string responseString, int httpStatus, TokenLimitResult tokenResult)
+    private ProviderUsage[] BuildUnknownUsageResult(string providerLabel, string responseString, int httpStatus, TokenLimitResult tokenResult)
     {
         return new[]
         {
@@ -281,12 +281,12 @@ public class ZaiProvider : ProviderBase
             double usedPercent = tokenLimit.Percentage.Value;
             double remainingPercentVal = 100 - usedPercent;
             return new TokenLimitResult(
-                remainingPercentVal,
-                $"{remainingPercentVal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining",
-                planDescription,
-                100,
-                100 - remainingPercentVal,
-                false);
+                RemainingPercent: remainingPercentVal,
+                DetailInfo: $"{remainingPercentVal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining",
+                PlanDescription: planDescription,
+                RequestsAvailable: 100,
+                RequestsUsed: 100 - remainingPercentVal,
+                HasRawLimitData: false);
         }
 
         double totalVal = tokenLimit.Total ?? 0;
@@ -312,12 +312,12 @@ public class ZaiProvider : ProviderBase
                 remainingPercentVal);
 
             return new TokenLimitResult(
-                remainingPercentVal,
-                $"{remainingPercentVal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining of {(totalVal / 1000000.0).ToString("F0", CultureInfo.InvariantCulture)}M tokens limit",
-                planDescription,
-                totalVal,
-                usedVal,
-                true);
+                RemainingPercent: remainingPercentVal,
+                DetailInfo: $"{remainingPercentVal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining of {(totalVal / 1000000.0).ToString("F0", CultureInfo.InvariantCulture)}M tokens limit",
+                PlanDescription: planDescription,
+                RequestsAvailable: totalVal,
+                RequestsUsed: usedVal,
+                HasRawLimitData: true);
         }
 
         if (tokenLimit.Percentage.HasValue)
@@ -325,12 +325,12 @@ public class ZaiProvider : ProviderBase
             double usedPercent = tokenLimit.Percentage.Value;
             double remainingPercentVal = 100 - usedPercent;
             return new TokenLimitResult(
-                remainingPercentVal,
-                $"{remainingPercentVal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining",
-                planDescription,
-                100,
-                100 - remainingPercentVal,
-                false);
+                RemainingPercent: remainingPercentVal,
+                DetailInfo: $"{remainingPercentVal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining",
+                PlanDescription: planDescription,
+                RequestsAvailable: 100,
+                RequestsUsed: 100 - remainingPercentVal,
+                HasRawLimitData: false);
         }
 
         this._logger.LogDebug("[ZAI] Token limit missing usable quota metrics; usage unknown");

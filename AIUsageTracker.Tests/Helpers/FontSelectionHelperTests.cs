@@ -3,7 +3,6 @@
 // </copyright>
 
 using AIUsageTracker.Infrastructure.Helpers;
-using Xunit;
 
 namespace AIUsageTracker.Tests.Helpers;
 
@@ -51,7 +50,7 @@ public class FontSelectionHelperTests
     {
         var available = new[] { "Arial", "Segoe UI", "Tahoma" };
 
-        var result = FontSelectionHelper.GetSelectedFont(null, available);
+        var result = FontSelectionHelper.GetSelectedFont(currentPreference: null, available);
         Assert.Equal("Segoe UI", result);
 
         result = FontSelectionHelper.GetSelectedFont(string.Empty, available);

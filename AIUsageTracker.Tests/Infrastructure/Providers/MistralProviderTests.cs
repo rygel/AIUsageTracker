@@ -3,14 +3,10 @@
 // </copyright>
 
 using System.Net;
-using AIUsageTracker.Core.Exceptions;
 using AIUsageTracker.Core.Interfaces;
-using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
-using AIUsageTracker.Tests.Infrastructure;
 using Moq;
 using Moq.Protected;
-using Xunit;
 
 namespace AIUsageTracker.Tests.Infrastructure.Providers;
 

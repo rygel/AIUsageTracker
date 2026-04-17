@@ -26,7 +26,7 @@ public static class WindowDragBehavior
             "EnableDrag",
             typeof(bool),
             typeof(WindowDragBehavior),
-            new PropertyMetadata(false, OnEnableDragChanged));
+            new PropertyMetadata(defaultValue: false, propertyChangedCallback: OnEnableDragChanged));
 
     /// <summary>
     /// Gets the EnableDrag property value for the specified element.

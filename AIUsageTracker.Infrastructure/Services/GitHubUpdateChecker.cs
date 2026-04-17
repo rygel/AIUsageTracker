@@ -183,15 +183,16 @@ public class GitHubUpdateChecker
 
     public readonly record struct UpdateInstallResult(bool Success, string FailureReason)
     {
-        public static UpdateInstallResult Ok() => new(true, string.Empty);
+        public static UpdateInstallResult Ok() => new(Success: true, FailureReason: string.Empty);
 
-        public static UpdateInstallResult Fail(string reason) => new(false, reason);
+        public static UpdateInstallResult Fail(string reason) => new(Success: false, FailureReason: reason);
     }
 
     /// <summary>
     /// Parses an app version string of the form "M.m.p-beta.N" or "M.m.p" into a comparable
     /// tuple. Stable releases sort higher than any pre-release of the same core version.
     /// </summary>
+    /// <returns></returns>
     internal static (int Major, int Minor, int Patch, int PreRelease) ParseAppVersion(string version)
     {
         var betaIndex = version.IndexOf("-beta.", StringComparison.OrdinalIgnoreCase);
@@ -220,6 +221,7 @@ public class GitHubUpdateChecker
     }
 
     /// <summary>Returns true when <paramref name="candidate"/> is a newer release than <paramref name="current"/>.</summary>
+    /// <returns></returns>
     internal static bool IsNewerVersion(string candidate, string current)
     {
         return ParseAppVersion(candidate.TrimStart('v')).CompareTo(ParseAppVersion(current.TrimStart('v'))) > 0;
@@ -229,6 +231,7 @@ public class GitHubUpdateChecker
     /// Returns the running app's informational version (e.g. "2.3.4-beta.7"), stripping any
     /// build-metadata suffix appended by the SDK (e.g. "+abc1234").
     /// </summary>
+    /// <returns></returns>
     internal static string GetCurrentInformationalVersion()
     {
         var raw = System.Reflection.CustomAttributeExtensions

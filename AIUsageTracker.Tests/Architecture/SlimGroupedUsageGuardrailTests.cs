@@ -89,7 +89,7 @@ public class SlimGroupedUsageGuardrailTests
             ?? throw new DirectoryNotFoundException("Could not locate repository root from test output directory.");
     }
 
-    private static IReadOnlyList<string> GetMissingDerivedModelSelectorProviderIds(string providerId)
+    private static List<string> GetMissingDerivedModelSelectorProviderIds(string providerId)
     {
         var def = ProviderMetadataCatalog.Find(providerId);
         var visibleDerivedProviderIds = def?.VisibleDerivedProviderIds ?? (IReadOnlyCollection<string>)Array.Empty<string>();

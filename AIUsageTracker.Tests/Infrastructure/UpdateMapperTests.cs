@@ -2,10 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Infrastructure.Mappers;
-using NetSparkleUpdater;
-using Xunit;
 
 namespace AIUsageTracker.Tests.Infrastructure;
 

@@ -17,14 +17,14 @@ public partial class LoadingOverlay : UserControl
             nameof(IsVisible),
             typeof(bool),
             typeof(LoadingOverlay),
-            new PropertyMetadata(false));
+            new PropertyMetadata(defaultValue: false));
 
     public static readonly DependencyProperty MessageProperty =
         DependencyProperty.Register(
             nameof(Message),
             typeof(string),
             typeof(LoadingOverlay),
-            new PropertyMetadata(string.Empty, OnMessageChanged));
+            new PropertyMetadata(defaultValue: string.Empty, propertyChangedCallback: OnMessageChanged));
 
     public LoadingOverlay()
     {

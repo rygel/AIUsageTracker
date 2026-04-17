@@ -4,7 +4,6 @@
 
 using System.Reflection;
 using System.Runtime.Serialization;
-using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using AIUsageTracker.Core.Interfaces;
@@ -354,7 +353,7 @@ public class DialogOpenBehaviorTests
         method.Invoke(target, null);
     }
 
-    private static Task RunInStaAsync(Func<Task> testBody)
+    private static Task<object?> RunInStaAsync(Func<Task> testBody)
     {
         var tcs = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
 

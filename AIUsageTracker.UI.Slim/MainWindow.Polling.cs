@@ -3,7 +3,6 @@
 // </copyright>
 
 using System.Diagnostics;
-using System.Net.Http;
 using System.Windows;
 using System.Windows.Threading;
 using AIUsageTracker.Core.Models;

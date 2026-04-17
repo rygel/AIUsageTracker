@@ -5,7 +5,6 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
-using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -48,7 +47,7 @@ public class MonitorService : IMonitorService
     private readonly IMonitorLauncher _monitorLauncher;
 
     public MonitorService()
-        : this(CreateDefaultHttpClient(), null)
+        : this(CreateDefaultHttpClient(), logger: null)
     {
     }
 
@@ -193,7 +192,7 @@ public class MonitorService : IMonitorService
             var usage = await this.GetUsageOnceAsync().ConfigureAwait(false);
             LogDiagnostic($"Successfully fetched usage from {this.AgentUrl}");
             stopwatch.Stop();
-            this.RecordUsageTelemetry(stopwatch.Elapsed, true);
+            this.RecordUsageTelemetry(duration: stopwatch.Elapsed, success: true);
             activity?.SetTag("monitor.usage_count", usage?.Count ?? 0);
             activity?.SetStatus(ActivityStatusCode.Ok);
             return usage ?? new List<ProviderUsage>();
@@ -208,7 +207,7 @@ public class MonitorService : IMonitorService
                 var usage = await this.GetUsageOnceAsync().ConfigureAwait(false);
                 LogDiagnostic($"Successfully fetched usage from {this.AgentUrl} after port refresh");
                 stopwatch.Stop();
-                this.RecordUsageTelemetry(stopwatch.Elapsed, true);
+                this.RecordUsageTelemetry(duration: stopwatch.Elapsed, success: true);
                 activity?.SetTag("monitor.usage_count", usage?.Count ?? 0);
                 activity?.SetTag("monitor.retry", true);
                 activity?.SetStatus(ActivityStatusCode.Ok);
@@ -217,7 +216,7 @@ public class MonitorService : IMonitorService
             catch (Exception retryEx) when (IsRecoverableUsageFailure(retryEx))
             {
                 stopwatch.Stop();
-                this.RecordUsageTelemetry(stopwatch.Elapsed, false);
+                this.RecordUsageTelemetry(duration: stopwatch.Elapsed, success: false);
                 LogDiagnostic($"Failed to fetch usage from {this.AgentUrl} after port refresh: {DescribeUsageFailure(retryEx)}");
                 activity?.SetTag("error.type", retryEx.GetType().Name);
                 activity?.SetStatus(ActivityStatusCode.Error, retryEx.Message);
@@ -227,7 +226,7 @@ public class MonitorService : IMonitorService
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             stopwatch.Stop();
-            this.RecordUsageTelemetry(stopwatch.Elapsed, false);
+            this.RecordUsageTelemetry(duration: stopwatch.Elapsed, success: false);
             LogDiagnostic($"Failed to fetch usage from {this.AgentUrl}: {ex.Message}");
             activity?.SetTag("error.type", ex.GetType().Name);
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
@@ -345,7 +344,7 @@ public class MonitorService : IMonitorService
         var stopwatch = Stopwatch.StartNew();
         await this.RefreshPortAsync().ConfigureAwait(false);
         var response = await this.SendMonitorRequestAsync(
-            httpClient => httpClient.PostAsync(this.BuildMonitorUrl(MonitorApiRoutes.Refresh), null),
+            httpClient => httpClient.PostAsync(this.BuildMonitorUrl(MonitorApiRoutes.Refresh), content: null),
             nameof(this.TriggerRefreshAsync)).ConfigureAwait(false);
 
         stopwatch.Stop();
@@ -357,7 +356,7 @@ public class MonitorService : IMonitorService
             return response.IsSuccessStatusCode;
         }
 
-        this.RecordRefreshTelemetry(stopwatch.Elapsed, false);
+        this.RecordRefreshTelemetry(duration: stopwatch.Elapsed, success: false);
         activity?.SetStatus(ActivityStatusCode.Error, "No response");
         return false;
     }
@@ -406,7 +405,7 @@ public class MonitorService : IMonitorService
         try
         {
             await this.RefreshPortAsync().ConfigureAwait(false);
-            using var response = await this._httpClient.PostAsync(this.BuildMonitorUrl(MonitorApiRoutes.NotificationTest), null).ConfigureAwait(false);
+            using var response = await this._httpClient.PostAsync(this.BuildMonitorUrl(MonitorApiRoutes.NotificationTest), content: null).ConfigureAwait(false);
 
             if (response.IsSuccessStatusCode)
             {
@@ -452,7 +451,7 @@ public class MonitorService : IMonitorService
     public async Task<AgentScanKeysResult> ScanForKeysAsync()
     {
         using var response = await this.SendMonitorRequestAsync(
-            httpClient => httpClient.PostAsync(this.BuildMonitorUrl(MonitorApiRoutes.ScanKeys), null),
+            httpClient => httpClient.PostAsync(this.BuildMonitorUrl(MonitorApiRoutes.ScanKeys), content: null),
             nameof(this.ScanForKeysAsync)).ConfigureAwait(false);
         if (response?.IsSuccessStatusCode == true)
         {

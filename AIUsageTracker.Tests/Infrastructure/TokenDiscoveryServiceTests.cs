@@ -4,7 +4,6 @@
 
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
-using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -152,7 +151,7 @@ public class TokenDiscoveryServiceTests
         }
         finally
         {
-            Environment.SetEnvironmentVariable("CODEX_API_KEY", null);
+            Environment.SetEnvironmentVariable("CODEX_API_KEY", value: null);
             TestTempPaths.CleanupPath(testRoot);
         }
     }
@@ -230,7 +229,7 @@ public class TokenDiscoveryServiceTests
         }
         finally
         {
-            Environment.SetEnvironmentVariable(environmentVariableName, null);
+            Environment.SetEnvironmentVariable(environmentVariableName, value: null);
             TestTempPaths.CleanupPath(testRoot);
         }
     }

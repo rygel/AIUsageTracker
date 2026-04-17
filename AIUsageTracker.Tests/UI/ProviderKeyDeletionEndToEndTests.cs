@@ -2,7 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.UI.Slim;

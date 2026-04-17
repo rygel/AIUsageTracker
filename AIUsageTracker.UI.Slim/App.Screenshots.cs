@@ -75,7 +75,7 @@ public partial class App
         return (width, height);
     }
 
-    private static BitmapSource ComposeOpaqueBitmap(
+    private static FormatConvertedBitmap ComposeOpaqueBitmap(
         Window window,
         FrameworkElement root,
         double width,
@@ -91,7 +91,7 @@ public partial class App
         var composedVisual = new DrawingVisual();
         using (var dc = composedVisual.RenderOpen())
         {
-            dc.DrawRectangle(backgroundBrush, null, new Rect(0, 0, width, height));
+            dc.DrawRectangle(brush: backgroundBrush, pen: null, rectangle: new Rect(0, 0, width, height));
             dc.DrawImage(contentBitmap, new Rect(0, 0, width, height));
         }
 
@@ -99,12 +99,12 @@ public partial class App
         bitmap.Render(composedVisual);
         bitmap.Freeze();
 
-        var opaqueBitmap = new FormatConvertedBitmap(bitmap, PixelFormats.Bgr24, null, 0);
+        var opaqueBitmap = new FormatConvertedBitmap(source: bitmap, destinationFormat: PixelFormats.Bgr24, destinationPalette: null, alphaThreshold: 0);
         opaqueBitmap.Freeze();
         return opaqueBitmap;
     }
 
-    private static Brush CreateBackgroundBrush(Window window)
+    private static SolidColorBrush CreateBackgroundBrush(Window window)
     {
         var backgroundBrush = window.Background is SolidColorBrush solidBackground
             ? new SolidColorBrush(Color.FromRgb(solidBackground.Color.R, solidBackground.Color.G, solidBackground.Color.B))

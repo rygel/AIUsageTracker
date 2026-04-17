@@ -7,7 +7,6 @@ using AIUsageTracker.Infrastructure.Configuration;
 using AIUsageTracker.Tests.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using Xunit;
 
 namespace AIUsageTracker.Tests.Integration;
 
@@ -91,7 +90,7 @@ public class TokenDiscoveryIntegrationTests : IntegrationTestBase
         }
         finally
         {
-            Environment.SetEnvironmentVariable("MINIMAX_API_KEY", null);
+            Environment.SetEnvironmentVariable("MINIMAX_API_KEY", value: null);
         }
     }
 
@@ -110,7 +109,7 @@ public class TokenDiscoveryIntegrationTests : IntegrationTestBase
         }
         finally
         {
-            Environment.SetEnvironmentVariable("MOONSHOT_API_KEY", null);
+            Environment.SetEnvironmentVariable("MOONSHOT_API_KEY", value: null);
         }
     }
 

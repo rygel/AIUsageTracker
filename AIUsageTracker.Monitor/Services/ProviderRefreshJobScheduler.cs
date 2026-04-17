@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using Microsoft.Extensions.Logging;
-
 namespace AIUsageTracker.Monitor.Services;
 
 public sealed class ProviderRefreshJobScheduler

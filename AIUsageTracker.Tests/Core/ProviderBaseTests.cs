@@ -5,7 +5,6 @@
 using System.Net;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Providers;
-using Xunit;
 
 namespace AIUsageTracker.Tests.Core;
 

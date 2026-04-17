@@ -8,8 +8,6 @@ using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Services;
 using AIUsageTracker.Infrastructure.Providers;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Monitor.Services;
 
@@ -428,7 +426,7 @@ public class ProviderRefreshService : BackgroundService
 
         const string error = "ProviderManager not ready";
         this._logger.LogWarning(error);
-        this._refreshTelemetryManager.RecordRefreshTelemetry(refreshStopwatch.Elapsed, false, error);
+        this._refreshTelemetryManager.RecordRefreshTelemetry(duration: refreshStopwatch.Elapsed, success: false, errorMessage: error);
         refreshActivity?.SetStatus(ActivityStatusCode.Error, error);
         return null;
     }

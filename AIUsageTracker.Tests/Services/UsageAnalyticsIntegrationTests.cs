@@ -10,7 +10,6 @@ using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using Xunit;
 
 namespace AIUsageTracker.Tests.Services;
 
@@ -22,9 +21,9 @@ public class UsageAnalyticsIntegrationTests
         var now = DateTime.UtcNow;
         var rows = new[]
         {
-            CreateRow("openai", 10, 100, true, now.AddHours(-3).ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)),
-            CreateRow("openai", 20, 100, true, now.AddHours(-2).ToString("O")),
-            CreateRow("openai", 30, 100, true, now.AddHours(-1).ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)),
+            CreateRow("openai", 10, 100, isAvailable: true, now.AddHours(-3).ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)),
+            CreateRow("openai", 20, 100, isAvailable: true, now.AddHours(-2).ToString("O")),
+            CreateRow("openai", 30, 100, isAvailable: true, now.AddHours(-1).ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)),
         };
 
         var dbPath = CreateTempDbPath();
@@ -59,10 +58,10 @@ public class UsageAnalyticsIntegrationTests
         var now = DateTime.UtcNow;
         var rows = new[]
         {
-            CreateRow("openai", 10, 200, true, now.AddHours(-4).ToString("O")),
-            CreateRow("openai", 20, 200, true, now.AddHours(-3).ToString("O")),
-            CreateRow("openai", 30, 200, true, now.AddHours(-2).ToString("O")),
-            CreateRow("openai", 120, 200, true, now.AddHours(-1).ToString("O")),
+            CreateRow("openai", 10, 200, isAvailable: true, now.AddHours(-4).ToString("O")),
+            CreateRow("openai", 20, 200, isAvailable: true, now.AddHours(-3).ToString("O")),
+            CreateRow("openai", 30, 200, isAvailable: true, now.AddHours(-2).ToString("O")),
+            CreateRow("openai", 120, 200, isAvailable: true, now.AddHours(-1).ToString("O")),
         };
 
         var dbPath = CreateTempDbPath();
@@ -101,7 +100,7 @@ public class UsageAnalyticsIntegrationTests
         var rows = new List<HistoryRow>();
         for (int i = 5; i >= 0; i--)
         {
-            rows.Add(CreateRow("steady-p", 500 + ((5 - i) * 10), 1000, true, now.AddHours(-i).ToString("O")));
+            rows.Add(CreateRow("steady-p", 500 + ((5 - i) * 10), 1000, isAvailable: true, now.AddHours(-i).ToString("O")));
         }
 
         var dbPath = CreateTempDbPath();

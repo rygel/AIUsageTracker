@@ -4,8 +4,6 @@
 
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Monitor.Services;
 

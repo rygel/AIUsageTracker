@@ -11,7 +11,6 @@ using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 using CommunityToolkit.Mvvm.Input;
 using Hardcodet.Wpf.TaskbarNotification;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.UI.Slim;
@@ -92,7 +91,7 @@ public partial class App
     }
 
     private void SyncProviderTrayIcons(
-        IReadOnlyDictionary<string, (string ToolTip, double FillPercent, PaceColorResult PaceColor, bool IsQuota)> desiredIcons,
+        Dictionary<string, (string ToolTip, double FillPercent, PaceColorResult PaceColor, bool IsQuota)> desiredIcons,
         int yellowThreshold,
         int redThreshold,
         bool showUsed)
@@ -147,7 +146,7 @@ public partial class App
         return candidates.FirstOrDefault(File.Exists) ?? candidates[0];
     }
 
-    private static ImageSource GenerateUsageIcon(
+    private static RenderTargetBitmap GenerateUsageIcon(
         double fillPercent,
         PaceColorResult paceColor,
         int yellowThreshold,
@@ -158,8 +157,8 @@ public partial class App
         var visual = new DrawingVisual();
         using (var dc = visual.RenderOpen())
         {
-            dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(20, 20, 20)), null, new Rect(0, 0, size, size));
-            dc.DrawRectangle(null, new Pen(Brushes.DimGray, 1), new Rect(0.5, 0.5, size - 1, size - 1));
+            dc.DrawRectangle(brush: new SolidColorBrush(Color.FromRgb(20, 20, 20)), pen: null, rectangle: new Rect(0, 0, size, size));
+            dc.DrawRectangle(brush: null, pen: new Pen(Brushes.DimGray, 1), rectangle: new Rect(0.5, 0.5, size - 1, size - 1));
 
             Brush fillBrush;
             if (paceColor.IsPaceAdjusted)
@@ -197,7 +196,7 @@ public partial class App
                 fillHeight = (fillPercent / 100.0) * barHeight;
             }
 
-            dc.DrawRectangle(fillBrush, null, new Rect(3, size - 3 - fillHeight, barWidth, fillHeight));
+            dc.DrawRectangle(brush: fillBrush, pen: null, rectangle: new Rect(3, size - 3 - fillHeight, barWidth, fillHeight));
         }
 
         var bitmap = new RenderTargetBitmap(size, size, 96, 96, PixelFormats.Pbgra32);

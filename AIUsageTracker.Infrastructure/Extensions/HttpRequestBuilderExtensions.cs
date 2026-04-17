@@ -2,15 +2,11 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System;
 using System.Globalization;
 using System.Net;
-using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using AIUsageTracker.Core.Exceptions;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Mappers;

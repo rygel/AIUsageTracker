@@ -408,7 +408,7 @@ public class UsageMathTests
     [Fact]
     public void ComputePaceColor_MissingResetTime_ReturnsRawPercent()
     {
-        var result = UsageMath.ComputePaceColor(70.0, null, TimeSpan.FromDays(7));
+        var result = UsageMath.ComputePaceColor(70.0, nextResetTime: null, TimeSpan.FromDays(7));
 
         Assert.False(result.IsPaceAdjusted);
         Assert.Equal(70.0, result.ColorPercent, precision: 1);

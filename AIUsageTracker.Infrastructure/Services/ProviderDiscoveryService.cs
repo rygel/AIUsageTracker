@@ -1,7 +1,6 @@
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Core.Paths;
 using AIUsageTracker.Infrastructure.Configuration;
 using Microsoft.Extensions.Logging;
 

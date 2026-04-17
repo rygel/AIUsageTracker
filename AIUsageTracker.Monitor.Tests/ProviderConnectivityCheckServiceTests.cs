@@ -3,7 +3,6 @@
 // </copyright>
 
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Infrastructure.Configuration;
 using AIUsageTracker.Monitor.Services;
 using Moq;
 

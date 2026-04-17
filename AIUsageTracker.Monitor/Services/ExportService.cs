@@ -5,7 +5,6 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
-using AIUsageTracker.Core.Models;
 
 namespace AIUsageTracker.Monitor.Services;
 

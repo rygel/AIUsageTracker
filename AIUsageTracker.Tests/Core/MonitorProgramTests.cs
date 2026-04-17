@@ -106,7 +106,7 @@ public sealed class MonitorProgramTests : IDisposable
         })!;
     }
 
-    private IEnumerable<string> GetExpectedMonitorInfoPaths()
+    private string[] GetExpectedMonitorInfoPaths()
     {
         return new[] { this._pathProvider.GetMonitorInfoFilePath() };
     }
