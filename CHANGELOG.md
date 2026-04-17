@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [2.3.4-beta.31] - 2026-04-17
+
+### Added
+- **Copilot monthly quota model**: GitHub Copilot now reports a monthly quota window and no longer renders the previous weekly/burst split.
+
+### Fixed
+- **Privacy and settings persistence hardening**: preferences/config writes now use atomic write semantics with retry behavior, and preferences loading can recover from backup when the primary file is unreadable.
+- **Secret Scanning false positives on push**: Gitleaks push-mode baseline scan is now deterministic by removing `--redact` from the baseline-path execution path.
+
+### Changed
+- **Display-name resolution centralized**: provider naming now consistently resolves through a single catalog path across UI and web surfaces.
+
 ## [2.3.4-beta.30] - 2026-04-12
 
 ### Added

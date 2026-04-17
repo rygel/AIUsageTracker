@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <TrackerVersion>2.3.4-beta.30</TrackerVersion>
+    <TrackerVersion>2.3.4-beta.31</TrackerVersion>
     <TrackerAssemblyVersion>2.3.4</TrackerAssemblyVersion>
     <DefaultItemExcludes>$(DefaultItemExcludes);$(MSBuildProjectDirectory)\artifacts\**\*</DefaultItemExcludes>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
