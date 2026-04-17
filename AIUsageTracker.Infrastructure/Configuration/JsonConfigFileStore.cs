@@ -56,6 +56,10 @@ internal static class JsonConfigFileStore
 
     public static async Task WriteIndentedAsync<T>(string path, T value)
     {
-        await File.WriteAllTextAsync(path, JsonSerializer.Serialize(value, IndentedOptions)).ConfigureAwait(false);
+        var json = JsonSerializer.Serialize(value, IndentedOptions);
+        await AtomicFileWriter.WriteAllTextAtomicAsync(
+            path,
+            json,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance).ConfigureAwait(false);
     }
 }

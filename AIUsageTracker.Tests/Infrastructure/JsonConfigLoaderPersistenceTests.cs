@@ -234,6 +234,43 @@ public sealed class JsonConfigLoaderPersistenceTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task SavePreferencesAsync_ConcurrentCalls_ProducesReadablePreferencesFileAsync()
+    {
+        var authPath = this.CreateFile("config/auth.json", "{}");
+        var providersPath = this.CreateFile("config/providers.json", "{}");
+        var preferencesPath = Path.Combine(this.TestRootPath, "config", "preferences.json");
+
+        var mockPathProvider = new Mock<IAppPathProvider>();
+        mockPathProvider.Setup(p => p.GetAuthFilePath()).Returns(authPath);
+        mockPathProvider.Setup(p => p.GetProviderConfigFilePath()).Returns(providersPath);
+        mockPathProvider.Setup(p => p.GetPreferencesFilePath()).Returns(preferencesPath);
+        mockPathProvider.Setup(p => p.GetUserProfileRoot()).Returns(this.TestRootPath);
+        mockPathProvider.Setup(p => p.GetAppDataRoot()).Returns(this.TestRootPath);
+        mockPathProvider.Setup(p => p.GetDatabasePath()).Returns(Path.Combine(this.TestRootPath, "usage.db"));
+        mockPathProvider.Setup(p => p.GetLogDirectory()).Returns(Path.Combine(this.TestRootPath, "logs"));
+
+        var loader = new JsonConfigLoader(
+            logger: NullLogger<JsonConfigLoader>.Instance,
+            tokenDiscoveryLogger: NullLogger<TokenDiscoveryService>.Instance,
+            pathProvider: mockPathProvider.Object);
+
+        var tasks = Enumerable.Range(0, 30)
+            .Select(index => loader.SavePreferencesAsync(new AppPreferences
+            {
+                Theme = (AppTheme)(index % 6),
+                IsPrivacyMode = index % 2 == 0,
+                ShowUsagePerHour = index % 3 == 0,
+            }));
+
+        await Task.WhenAll(tasks);
+
+        var json = await File.ReadAllTextAsync(preferencesPath);
+        var parsed = JsonSerializer.Deserialize<AppPreferences>(json);
+        Assert.NotNull(parsed);
+        Assert.True(Enum.IsDefined(typeof(AppTheme), parsed!.Theme));
+    }
+
+    [Fact]
     public async Task SaveConfigAsync_PreservesUnknownProviderEntriesInStorageAsync()
     {
         var authPath = this.CreateFile("config/auth.json", "{\"unknown-provider\":{\"key\":\"legacy\"},\"codex\":{\"key\":\"existing\"}}");

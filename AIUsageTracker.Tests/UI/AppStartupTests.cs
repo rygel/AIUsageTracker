@@ -172,4 +172,54 @@ public class AppStartupTests : IDisposable
         Assert.True(saved);
         Assert.Equal(UpdateChannel.Beta, loaded.UpdateChannel);
     }
+
+    [Fact]
+    public async Task LoadPreferencesAsync_WhenPrimaryCorrupted_UsesBackupAsync()
+    {
+        var original = new AppPreferences
+        {
+            Theme = AppTheme.Nord,
+            IsPrivacyMode = true,
+        };
+        var updated = new AppPreferences
+        {
+            Theme = AppTheme.Dracula,
+            IsPrivacyMode = false,
+        };
+
+        // First save creates primary, second save creates .bak from first state.
+        Assert.True(await this._store.SaveAsync(original));
+        Assert.True(await this._store.SaveAsync(updated));
+
+        await File.WriteAllTextAsync(this._testPreferencesPath, "{ invalid json");
+        var loaded = await this._store.LoadAsync();
+
+        Assert.Equal(AppTheme.Nord, loaded.Theme);
+        Assert.True(loaded.IsPrivacyMode);
+    }
+
+    [Fact]
+    public async Task SavePreferencesAsync_ConcurrentWrites_RemainReadableAsync()
+    {
+        var saveTasks = Enumerable.Range(0, 40)
+            .Select(async index =>
+            {
+                var prefs = new AppPreferences
+                {
+                    Theme = (AppTheme)(index % 6),
+                    IsPrivacyMode = index % 2 == 0,
+                    WindowLeft = 10 + index,
+                    WindowTop = 20 + index,
+                };
+                return await this._store.SaveAsync(prefs);
+            });
+
+#pragma warning disable MA0004 // xUnit test methods should avoid ConfigureAwait(false) (xUnit1030).
+        var results = await Task.WhenAll(saveTasks);
+#pragma warning restore MA0004
+        Assert.All(results, Assert.True);
+
+        var loaded = await this._store.LoadAsync();
+        Assert.True(Enum.IsDefined(typeof(AppTheme), loaded.Theme));
+    }
 }
