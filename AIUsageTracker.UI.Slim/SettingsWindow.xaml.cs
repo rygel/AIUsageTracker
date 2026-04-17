@@ -868,39 +868,7 @@ public partial class SettingsWindow : Window
 
         foreach (var config in this._configs)
         {
-            var behavior = ResolveProviderSettingsBehavior(
-                config,
-                this._usages.FirstOrDefault(u => string.Equals(u.ProviderId, config.ProviderId, StringComparison.OrdinalIgnoreCase)),
-                isDerived: false);
-
-            if (behavior.InputMode == ProviderInputMode.StandardApiKey && string.IsNullOrWhiteSpace(config.ApiKey))
-            {
-                var removed = await this._monitorService.RemoveConfigAsync(config.ProviderId).ConfigureAwait(true);
-                if (!removed)
-                {
-                    failedConfigs.Add(config.ProviderId);
-                    continue;
-                }
-
-                if (!this._preferences.SuppressedProviderIds.Contains(config.ProviderId, StringComparer.OrdinalIgnoreCase))
-                {
-                    this._preferences.SuppressedProviderIds.Add(config.ProviderId);
-                }
-
-                removedProviderIds.Add(config.ProviderId);
-                continue;
-            }
-
-            if (this._preferences.SuppressedProviderIds.Contains(config.ProviderId, StringComparer.OrdinalIgnoreCase))
-            {
-                this._preferences.SuppressedProviderIds.Remove(config.ProviderId);
-            }
-
-            var saved = await this._monitorService.SaveConfigAsync(config).ConfigureAwait(true);
-            if (!saved)
-            {
-                failedConfigs.Add(config.ProviderId);
-            }
+            await this.ProcessSingleProviderConfigAsync(config, failedConfigs, removedProviderIds).ConfigureAwait(true);
         }
 
         this._monitorService.InvalidateGroupedUsageCache();
@@ -916,16 +884,50 @@ public partial class SettingsWindow : Window
             this.PopulateProviders();
         }
 
-        if (failedConfigs.Count > 0)
+        if (failedConfigs.Count > 0 && showErrorDialog)
         {
-            if (showErrorDialog)
+            MessageBox.Show(
+                $"Failed to save provider settings for: {string.Join(", ", failedConfigs)}",
+                "Save Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private async Task ProcessSingleProviderConfigAsync(ProviderConfig config, List<string> failedConfigs, List<string> removedProviderIds)
+    {
+        var behavior = ResolveProviderSettingsBehavior(
+            config,
+            this._usages.FirstOrDefault(u => string.Equals(u.ProviderId, config.ProviderId, StringComparison.OrdinalIgnoreCase)),
+            isDerived: false);
+
+        if (behavior.InputMode == ProviderInputMode.StandardApiKey && string.IsNullOrWhiteSpace(config.ApiKey))
+        {
+            var removed = await this._monitorService.RemoveConfigAsync(config.ProviderId).ConfigureAwait(true);
+            if (!removed)
             {
-                MessageBox.Show(
-                    $"Failed to save provider settings for: {string.Join(", ", failedConfigs)}",
-                    "Save Error",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
+                failedConfigs.Add(config.ProviderId);
+                return;
             }
+
+            if (!this._preferences.SuppressedProviderIds.Contains(config.ProviderId, StringComparer.OrdinalIgnoreCase))
+            {
+                this._preferences.SuppressedProviderIds.Add(config.ProviderId);
+            }
+
+            removedProviderIds.Add(config.ProviderId);
+            return;
+        }
+
+        if (this._preferences.SuppressedProviderIds.Contains(config.ProviderId, StringComparer.OrdinalIgnoreCase))
+        {
+            this._preferences.SuppressedProviderIds.Remove(config.ProviderId);
+        }
+
+        var saved = await this._monitorService.SaveConfigAsync(config).ConfigureAwait(true);
+        if (!saved)
+        {
+            failedConfigs.Add(config.ProviderId);
         }
     }
 

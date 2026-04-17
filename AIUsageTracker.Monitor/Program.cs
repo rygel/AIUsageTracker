@@ -44,16 +44,7 @@ public partial class Program
                 $"Preferred monitor log directory '{resolvedLogPath.PreferredDirectory}' unavailable. Using fallback '{resolvedLogPath.LogDirectory}'.").ConfigureAwait(false);
         }
 
-        using var loggerFactory = LoggerFactory.Create(builder =>
-        {
-            builder
-                .SetMinimumLevel(isDebugMode ? LogLevel.Debug : LogLevel.Information)
-                .AddProvider(new FileLoggerProvider(resolvedLogPath.LogFile));
-            if (isDebugMode)
-            {
-                builder.AddConsole();
-            }
-        });
+        using var loggerFactory = CreateLoggerFactory(isDebugMode, resolvedLogPath.LogFile);
 
         var logger = loggerFactory.CreateLogger("Monitor");
 
@@ -65,21 +56,7 @@ public partial class Program
                 resolvedLogPath.LogDirectory);
         }
 
-        // Rotate logs: keep only last 7 days
-        try
-        {
-            var cutoffDate = DateTime.Now.AddDays(-7);
-            foreach (var fileInfo in Directory.GetFiles(resolvedLogPath.LogDirectory, "monitor_*.log")
-                         .Select(log => new FileInfo(log))
-                         .Where(fi => fi.LastWriteTime < cutoffDate))
-            {
-                fileInfo.Delete();
-            }
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            logger.LogError(ex, "Log rotation error");
-        }
+        RotateOldLogs(resolvedLogPath.LogDirectory, logger);
 
         var monitorVersion = System.Reflection.CustomAttributeExtensions
             .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>(typeof(Program).Assembly)
@@ -120,68 +97,7 @@ public partial class Program
             logger.LogDebug("Configuring web host on port {Port}...", port);
             logger.LogDebug("Base Directory: {BaseDir}", AppDomain.CurrentDomain.BaseDirectory);
 
-            var builder = WebApplication.CreateBuilder(args);
-
-            // Configure URLs with the available port
-            builder.WebHost.UseUrls($"http://localhost:{port}");
-
-            // Suppress default console logging in debug mode (we handle our own)
-            if (isDebugMode)
-            {
-                builder.Logging.SetMinimumLevel(LogLevel.Information);
-            }
-
-            builder.Services.AddCors(options =>
-            {
-                options.AddDefaultPolicy(policy =>
-                {
-                    policy.WithOrigins("http://localhost:5100", "http://localhost:5000") // Explicit origins for SignalR/CORS safety
-                          .WithMethods("GET", "POST", "DELETE")
-                          .WithHeaders("Content-Type", "Authorization", "X-Requested-With")
-                          .AllowCredentials(); // Required for SignalR with WebSockets/Long Polling
-                });
-            });
-
-            builder.Services.AddSignalR();
-
-            // Configure JSON serialization — delegates to the Core canonical options
-            builder.Services.ConfigureHttpJsonOptions(options =>
-                MonitorJsonSerializer.Configure(options.SerializerOptions));
-
-            RegisterServices(builder, loggerFactory, pathProvider, logger, isDebugMode);
-
-            var app = builder.Build();
-
-            // Async database initialization
-            using (var scope = app.Services.CreateScope())
-            {
-                var db = scope.ServiceProvider.GetRequiredService<UsageDatabase>();
-                await db.InitializeAsync().ConfigureAwait(false);
-            }
-
-            app.UseCors();
-
-            app.MapHub<UsageHub>("/hubs/usage");
-
-            if (isDebugMode)
-            {
-                logger.LogDebug("Registering API endpoints...");
-            }
-
-            const string contractVersion = MonitorApiContract.CurrentVersion;
-            const string minClientContractVersion = MonitorApiContract.MinimumClientVersion;
-            var agentVersion = typeof(UsageDatabase).Assembly.GetName().Version?.ToString() ?? "unknown";
-
-            MonitorEndpointsRegistration.MapAll(
-                app,
-                isDebugMode,
-                port,
-                agentVersion,
-                contractVersion,
-                minClientContractVersion,
-                args);
-
-            await app.StartAsync().ConfigureAwait(false);
+            var app = await BuildAndStartWebApp(args, port, loggerFactory, pathProvider, logger, isDebugMode).ConfigureAwait(false);
 
             if (isDebugMode)
             {
@@ -201,17 +117,122 @@ public partial class Program
         }
         finally
         {
-            if (holdsStartupMutex)
+            ReleaseStartupMutex(startupMutex, holdsStartupMutex, logger);
+        }
+    }
+
+    private static ILoggerFactory CreateLoggerFactory(bool isDebugMode, string logFilePath)
+    {
+        return LoggerFactory.Create(builder =>
+        {
+            builder
+                .SetMinimumLevel(isDebugMode ? LogLevel.Debug : LogLevel.Information)
+                .AddProvider(new FileLoggerProvider(logFilePath));
+            if (isDebugMode)
             {
-                try
-                {
-                    startupMutex.ReleaseMutex();
-                }
-                catch (ApplicationException ex)
-                {
-                    logger.LogDebug(ex, "Startup mutex ownership was lost before shutdown.");
-                }
+                builder.AddConsole();
             }
+        });
+    }
+
+    private static void RotateOldLogs(string logDirectory, ILogger logger)
+    {
+        try
+        {
+            var cutoffDate = DateTime.Now.AddDays(-7);
+            foreach (var fileInfo in Directory.GetFiles(logDirectory, "monitor_*.log")
+                         .Select(log => new FileInfo(log))
+                         .Where(fi => fi.LastWriteTime < cutoffDate))
+            {
+                fileInfo.Delete();
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            logger.LogError(ex, "Log rotation error");
+        }
+    }
+
+    private static async Task<WebApplication> BuildAndStartWebApp(
+        string[] args,
+        int port,
+        ILoggerFactory loggerFactory,
+        IAppPathProvider pathProvider,
+        ILogger logger,
+        bool isDebugMode)
+    {
+        var builder = WebApplication.CreateBuilder(args);
+        builder.WebHost.UseUrls($"http://localhost:{port}");
+
+        if (isDebugMode)
+        {
+            builder.Logging.SetMinimumLevel(LogLevel.Information);
+        }
+
+        builder.Services.AddCors(options =>
+        {
+            options.AddDefaultPolicy(policy =>
+            {
+                policy.WithOrigins("http://localhost:5100", "http://localhost:5000")
+                      .WithMethods("GET", "POST", "DELETE")
+                      .WithHeaders("Content-Type", "Authorization", "X-Requested-With")
+                      .AllowCredentials();
+            });
+        });
+
+        builder.Services.AddSignalR();
+        builder.Services.ConfigureHttpJsonOptions(options =>
+            MonitorJsonSerializer.Configure(options.SerializerOptions));
+
+        RegisterServices(builder, loggerFactory, pathProvider, logger, isDebugMode);
+
+        var app = builder.Build();
+
+        using (var scope = app.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<UsageDatabase>();
+            await db.InitializeAsync().ConfigureAwait(false);
+        }
+
+        app.UseCors();
+        app.MapHub<UsageHub>("/hubs/usage");
+
+        if (isDebugMode)
+        {
+            logger.LogDebug("Registering API endpoints...");
+        }
+
+        const string contractVersion = MonitorApiContract.CurrentVersion;
+        const string minClientContractVersion = MonitorApiContract.MinimumClientVersion;
+        var agentVersion = typeof(UsageDatabase).Assembly.GetName().Version?.ToString() ?? "unknown";
+
+        MonitorEndpointsRegistration.MapAll(
+            app,
+            isDebugMode,
+            port,
+            agentVersion,
+            contractVersion,
+            minClientContractVersion,
+            args);
+
+        await app.StartAsync().ConfigureAwait(false);
+        return app;
+    }
+
+    private static void ReleaseStartupMutex(Mutex startupMutex, bool holdsMutex, ILogger logger)
+    {
+        if (!holdsMutex)
+        {
+            return;
+        }
+
+        try
+        {
+            startupMutex.ReleaseMutex();
+        }
+        catch (ApplicationException ex)
+        {
+            logger.LogDebug(ex, "Startup mutex ownership was lost before shutdown.");
         }
     }
 

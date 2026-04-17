@@ -108,8 +108,7 @@
                     </a>
                     <a class="btn btn-secondary btn-sm @(Model.EnableExperimentalAnomalyDetection ? "btn-experimental-on" : "")"
                        href="/?showInactive=@(Model.ShowInactiveProviders.ToString().ToLower())&showUsed=@(Model.ShowUsedPercentage.ToString().ToLower())&expAnomaly=@((!Model.EnableExperimentalAnomalyDetection).ToString().ToLower())"
-                       title="Experimental feature. Disabled by default."
-                       aria-label="Enable Anomaly Detection (Exp)">
+                       title="Experimental feature. Disabled by default.">
                         @(Model.EnableExperimentalAnomalyDetection ? "Disable Anomaly Detection (Exp)" : "Enable Anomaly Detection (Exp)")
                     </a>
                 </div>

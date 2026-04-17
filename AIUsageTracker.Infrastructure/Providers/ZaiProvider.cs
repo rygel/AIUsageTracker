@@ -87,24 +87,9 @@ public class ZaiProvider : ProviderBase
 
         if (limits == null || limits.Count == 0)
         {
-            this._logger.LogDebug("[ZAI] No limits found in response");
-            return new[]
-            {
-                new ProviderUsage
-             {
-                 ProviderId = this.ProviderId,
-                 ProviderName = providerLabel,
-                 IsAvailable = false,
-                 Description = "No usage data available",
-                 IsQuotaBased = this.Definition.IsQuotaBased,
-                 PlanType = this.Definition.PlanType,
-                 RawJson = responseString,
-                 HttpStatus = httpStatus,
-             },
-            };
+            return this.BuildNoLimitsResult(providerLabel, responseString, httpStatus);
         }
 
-        // Log all limits for debugging
         foreach (var limit in limits)
         {
             this._logger.LogDebug(
@@ -117,6 +102,51 @@ public class ZaiProvider : ProviderBase
                 limit.NextResetTime);
         }
 
+        var (tokenLimit, mcpLimit) = this.SelectLimits(limits);
+
+        this._logger.LogDebug(
+            "[ZAI] Found token limit: {Found}, mcp limit: {McpFound}",
+            tokenLimit != null,
+            mcpLimit != null);
+
+        var tokenResult = this.ProcessTokenLimit(tokenLimit);
+        tokenResult = this.ApplyMcpAdjustment(tokenResult, mcpLimit);
+
+        var tokenWindowDuration = tokenLimit?.Unit == 3 && tokenLimit.Number.HasValue
+            ? TimeSpan.FromHours(tokenLimit.Number.Value)
+            : (TimeSpan?)null;
+
+        var (nextResetTime, resetStr) = this.ResolveResetTimeInfo(tokenLimit, tokenWindowDuration, limits);
+
+        if (!tokenResult.RemainingPercent.HasValue)
+        {
+            return this.BuildUnknownUsageResult(providerLabel, responseString, httpStatus, tokenResult);
+        }
+
+        return new[] { this.BuildUsageResult(tokenResult, providerLabel, responseString, httpStatus, nextResetTime, resetStr) };
+    }
+
+    private IEnumerable<ProviderUsage> BuildNoLimitsResult(string providerLabel, string responseString, int httpStatus)
+    {
+        this._logger.LogDebug("[ZAI] No limits found in response");
+        return new[]
+        {
+            new ProviderUsage
+            {
+                ProviderId = this.ProviderId,
+                ProviderName = providerLabel,
+                IsAvailable = false,
+                Description = "No usage data available",
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
+                RawJson = responseString,
+                HttpStatus = httpStatus,
+            },
+        };
+    }
+
+    private (ZaiQuotaLimitItem? TokenLimit, ZaiQuotaLimitItem? McpLimit) SelectLimits(List<ZaiQuotaLimitItem> limits)
+    {
         var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var nowSec = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
@@ -127,43 +157,39 @@ public class ZaiProvider : ProviderBase
         var tokenLimit = tokenLimits.Where(l => IsFutureTimestamp(l.NextResetTime, nowMs, nowSec))
                                     .OrderBy(l => l.Remaining ?? long.MaxValue)
                                     .FirstOrDefault()
-                         ?? tokenLimits.FirstOrDefault();
+                          ?? tokenLimits.FirstOrDefault();
 
         var mcpLimit = limits.FirstOrDefault(l =>
             l.Type != null && (l.Type.Equals("TIME_LIMIT", StringComparison.OrdinalIgnoreCase) ||
                                l.Type.Equals("Time", StringComparison.OrdinalIgnoreCase)));
 
-        this._logger.LogDebug(
-            "[ZAI] Found token limit: {Found}, mcp limit: {McpFound}",
-            tokenLimit != null,
-            mcpLimit != null);
+        return (tokenLimit, mcpLimit);
+    }
 
-        var tokenResult = this.ProcessTokenLimit(tokenLimit);
-
-        if (mcpLimit != null && mcpLimit.Percentage > 0)
+    private TokenLimitResult ApplyMcpAdjustment(TokenLimitResult tokenResult, ZaiQuotaLimitItem? mcpLimit)
+    {
+        if (mcpLimit == null || mcpLimit.Percentage <= 0)
         {
-            this._logger.LogDebug("[ZAI] Processing TIME_LIMIT - Percentage: {Percentage}", mcpLimit.Percentage);
-            double mcpRemainingPercent = Math.Max(0, 100 - mcpLimit.Percentage.Value);
-            tokenResult = tokenResult with
-            {
-                RemainingPercent = tokenResult.RemainingPercent.HasValue
-                    ? Math.Min(tokenResult.RemainingPercent.Value, mcpRemainingPercent)
-                    : mcpRemainingPercent,
-            };
-            this._logger.LogDebug("[ZAI] MCP remaining percent: {McpRemainingPercent}", mcpRemainingPercent);
+            return tokenResult;
         }
 
-        var tokenWindowDuration = tokenLimit?.Unit == 3 && tokenLimit.Number.HasValue
-            ? TimeSpan.FromHours(tokenLimit.Number.Value)
-            : (TimeSpan?)null;
-
-        var (nextResetTime, resetStr) = this.ResolveResetTimeInfo(tokenLimit, tokenWindowDuration, limits);
-
-        if (!tokenResult.RemainingPercent.HasValue)
+        this._logger.LogDebug("[ZAI] Processing TIME_LIMIT - Percentage: {Percentage}", mcpLimit.Percentage);
+        double mcpRemainingPercent = Math.Max(0, 100 - mcpLimit.Percentage.Value);
+        var adjusted = tokenResult with
         {
-            return new[]
-            {
-                new ProviderUsage
+            RemainingPercent = tokenResult.RemainingPercent.HasValue
+                ? Math.Min(tokenResult.RemainingPercent.Value, mcpRemainingPercent)
+                : mcpRemainingPercent,
+        };
+        this._logger.LogDebug("[ZAI] MCP remaining percent: {McpRemainingPercent}", mcpRemainingPercent);
+        return adjusted;
+    }
+
+    private IEnumerable<ProviderUsage> BuildUnknownUsageResult(string providerLabel, string responseString, int httpStatus, TokenLimitResult tokenResult)
+    {
+        return new[]
+        {
+            new ProviderUsage
             {
                 ProviderId = this.ProviderId,
                 ProviderName = providerLabel,
@@ -174,22 +200,31 @@ public class ZaiProvider : ProviderBase
                 RawJson = responseString,
                 HttpStatus = httpStatus,
             },
-            };
-        }
+        };
+    }
 
-        var finalRemainingPercent = Math.Min(tokenResult.RemainingPercent.Value, 100);
+    private ProviderUsage BuildUsageResult(
+        TokenLimitResult tokenResult,
+        string providerLabel,
+        string responseString,
+        int httpStatus,
+        DateTime? nextResetTime,
+        string resetStr)
+    {
+        var finalRemainingPercent = Math.Min(tokenResult.RemainingPercent!.Value, 100);
         var finalUsedPercent = Math.Max(0, 100.0 - finalRemainingPercent);
 
-        if (!tokenResult.HasRawLimitData)
-        {
-            tokenResult = tokenResult with
+        tokenResult = !tokenResult.HasRawLimitData
+            ? tokenResult with
             {
                 RequestsAvailable = 100,
                 RequestsUsed = Math.Max(0, 100 - finalRemainingPercent),
-            };
-        }
+            }
+            : tokenResult;
 
-        var finalDescription = (string.IsNullOrEmpty(tokenResult.DetailInfo) ? $"{finalRemainingPercent.ToString("F1", CultureInfo.InvariantCulture)}% remaining" : tokenResult.DetailInfo) + resetStr;
+        var finalDescription = (string.IsNullOrEmpty(tokenResult.DetailInfo)
+            ? $"{finalRemainingPercent.ToString("F1", CultureInfo.InvariantCulture)}% remaining"
+            : tokenResult.DetailInfo) + resetStr;
 
         this._logger.LogInformation(
             "Z.AI Provider Usage - ProviderId: {ProviderId}, ProviderName: {ProviderName}, UsedPercent: {UsedPercent}%, RequestsUsed: {RequestsUsed}%, Description: {Description}, IsAvailable: {IsAvailable}",
@@ -200,9 +235,7 @@ public class ZaiProvider : ProviderBase
             finalDescription,
             true);
 
-        return new[]
-        {
-            new ProviderUsage
+        return new ProviderUsage
         {
             ProviderId = this.ProviderId,
             ProviderName = providerLabel,
@@ -217,7 +250,6 @@ public class ZaiProvider : ProviderBase
             IsAvailable = true,
             RawJson = responseString,
             HttpStatus = httpStatus,
-        },
         };
     }
 

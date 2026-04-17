@@ -186,80 +186,98 @@ public class KimiProvider : ProviderBase
     {
         foreach (var limitItem in limits)
         {
-            if (limitItem.Detail == null || limitItem.Window == null)
+            var card = this.TryBuildLimitCard(limitItem, usedCardIds, content, statusCode, authSource);
+            if (card != null)
             {
-                continue;
+                flatCards.Add(card);
             }
-
-            var win = limitItem.Window;
-            var det = limitItem.Detail;
-
-            if (det.Limit <= 0)
-            {
-                continue;
-            }
-
-            string name = $"{FormatDuration(win.Duration, win.TimeUnit ?? "TIME_UNIT_MINUTE")} Limit";
-            var itemUsed = det.Limit - det.Remaining;
-            var itemUsedPercentage = det.Limit > 0 ? (itemUsed / (double)det.Limit) * 100.0 : 0;
-
-            var resetDisplay = FormatResetTime(det.ResetTime ?? string.Empty);
-            DateTime? itemResetDt = null;
-            if (DateTime.TryParse(det.ResetTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
-            {
-                itemResetDt = dt.ToUniversalTime();
-            }
-
-            var quotaBucketKind = DetermineWindowKind(win.Duration, win.TimeUnit);
-            TimeSpan? periodDuration;
-            if (quotaBucketKind == WindowKind.Rolling)
-            {
-                periodDuration = TimeSpan.FromDays(win.Duration);
-            }
-            else if (quotaBucketKind == WindowKind.Burst)
-            {
-                periodDuration = string.Equals(win.TimeUnit, "TIME_UNIT_HOUR", StringComparison.Ordinal)
-                    ? TimeSpan.FromHours(win.Duration)
-                    : TimeSpan.FromMinutes(win.Duration);
-            }
-            else
-            {
-                periodDuration = null;
-            }
-
-            var baseCardId = name.ToLowerInvariant()
-                .Replace(" ", "-", StringComparison.Ordinal)
-                .Replace("/", "-", StringComparison.Ordinal);
-            var cardId = baseCardId;
-            var dupCounter = 2;
-            while (!usedCardIds.Add(cardId))
-            {
-                cardId = $"{baseCardId}-{dupCounter.ToString(CultureInfo.InvariantCulture)}";
-                dupCounter++;
-            }
-
-            flatCards.Add(new ProviderUsage
-            {
-                ProviderId = this.ProviderId,
-                ProviderName = this.Definition.DisplayName,
-                CardId = cardId,
-                GroupId = this.ProviderId,
-                Name = name,
-                WindowKind = quotaBucketKind,
-                UsedPercent = itemUsedPercentage,
-                RequestsUsed = itemUsed,
-                RequestsAvailable = det.Limit,
-                IsQuotaBased = this.Definition.IsQuotaBased,
-                PlanType = this.Definition.PlanType,
-                IsAvailable = true,
-                Description = $"{det.Remaining.ToString(CultureInfo.InvariantCulture)} / {det.Limit.ToString(CultureInfo.InvariantCulture)} remaining (Resets: {resetDisplay})",
-                RawJson = content,
-                HttpStatus = statusCode,
-                NextResetTime = itemResetDt,
-                PeriodDuration = periodDuration,
-                AuthSource = authSource ?? string.Empty,
-            });
         }
+    }
+
+    private ProviderUsage? TryBuildLimitCard(KimiLimitItem limitItem, HashSet<string> usedCardIds, string content, int statusCode, string? authSource)
+    {
+        if (limitItem.Detail == null || limitItem.Window == null)
+        {
+            return null;
+        }
+
+        var win = limitItem.Window;
+        var det = limitItem.Detail;
+
+        if (det.Limit <= 0)
+        {
+            return null;
+        }
+
+        string name = $"{FormatDuration(win.Duration, win.TimeUnit ?? "TIME_UNIT_MINUTE")} Limit";
+        var itemUsed = det.Limit - det.Remaining;
+        var itemUsedPercentage = det.Limit > 0 ? (itemUsed / (double)det.Limit) * 100.0 : 0;
+
+        var resetDisplay = FormatResetTime(det.ResetTime ?? string.Empty);
+        DateTime? itemResetDt = null;
+        if (DateTime.TryParse(det.ResetTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
+        {
+            itemResetDt = dt.ToUniversalTime();
+        }
+
+        var quotaBucketKind = DetermineWindowKind(win.Duration, win.TimeUnit);
+        var periodDuration = ResolvePeriodDuration(quotaBucketKind, win);
+        var cardId = DeduplicateCardId(name, usedCardIds);
+
+        return new ProviderUsage
+        {
+            ProviderId = this.ProviderId,
+            ProviderName = this.Definition.DisplayName,
+            CardId = cardId,
+            GroupId = this.ProviderId,
+            Name = name,
+            WindowKind = quotaBucketKind,
+            UsedPercent = itemUsedPercentage,
+            RequestsUsed = itemUsed,
+            RequestsAvailable = det.Limit,
+            IsQuotaBased = this.Definition.IsQuotaBased,
+            PlanType = this.Definition.PlanType,
+            IsAvailable = true,
+            Description = $"{det.Remaining.ToString(CultureInfo.InvariantCulture)} / {det.Limit.ToString(CultureInfo.InvariantCulture)} remaining (Resets: {resetDisplay})",
+            RawJson = content,
+            HttpStatus = statusCode,
+            NextResetTime = itemResetDt,
+            PeriodDuration = periodDuration,
+            AuthSource = authSource ?? string.Empty,
+        };
+    }
+
+    private static string DeduplicateCardId(string name, HashSet<string> usedCardIds)
+    {
+        var baseCardId = name.ToLowerInvariant()
+            .Replace(" ", "-", StringComparison.Ordinal)
+            .Replace("/", "-", StringComparison.Ordinal);
+        var cardId = baseCardId;
+        var dupCounter = 2;
+        while (!usedCardIds.Add(cardId))
+        {
+            cardId = $"{baseCardId}-{dupCounter.ToString(CultureInfo.InvariantCulture)}";
+            dupCounter++;
+        }
+
+        return cardId;
+    }
+
+    private static TimeSpan? ResolvePeriodDuration(WindowKind quotaBucketKind, KimiWindow win)
+    {
+        if (quotaBucketKind == WindowKind.Rolling)
+        {
+            return TimeSpan.FromDays(win.Duration);
+        }
+
+        if (quotaBucketKind == WindowKind.Burst)
+        {
+            return string.Equals(win.TimeUnit, "TIME_UNIT_HOUR", StringComparison.Ordinal)
+                ? TimeSpan.FromHours(win.Duration)
+                : TimeSpan.FromMinutes(win.Duration);
+        }
+
+        return null;
     }
 
     private static WindowKind DetermineWindowKind(long duration, string? unit)
