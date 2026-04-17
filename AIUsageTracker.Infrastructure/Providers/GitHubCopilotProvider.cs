@@ -50,8 +50,7 @@ public class GitHubCopilotProvider : ProviderBase
         },
         QuotaWindows = new QuotaWindowDefinition[]
         {
-            new(WindowKind.Rolling, "Weekly", PeriodDuration: TimeSpan.FromDays(7)),
-            new(WindowKind.Burst,   "5h",     PeriodDuration: TimeSpan.FromHours(5)),
+            new(WindowKind.Rolling, "Monthly", PeriodDuration: TimeSpan.FromDays(30)),
         },
     };
 
@@ -255,33 +254,14 @@ public class GitHubCopilotProvider : ProviderBase
         {
             var normalizedRemaining = Math.Clamp(remaining, 0, entitlement);
             var usedPercent = Math.Clamp(100.0 - remainingPercent, 0.0, 100.0);
-            selectedWindowName = "Weekly Quota";
+            selectedWindowName = "Monthly Quota";
             selectedWindowEntitlement = entitlement;
             selectedWindowRemaining = normalizedRemaining;
             selectedWindowRemainingPercent = remainingPercent;
-            state.WeeklyUsedPercent = usedPercent;
-            state.WeeklyDescription = $"{normalizedRemaining.ToString("F0", CultureInfo.InvariantCulture)} / {entitlement.ToString("F0", CultureInfo.InvariantCulture)} remaining";
-            state.WeeklyEntitlement = entitlement;
-            state.WeeklyUsed = entitlement - normalizedRemaining;
-        }
-
-        if (snapshots.TryGetProperty("usage", out var usageSnapshot) &&
-            TryParseFiniteQuotaSnapshot(usageSnapshot, out var uEnt, out var uRem, out var uRemainingPercent))
-        {
-            var normalizedRemaining = Math.Clamp(uRem, 0, uEnt);
-            var uUsedPercent = Math.Clamp(100.0 - uRemainingPercent, 0.0, 100.0);
-            if (string.IsNullOrEmpty(selectedWindowName))
-            {
-                selectedWindowName = "5-hour Window";
-                selectedWindowEntitlement = uEnt;
-                selectedWindowRemaining = normalizedRemaining;
-                selectedWindowRemainingPercent = uRemainingPercent;
-            }
-
-            state.BurstUsedPercent = uUsedPercent;
-            state.BurstDescription = $"{normalizedRemaining.ToString("F0", CultureInfo.InvariantCulture)} / {uEnt.ToString("F0", CultureInfo.InvariantCulture)} remaining";
-            state.BurstEntitlement = uEnt;
-            state.BurstUsed = uEnt - normalizedRemaining;
+            state.MonthlyUsedPercent = usedPercent;
+            state.MonthlyDescription = $"{normalizedRemaining.ToString("F0", CultureInfo.InvariantCulture)} / {entitlement.ToString("F0", CultureInfo.InvariantCulture)} remaining";
+            state.MonthlyEntitlement = entitlement;
+            state.MonthlyUsed = entitlement - normalizedRemaining;
         }
 
         if (!string.IsNullOrEmpty(selectedWindowName))
@@ -502,75 +482,39 @@ public class GitHubCopilotProvider : ProviderBase
             HttpStatus = state.HttpStatus,
         };
 
-        var hasWeekly = state.WeeklyDescription != null;
-        var hasBurst = state.BurstDescription != null;
+        var hasMonthly = state.MonthlyDescription != null;
 
-        if (!hasWeekly && !hasBurst)
+        if (!hasMonthly)
         {
             return new[] { baseUsage };
         }
 
-        var results = new List<ProviderUsage>();
-
-        if (hasWeekly)
+        return new[]
         {
-            results.Add(new ProviderUsage
+            new ProviderUsage
             {
                 ProviderId = this.ProviderId,
                 ProviderName = ProviderDisplayName,
-                CardId = "weekly",
+                CardId = "monthly",
                 GroupId = this.ProviderId,
-                Name = "Weekly Quota",
+                Name = "Monthly Quota",
                 AccountName = accountName,
                 IsAvailable = state.IsAvailable,
                 State = state.State,
-                Description = state.WeeklyDescription!,
-                UsedPercent = state.WeeklyUsedPercent,
-                RequestsAvailable = state.WeeklyEntitlement,
-                RequestsUsed = state.WeeklyUsed,
+                Description = state.MonthlyDescription!,
+                UsedPercent = state.MonthlyUsedPercent,
+                RequestsAvailable = state.MonthlyEntitlement,
+                RequestsUsed = state.MonthlyUsed,
                 PlanType = this.Definition.PlanType,
                 IsQuotaBased = this.Definition.IsQuotaBased,
                 AuthSource = authSource,
                 NextResetTime = state.ResetTime,
-                PeriodDuration = TimeSpan.FromDays(7),
+                PeriodDuration = TimeSpan.FromDays(30),
                 WindowKind = WindowKind.Rolling,
                 RawJson = state.RawJson,
                 HttpStatus = state.HttpStatus,
-            });
-        }
-
-        if (hasBurst)
-        {
-            results.Add(new ProviderUsage
-            {
-                ProviderId = this.ProviderId,
-                ProviderName = ProviderDisplayName,
-                CardId = "burst",
-                GroupId = this.ProviderId,
-                Name = "5-Hour Window",
-                AccountName = accountName,
-                IsAvailable = state.IsAvailable,
-                State = state.State,
-                Description = state.BurstDescription!,
-                UsedPercent = state.BurstUsedPercent,
-                RequestsAvailable = state.BurstEntitlement,
-                RequestsUsed = state.BurstUsed,
-                PlanType = this.Definition.PlanType,
-                IsQuotaBased = this.Definition.IsQuotaBased,
-                AuthSource = authSource,
-                PeriodDuration = TimeSpan.FromHours(5),
-                WindowKind = WindowKind.Burst,
-                RawJson = state.RawJson,
-                HttpStatus = state.HttpStatus,
-            });
-        }
-
-        if (results.Count == 0)
-        {
-            return new[] { baseUsage };
-        }
-
-        return results;
+            },
+        };
     }
 
     private sealed class CopilotUsageState
@@ -598,21 +542,13 @@ public class GitHubCopilotProvider : ProviderBase
         public string PrimaryQuotaWindowName { get; set; } = "Quota";
 
         // Flat card state (replaces Details list)
-        public string? WeeklyDescription { get; set; }
+        public string? MonthlyDescription { get; set; }
 
-        public double WeeklyUsedPercent { get; set; }
+        public double MonthlyUsedPercent { get; set; }
 
-        public double WeeklyEntitlement { get; set; }
+        public double MonthlyEntitlement { get; set; }
 
-        public double WeeklyUsed { get; set; }
-
-        public string? BurstDescription { get; set; }
-
-        public double BurstUsedPercent { get; set; }
-
-        public double BurstEntitlement { get; set; }
-
-        public double BurstUsed { get; set; }
+        public double MonthlyUsed { get; set; }
 
         public string? RawJson { get; set; }
 

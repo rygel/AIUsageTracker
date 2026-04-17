@@ -79,7 +79,7 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
     }
 
     [Fact]
-    public async Task GetUsageAsync_BothQuotaWindows_PrefersWeeklyPremiumWindowForTopLevelAsync()
+    public async Task GetUsageAsync_BothQuotaWindows_PrefersMonthlyPremiumWindowAsync()
     {
         // Arrange
         this._authService.Setup(s => s.GetCurrentToken()).Returns(TestApiKey);
@@ -124,24 +124,19 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
         // Act
         var result = await this._provider.GetUsageAsync(this.Config);
 
-        // Assert — provider now emits flat cards: one per quota window
-        var usages = result.ToList();
-        Assert.Equal(2, usages.Count);
-        Assert.All(usages, u => Assert.True(u.IsAvailable));
-
-        var weeklyCard = Assert.Single(usages, u => u.WindowKind == WindowKind.Rolling);
-        Assert.Equal(80.0, weeklyCard.UsedPercent); // 20 remaining out of 100 = 80% used
-        Assert.Equal(80.0, weeklyCard.RequestsUsed);
-        Assert.Equal(100.0, weeklyCard.RequestsAvailable);
-        Assert.Contains("Weekly Quota", weeklyCard.Name ?? string.Empty, StringComparison.Ordinal);
-        Assert.Contains("remaining", weeklyCard.Description, StringComparison.OrdinalIgnoreCase);
-
-        var burstCard = Assert.Single(usages, u => u.WindowKind == WindowKind.Burst);
-        Assert.Contains("5-Hour Window", burstCard.Name ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        // Assert — provider emits monthly card from premium_interactions
+        var usage = Assert.Single(result);
+        Assert.True(usage.IsAvailable);
+        Assert.Equal(80.0, usage.UsedPercent); // 20 remaining out of 100 = 80% used
+        Assert.Equal(80.0, usage.RequestsUsed);
+        Assert.Equal(100.0, usage.RequestsAvailable);
+        Assert.Contains("Monthly Quota", usage.Name ?? string.Empty, StringComparison.Ordinal);
+        Assert.Contains("remaining", usage.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(WindowKind.Rolling, usage.WindowKind);
     }
 
     [Fact]
-    public async Task GetUsageAsync_UsageQuotaOnly_UsesUsageWindowForTopLevelAsync()
+    public async Task GetUsageAsync_PremiumQuotaOnly_ReturnsMonthlyCardAsync()
     {
         // Arrange
         this._authService.Setup(s => s.GetCurrentToken()).Returns(TestApiKey);
@@ -152,7 +147,7 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
             copilot_plan = "copilot_individual",
             quota_snapshots = new
             {
-                usage = new
+                premium_interactions = new
                 {
                     entitlement = 200.0,
                     remaining = 150.0,
@@ -181,15 +176,14 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
         // Act
         var result = await this._provider.GetUsageAsync(this.Config);
 
-        // Assert — provider emits only a burst card (no weekly quota in this scenario)
+        // Assert — provider emits monthly card
         var usage = Assert.Single(result);
         Assert.Equal(25.0, usage.UsedPercent); // 150 remaining out of 200 = 25% used
         Assert.Equal(50.0, usage.RequestsUsed);
         Assert.Equal(200.0, usage.RequestsAvailable);
-        Assert.Contains("5-Hour Window", usage.Name ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Monthly Quota", usage.Name ?? string.Empty, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("remaining", usage.Description, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(WindowKind.Burst, usage.WindowKind);
-        Assert.DoesNotContain(result, u => u.WindowKind == WindowKind.Rolling);
+        Assert.Equal(WindowKind.Rolling, usage.WindowKind);
     }
 
     [Fact]

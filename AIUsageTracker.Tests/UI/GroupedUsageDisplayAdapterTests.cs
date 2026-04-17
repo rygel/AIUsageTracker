@@ -218,8 +218,8 @@ public class GroupedUsageDisplayAdapterTests
                     {
                         new AgentGroupedModelUsage
                         {
-                            ModelId = "weekly",
-                            ModelName = "Weekly Quota",
+                            ModelId = "monthly",
+                            ModelName = "Monthly Quota",
                             RemainingPercentage = 90,
                         },
                     },
@@ -231,8 +231,8 @@ public class GroupedUsageDisplayAdapterTests
 
         Assert.Single(usages);
         Assert.Equal("github-copilot", usages[0].ProviderId);
-        Assert.Equal("weekly", usages[0].CardId);
-        Assert.Equal("Weekly Quota", usages[0].ProviderName);
+        Assert.Equal("monthly", usages[0].CardId);
+        Assert.Equal("Monthly Quota", usages[0].ProviderName);
     }
 
     [Fact]
