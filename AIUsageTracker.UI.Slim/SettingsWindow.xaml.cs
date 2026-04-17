@@ -22,7 +22,9 @@ namespace AIUsageTracker.UI.Slim;
 
 public partial class SettingsWindow : Window
 {
+#pragma warning disable S1075 // Pack URI scheme is required by WPF
     private const string PackApplicationUri = "pack://application:,,,/";
+#pragma warning restore S1075
 
     private static readonly JsonSerializerOptions BundleJsonOptions = new()
     {

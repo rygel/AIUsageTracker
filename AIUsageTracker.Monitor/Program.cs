@@ -285,9 +285,8 @@ public partial class Program
         logger.LogInformation("  Agent ready! Listening on http://localhost:{Port}", port);
         logger.LogInformation(DebugBannerSeparator);
         logger.LogInformation(string.Empty);
-        logger.LogInformation("  API Endpoints:");
-        logger.LogInformation("    GET  http://localhost:{Port1}{Health} | GET  http://localhost:{Port2}{Usage} | GET  http://localhost:{Port3}{Config}", port, MonitorApiRoutes.Health, port, MonitorApiRoutes.Usage, port, MonitorApiRoutes.Config);
-        logger.LogInformation("    POST http://localhost:{Port}{Refresh}", port, MonitorApiRoutes.Refresh);
+        logger.LogInformation("  API Endpoints: GET http://localhost:{Port}{Health} | GET http://localhost:{Port}{Usage} | GET http://localhost:{Port}{Config} | POST http://localhost:{Port}{Refresh}",
+            port, MonitorApiRoutes.Health, port, MonitorApiRoutes.Usage, port, MonitorApiRoutes.Config, port, MonitorApiRoutes.Refresh);
         logger.LogInformation(string.Empty);
         logger.LogInformation("  Press Ctrl+C to stop");
         logger.LogInformation(DebugBannerSeparator);

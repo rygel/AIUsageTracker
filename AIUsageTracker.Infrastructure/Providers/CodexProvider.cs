@@ -17,6 +17,9 @@ namespace AIUsageTracker.Infrastructure.Providers;
 
 public class CodexProvider : ProviderBase
 {
+    private const string CodexSparkProviderId = "codex.spark";
+    private const string WeeklyWindowLabel = "Weekly";
+
     public static ProviderDefinition StaticDefinition { get; } = new(
         "codex",
         "OpenAI (Codex)",
@@ -45,11 +48,11 @@ public class CodexProvider : ProviderBase
             ProviderEndpoints.OpenAI.ProfileClaimKey,
         },
         FamilyMode = ProviderFamilyMode.Standalone,
-        CoReportedProviderIds = new[] { "codex.spark" },
+        CoReportedProviderIds = new[] { CodexSparkProviderId },
         QuotaWindows = new QuotaWindowDefinition[]
         {
             new(WindowKind.Burst,   "5h",     PeriodDuration: TimeSpan.FromHours(5)),
-            new(WindowKind.Rolling, "Weekly", PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.Rolling, WeeklyWindowLabel, PeriodDuration: TimeSpan.FromDays(7)),
         },
     };
 
@@ -59,7 +62,7 @@ public class CodexProvider : ProviderBase
     /// enabling a separate dual-bar card (5h burst + weekly rolling) in the main window.
     /// </summary>
     public static ProviderDefinition SparkDefinition { get; } = new(
-        "codex.spark",
+        CodexSparkProviderId,
         "OpenAI (GPT-5.3 Codex Spark)",
         PlanType.Coding,
         isQuotaBased: true)
@@ -79,7 +82,7 @@ public class CodexProvider : ProviderBase
         QuotaWindows = new QuotaWindowDefinition[]
         {
             new(WindowKind.Burst,   "5h",     PeriodDuration: TimeSpan.FromHours(5)),
-            new(WindowKind.Rolling, "Weekly", PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.Rolling, WeeklyWindowLabel, PeriodDuration: TimeSpan.FromDays(7)),
         },
     };
 
@@ -511,7 +514,7 @@ public class CodexProvider : ProviderBase
                 ProviderName = StaticDefinition.DisplayName,
                 CardId = "weekly",
                 GroupId = this.ProviderId,
-                Name = "Weekly",
+                Name = WeeklyWindowLabel,
                 WindowKind = WindowKind.Rolling,
                 UsedPercent = secondaryUsedPercent.Value,
                 RequestsUsed = secondaryUsedPercent.Value,
@@ -533,13 +536,13 @@ public class CodexProvider : ProviderBase
         // the "OpenAI (GPT-5.3 Codex Spark)" card is dual-bar capable.
         if (sparkWindow.HasWindowData)
         {
-            var sparkDisplayName = StaticDefinition.DisplayNameOverrides.GetValueOrDefault("codex.spark", "OpenAI (GPT-5.3 Codex Spark)");
+            var sparkDisplayName = StaticDefinition.DisplayNameOverrides.GetValueOrDefault(CodexSparkProviderId, "OpenAI (GPT-5.3 Codex Spark)");
             var sparkBurstUsed = sparkWindow.PrimaryUsedPercent ?? 0.0;
             var sparkBurstResetTime = ResolveResetTimeFromSeconds(sparkWindow.PrimaryResetAfterSeconds);
 
             usages.Add(new ProviderUsage
             {
-                ProviderId = "codex.spark",
+                ProviderId = CodexSparkProviderId,
                 ProviderName = sparkDisplayName,
                 CardId = "spark.burst",
                 GroupId = this.ProviderId,
@@ -565,11 +568,11 @@ public class CodexProvider : ProviderBase
 
             usages.Add(new ProviderUsage
             {
-                ProviderId = "codex.spark",
+                ProviderId = CodexSparkProviderId,
                 ProviderName = sparkDisplayName,
                 CardId = "spark.weekly",
                 GroupId = this.ProviderId,
-                Name = "Weekly",
+                Name = WeeklyWindowLabel,
                 WindowKind = WindowKind.Rolling,
                 UsedPercent = sparkWeeklyUsed,
                 RequestsUsed = sparkWeeklyUsed,

@@ -55,8 +55,10 @@ public class GeminiProvider : ProviderBase
 
     private const string GeminiPluginClientSecret = "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";
 
+#pragma warning disable S1075 // URIs are provider API endpoints
     private const string OAuthTokenUrl = "https://oauth2.googleapis.com/token";
     private const string QuotaUrl = "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota";
+#pragma warning restore S1075
     private static readonly JsonSerializerOptions CaseInsensitiveOptions = new() { PropertyNameCaseInsensitive = true };
 
     private readonly HttpClient _httpClient;

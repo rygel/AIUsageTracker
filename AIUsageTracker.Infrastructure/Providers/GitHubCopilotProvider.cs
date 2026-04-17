@@ -13,9 +13,11 @@ namespace AIUsageTracker.Infrastructure.Providers;
 
 public class GitHubCopilotProvider : ProviderBase
 {
+#pragma warning disable S1075 // URIs are provider API endpoints
     private const string GitHubUserUrl = "https://api.github.com/user";
     private const string CopilotUserUrl = "https://api.github.com/copilot_internal/user";
     private const string CopilotTokenUrl = "https://api.github.com/copilot_internal/v2/token";
+#pragma warning restore S1075
     private const string ProviderDisplayName = "GitHub Copilot";
 
     private readonly IGitHubAuthService _authService;

@@ -230,7 +230,7 @@ public static class HttpRequestBuilderExtensions
                 new ProviderRateLimitException(providerId, GetRetryAfter(response)),
 
             HttpFailureClassification.Server =>
-                new ProviderServerException(providerId, statusCode, $"Server error ({((int)statusCode).ToString(CultureInfo.InvariantCulture)})"),
+                new ProviderServerException(providerId, statusCode, $"Server error ({statusCode.ToString(CultureInfo.InvariantCulture)})"),
 
             HttpFailureClassification.Client when response.StatusCode == HttpStatusCode.NotFound =>
                 new ProviderException(
@@ -242,7 +242,7 @@ public static class HttpRequestBuilderExtensions
             _ =>
                 new ProviderException(
                     providerId,
-                    $"Request failed ({((int)statusCode).ToString(CultureInfo.InvariantCulture)})",
+                    $"Request failed ({statusCode.ToString(CultureInfo.InvariantCulture)})",
                     ProviderErrorType.InvalidResponseError,
                     statusCode),
         };

@@ -15,6 +15,7 @@ namespace AIUsageTracker.Infrastructure.Configuration;
 public class JsonConfigLoader : IConfigLoader
 {
     private const string AuthConfigFileName = "auth.json";
+    private const string OpenCodeDirectoryName = "opencode";
     private static readonly JsonSerializerOptions CaseInsensitiveOptions = new() { PropertyNameCaseInsensitive = true };
 
     private readonly ILogger<JsonConfigLoader> _logger;
@@ -184,10 +185,10 @@ public class JsonConfigLoader : IConfigLoader
         // ~/.opencode/ is a legacy path with potentially stale keys.
         // ~/.local/share/opencode/ is the active XDG data directory maintained by OpenCode.
         yield return Path.Combine(userProfileRoot, ".opencode", AuthConfigFileName);
-        yield return Path.Combine(userProfileRoot, ".config", "opencode", AuthConfigFileName);
-        yield return Path.Combine(userProfileRoot, "AppData", "Roaming", "opencode", AuthConfigFileName);
-        yield return Path.Combine(userProfileRoot, "AppData", "Local", "opencode", AuthConfigFileName);
-        yield return Path.Combine(userProfileRoot, ".local", "share", "opencode", AuthConfigFileName);
+        yield return Path.Combine(userProfileRoot, ".config", OpenCodeDirectoryName, AuthConfigFileName);
+        yield return Path.Combine(userProfileRoot, "AppData", "Roaming", OpenCodeDirectoryName, AuthConfigFileName);
+        yield return Path.Combine(userProfileRoot, "AppData", "Local", OpenCodeDirectoryName, AuthConfigFileName);
+        yield return Path.Combine(userProfileRoot, ".local", "share", OpenCodeDirectoryName, AuthConfigFileName);
     }
 
     private async Task MergeConfigFileAsync(Dictionary<string, ProviderConfig> mergedConfigs, string path, bool isAuthFile)

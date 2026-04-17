@@ -21,8 +21,11 @@ public class MonitorService : IMonitorService
 
     private const int UsageRequestTimeoutSeconds = 8;
     private const int ConfigRequestTimeoutSeconds = 3;
+#pragma warning disable S1075 // Default agent URL
     private const string DefaultAgentUrl = "http://localhost:5000";
+#pragma warning restore S1075
     private const string ActivityTagMonitorAgentUrl = "monitor.agent_url";
+    private const string HttpStatusCodeTag = "http.status_code";
 
     private static readonly List<string> _diagnosticsLog = new();
     private static readonly ActivitySource ActivitySource = new("AIUsageTracker.Core.MonitorService");
@@ -349,7 +352,7 @@ public class MonitorService : IMonitorService
         if (response != null)
         {
             this.RecordRefreshTelemetry(stopwatch.Elapsed, response.IsSuccessStatusCode);
-            activity?.SetTag("http.status_code", (int)response.StatusCode);
+            activity?.SetTag(HttpStatusCodeTag, (int)response.StatusCode);
             activity?.SetStatus(response.IsSuccessStatusCode ? ActivityStatusCode.Ok : ActivityStatusCode.Error);
             return response.IsSuccessStatusCode;
         }
@@ -495,7 +498,7 @@ public class MonitorService : IMonitorService
         var success = response?.IsSuccessStatusCode == true;
         if (response != null)
         {
-            activity?.SetTag("http.status_code", (int)response.StatusCode);
+            activity?.SetTag(HttpStatusCodeTag, (int)response.StatusCode);
         }
 
         activity?.SetStatus(success ? ActivityStatusCode.Ok : ActivityStatusCode.Error);
@@ -515,7 +518,7 @@ public class MonitorService : IMonitorService
         {
             if (response != null)
             {
-                activity?.SetTag("http.status_code", (int)response.StatusCode);
+                activity?.SetTag(HttpStatusCodeTag, (int)response.StatusCode);
             }
 
             activity?.SetStatus(ActivityStatusCode.Error, "Health endpoint unavailable");
@@ -559,7 +562,7 @@ public class MonitorService : IMonitorService
             using var response = await this._httpClient.GetAsync(this.BuildMonitorUrl(MonitorApiRoutes.Health)).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
-                activity?.SetTag("http.status_code", (int)response.StatusCode);
+                activity?.SetTag(HttpStatusCodeTag, (int)response.StatusCode);
                 activity?.SetStatus(ActivityStatusCode.Error, "Health endpoint returned non-success");
                 return new AgentContractHandshakeResult
                 {
