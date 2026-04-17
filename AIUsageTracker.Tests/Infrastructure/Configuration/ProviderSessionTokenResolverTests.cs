@@ -1,13 +1,9 @@
-using System;
-using System.IO;
 using System.Text.Json;
-using System.Threading.Tasks;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using Xunit;
 
 namespace AIUsageTracker.Tests.Infrastructure.Configuration;
 
@@ -42,7 +38,7 @@ public class ProviderSessionTokenResolverTests
                 "github-copilot",
                 "GitHub Copilot",
                 PlanType.Coding,
-                true)
+                isQuotaBased: true)
             {
                 AuthIdentityCandidatePathTemplates = new[] { authFilePath },
                 SessionAuthFileSchemas = new[]

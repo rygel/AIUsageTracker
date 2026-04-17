@@ -226,6 +226,15 @@ memory.md
 problems.md
 task.md
 
+# Local static-analysis exports
+sonarqube_issues.json
+sonarqube_info_issues.json
+
+# Local gitleaks artifacts (generated during manual secret scans)
+.gitleaks-bin/
+gitleaks-report.json
+gitleaks_*.zip
+
 # Stale root-level Inno Setup template (canonical script lives in scripts/setup.iss)
 /setup.iss
 

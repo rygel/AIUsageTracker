@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System;
-using System.Net.Http;
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
 
@@ -21,6 +19,7 @@ public static class HttpFailureMapper
     /// Classifies an HTTP error response into a structured <see cref="HttpFailureContext"/>.
     /// Only call this for non-success responses; successful responses are not failures.
     /// </summary>
+    /// <returns></returns>
     public static HttpFailureContext ClassifyResponse(HttpResponseMessage response)
     {
         ArgumentNullException.ThrowIfNull(response);
@@ -53,6 +52,7 @@ public static class HttpFailureMapper
     /// Classifies a caught exception into a structured <see cref="HttpFailureContext"/>.
     /// Handles the exception types that occur during provider HTTP calls.
     /// </summary>
+    /// <returns></returns>
     public static HttpFailureContext ClassifyException(Exception exception)
     {
         return exception switch

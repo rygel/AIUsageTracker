@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System.Threading.Tasks;
-
 namespace AIUsageTracker.Core.Interfaces;
 
 public interface IGitHubAuthService

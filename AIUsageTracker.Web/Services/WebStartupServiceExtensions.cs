@@ -4,7 +4,6 @@
 
 using System.IO.Compression;
 using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.ResponseCompression;
 
 namespace AIUsageTracker.Web.Services;

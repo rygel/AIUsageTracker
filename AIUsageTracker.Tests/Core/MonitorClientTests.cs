@@ -2,14 +2,11 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System.Net;
 using System.Reflection;
-using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Moq.Protected;
-using Xunit;
 
 namespace AIUsageTracker.Tests.Core;
 

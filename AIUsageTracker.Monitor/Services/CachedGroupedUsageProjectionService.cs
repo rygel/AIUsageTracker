@@ -5,8 +5,6 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-
-using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.Providers;

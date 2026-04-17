@@ -31,7 +31,7 @@ public class ConverterTests
             CultureInfo.InvariantCulture);
 
         Assert.NotNull(result);
-        Assert.IsAssignableFrom<SolidColorBrush>(result);
+        Assert.IsType<SolidColorBrush>(result, false);
 
         var brush = (SolidColorBrush)result;
         var actualColorName = GetColorName(brush.Color);

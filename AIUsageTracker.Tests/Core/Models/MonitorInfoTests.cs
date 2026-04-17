@@ -4,7 +4,6 @@
 
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
-using Xunit;
 
 namespace AIUsageTracker.Tests.Core.Models;
 

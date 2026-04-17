@@ -49,7 +49,7 @@ internal static class CardCatalogPermutations
         return sb.ToString();
     }
 
-    private static IReadOnlyList<Permutation> BuildPermutations()
+    private static Permutation[] BuildPermutations()
     {
         return new Permutation[]
         {

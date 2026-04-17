@@ -898,7 +898,7 @@ public partial class SettingsWindow
         return CreateFallbackIcon(providerId);
     }
 
-    private static ImageSource CreateFallbackIcon(string providerId)
+    private static DrawingImage CreateFallbackIcon(string providerId)
     {
         // Create a simple colored circle as fallback
         var (color, _) = global::AIUsageTracker.UI.Slim.Services.WpfProviderIconService.GetBadge(providerId, Brushes.Gray);

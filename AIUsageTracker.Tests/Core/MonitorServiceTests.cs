@@ -569,7 +569,7 @@ public class MonitorServiceTests
     [Fact]
     public void EvaluateApiContractCompatibility_AllowsMatchingMajor()
     {
-        var result = MonitorService.EvaluateApiContractCompatibility("1.7", null, "2.1.3");
+        var result = MonitorService.EvaluateApiContractCompatibility("1.7", minClientContractVersion: null, "2.1.3");
 
         Assert.True(result.IsReachable);
         Assert.True(result.IsCompatible);
@@ -590,7 +590,7 @@ public class MonitorServiceTests
     [Fact]
     public void EvaluateApiContractCompatibility_RejectsMajorMismatch()
     {
-        var result = MonitorService.EvaluateApiContractCompatibility("2.0", null, "2.1.3");
+        var result = MonitorService.EvaluateApiContractCompatibility("2.0", minClientContractVersion: null, "2.1.3");
 
         Assert.True(result.IsReachable);
         Assert.False(result.IsCompatible);

@@ -135,12 +135,12 @@ public class ProviderManager : IDisposable
             throw new ArgumentException($"Provider '{providerId}' not found in configuration.", nameof(providerId));
         }
 
-        return await this.FetchSingleProviderUsageAsync(config, null, cancellationToken).ConfigureAwait(false);
+        return await this.FetchSingleProviderUsageAsync(config, progressCallback: null, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     public void Dispose()
     {
-        this.Dispose(true);
+        this.Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
 

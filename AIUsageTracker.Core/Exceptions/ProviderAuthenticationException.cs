@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System;
-
 namespace AIUsageTracker.Core.Exceptions;
 
 /// <summary>

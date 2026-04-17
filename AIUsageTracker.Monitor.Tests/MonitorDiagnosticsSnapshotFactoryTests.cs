@@ -82,7 +82,7 @@ public class MonitorDiagnosticsSnapshotFactoryTests
             snapshot.Observability.ActivitySourceNames);
     }
 
-    private static EndpointDataSource BuildDataSource(params RouteEndpoint[] endpoints)
+    private static DefaultEndpointDataSource BuildDataSource(params RouteEndpoint[] endpoints)
     {
         return new DefaultEndpointDataSource(endpoints);
     }

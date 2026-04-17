@@ -5,9 +5,7 @@
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Monitor.Services;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Monitor.Endpoints;
 
@@ -87,7 +85,7 @@ internal static class MonitorUsageEndpoints
                 "POST {Route} forceAll={ForceAll} includeProviderCount={IncludeProviderCount}",
                 MonitorApiRoutes.Refresh,
                 forceAll,
-                includeProviderIds?.Count ?? 0);
+                includeProviderIds?.Length ?? 0);
             var queued = refreshService.QueueForceRefresh(
                 forceAll: forceAll,
                 includeProviderIds: includeProviderIds);
@@ -96,7 +94,7 @@ internal static class MonitorUsageEndpoints
                 message = queued ? "Refresh queued" : "Refresh already queued",
                 queued,
                 forceAll,
-                includeProviderCount = includeProviderIds?.Count ?? 0,
+                includeProviderCount = includeProviderIds?.Length ?? 0,
             });
         });
     }
@@ -115,7 +113,7 @@ internal static class MonitorUsageEndpoints
         });
     }
 
-    private static IReadOnlyCollection<string>? ParseProviderIds(string? providerIds)
+    private static string[]? ParseProviderIds(string? providerIds)
     {
         if (string.IsNullOrWhiteSpace(providerIds))
         {

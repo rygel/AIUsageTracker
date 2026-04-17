@@ -3,7 +3,6 @@
 // </copyright>
 
 using System.Windows.Documents;
-using System.Windows.Media;
 using AIUsageTracker.UI.Slim.Services;
 
 namespace AIUsageTracker.Tests.UI;

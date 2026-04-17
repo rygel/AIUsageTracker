@@ -2,12 +2,10 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System;
 using System.Net;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.Extensions.Logging.Abstractions;
-using Xunit;
 
 namespace AIUsageTracker.Tests.Integration;
 
@@ -27,6 +25,7 @@ public class ProviderResponseDeserializationTests
     /// an additional_rate_limits entry for Spark. Verifies the flat-card output
     /// including burst, weekly, and spark cards.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task CodexProvider_ParsesRealisticResponse_WithAllWindows()
     {
@@ -116,6 +115,7 @@ public class ProviderResponseDeserializationTests
     /// Codex provider: response with ONLY primary_window (no secondary, no spark).
     /// Verifies graceful handling of missing windows.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task CodexProvider_ParsesMinimalResponse_PrimaryWindowOnly()
     {
@@ -154,6 +154,7 @@ public class ProviderResponseDeserializationTests
     /// Verifies that burst and weekly cards have null reset time (no cross-window fallbacks),
     /// while the additional card's own windows carry their reset times.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task CodexProvider_NoFallback_MainWindowCardsHaveNullResetTime_WhenMainWindowLacksIt()
     {
@@ -202,6 +203,7 @@ public class ProviderResponseDeserializationTests
     /// Claude Code provider: realistic OAuth usage response with five_hour, seven_day,
     /// seven_day_sonnet, and seven_day_opus windows. Verifies flat-card output.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task ClaudeCodeProvider_ParsesOAuthUsageResponse_WithAllWindows()
     {
@@ -270,6 +272,7 @@ public class ProviderResponseDeserializationTests
     /// Claude Code provider: OAuth response with only five_hour window (no 7-day data).
     /// Verifies graceful handling of partial responses.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task ClaudeCodeProvider_ParsesPartialResponse_OnlyFiveHour()
     {
@@ -304,6 +307,7 @@ public class ProviderResponseDeserializationTests
     /// <summary>
     /// Codex provider: error response with detail message should return unavailable usage.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task CodexProvider_ErrorResponse_ReturnsUnavailableUsage()
     {
@@ -327,6 +331,7 @@ public class ProviderResponseDeserializationTests
     /// <summary>
     /// Claude Code provider: non-success HTTP response returns null (falls through to next strategy).
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task ClaudeCodeProvider_NonSuccessHttpStatus_ReturnsNull()
     {

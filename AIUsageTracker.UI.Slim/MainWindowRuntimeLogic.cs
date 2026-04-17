@@ -266,6 +266,7 @@ internal static partial class MainWindowRuntimeLogic
     /// Resolves reset times for the provider card, falling back to the parent's
     /// NextResetTime when no specific window reset is available.
     /// </summary>
+    /// <returns></returns>
     internal static IReadOnlyList<DateTime> ResolveResetTimes(ProviderUsage usage, bool suppressSingleResetFallback)
     {
         ArgumentNullException.ThrowIfNull(usage);
@@ -284,6 +285,7 @@ internal static partial class MainWindowRuntimeLogic
     /// Builds a multi-line tooltip string for a provider card, including daily budget
     /// information for multi-day quota periods.
     /// </summary>
+    /// <returns></returns>
     internal static string? BuildTooltipContent(ProviderUsage usage, string friendlyName)
     {
         var tooltipBuilder = new System.Text.StringBuilder();

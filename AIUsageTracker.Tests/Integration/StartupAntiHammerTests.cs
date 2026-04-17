@@ -2,14 +2,12 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System.Linq;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Monitor.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using Xunit;
 
 namespace AIUsageTracker.Tests.Core;
 
@@ -92,7 +90,7 @@ public class StartupAntiHammerTests
             .Returns(new Mock<ILogger>().Object);
 
         mockDb.Setup(db => db.IsHistoryEmptyAsync())
-            .ReturnsAsync(false);
+            .ReturnsAsync(value: false);
 
         mockConfigService.Setup(cs => cs.ScanForKeysAsync())
             .ReturnsAsync(new List<ProviderConfig>());
@@ -174,7 +172,7 @@ public class StartupAntiHammerTests
             .Returns(new Mock<ILogger>().Object);
 
         mockDb.Setup(db => db.IsHistoryEmptyAsync())
-            .ReturnsAsync(true);
+            .ReturnsAsync(value: true);
 
         mockConfigService.Setup(cs => cs.ScanForKeysAsync())
             .ReturnsAsync(new List<ProviderConfig>())

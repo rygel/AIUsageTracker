@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using Microsoft.Extensions.Logging;
-
 namespace AIUsageTracker.Monitor.Logging;
 
 public class FileLoggerProvider : ILoggerProvider
@@ -22,7 +20,7 @@ public class FileLoggerProvider : ILoggerProvider
 
     public void Dispose()
     {
-        this.Dispose(true);
+        this.Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
 

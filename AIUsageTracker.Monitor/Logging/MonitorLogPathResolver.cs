@@ -16,20 +16,20 @@ internal static class MonitorLogPathResolver
         if (TryEnsureDirectory(preferredDirectory))
         {
             return new ResolvedMonitorLogPath(
-                preferredDirectory!,
-                BuildLogFilePath(preferredDirectory!, now),
-                false,
-                preferredDirectory);
+                LogDirectory: preferredDirectory!,
+                LogFile: BuildLogFilePath(preferredDirectory!, now),
+                UsedFallback: false,
+                PreferredDirectory: preferredDirectory);
         }
 
         var fallbackDirectory = Path.Combine(Path.GetTempPath(), "AIUsageTracker", "logs");
         if (TryEnsureDirectory(fallbackDirectory))
         {
             return new ResolvedMonitorLogPath(
-                fallbackDirectory,
-                BuildLogFilePath(fallbackDirectory, now),
-                true,
-                preferredDirectory);
+                LogDirectory: fallbackDirectory,
+                LogFile: BuildLogFilePath(fallbackDirectory, now),
+                UsedFallback: true,
+                PreferredDirectory: preferredDirectory);
         }
 
         throw new IOException(

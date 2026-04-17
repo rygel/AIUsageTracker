@@ -22,7 +22,7 @@ internal static class MonitorLauncherProcessController
             : MonitorProjectDirectoryName;
         var possiblePaths = GetExecutableCandidates(AppContext.BaseDirectory, monitorExeName);
 
-        MonitorService.LogDiagnostic($"Locating Monitor executable (checked {possiblePaths.Count} common locations)...");
+        MonitorService.LogDiagnostic($"Locating Monitor executable (checked {possiblePaths.Length} common locations)...");
         var agentPath = possiblePaths.FirstOrDefault(File.Exists);
 
         if (agentPath != null)
@@ -178,7 +178,7 @@ internal static class MonitorLauncherProcessController
         };
     }
 
-    private static IReadOnlyList<string> GetExecutableCandidates(string baseDirectory, string monitorExecutableName)
+    private static string[] GetExecutableCandidates(string baseDirectory, string monitorExecutableName)
     {
         return new[]
         {

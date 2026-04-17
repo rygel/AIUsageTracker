@@ -40,5 +40,6 @@ public interface IProviderService
     /// Always returns at least one <see cref="ProviderUsage"/> row.
     /// On failure, returns an unavailable row — does not throw.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default);
 }

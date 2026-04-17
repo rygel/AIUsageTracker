@@ -103,7 +103,7 @@ public sealed class UsageDatabaseReadTests : IDisposable
             MakeUsage("mistral", fetchedAt: now),
         ]);
 
-        var results = await db.GetLatestHistoryAsync(null);
+        var results = await db.GetLatestHistoryAsync(providerIds: null);
 
         Assert.Contains(results, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal));
         Assert.Contains(results, u => string.Equals(u.ProviderId, "mistral", StringComparison.Ordinal));

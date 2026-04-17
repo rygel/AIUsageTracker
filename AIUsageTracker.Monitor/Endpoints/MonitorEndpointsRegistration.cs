@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using Microsoft.AspNetCore.Builder;
-
 namespace AIUsageTracker.Monitor.Endpoints;
 
 internal static class MonitorEndpointsRegistration

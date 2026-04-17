@@ -4,7 +4,6 @@
 
 using System.Reflection;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Media;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.UI.Slim;

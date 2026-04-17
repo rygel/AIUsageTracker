@@ -46,8 +46,8 @@ public class ThemeCompletenessTests
         "LinkForeground",
     };
 
-    public static IEnumerable<object[]> AllThemes =>
-        Enum.GetValues<AppTheme>().Select(t => new object[] { t });
+    public static TheoryData<AppTheme> AllThemes =>
+        new TheoryData<AppTheme>(Enum.GetValues<AppTheme>());
 
     [Theory]
     [MemberData(nameof(AllThemes))]

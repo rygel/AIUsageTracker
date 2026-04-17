@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System;
-using System.Threading.Tasks;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 

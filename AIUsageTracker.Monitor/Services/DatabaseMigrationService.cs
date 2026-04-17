@@ -4,7 +4,6 @@
 
 using EvolveDb;
 using Microsoft.Data.Sqlite;
-using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Monitor.Services;
 
@@ -13,7 +12,7 @@ public class DatabaseMigrationService
     private const string TableProviders = "providers";
     private const string TableProviderHistory = "provider_history";
 
-    private static readonly IReadOnlyDictionary<string, string> TableInfoSql =
+    private static readonly Dictionary<string, string> TableInfoSql =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             [TableProviders] = "PRAGMA table_info(providers)",

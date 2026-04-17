@@ -4,7 +4,6 @@
 
 using System.Diagnostics;
 using System.Globalization;
-using System.Net.Http;
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Runtime;
@@ -34,6 +33,7 @@ public class MonitorLauncher : IMonitorLauncher
     private readonly Func<Task<bool>>? _stopNamedProcessesOverride;
 
     /// <summary>
+    /// Initializes a new instance of the <see cref="MonitorLauncher"/> class.
     /// DI constructor — takes only the logger. Used by the DI container.
     /// </summary>
     public MonitorLauncher(ILogger<MonitorLauncher> logger)
@@ -42,6 +42,7 @@ public class MonitorLauncher : IMonitorLauncher
     }
 
     /// <summary>
+    /// Initializes a new instance of the <see cref="MonitorLauncher"/> class.
     /// Test constructor — accepts optional overrides for health check, process check, etc.
     /// </summary>
     internal MonitorLauncher(
@@ -461,7 +462,7 @@ public class MonitorLauncher : IMonitorLauncher
         var (info, path) = await this.ReadAgentInfoAsync().ConfigureAwait(false);
         if (info == null)
         {
-            return new MonitorMetadataState(null, path, HealthOk: false, ProcessRunning: false);
+            return new MonitorMetadataState(Info: null, Path: path, HealthOk: false, ProcessRunning: false);
         }
 
         var healthOk = await this.CheckHealthAsync(info.Port).ConfigureAwait(false);

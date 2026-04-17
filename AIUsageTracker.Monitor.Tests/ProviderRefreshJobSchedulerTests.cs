@@ -41,7 +41,7 @@ public class ProviderRefreshJobSchedulerTests
                 It.IsAny<Func<CancellationToken, Task>>(),
                 It.IsAny<MonitorJobPriority>(),
                 It.IsAny<string?>()))
-            .Returns(true);
+            .Returns(value: true);
 
         var queued = scheduler.QueueManualRefresh(_ => Task.CompletedTask);
 
@@ -65,7 +65,7 @@ public class ProviderRefreshJobSchedulerTests
                 It.IsAny<Func<CancellationToken, Task>>(),
                 It.IsAny<MonitorJobPriority>(),
                 It.IsAny<string?>()))
-            .Returns(true);
+            .Returns(value: true);
 
         var queued = scheduler.QueueManualRefresh(_ => Task.CompletedTask, "manual-provider-refresh|scope=openai");
 
@@ -89,7 +89,7 @@ public class ProviderRefreshJobSchedulerTests
                 It.IsAny<Func<CancellationToken, Task>>(),
                 It.IsAny<MonitorJobPriority>(),
                 It.IsAny<string?>()))
-            .Returns(true);
+            .Returns(value: true);
 
         var queued = scheduler.QueueInitialDataSeeding(_ => Task.CompletedTask);
 
@@ -113,7 +113,7 @@ public class ProviderRefreshJobSchedulerTests
                 It.IsAny<Func<CancellationToken, Task>>(),
                 It.IsAny<MonitorJobPriority>(),
                 It.IsAny<string?>()))
-            .Returns(true);
+            .Returns(value: true);
 
         var queued = scheduler.QueueStartupTargetedRefresh(_ => Task.CompletedTask);
 

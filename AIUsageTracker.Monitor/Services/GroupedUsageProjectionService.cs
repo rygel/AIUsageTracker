@@ -92,7 +92,7 @@ public static class GroupedUsageProjectionService
                 .First();
     }
 
-    private static IReadOnlyList<AgentGroupedModelUsage> BuildModels(
+    private static List<AgentGroupedModelUsage> BuildModels(
         IEnumerable<ProviderUsage> group,
         string canonicalProviderId)
     {
@@ -135,7 +135,7 @@ public static class GroupedUsageProjectionService
         return BuildModelsFromDetails();
     }
 
-    private static IReadOnlyList<AgentGroupedModelUsage> BuildModelsFromFlatCards(
+    private static List<AgentGroupedModelUsage> BuildModelsFromFlatCards(
         IEnumerable<ProviderUsage> group)
     {
         return group
@@ -183,7 +183,7 @@ public static class GroupedUsageProjectionService
         return usages.Any(usage => IsExplicitChildUsage(usage, canonicalProviderId));
     }
 
-    private static IReadOnlyList<AgentGroupedModelUsage> BuildModelsFromExplicitChildRows(
+    private static List<AgentGroupedModelUsage> BuildModelsFromExplicitChildRows(
         IEnumerable<ProviderUsage> group,
         string canonicalProviderId)
     {
@@ -207,7 +207,7 @@ public static class GroupedUsageProjectionService
                     RemainingPercentage = remainingPercentage,
                     NextResetTime = usage.NextResetTime,
                     Description = usage.Description ?? string.Empty,
-                    QuotaBuckets = quotaBuckets.Count > 0
+                    QuotaBuckets = quotaBuckets.Length > 0
                         ? quotaBuckets
                         : BuildSummaryQuotaBuckets(
                             usedPercentage,
@@ -221,7 +221,7 @@ public static class GroupedUsageProjectionService
             .ToList();
     }
 
-    private static IReadOnlyList<AgentGroupedQuotaBucketUsage> BuildSummaryQuotaBuckets(
+    private static AgentGroupedQuotaBucketUsage[] BuildSummaryQuotaBuckets(
         double? usedPercentage,
         double? remainingPercentage,
         DateTime? nextResetTime,

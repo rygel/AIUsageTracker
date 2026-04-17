@@ -5,8 +5,6 @@
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Services;
 using AIUsageTracker.Infrastructure.Configuration;
-using AIUsageTracker.Infrastructure.Services;
-using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Monitor.Services;
 
@@ -87,6 +85,6 @@ public sealed class ProviderManagerLifecycleService : IDisposable
 
     public void Dispose()
     {
-        Interlocked.Exchange(ref this._providerManager, null)?.Dispose();
+        Interlocked.Exchange<ProviderManager?>(ref this._providerManager, null)?.Dispose();
     }
 }

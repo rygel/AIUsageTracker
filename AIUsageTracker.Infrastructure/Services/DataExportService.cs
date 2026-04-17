@@ -6,7 +6,6 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
-using AIUsageTracker.Core.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Services;

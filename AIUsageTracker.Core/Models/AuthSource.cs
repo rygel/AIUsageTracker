@@ -59,6 +59,7 @@ public static class AuthSource
     }
 
     /// <summary>Extracts the variable name from "Env: VARIABLE_NAME".</summary>
+    /// <returns></returns>
     public static bool TryParseEnvironmentVariable(string? authSource, out string varName)
     {
         var prefix = $"{EnvironmentPrefix}: ";
@@ -78,6 +79,7 @@ public static class AuthSource
     /// A config entry may list multiple comma-separated paths when keys were merged
     /// from several files.
     /// </summary>
+    /// <returns></returns>
     public static IReadOnlyList<string> ParseConfigFilePaths(string? authSource)
     {
         if (string.IsNullOrWhiteSpace(authSource))
@@ -96,6 +98,7 @@ public static class AuthSource
     }
 
     /// <summary>Extracts the file path from "Roo Code: /path/to/file".</summary>
+    /// <returns></returns>
     public static bool TryParseRooPath(string? authSource, out string filePath)
     {
         var prefix = $"{RooPrefix}: ";

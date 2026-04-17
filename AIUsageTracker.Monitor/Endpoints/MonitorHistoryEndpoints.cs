@@ -4,8 +4,6 @@
 
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Monitor.Services;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Monitor.Endpoints;
 

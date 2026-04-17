@@ -4,7 +4,6 @@
 
 using System.Globalization;
 using AIUsageTracker.Monitor.Services;
-using Microsoft.AspNetCore.Routing;
 
 namespace AIUsageTracker.Monitor.Endpoints;
 
@@ -49,7 +48,7 @@ internal static class MonitorDiagnosticsSnapshotFactory
         };
     }
 
-    private static IReadOnlyList<MonitorApiEndpointDescriptor> BuildApiEndpoints(EndpointDataSource endpointDataSource)
+    private static MonitorApiEndpointDescriptor[] BuildApiEndpoints(EndpointDataSource endpointDataSource)
     {
         return endpointDataSource.Endpoints
             .OfType<RouteEndpoint>()

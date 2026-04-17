@@ -52,6 +52,7 @@ public sealed class HttpFailureContext
     /// <summary>
     /// Creates an <see cref="HttpFailureContext"/> from an HTTP status code using standard classification rules.
     /// </summary>
+    /// <returns></returns>
     public static HttpFailureContext FromHttpStatus(int httpStatus, string userMessage = "")
     {
         var classification = httpStatus switch
@@ -80,6 +81,7 @@ public sealed class HttpFailureContext
     /// <summary>
     /// Creates an <see cref="HttpFailureContext"/> for a network or timeout failure.
     /// </summary>
+    /// <returns></returns>
     public static HttpFailureContext FromException(Exception exception, HttpFailureClassification classification, string userMessage = "")
     {
         ArgumentNullException.ThrowIfNull(exception);

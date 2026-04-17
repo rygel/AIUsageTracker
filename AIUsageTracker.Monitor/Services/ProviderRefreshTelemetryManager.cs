@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using AIUsageTracker.Core.Models;
-
 namespace AIUsageTracker.Monitor.Services;
 
 internal sealed class ProviderRefreshTelemetryManager

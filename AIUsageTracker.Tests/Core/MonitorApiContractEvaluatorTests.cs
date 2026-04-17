@@ -11,7 +11,7 @@ public class MonitorApiContractEvaluatorTests
     [Fact]
     public void Evaluate_ReturnsCompatible_WhenMajorMatches()
     {
-        var result = MonitorApiContractEvaluator.Evaluate("1.5", null, "2.0.0", "1");
+        var result = MonitorApiContractEvaluator.Evaluate("1.5", minClientContractVersion: null, "2.0.0", "1");
 
         Assert.True(result.IsReachable);
         Assert.True(result.IsCompatible);
@@ -31,7 +31,7 @@ public class MonitorApiContractEvaluatorTests
     [Fact]
     public void Evaluate_ReturnsIncompatible_WhenMajorMismatch()
     {
-        var result = MonitorApiContractEvaluator.Evaluate("2.0", null, "2.0.0", "1");
+        var result = MonitorApiContractEvaluator.Evaluate("2.0", minClientContractVersion: null, "2.0.0", "1");
 
         Assert.True(result.IsReachable);
         Assert.False(result.IsCompatible);

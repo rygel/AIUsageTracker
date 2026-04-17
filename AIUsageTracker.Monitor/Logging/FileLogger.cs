@@ -5,8 +5,6 @@
 using System.Diagnostics;
 using System.Globalization;
 
-using Microsoft.Extensions.Logging;
-
 namespace AIUsageTracker.Monitor.Logging;
 
 public class FileLogger : ILogger

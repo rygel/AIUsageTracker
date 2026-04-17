@@ -2,7 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System.Data;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Web.Services;
 using Microsoft.Data.Sqlite;
@@ -145,7 +144,7 @@ public abstract class DatabaseTestBase : IDisposable
     {
         this._sharedConnection.Close();
         this._sharedConnection.Dispose();
-        this.Dispose(true);
+        this.Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
 

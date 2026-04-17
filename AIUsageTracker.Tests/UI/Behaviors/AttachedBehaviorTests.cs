@@ -2,7 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System.Windows;
 using System.Windows.Controls;
 using AIUsageTracker.UI.Slim.Behaviors;
 
@@ -41,7 +40,7 @@ public class AttachedBehaviorTests
             var element = new Border();
 
             // Act
-            WindowDragBehavior.SetEnableDrag(element, true);
+            WindowDragBehavior.SetEnableDrag(element, value: true);
             var result = WindowDragBehavior.GetEnableDrag(element);
 
             // Assert
@@ -76,7 +75,7 @@ public class AttachedBehaviorTests
             var button = new Button();
 
             // Act
-            CloseWindowBehavior.SetCloseOnClick(button, true);
+            CloseWindowBehavior.SetCloseOnClick(button, value: true);
             var result = CloseWindowBehavior.GetCloseOnClick(button);
 
             // Assert
@@ -111,7 +110,7 @@ public class AttachedBehaviorTests
             var button = new Button();
 
             // Act
-            CloseWindowBehavior.SetHideOnClick(button, true);
+            CloseWindowBehavior.SetHideOnClick(button, value: true);
             var result = CloseWindowBehavior.GetHideOnClick(button);
 
             // Assert
@@ -120,7 +119,7 @@ public class AttachedBehaviorTests
         });
     }
 
-    private static Task RunInStaAsync(Func<Task> testBody)
+    private static Task<object?> RunInStaAsync(Func<Task> testBody)
     {
         var tcs = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
 

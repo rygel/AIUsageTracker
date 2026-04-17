@@ -2,9 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System.IO;
 using System.Text.RegularExpressions;
-using Xunit;
 
 namespace AIUsageTracker.Tests.Core;
 

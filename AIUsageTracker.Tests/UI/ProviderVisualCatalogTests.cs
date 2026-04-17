@@ -4,7 +4,6 @@
 
 using System.Windows.Media;
 using AIUsageTracker.Infrastructure.Providers;
-using AIUsageTracker.UI.Slim;
 using AIUsageTracker.UI.Slim.Services;
 
 namespace AIUsageTracker.Tests.UI;

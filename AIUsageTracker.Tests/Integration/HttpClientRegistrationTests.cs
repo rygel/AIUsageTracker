@@ -5,7 +5,6 @@
 using System.Net;
 using AIUsageTracker.Infrastructure.Extensions;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace AIUsageTracker.Tests.Integration;
 

@@ -2,7 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Media;
 using AIUsageTracker.Core.Models;
@@ -502,11 +501,13 @@ public partial class App
     /// <summary>
     /// Returns true if the theme has a palette defined. Used by tests.
     /// </summary>
+    /// <returns></returns>
     internal static bool HasThemePalette(AppTheme theme) => ThemePalettes.ContainsKey(theme);
 
     /// <summary>
     /// Returns any required keys missing from the theme's palette. Used by tests.
     /// </summary>
+    /// <returns></returns>
     internal static IReadOnlyList<string> GetMissingThemeKeys(AppTheme theme, string[] requiredKeys)
     {
         if (!ThemePalettes.TryGetValue(theme, out var palette))

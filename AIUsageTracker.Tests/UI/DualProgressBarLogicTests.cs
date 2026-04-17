@@ -4,7 +4,6 @@
 
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.UI.Slim;
-using Xunit;
 
 namespace AIUsageTracker.Tests.UI;
 

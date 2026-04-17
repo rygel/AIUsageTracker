@@ -6,8 +6,6 @@ using System.Net;
 using System.Net.Http.Headers;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
-using AIUsageTracker.Tests.Infrastructure;
-using Xunit;
 
 namespace AIUsageTracker.Tests.Infrastructure.Providers;
 

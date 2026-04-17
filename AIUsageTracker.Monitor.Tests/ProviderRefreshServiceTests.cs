@@ -4,14 +4,10 @@
 
 #pragma warning disable CS0618 // UsedPercent: legacy field set in test fixtures
 
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Reflection;
-using System.Threading.Tasks;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Core.Services;
 using AIUsageTracker.Monitor.Hubs;
 using AIUsageTracker.Monitor.Services;
 using AIUsageTracker.Tests.Infrastructure;
@@ -19,7 +15,6 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using Xunit;
 
 namespace AIUsageTracker.Monitor.Tests;
 
@@ -52,7 +47,7 @@ public class ProviderRefreshServiceTests
         this._mockHubContext = new Mock<IHubContext<UsageHub>>();
         this._mockConfigService = new Mock<IConfigService>();
         this._mockJobScheduler = new Mock<IMonitorJobScheduler>();
-        this._mockDatabase.Setup(d => d.IsHistoryEmptyAsync()).ReturnsAsync(false);
+        this._mockDatabase.Setup(d => d.IsHistoryEmptyAsync()).ReturnsAsync(value: false);
         this._mockConfigService.Setup(c => c.GetPreferencesAsync()).ReturnsAsync(new AppPreferences());
         this._mockConfigService.Setup(c => c.GetConfigsAsync()).ReturnsAsync(new List<ProviderConfig>());
         this._mockJobScheduler
@@ -61,7 +56,7 @@ public class ProviderRefreshServiceTests
                 It.IsAny<Func<CancellationToken, Task>>(),
                 It.IsAny<MonitorJobPriority>(),
                 It.IsAny<string?>()))
-            .Returns(true);
+            .Returns(value: true);
 
         // Setup HubContext mock
         var mockClients = new Mock<IHubClients>();
@@ -252,7 +247,7 @@ public class ProviderRefreshServiceTests
                 It.IsAny<Func<CancellationToken, Task>>(),
                 It.IsAny<MonitorJobPriority>(),
                 It.IsAny<string?>()))
-            .Returns(true);
+            .Returns(value: true);
 
         var queued = this._service.QueueManualRefresh();
 
@@ -275,7 +270,7 @@ public class ProviderRefreshServiceTests
                 It.IsAny<Func<CancellationToken, Task>>(),
                 It.IsAny<MonitorJobPriority>(),
                 It.IsAny<string?>()))
-            .Returns(true);
+            .Returns(value: true);
 
         var queued = this._service.QueueManualRefresh(
             includeProviderIds: new[] { "zai", "OpenAI" },
@@ -329,7 +324,7 @@ public class ProviderRefreshServiceTests
                 It.IsAny<MonitorJobPriority>(),
                 It.IsAny<string?>()))
             .Callback<string, Func<CancellationToken, Task>, MonitorJobPriority, string?>((_, work, _, _) => queuedWork = work)
-            .Returns(true);
+            .Returns(value: true);
 
         var stoppedActivities = new List<Activity>();
         using var listener = new ActivityListener
@@ -357,7 +352,7 @@ public class ProviderRefreshServiceTests
     [Fact]
     public async Task StartAsync_WhenHistoryEmpty_QueuesStartupSeedingAndRecurringRefreshAsync()
     {
-        this._mockDatabase.Setup(d => d.IsHistoryEmptyAsync()).ReturnsAsync(true);
+        this._mockDatabase.Setup(d => d.IsHistoryEmptyAsync()).ReturnsAsync(value: true);
 
         await this._service.StartAsync(CancellationToken.None);
         await Task.Delay(100);
@@ -393,7 +388,7 @@ public class ProviderRefreshServiceTests
     [Fact]
     public async Task StartAsync_WhenHistoryExists_QueuesTargetedRefreshAndRecurringRefreshAsync()
     {
-        this._mockDatabase.Setup(d => d.IsHistoryEmptyAsync()).ReturnsAsync(false);
+        this._mockDatabase.Setup(d => d.IsHistoryEmptyAsync()).ReturnsAsync(value: false);
 
         await this._service.StartAsync(CancellationToken.None);
         await Task.Delay(100);
@@ -616,7 +611,7 @@ public class ProviderRefreshServiceTests
                 It.IsAny<Func<CancellationToken, Task>>(),
                 It.IsAny<MonitorJobPriority>(),
                 It.IsAny<string?>()))
-            .Returns(true);
+            .Returns(value: true);
         pipeline.Setup(p => p.Process(It.IsAny<IEnumerable<ProviderUsage>>(), It.IsAny<IReadOnlyCollection<string>>(), true))
             .Returns(new ProviderUsageProcessingResult { Usages = new[] { processedOutput } });
     }
@@ -669,7 +664,7 @@ public class ProviderRefreshServiceTests
                 It.IsAny<Func<CancellationToken, Task>>(),
                 It.IsAny<MonitorJobPriority>(),
                 It.IsAny<string?>()))
-            .Returns(true);
+            .Returns(value: true);
 
         var providers = new[] { provider };
         var configLoadingService = new ProviderRefreshConfigLoadingService(

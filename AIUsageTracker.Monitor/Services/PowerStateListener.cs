@@ -3,8 +3,6 @@
 // </copyright>
 
 using AIUsageTracker.Core.Interfaces;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Monitor.Services;
 
@@ -117,13 +115,13 @@ public sealed class PowerStateListener : IHostedService, IDisposable
     {
         this._logger.LogInformation("System suspend detected — pausing scheduler");
         this._onSuspend();
-        MonitorInfoPersistence.SaveMonitorInfo(0, false, this._logger, this._pathProvider, startupStatus: "suspended");
+        MonitorInfoPersistence.SaveMonitorInfo(port: 0, debug: false, logger: this._logger, pathProvider: this._pathProvider, startupStatus: "suspended");
     }
 
     private void HandleResume()
     {
         this._logger.LogInformation("System resume detected — resuming scheduler");
         this._onResume();
-        MonitorInfoPersistence.SaveMonitorInfo(0, false, this._logger, this._pathProvider, startupStatus: "running");
+        MonitorInfoPersistence.SaveMonitorInfo(port: 0, debug: false, logger: this._logger, pathProvider: this._pathProvider, startupStatus: "running");
     }
 }

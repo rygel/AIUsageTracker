@@ -442,7 +442,7 @@ public static class Program
             }
             else if (prop.PropertyType.IsEnum)
             {
-                typedValue = Enum.Parse(prop.PropertyType, value, true);
+                typedValue = Enum.Parse(prop.PropertyType, value, ignoreCase: true);
             }
 
             if (typedValue != null)

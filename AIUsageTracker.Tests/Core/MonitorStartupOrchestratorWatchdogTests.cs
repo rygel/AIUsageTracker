@@ -5,7 +5,6 @@
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.UI.Slim.Services;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -36,13 +35,13 @@ public sealed class MonitorStartupOrchestratorWatchdogTests
     {
         this._mockMonitorService
             .Setup(m => m.CheckHealthAsync(It.IsAny<TimeSpan>()))
-            .ReturnsAsync(false);
+            .ReturnsAsync(value: false);
         this._mockMonitorService
             .Setup(m => m.RefreshPortAsync())
             .Returns(Task.CompletedTask);
         this._mockLauncher
             .Setup(l => l.EnsureAgentRunningAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
+            .ReturnsAsync(value: true);
 
         await this._orchestrator.RunWatchdogTickAsync();
 
@@ -54,7 +53,7 @@ public sealed class MonitorStartupOrchestratorWatchdogTests
     {
         this._mockMonitorService
             .Setup(m => m.CheckHealthAsync(It.IsAny<TimeSpan>()))
-            .ReturnsAsync(true);
+            .ReturnsAsync(value: true);
 
         await this._orchestrator.RunWatchdogTickAsync();
 
@@ -66,13 +65,13 @@ public sealed class MonitorStartupOrchestratorWatchdogTests
     {
         this._mockMonitorService
             .Setup(m => m.CheckHealthAsync(It.IsAny<TimeSpan>()))
-            .ReturnsAsync(false);
+            .ReturnsAsync(value: false);
         this._mockMonitorService
             .Setup(m => m.RefreshPortAsync())
             .Returns(Task.CompletedTask);
         this._mockLauncher
             .Setup(l => l.EnsureAgentRunningAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
+            .ReturnsAsync(value: false);
 
         await this._orchestrator.RunWatchdogTickAsync();
         var firstInterval = this._orchestrator.CurrentWatchdogInterval;
@@ -88,13 +87,13 @@ public sealed class MonitorStartupOrchestratorWatchdogTests
     {
         this._mockMonitorService
             .Setup(m => m.CheckHealthAsync(It.IsAny<TimeSpan>()))
-            .ReturnsAsync(false);
+            .ReturnsAsync(value: false);
         this._mockMonitorService
             .Setup(m => m.RefreshPortAsync())
             .Returns(Task.CompletedTask);
         this._mockLauncher
             .Setup(l => l.EnsureAgentRunningAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
+            .ReturnsAsync(value: false);
 
         // Tick twice to grow the interval
         await this._orchestrator.RunWatchdogTickAsync();
@@ -104,7 +103,7 @@ public sealed class MonitorStartupOrchestratorWatchdogTests
         // Now health check succeeds — recovery
         this._mockMonitorService
             .Setup(m => m.CheckHealthAsync(It.IsAny<TimeSpan>()))
-            .ReturnsAsync(true);
+            .ReturnsAsync(value: true);
 
         await this._orchestrator.RunWatchdogTickAsync();
 
@@ -116,7 +115,7 @@ public sealed class MonitorStartupOrchestratorWatchdogTests
     {
         this._mockMonitorService
             .Setup(m => m.CheckHealthAsync(It.IsAny<TimeSpan>()))
-            .ReturnsAsync(true);
+            .ReturnsAsync(value: true);
 
         this._orchestrator.NotifyResumed();
         await this._orchestrator.RunWatchdogTickAsync();

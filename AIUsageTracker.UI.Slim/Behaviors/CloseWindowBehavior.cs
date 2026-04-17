@@ -30,7 +30,7 @@ public static class CloseWindowBehavior
             "CloseOnClick",
             typeof(bool),
             typeof(CloseWindowBehavior),
-            new PropertyMetadata(false, OnCloseOnClickChanged));
+            new PropertyMetadata(defaultValue: false, propertyChangedCallback: OnCloseOnClickChanged));
 
     /// <summary>
     /// Identifies the HideOnClick attached property.
@@ -40,7 +40,7 @@ public static class CloseWindowBehavior
             "HideOnClick",
             typeof(bool),
             typeof(CloseWindowBehavior),
-            new PropertyMetadata(false, OnHideOnClickChanged));
+            new PropertyMetadata(defaultValue: false, propertyChangedCallback: OnHideOnClickChanged));
 
     /// <summary>
     /// Gets the CloseOnClick property value for the specified button.
