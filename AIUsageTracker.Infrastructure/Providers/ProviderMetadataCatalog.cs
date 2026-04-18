@@ -8,7 +8,6 @@ namespace AIUsageTracker.Infrastructure.Providers;
 
 public static class ProviderMetadataCatalog
 {
-    private const string LegacyOpenAiProviderId = "openai";
     private static readonly Lazy<IReadOnlyList<ProviderDefinition>> DefinitionsValue = new(LoadDefinitions);
 
     public static IReadOnlyList<ProviderDefinition> Definitions => DefinitionsValue.Value;
@@ -133,7 +132,7 @@ public static class ProviderMetadataCatalog
             .Where(definition =>
                 definition.AuthIdentityCandidatePathTemplates.Count > 0 &&
                 definition.SessionAuthFileSchemas.Count > 0 &&
-                string.IsNullOrWhiteSpace(definition.SessionAuthOwnerProviderId))
+                ShouldPersistProviderId(definition.ProviderId))
             .Select(definition => definition.ProviderId)
             .OrderBy(providerId => providerId, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -179,11 +178,6 @@ public static class ProviderMetadataCatalog
     public static bool ShouldPersistProviderId(string providerId)
     {
         if (string.IsNullOrWhiteSpace(providerId))
-        {
-            return false;
-        }
-
-        if (string.Equals(providerId, LegacyOpenAiProviderId, StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }

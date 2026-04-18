@@ -71,8 +71,6 @@ public sealed class ProviderDefinition
 
     public IReadOnlyCollection<string> ExplicitApiKeyPrefixes { get; init; } = Array.Empty<string>();
 
-    public string? SessionAuthOwnerProviderId { get; init; }
-
     public ProviderSettingsMode SettingsMode { get; init; } = ProviderSettingsMode.StandardApiKey;
 
     public bool UseSessionAuthStatusWhenQuotaBasedOrSessionToken { get; init; }
