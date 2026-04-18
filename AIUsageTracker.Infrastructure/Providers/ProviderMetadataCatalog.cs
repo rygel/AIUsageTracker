@@ -38,6 +38,11 @@ public static class ProviderMetadataCatalog
 
     public static string GetProviderOwnerId(string providerId)
     {
+        if (IsVisibleDerivedProviderId(providerId))
+        {
+            return providerId;
+        }
+
         return Find(providerId)?.ProviderId ?? providerId ?? string.Empty;
     }
 

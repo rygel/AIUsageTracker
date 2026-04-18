@@ -13,7 +13,7 @@ public class ProviderVisualCatalogTests
     [Theory]
     [InlineData("codex.spark", "codex.spark", "openai")]
     [InlineData("antigravity.claude-opus", "antigravity", "google")]
-    [InlineData("minimax-io", "minimax", "minimax")]
+    [InlineData("minimax-io", "minimax-io", "minimax")]
     [InlineData("zai-coding-plan", "zai-coding-plan", "zai")]
     public void GetIconAssetName_UsesProviderOwnerIdentity(
         string providerId,

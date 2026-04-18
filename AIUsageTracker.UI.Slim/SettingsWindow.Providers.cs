@@ -172,7 +172,7 @@ public partial class SettingsWindow
 
     private static string ResolveProviderOwnerId(string providerId)
     {
-        return ProviderMetadataCatalog.Find(providerId)?.ProviderId ?? providerId;
+        return ProviderMetadataCatalog.GetProviderOwnerId(providerId);
     }
 
     private static ProviderConfig CreateDefaultDisplayConfig(string providerId)

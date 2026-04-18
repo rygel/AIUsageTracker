@@ -127,7 +127,9 @@ public class ProviderMetadataCatalogTests
     [InlineData("codex.spark", "codex.spark")]
     [InlineData("antigravity.claude-opus", "antigravity")]
     [InlineData("kimi", "kimi-for-coding")]
-    [InlineData("minimax-io", "minimax")]
+    [InlineData("minimax-io", "minimax-io")]
+    [InlineData("minimax-coding-plan", "minimax-coding-plan")]
+    [InlineData("minimax-global", "minimax")]
     [InlineData("opencode-go", "opencode-go")]
     [InlineData("unknown-provider", "unknown-provider")]
     public void GetProviderOwnerId_UsesProviderDefinitions(string providerId, string expectedOwnerId)
