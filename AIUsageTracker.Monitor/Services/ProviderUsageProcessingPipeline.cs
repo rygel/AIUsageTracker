@@ -16,7 +16,6 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
     private long _invalidIdentityCount;
     private long _inactiveProviderFilteredCount;
     private long _placeholderFilteredCount;
-    private long _detailContractAdjustedCount;
     private long _normalizedCount;
     private long _privacyRedactedCount;
     private long _lastProcessedAtUtcTicks;
@@ -42,7 +41,6 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         var invalidIdentityCount = 0;
         var inactiveProviderFilteredCount = 0;
         var placeholderFilteredCount = 0;
-        var detailContractAdjustedCount = 0;
         var normalizedCount = 0;
         var privacyRedactedCount = 0;
         var totalProcessedEntries = 0;
@@ -78,8 +76,6 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
                 continue;
             }
 
-            normalized = ApplyDetailContractStage(normalized);
-
             accepted.Add(normalized);
         }
 
@@ -91,7 +87,6 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             invalidIdentityCount,
             inactiveProviderFilteredCount,
             placeholderFilteredCount,
-            detailContractAdjustedCount,
             normalizedCount,
             privacyRedactedCount);
 
@@ -101,7 +96,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             InvalidIdentityCount = invalidIdentityCount,
             InactiveProviderFilteredCount = inactiveProviderFilteredCount,
             PlaceholderFilteredCount = placeholderFilteredCount,
-            DetailContractAdjustedCount = detailContractAdjustedCount,
+            DetailContractAdjustedCount = 0,
             NormalizedCount = normalizedCount,
             PrivacyRedactedCount = privacyRedactedCount,
         };
@@ -122,7 +117,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             InvalidIdentityCount = Interlocked.Read(ref this._invalidIdentityCount),
             InactiveProviderFilteredCount = Interlocked.Read(ref this._inactiveProviderFilteredCount),
             PlaceholderFilteredCount = Interlocked.Read(ref this._placeholderFilteredCount),
-            DetailContractAdjustedCount = Interlocked.Read(ref this._detailContractAdjustedCount),
+            DetailContractAdjustedCount = 0,
             NormalizedCount = Interlocked.Read(ref this._normalizedCount),
             PrivacyRedactedCount = Interlocked.Read(ref this._privacyRedactedCount),
             LastProcessedAtUtc = lastProcessedAtUtc,
@@ -176,13 +171,6 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         return false;
     }
 
-    private static ProviderUsage ApplyDetailContractStage(
-        ProviderUsage usage)
-    {
-        // With flat cards, there are no sub-details to validate — this stage is a no-op.
-        return usage;
-    }
-
     private static bool ShouldRejectPlaceholderStage(
         ProviderUsage usage,
         ref int placeholderFilteredCount)
@@ -196,17 +184,14 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         return true;
     }
 
-#pragma warning disable S107
     private void RecordSnapshot(
         int totalProcessedEntries,
         int acceptedEntries,
         int invalidIdentityCount,
         int inactiveProviderFilteredCount,
         int placeholderFilteredCount,
-        int detailContractAdjustedCount,
         int normalizedCount,
         int privacyRedactedCount)
-#pragma warning restore S107
     {
         var rejectedEntries = totalProcessedEntries - acceptedEntries;
 
@@ -216,7 +201,6 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         Interlocked.Add(ref this._invalidIdentityCount, invalidIdentityCount);
         Interlocked.Add(ref this._inactiveProviderFilteredCount, inactiveProviderFilteredCount);
         Interlocked.Add(ref this._placeholderFilteredCount, placeholderFilteredCount);
-        Interlocked.Add(ref this._detailContractAdjustedCount, detailContractAdjustedCount);
         Interlocked.Add(ref this._normalizedCount, normalizedCount);
         Interlocked.Add(ref this._privacyRedactedCount, privacyRedactedCount);
 
