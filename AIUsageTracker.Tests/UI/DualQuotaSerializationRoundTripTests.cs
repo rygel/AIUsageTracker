@@ -16,7 +16,7 @@ namespace AIUsageTracker.Tests.UI;
 /// </summary>
 public sealed class DualQuotaSerializationRoundTripTests
 {
-    // Both sides use the same canonical options — MonitorJsonSerializer is the single source of truth.
+    // Both sides use the same default options — MonitorJsonSerializer is the single source of truth.
     private static readonly JsonSerializerOptions MonitorOptions = MonitorJsonSerializer.DefaultOptions;
     private static readonly JsonSerializerOptions ClientOptions = MonitorJsonSerializer.DefaultOptions;
 

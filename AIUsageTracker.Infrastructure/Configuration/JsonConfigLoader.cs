@@ -95,13 +95,8 @@ public class JsonConfigLoader : IConfigLoader
 
         if (File.Exists(path))
         {
-            this._logger.LogDebug("Preferences were written to canonical path {Path}; auth.json remains provider config only.", preferencesPath);
+            this._logger.LogDebug("Preferences were written to settings path {Path}; auth.json remains provider config only.", preferencesPath);
         }
-    }
-
-    private static string ResolveConfigProviderId(string providerId)
-    {
-        return providerId;
     }
 
     private string GetTrackerConfigPath() => this._pathProvider.GetAuthFilePath();
@@ -144,7 +139,7 @@ public class JsonConfigLoader : IConfigLoader
             entries.Add((Path.Combine(appDataRoot, AuthConfigFileName), true));
         }
 
-        // Canonical app auth file is read last so explicit user-entered keys remain authoritative.
+        // App-owned auth file is read last so explicit user-entered keys remain authoritative.
         entries.Add((pathProvider.GetAuthFilePath(), true));
 
         var distinctEntries = new List<(string Path, bool IsAuthFile)>(entries.Count);
@@ -206,7 +201,7 @@ public class JsonConfigLoader : IConfigLoader
         string path,
         bool isAuthFile)
     {
-        var providerId = ResolveConfigProviderId(entry.Key);
+        var providerId = entry.Key;
         if (providerId.Equals("app_settings", StringComparison.OrdinalIgnoreCase))
         {
             return;

@@ -148,7 +148,7 @@ public sealed class ProviderCardSlotRenderingTests
     }
 
     /// <summary>
-    /// Verifies that <see cref="AppPreferences.ShowUsedPercentages"/> is the canonical source
+    /// Verifies that <see cref="AppPreferences.ShowUsedPercentages"/> is the authoritative source
     /// of truth for the display mode, not any UI toggle's visual state.
     ///
     /// Prior bug: MainWindow.AddProviderCard read ShowUsedToggle.IsChecked directly. When

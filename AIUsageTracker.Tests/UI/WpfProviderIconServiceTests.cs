@@ -133,7 +133,7 @@ public sealed class WpfProviderIconServiceTests
     [Fact]
     public void CreateIcon_ForKnownProvider_ReturnsNonNullElement()
     {
-        // Uses a known provider whose canonical ID is resolvable but won't have an
+        // Uses a known provider ID that is resolvable but won't have an
         // SVG on disk in the test environment — fallback badge path still exercised.
         FrameworkElement? result = null;
         Exception? ex = null;

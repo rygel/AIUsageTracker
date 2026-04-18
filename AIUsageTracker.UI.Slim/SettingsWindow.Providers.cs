@@ -962,7 +962,7 @@ public partial class SettingsWindow
         var hidden = this._preferences.HiddenProviderItemIds;
 
         // Run the same pipeline as the main window (no hidden filter) to get every card
-        // that could potentially appear, then group by canonical provider.
+        // that could potentially appear, then group by owner provider.
         var allCards = MainWindowRuntimeLogic.BuildMainWindowUsageList(this._usages).ToList();
 
         var groups = allCards

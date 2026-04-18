@@ -11,10 +11,10 @@ namespace AIUsageTracker.Tests.Infrastructure;
 public class JsonConfigLoaderPathEntryTests
 {
     [Fact]
-    public void BuildConfigEntries_ReturnsLegacyProviderAppAndCanonicalEntriesInPriorityOrder()
+    public void BuildConfigEntries_ReturnsLegacyProviderAppAndAppAuthEntriesInPriorityOrder()
     {
         var pathProvider = CreatePathProvider(
-            "C:\\test\\canonical\\auth.json",
+            "C:\\test\\app\\auth.json",
             "C:\\test\\providers.json",
             "C:\\test\\appdata",
             "C:\\Users\\test");
@@ -36,7 +36,7 @@ public class JsonConfigLoaderPathEntryTests
         Assert.False(entries[5].IsAuthFile);
         Assert.Equal("C:\\test\\appdata\\auth.json", entries[6].Path);
         Assert.True(entries[6].IsAuthFile);
-        Assert.Equal("C:\\test\\canonical\\auth.json", entries[7].Path);
+        Assert.Equal("C:\\test\\app\\auth.json", entries[7].Path);
         Assert.True(entries[7].IsAuthFile);
     }
 
@@ -62,7 +62,7 @@ public class JsonConfigLoaderPathEntryTests
     }
 
     [Fact]
-    public void BuildConfigEntries_IncludesCanonicalAuthPathWhenAppDataRootMissing()
+    public void BuildConfigEntries_IncludesAppAuthPathWhenAppDataRootMissing()
     {
         var pathProvider = CreatePathProvider(
             "C:\\test\\config\\auth.json",

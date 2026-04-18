@@ -183,7 +183,7 @@ public sealed class GroupedUsageProjectionServiceTests
     [Fact]
     public void Build_CodexAndSpark_ProjectAsTwoSeparateGroupsWithDualBarCards()
     {
-        // codex and codex.spark are now standalone canonical providers (FamilyMode = Standalone).
+        // codex and codex.spark are standalone owner providers (FamilyMode = Standalone).
         // Each emits a Burst + Rolling pair, resulting in two separate groups.
         // Neither group produces flat model cards — the window-kind cards populate ProviderDetails instead.
         var usages = new[]

@@ -1152,7 +1152,7 @@ public partial class SettingsWindow : Window
 
     /// <summary>
     /// Applies display-related control values to preferences so both preview updates
-    /// and persisted saves use the same canonical settings path.
+    /// and persisted saves use the same settings path.
     /// </summary>
     private void ApplyDisplayPreferencesFromControls()
     {
