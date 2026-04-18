@@ -183,7 +183,7 @@ public sealed class GroupedUsageProjectionServiceTests
     [Fact]
     public void Build_CodexAndSpark_ProjectAsTwoSeparateGroupsWithDualBarCards()
     {
-        // codex and codex.spark are now standalone canonical providers (FamilyMode = Standalone).
+        // codex and codex.spark are standalone owner providers (FamilyMode = Standalone).
         // Each emits a Burst + Rolling pair, resulting in two separate groups.
         // Neither group produces flat model cards — the window-kind cards populate ProviderDetails instead.
         var usages = new[]
@@ -258,5 +258,62 @@ public sealed class GroupedUsageProjectionServiceTests
         Assert.Equal(2, spark.ProviderDetails.Count);
         Assert.Contains(spark.ProviderDetails, d => string.Equals(d.CardId, "spark.burst", StringComparison.Ordinal) && d.WindowKind == WindowKind.Burst);
         Assert.Contains(spark.ProviderDetails, d => string.Equals(d.CardId, "spark.weekly", StringComparison.Ordinal) && d.WindowKind == WindowKind.Rolling);
+    }
+
+    [Fact]
+    public void Build_MinimaxIoAndCodingPlan_ProjectAsSeparateProviders()
+    {
+        var usages = new[]
+        {
+            new ProviderUsage
+            {
+                ProviderId = "minimax-io",
+                ProviderName = "MiniMax.io",
+                IsAvailable = true,
+                UsedPercent = 25,
+                RequestsUsed = 250,
+                RequestsAvailable = 1000,
+            },
+            new ProviderUsage
+            {
+                ProviderId = "minimax-coding-plan",
+                ProviderName = "Minimax.io Coding Plan",
+                CardId = "burst",
+                Name = "5h",
+                WindowKind = WindowKind.Burst,
+                IsAvailable = true,
+                IsQuotaBased = true,
+                PlanType = PlanType.Coding,
+                UsedPercent = 40,
+                RequestsUsed = 40,
+                RequestsAvailable = 100,
+                PeriodDuration = TimeSpan.FromHours(5),
+            },
+            new ProviderUsage
+            {
+                ProviderId = "minimax-coding-plan",
+                ProviderName = "Minimax.io Coding Plan",
+                CardId = "weekly",
+                Name = "Weekly",
+                WindowKind = WindowKind.Rolling,
+                IsAvailable = true,
+                IsQuotaBased = true,
+                PlanType = PlanType.Coding,
+                UsedPercent = 30,
+                RequestsUsed = 150,
+                RequestsAvailable = 500,
+                PeriodDuration = TimeSpan.FromDays(7),
+            },
+        };
+
+        var snapshot = GroupedUsageProjectionService.Build(usages);
+
+        var minimaxIo = Assert.Single(snapshot.Providers, p => string.Equals(p.ProviderId, "minimax-io", StringComparison.Ordinal));
+        var minimaxCoding = Assert.Single(snapshot.Providers, p => string.Equals(p.ProviderId, "minimax-coding-plan", StringComparison.Ordinal));
+
+        Assert.Equal("MiniMax.io", minimaxIo.ProviderName);
+        Assert.Equal("Minimax.io Coding Plan", minimaxCoding.ProviderName);
+        Assert.Equal(0, minimaxIo.ProviderDetails.Count);
+        Assert.Equal(2, minimaxCoding.ProviderDetails.Count);
     }
 }

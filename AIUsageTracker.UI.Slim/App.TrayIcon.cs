@@ -52,9 +52,14 @@ public partial class App
         var desiredIcons = new Dictionary<string, (string ToolTip, double FillPercent, PaceColorResult PaceColor, bool IsQuota)>(StringComparer.OrdinalIgnoreCase);
         foreach (var config in configs)
         {
+            var configDefinition = ProviderMetadataCatalog.Find(config.ProviderId);
             var usage = usages
-                .Where(u => ProviderMetadataCatalog.GetCanonicalProviderId(u.ProviderId ?? string.Empty)
-                    .Equals(config.ProviderId, StringComparison.OrdinalIgnoreCase))
+                .Where(u =>
+                {
+                    var usageProviderId = u.ProviderId ?? string.Empty;
+                    return configDefinition?.HandlesProviderId(usageProviderId) ??
+                           string.Equals(usageProviderId, config.ProviderId, StringComparison.OrdinalIgnoreCase);
+                })
                 .OrderByDescending(u => u.UsedPercent)
                 .FirstOrDefault();
             if (usage == null)

@@ -147,7 +147,10 @@ internal sealed class ProviderCardRenderer
 
     private void AttachTooltip(Grid grid, ProviderUsage usage, string friendlyName)
     {
-        var toolTipContent = MainWindowRuntimeLogic.BuildTooltipContent(usage, friendlyName);
+        var toolTipContent = MainWindowRuntimeLogic.BuildTooltipContent(
+            usage,
+            friendlyName,
+            this._preferences.UseRelativeResetTime);
         if (!string.IsNullOrEmpty(toolTipContent))
         {
             grid.ToolTip = this._createToolTip(grid, toolTipContent);

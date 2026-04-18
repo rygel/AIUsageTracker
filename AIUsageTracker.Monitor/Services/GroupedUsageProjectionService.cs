@@ -17,7 +17,7 @@ public static class GroupedUsageProjectionService
         var providerGroups = usages
             .Where(usage => !string.IsNullOrWhiteSpace(usage.ProviderId))
             .GroupBy(
-                usage => ProviderMetadataCatalog.GetCanonicalProviderId(usage.ProviderId),
+                usage => ResolveProviderOwnerId(usage.ProviderId),
                 StringComparer.OrdinalIgnoreCase)
             .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
             .Select(BuildProviderGroup)
@@ -33,9 +33,9 @@ public static class GroupedUsageProjectionService
 
     private static AgentGroupedProviderUsage BuildProviderGroup(IGrouping<string, ProviderUsage> group)
     {
-        var canonicalProviderId = group.Key;
-        var primary = SelectPrimaryUsage(group, canonicalProviderId);
-        var models = BuildModels(group, canonicalProviderId);
+        var providerId = group.Key;
+        var primary = SelectPrimaryUsage(group, providerId);
+        var models = BuildModels(group, providerId);
         var accountName = group
             .OrderByDescending(usage => usage.FetchedAt)
             .Select(usage => usage.AccountName)
@@ -48,7 +48,7 @@ public static class GroupedUsageProjectionService
                 .OrderBy(reset => reset)
                 .FirstOrDefault();
 
-        var displayName = ResolveProviderDisplayName(canonicalProviderId);
+        var displayName = ResolveProviderDisplayName(providerId);
 
         // Flat cards with WindowKind != None are the quota-window cards for this group.
         var providerDetails = (IReadOnlyList<ProviderUsage>)group
@@ -58,7 +58,7 @@ public static class GroupedUsageProjectionService
             .ToList();
         return new AgentGroupedProviderUsage
         {
-            ProviderId = canonicalProviderId,
+            ProviderId = providerId,
             ProviderName = displayName,
             AccountName = accountName,
             IsAvailable = group.Any(usage => usage.IsAvailable),
@@ -76,15 +76,20 @@ public static class GroupedUsageProjectionService
         };
     }
 
-    private static string ResolveProviderDisplayName(string canonicalProviderId)
+    private static string ResolveProviderOwnerId(string providerId)
     {
-        return ProviderMetadataCatalog.GetConfiguredDisplayName(canonicalProviderId);
+        return ProviderMetadataCatalog.GetProviderOwnerId(providerId);
     }
 
-    private static ProviderUsage SelectPrimaryUsage(IEnumerable<ProviderUsage> group, string canonicalProviderId)
+    private static string ResolveProviderDisplayName(string providerId)
+    {
+        return ProviderMetadataCatalog.GetConfiguredDisplayName(providerId);
+    }
+
+    private static ProviderUsage SelectPrimaryUsage(IEnumerable<ProviderUsage> group, string ownerProviderId)
     {
         return group
-                .Where(usage => string.Equals(usage.ProviderId, canonicalProviderId, StringComparison.OrdinalIgnoreCase))
+                .Where(usage => string.Equals(usage.ProviderId, ownerProviderId, StringComparison.OrdinalIgnoreCase))
                 .OrderByDescending(usage => usage.FetchedAt)
                 .FirstOrDefault()
             ?? group
@@ -94,10 +99,10 @@ public static class GroupedUsageProjectionService
 
     private static List<AgentGroupedModelUsage> BuildModels(
         IEnumerable<ProviderUsage> group,
-        string canonicalProviderId)
+        string ownerProviderId)
     {
         var usages = group.ToList();
-        var definition = ProviderMetadataCatalog.Find(canonicalProviderId);
+        var definition = ProviderMetadataCatalog.Find(ownerProviderId);
 
         // FlatWindowCards providers: every card is an independent flat card, regardless of
         // WindowKind. The UI renders each as a separate single-bar row. Dual-bar layout is
@@ -127,9 +132,9 @@ public static class GroupedUsageProjectionService
         }
 
         if ((definition?.UseChildProviderRowsForGroupedModels ?? false) &&
-            ShouldBuildModelsFromExplicitChildRows(usages, canonicalProviderId))
+            ShouldBuildModelsFromExplicitChildRows(usages, ownerProviderId))
         {
-            return BuildModelsFromExplicitChildRows(usages, canonicalProviderId);
+            return BuildModelsFromExplicitChildRows(usages, ownerProviderId);
         }
 
         return BuildModelsFromDetails();
@@ -173,22 +178,22 @@ public static class GroupedUsageProjectionService
 
     private static bool ShouldBuildModelsFromExplicitChildRows(
         IReadOnlyCollection<ProviderUsage> usages,
-        string canonicalProviderId)
+        string ownerProviderId)
     {
-        if (!(ProviderMetadataCatalog.Find(canonicalProviderId)?.UseChildProviderRowsForGroupedModels ?? false))
+        if (!(ProviderMetadataCatalog.Find(ownerProviderId)?.UseChildProviderRowsForGroupedModels ?? false))
         {
             return false;
         }
 
-        return usages.Any(usage => IsExplicitChildUsage(usage, canonicalProviderId));
+        return usages.Any(usage => IsExplicitChildUsage(usage, ownerProviderId));
     }
 
     private static List<AgentGroupedModelUsage> BuildModelsFromExplicitChildRows(
         IEnumerable<ProviderUsage> group,
-        string canonicalProviderId)
+        string ownerProviderId)
     {
         return group
-            .Where(usage => IsExplicitChildUsage(usage, canonicalProviderId))
+            .Where(usage => IsExplicitChildUsage(usage, ownerProviderId))
             .GroupBy(usage => usage.ProviderId, StringComparer.OrdinalIgnoreCase)
             .Select(childGroup => childGroup
                 .OrderByDescending(usage => usage.FetchedAt)
@@ -201,8 +206,8 @@ public static class GroupedUsageProjectionService
                 var quotaBuckets = BuildSummaryQuotaBuckets(usedPercentage, remainingPercentage, usage.NextResetTime, usage.Description);
                 var model = new AgentGroupedModelUsage
                 {
-                    ModelId = ResolveChildModelId(usage, canonicalProviderId),
-                    ModelName = ResolveChildModelName(usage, canonicalProviderId),
+                    ModelId = ResolveChildModelId(usage, ownerProviderId),
+                    ModelName = ResolveChildModelName(usage, ownerProviderId),
                     UsedPercentage = usedPercentage,
                     RemainingPercentage = remainingPercentage,
                     NextResetTime = usage.NextResetTime,
@@ -259,16 +264,16 @@ public static class GroupedUsageProjectionService
         model.EffectiveNextResetTime = effective.NextResetTime;
     }
 
-    private static bool IsExplicitChildUsage(ProviderUsage usage, string canonicalProviderId)
+    private static bool IsExplicitChildUsage(ProviderUsage usage, string ownerProviderId)
     {
         return !string.IsNullOrWhiteSpace(usage.ProviderId) &&
-               !string.Equals(usage.ProviderId, canonicalProviderId, StringComparison.OrdinalIgnoreCase) &&
-               (ProviderMetadataCatalog.Find(canonicalProviderId)?.IsChildProviderId(usage.ProviderId) ?? false);
+               !string.Equals(usage.ProviderId, ownerProviderId, StringComparison.OrdinalIgnoreCase) &&
+               (ProviderMetadataCatalog.Find(ownerProviderId)?.IsChildProviderId(usage.ProviderId) ?? false);
     }
 
-    private static string ResolveChildModelId(ProviderUsage usage, string canonicalProviderId)
+    private static string ResolveChildModelId(ProviderUsage usage, string ownerProviderId)
     {
-        if (ProviderMetadataCatalog.Find(canonicalProviderId)?.TryGetChildProviderKey(usage.ProviderId ?? string.Empty, out var childProviderKey) ?? false)
+        if (ProviderMetadataCatalog.Find(ownerProviderId)?.TryGetChildProviderKey(usage.ProviderId ?? string.Empty, out var childProviderKey) ?? false)
         {
             return childProviderKey;
         }
@@ -276,13 +281,13 @@ public static class GroupedUsageProjectionService
         return usage.ProviderId ?? string.Empty;
     }
 
-    private static string ResolveChildModelName(ProviderUsage usage, string canonicalProviderId)
+    private static string ResolveChildModelName(ProviderUsage usage, string ownerProviderId)
     {
         if (!string.IsNullOrWhiteSpace(usage.ProviderName))
         {
             return usage.ProviderName;
         }
 
-        return ResolveChildModelId(usage, canonicalProviderId);
+        return ResolveChildModelId(usage, ownerProviderId);
     }
 }

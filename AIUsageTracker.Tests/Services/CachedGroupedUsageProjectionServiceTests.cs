@@ -93,18 +93,9 @@ public sealed class CachedGroupedUsageProjectionServiceTests
     [Fact]
     public async Task GetGroupedUsage_SubProvider_WithKey_IsNotHiddenByUnconfiguredSibling()
     {
-        // Regression: the canonical-ID filter incorrectly hid all sub-providers of a
-        // family when any sibling had an empty key. E.g. minimax (China, no key) and
-        // minimax-io (International, has key) share canonical ID "minimax". The old code
-        // put "minimax" in the exclusion set and then checked GetCanonicalProviderId on
-        // each usage row — so minimax-io usage (also canonical "minimax") was filtered out
-        // even though the user had a key configured for it.
-        //
-        // Note: GroupedUsageProjectionService.Build groups by canonical ID, so the output
-        // snapshot has ProviderId = "minimax" (the canonical) whether the data came from
-        // minimax or minimax-io. The key assertion is that the MiniMax family appears and
-        // reflects the configured (minimax-io) data — i.e. IsAvailable = true — not the
-        // "API Key not found" data from the unconfigured minimax entry.
+        // Regression: filtering must evaluate each configured provider independently.
+        // minimax (China, no key) must be excluded while minimax-io (International, has key)
+        // remains visible.
         var dbUsages = new List<ProviderUsage>
         {
             new() { ProviderId = "minimax", ProviderName = "MiniMax.com", IsAvailable = false, Description = "API Key not found." },
@@ -131,16 +122,17 @@ public sealed class CachedGroupedUsageProjectionServiceTests
 
         var snapshot = await service.GetGroupedUsageAsync();
 
-        // The MiniMax family (canonical "minimax") must appear — minimax-io has a key.
+        // The configured MiniMax.io provider must appear.
         var minimaxGroup = snapshot.Providers
-            .FirstOrDefault(p => string.Equals(p.ProviderId, "minimax", StringComparison.OrdinalIgnoreCase));
+            .FirstOrDefault(p => string.Equals(p.ProviderId, "minimax-io", StringComparison.OrdinalIgnoreCase));
         Assert.NotNull(minimaxGroup);
 
-        // The group must reflect the minimax-io data (available, 30% used),
-        // not the "API Key not found" data from the unconfigured minimax entry.
+        // The group must reflect minimax-io data and remain available.
         Assert.True(
             minimaxGroup.IsAvailable,
-            "MiniMax group should be available because minimax-io has a key; " +
-            "the unconfigured minimax entry must have been excluded before Build.");
+            "MiniMax.io should be available because minimax-io has a key.");
+
+        Assert.DoesNotContain(snapshot.Providers, p =>
+            string.Equals(p.ProviderId, "minimax", StringComparison.OrdinalIgnoreCase));
     }
 }

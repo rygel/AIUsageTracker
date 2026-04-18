@@ -194,7 +194,7 @@ public sealed class ProviderDerivedModelAssignmentResolverExtendedTests
     }
 
     private static IReadOnlyList<ProviderDerivedModelAssignment> InvokeBuildDynamicModelAssignments(
-        string canonicalProviderId,
+        string ownerProviderId,
         IReadOnlyList<AgentGroupedModelUsage> orderedModels,
         IEnumerable<string>? reservedProviderIds = null,
         IEnumerable<string>? reservedModelKeys = null)
@@ -204,7 +204,7 @@ public sealed class ProviderDerivedModelAssignmentResolverExtendedTests
 
         return (IReadOnlyList<ProviderDerivedModelAssignment>)method.Invoke(
             null,
-            new object?[] { canonicalProviderId, orderedModels, reservedProviderIds, reservedModelKeys })!;
+            new object?[] { ownerProviderId, orderedModels, reservedProviderIds, reservedModelKeys })!;
     }
 
     private static string InvokeGetModelAssignmentKey(AgentGroupedModelUsage model)

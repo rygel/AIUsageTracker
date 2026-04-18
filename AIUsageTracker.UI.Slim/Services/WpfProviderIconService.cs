@@ -16,7 +16,7 @@ namespace AIUsageTracker.UI.Slim.Services;
 /// <summary>
 /// Loads SVG provider icons from disk and returns them as WPF <see cref="FrameworkElement"/> instances.
 /// Falls back to a coloured initial badge when no SVG asset exists or loading fails.
-/// Caches successfully loaded <see cref="ImageSource"/> objects by canonical provider ID.
+/// Caches successfully loaded <see cref="ImageSource"/> objects by provider ID.
 /// </summary>
 internal sealed class WpfProviderIconService
 {
@@ -40,14 +40,14 @@ internal sealed class WpfProviderIconService
     /// <returns></returns>
     public FrameworkElement CreateIcon(string providerId)
     {
-        var canonicalId = ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
+        var resolvedProviderId = providerId ?? string.Empty;
 
-        if (this._cache.TryGetValue(canonicalId, out var cached))
+        if (this._cache.TryGetValue(resolvedProviderId, out var cached))
         {
             return this.MakeIconElement(cached);
         }
 
-        var filename = ProviderMetadataCatalog.GetIconAssetName(providerId);
+        var filename = ProviderMetadataCatalog.GetIconAssetName(resolvedProviderId);
         var svgPath = System.IO.Path.Combine(
             AppDomain.CurrentDomain.BaseDirectory,
             "Assets",
@@ -69,7 +69,7 @@ internal sealed class WpfProviderIconService
                 {
                     var imageSource = new DrawingImage(drawing);
                     imageSource.Freeze();
-                    this._cache[canonicalId] = imageSource;
+                    this._cache[resolvedProviderId] = imageSource;
                     return this.MakeIconElement(imageSource);
                 }
             }
@@ -78,18 +78,18 @@ internal sealed class WpfProviderIconService
                 this._logger.LogWarning(
                     ex,
                     "Failed to load SVG icon for provider '{ProviderId}' at '{SvgPath}'. Falling back to initial badge.",
-                    canonicalId,
+                    resolvedProviderId,
                     svgPath);
             }
         }
 
-        return this.CreateFallbackBadge(canonicalId);
+        return this.CreateFallbackBadge(resolvedProviderId);
     }
 
-    private FrameworkElement CreateFallbackBadge(string canonicalId)
+    private FrameworkElement CreateFallbackBadge(string providerId)
     {
         var (color, initial) = GetBadge(
-            canonicalId,
+            providerId,
             this._resolveResourceBrush("SecondaryText", Brushes.Gray));
 
         var grid = new Grid { Width = 16, Height = 16 };
@@ -173,10 +173,10 @@ internal sealed class WpfProviderIconService
 
     internal static (Brush Color, string Initial) GetBadge(string providerId, Brush defaultBrush)
     {
-        var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
-        return TryGetBadgeDefinition(canonicalProviderId, out var badgeColor, out var badgeInitial)
+        var resolvedProviderId = providerId ?? string.Empty;
+        return TryGetBadgeDefinition(resolvedProviderId, out var badgeColor, out var badgeInitial)
             ? (badgeColor, badgeInitial)
-            : (defaultBrush, canonicalProviderId[..Math.Min(2, canonicalProviderId.Length)].ToUpperInvariant());
+            : (defaultBrush, resolvedProviderId[..Math.Min(2, resolvedProviderId.Length)].ToUpperInvariant());
     }
 
     private static bool TryGetBadgeDefinition(string providerId, out Brush color, out string initial)

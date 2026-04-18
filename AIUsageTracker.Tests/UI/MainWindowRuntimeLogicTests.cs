@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using AIUsageTracker.Core.Models;
 using AIUsageTracker.UI.Slim;
 
 namespace AIUsageTracker.Tests.UI;
@@ -127,5 +128,99 @@ public sealed class MainWindowRuntimeLogicTests
         var status = MainWindowRuntimeLogic.FormatMonitorOfflineStatus(lastUpdate, now);
 
         Assert.Equal("Monitor offline — last sync 3h ago", status);
+    }
+
+    [Fact]
+    public void BuildTooltipContent_WithBurstAndWeeklyWindows_IncludesBothLimitAndResetLines()
+    {
+        var burstReset = new DateTime(2026, 4, 18, 10, 30, 0, DateTimeKind.Utc);
+        var weeklyReset = new DateTime(2026, 4, 22, 15, 45, 0, DateTimeKind.Utc);
+        var usage = new ProviderUsage
+        {
+            ProviderId = "codex",
+            ProviderName = "OpenAI (Codex)",
+            IsAvailable = true,
+            Description = "Primary plan",
+            WindowCards = new List<ProviderUsage>
+            {
+                new()
+                {
+                    Name = "5h",
+                    WindowKind = WindowKind.Burst,
+                    UsedPercent = 40,
+                    NextResetTime = burstReset,
+                },
+                new()
+                {
+                    Name = "Weekly",
+                    WindowKind = WindowKind.Rolling,
+                    UsedPercent = 25,
+                    NextResetTime = weeklyReset,
+                },
+            },
+        };
+
+        var tooltip = MainWindowRuntimeLogic.BuildTooltipContent(usage, usage.ProviderName!, useRelativeResetTime: false);
+
+        Assert.NotNull(tooltip);
+        Assert.Contains("5h limit: 60% remaining", tooltip, StringComparison.Ordinal);
+        Assert.Contains($"5h resets: {UsageMath.FormatAbsoluteDate(burstReset)}", tooltip, StringComparison.Ordinal);
+        Assert.Contains("Weekly limit: 75% remaining", tooltip, StringComparison.Ordinal);
+        Assert.Contains($"Weekly resets: {UsageMath.FormatAbsoluteDate(weeklyReset)}", tooltip, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildTooltipContent_WithoutWindowCards_DoesNotIncludeWindowLimitLines()
+    {
+        var usage = new ProviderUsage
+        {
+            ProviderId = "minimax-io",
+            ProviderName = "MiniMax.io",
+            IsAvailable = true,
+            Description = "100,000 tokens used / 1,000,000 limit",
+            UsedPercent = 10,
+        };
+
+        var tooltip = MainWindowRuntimeLogic.BuildTooltipContent(usage, usage.ProviderName!, useRelativeResetTime: false);
+
+        Assert.NotNull(tooltip);
+        Assert.DoesNotContain("resets:", tooltip, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("limit:", tooltip, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void BuildTooltipContent_WithRelativeResetSetting_UsesRelativeResetStrings()
+    {
+        var burstReset = DateTime.UtcNow.AddDays(2).AddHours(3);
+        var weeklyReset = DateTime.UtcNow.AddDays(6).AddHours(4);
+        var usage = new ProviderUsage
+        {
+            ProviderId = "codex",
+            ProviderName = "OpenAI (Codex)",
+            IsAvailable = true,
+            WindowCards = new List<ProviderUsage>
+            {
+                new()
+                {
+                    Name = "5h",
+                    WindowKind = WindowKind.Burst,
+                    UsedPercent = 40,
+                    NextResetTime = burstReset,
+                },
+                new()
+                {
+                    Name = "Weekly",
+                    WindowKind = WindowKind.Rolling,
+                    UsedPercent = 25,
+                    NextResetTime = weeklyReset,
+                },
+            },
+        };
+
+        var tooltip = MainWindowRuntimeLogic.BuildTooltipContent(usage, usage.ProviderName!, useRelativeResetTime: true);
+
+        Assert.NotNull(tooltip);
+        Assert.Contains($"5h resets: {UsageMath.FormatRelativeTime(burstReset)}", tooltip, StringComparison.Ordinal);
+        Assert.Contains($"Weekly resets: {UsageMath.FormatRelativeTime(weeklyReset)}", tooltip, StringComparison.Ordinal);
     }
 }

@@ -142,11 +142,11 @@ public partial class SettingsWindow
         ProviderUsage? usage,
         bool isDerived)
     {
-        var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(config.ProviderId);
+        var resolvedProviderId = ResolveProviderOwnerId(config.ProviderId);
         var hasSessionToken = IsSessionToken(config.ApiKey);
         var inputMode = isDerived
             ? ProviderInputMode.DerivedReadOnly
-            : ResolveProviderInputMode(canonicalProviderId, usage, hasSessionToken);
+            : ResolveProviderInputMode(resolvedProviderId, usage, hasSessionToken);
         var isInactive = !isDerived && inputMode switch
         {
             ProviderInputMode.AutoDetectedStatus => usage == null || !usage.IsAvailable,
@@ -154,7 +154,7 @@ public partial class SettingsWindow
             _ => string.IsNullOrWhiteSpace(config.ApiKey),
         };
         var sessionProviderLabel = inputMode == ProviderInputMode.SessionAuthStatus
-            ? ProviderMetadataCatalog.Find(canonicalProviderId)?.SessionStatusLabel
+            ? ProviderMetadataCatalog.Find(resolvedProviderId)?.SessionStatusLabel
             : null;
 
         return new ProviderSettingsBehavior(
@@ -168,6 +168,11 @@ public partial class SettingsWindow
     {
         return !string.IsNullOrWhiteSpace(apiKey) &&
                !apiKey.StartsWith("sk-", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ResolveProviderOwnerId(string providerId)
+    {
+        return ProviderMetadataCatalog.GetProviderOwnerId(providerId);
     }
 
     private static ProviderConfig CreateDefaultDisplayConfig(string providerId)
@@ -191,9 +196,9 @@ public partial class SettingsWindow
         };
     }
 
-    private static ProviderInputMode ResolveProviderInputMode(string canonicalProviderId, ProviderUsage? usage, bool hasSessionToken)
+    private static ProviderInputMode ResolveProviderInputMode(string providerId, ProviderUsage? usage, bool hasSessionToken)
     {
-        var settingsDef = ProviderMetadataCatalog.Find(canonicalProviderId);
+        var settingsDef = ProviderMetadataCatalog.Find(providerId);
         var settingsMode = settingsDef?.SettingsMode ?? ProviderSettingsMode.StandardApiKey;
         if (settingsMode == ProviderSettingsMode.SessionAuthStatus &&
             (settingsDef?.UseSessionAuthStatusWhenQuotaBasedOrSessionToken ?? false) &&
@@ -289,8 +294,7 @@ public partial class SettingsWindow
         ProviderUsage? usage)
     {
         var secondaryLines = new List<StatusSecondaryLine>();
-        var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(config.ProviderId ?? string.Empty);
-        var sourceLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(canonicalProviderId);
+        var sourceLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId ?? string.Empty);
         string primaryText;
         string primaryResourceKey;
 
@@ -394,7 +398,7 @@ public partial class SettingsWindow
     {
         var providerSessionLabel = settingsBehavior.SessionProviderLabel ??
                                    ProviderMetadataCatalog.GetConfiguredDisplayName(
-                                       ProviderMetadataCatalog.GetCanonicalProviderId(config.ProviderId ?? string.Empty));
+                                       config.ProviderId ?? string.Empty);
         var hasSessionToken = IsSessionToken(config.ApiKey);
         var isAuthenticated = hasSessionToken || usage?.IsAvailable == true;
         var accountName = usage?.AccountName;
@@ -958,12 +962,12 @@ public partial class SettingsWindow
         var hidden = this._preferences.HiddenProviderItemIds;
 
         // Run the same pipeline as the main window (no hidden filter) to get every card
-        // that could potentially appear, then group by canonical provider.
+        // that could potentially appear, then group by owner provider.
         var allCards = MainWindowRuntimeLogic.BuildMainWindowUsageList(this._usages).ToList();
 
         var groups = allCards
             .GroupBy(
-                u => ProviderMetadataCatalog.GetCanonicalProviderId(u.ProviderId ?? string.Empty),
+                u => ResolveProviderOwnerId(u.ProviderId ?? string.Empty),
                 StringComparer.OrdinalIgnoreCase)
             .ToList();
 

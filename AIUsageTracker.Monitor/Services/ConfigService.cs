@@ -205,8 +205,6 @@ public class ConfigService : IConfigService
 
             this.MergeDiscoveredProviders(discovered, existing, suppressed, addedWithKeys, updatedWithKeys, alreadyConfiguredWithKeys);
 
-            ProviderMetadataCatalog.NormalizeCanonicalConfigurations(existing);
-
             this.LogAuthDiagnosticsSnapshot(existing, "post-scan");
 
             this._logger.LogInformation(

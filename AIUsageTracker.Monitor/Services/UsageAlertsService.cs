@@ -243,8 +243,8 @@ public class UsageAlertsService
 
     private void LogInsufficientHistory(ProviderUsage usage)
     {
-        var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(usage.ProviderId);
-        if ((ProviderMetadataCatalog.Find(canonicalProviderId)?.IsChildProviderId(usage.ProviderId) ?? false) || usage.NextResetTime != null)
+        var ownerDefinition = ProviderMetadataCatalog.Find(usage.ProviderId ?? string.Empty);
+        if ((ownerDefinition?.IsChildProviderId(usage.ProviderId ?? string.Empty) ?? false) || usage.NextResetTime != null)
         {
             this._logger.LogTrace("{ProviderId}: Initial record stored, waiting for history", usage.ProviderId);
             return;

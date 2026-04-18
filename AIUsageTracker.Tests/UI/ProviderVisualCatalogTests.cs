@@ -13,14 +13,14 @@ public class ProviderVisualCatalogTests
     [Theory]
     [InlineData("codex.spark", "codex.spark", "openai")]
     [InlineData("antigravity.claude-opus", "antigravity", "google")]
-    [InlineData("minimax-io", "minimax", "minimax")]
+    [InlineData("minimax-io", "minimax-io", "minimax")]
     [InlineData("zai-coding-plan", "zai-coding-plan", "zai")]
-    public void GetIconAssetName_UsesCanonicalProviderIdentity(
+    public void GetIconAssetName_UsesProviderOwnerIdentity(
         string providerId,
-        string expectedCanonicalProviderId,
+        string expectedOwnerProviderId,
         string expectedAssetName)
     {
-        Assert.Equal(expectedCanonicalProviderId, ProviderMetadataCatalog.GetCanonicalProviderId(providerId));
+        Assert.Equal(expectedOwnerProviderId, ProviderMetadataCatalog.GetProviderOwnerId(providerId));
         Assert.Equal(expectedAssetName, ProviderMetadataCatalog.GetIconAssetName(providerId));
     }
 

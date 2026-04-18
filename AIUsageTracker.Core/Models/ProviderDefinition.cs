@@ -71,10 +71,6 @@ public sealed class ProviderDefinition
 
     public IReadOnlyCollection<string> ExplicitApiKeyPrefixes { get; init; } = Array.Empty<string>();
 
-    public string? SessionAuthCanonicalProviderId { get; init; }
-
-    public string? SessionAuthMigrationDescription { get; init; }
-
     public ProviderSettingsMode SettingsMode { get; init; } = ProviderSettingsMode.StandardApiKey;
 
     public bool UseSessionAuthStatusWhenQuotaBasedOrSessionToken { get; init; }

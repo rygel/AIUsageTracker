@@ -12,7 +12,7 @@ namespace AIUsageTracker.Tests.Infrastructure;
 public class ConfigLoaderTests : IntegrationTestBase
 {
     [Fact]
-    public async Task LoadConfigAsync_CanonicalizesHandledProviderAliasesAsync()
+    public async Task LoadConfigAsync_PreservesConfiguredProviderAliasIdsAsync()
     {
         var authPath = this.CreateFile("config/auth.json", "{\"kimi\":{\"key\":\"kimi-test-key\",\"type\":\"quota-based\"}}");
         var providersPath = this.CreateFile("config/providers.json", "{}");
@@ -33,9 +33,9 @@ public class ConfigLoaderTests : IntegrationTestBase
 
         var configs = await loader.LoadConfigAsync();
 
-        var kimi = Assert.Single(configs, config => string.Equals(config.ProviderId, "kimi-for-coding", StringComparison.Ordinal));
+        var kimi = Assert.Single(configs, config => string.Equals(config.ProviderId, "kimi", StringComparison.Ordinal));
         Assert.Equal("kimi-test-key", kimi.ApiKey);
-        Assert.DoesNotContain(configs, config => string.Equals(config.ProviderId, "kimi", StringComparison.Ordinal));
+        Assert.DoesNotContain(configs, config => string.Equals(config.ProviderId, "kimi-for-coding", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -114,7 +114,7 @@ public class ConfigLoaderTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task LoadConfigAsync_CanonicalAuthFileOverridesEarlierAuthSourceAsync()
+    public async Task LoadConfigAsync_AppAuthFileOverridesEarlierAuthSourceAsync()
     {
         var authPath = this.CreateFile("external/auth.json", "{\"synthetic\":{\"key\":\"external-key\"}}");
         var providersPath = this.CreateFile("config/providers.json", "{}");
@@ -142,14 +142,14 @@ public class ConfigLoaderTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task LoadConfigAsync_UsesLegacyOpenCodeAuthWhenCanonicalAuthIsEmptyAsync()
+    public async Task LoadConfigAsync_UsesLegacyOpenCodeAuthWhenAppAuthIsEmptyAsync()
     {
-        var canonicalAuthPath = this.CreateFile("home/.opencode/auth.json", "{\"synthetic\":{\"key\":\"\"}}");
+        var appAuthPath = this.CreateFile("home/.opencode/auth.json", "{\"synthetic\":{\"key\":\"\"}}");
         var providersPath = this.CreateFile("config/providers.json", "{}");
         this.CreateFile("home/.local/share/opencode/auth.json", "{\"synthetic\":{\"key\":\"legacy-shared-key\"}}");
 
         var mockPathProvider = new Mock<IAppPathProvider>();
-        mockPathProvider.Setup(p => p.GetAuthFilePath()).Returns(canonicalAuthPath);
+        mockPathProvider.Setup(p => p.GetAuthFilePath()).Returns(appAuthPath);
         mockPathProvider.Setup(p => p.GetProviderConfigFilePath()).Returns(providersPath);
         mockPathProvider.Setup(p => p.GetUserProfileRoot()).Returns(Path.Combine(this.TestRootPath, "home"));
         mockPathProvider.Setup(p => p.GetPreferencesFilePath()).Returns(Path.Combine(this.TestRootPath, "preferences.json"));

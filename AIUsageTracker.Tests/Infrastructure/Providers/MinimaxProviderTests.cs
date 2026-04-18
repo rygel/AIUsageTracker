@@ -213,7 +213,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         var definition = MinimaxProvider.StaticDefinition;
 
         Assert.Equal("minimax", definition.ProviderId); // provider-id-guardrail-allow: test assertion
-        Assert.Equal("MiniMax.com", definition.DisplayName);
+        Assert.Equal("MiniMax.io", definition.DisplayName);
         Assert.True(definition.IsQuotaBased);
         Assert.Contains("MINIMAX_API_KEY", definition.DiscoveryEnvironmentVariables);
     }
@@ -240,7 +240,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         // Assert
         var usage = result.Single();
         Assert.Equal("minimax", usage.ProviderId); // provider-id-guardrail-allow: test assertion
-        Assert.Equal("MiniMax.com", usage.ProviderName);
+        Assert.Equal("MiniMax.io", usage.ProviderName);
     }
 
     [Fact]
@@ -676,6 +676,144 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
 
         // Assert
         Assert.All(result, u => Assert.Equal("Minimax.io Coding Plan", u.ProviderName));
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_CodingPlan_PrefersTextGenerationModelAsync()
+    {
+        // Arrange: first model is non-text; second model is text generation and must be selected.
+        this.Config.ProviderId = MinimaxProvider.CodingPlanProviderId;
+        var responseJson = """
+            {
+                "base_resp": { "status_code": 0, "status_msg": "success" },
+                "model_remains": [
+                    {
+                        "model_name": "Image Generation",
+                        "current_interval_total_count": 200,
+                        "current_interval_usage_count": 150,
+                        "end_time": 0,
+                        "current_weekly_total_count": 1000,
+                        "current_weekly_usage_count": 900,
+                        "weekly_end_time": 0
+                    },
+                    {
+                        "model_name": "Text Generation",
+                        "current_interval_total_count": 100,
+                        "current_interval_usage_count": 80,
+                        "end_time": 0,
+                        "current_weekly_total_count": 500,
+                        "current_weekly_usage_count": 450,
+                        "weekly_end_time": 0
+                    }
+                ]
+            }
+            """;
+        this.SetupResponse(HttpStatusCode.OK, responseJson, CodingPlanEndpoint);
+
+        // Act
+        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+
+        // Assert: selected window cards must represent text-generation remaining values.
+        var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
+        var weekly = result.Single(u => u.WindowKind == WindowKind.Rolling);
+
+        // 5h: 100 total, 80 remaining -> 20 used
+        Assert.Equal(20, burst.RequestsUsed);
+        Assert.Equal(100, burst.RequestsAvailable);
+        Assert.Equal(20, burst.UsedPercent);
+
+        // Weekly: 500 total, 450 remaining -> 50 used
+        Assert.Equal(50, weekly.RequestsUsed);
+        Assert.Equal(500, weekly.RequestsAvailable);
+        Assert.Equal(10, weekly.UsedPercent);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_CodingPlan_DoesNotUseSearchModel_WhenTextGenerationExistsAsync()
+    {
+        // Arrange: both text-generation and search-like models exist; text generation must win.
+        this.Config.ProviderId = MinimaxProvider.CodingPlanProviderId;
+        var responseJson = """
+            {
+                "base_resp": { "status_code": 0, "status_msg": "success" },
+                "model_remains": [
+                    {
+                        "model_name": "Text Search",
+                        "current_interval_total_count": 500,
+                        "current_interval_usage_count": 250,
+                        "end_time": 0,
+                        "current_weekly_total_count": 1000,
+                        "current_weekly_usage_count": 900,
+                        "weekly_end_time": 0
+                    },
+                    {
+                        "model_name": "Text Generation",
+                        "current_interval_total_count": 100,
+                        "current_interval_usage_count": 90,
+                        "end_time": 0,
+                        "current_weekly_total_count": 300,
+                        "current_weekly_usage_count": 270,
+                        "weekly_end_time": 0
+                    }
+                ]
+            }
+            """;
+        this.SetupResponse(HttpStatusCode.OK, responseJson, CodingPlanEndpoint);
+
+        // Act
+        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+
+        // Assert: exactly one model selected => generic window labels and text-generation math.
+        Assert.Equal(2, result.Count);
+        Assert.All(result, usage => Assert.DoesNotContain("Search", usage.Name ?? string.Empty, StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result, usage => string.Equals(usage.Name, "5h", StringComparison.Ordinal));
+        Assert.Contains(result, usage => string.Equals(usage.Name, "Weekly", StringComparison.Ordinal));
+
+        var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
+        var weekly = result.Single(u => u.WindowKind == WindowKind.Rolling);
+
+        // Text Generation selected:
+        // Burst: 100 total, 90 remaining -> 10 used
+        Assert.Equal(10, burst.RequestsUsed);
+        Assert.Equal(100, burst.RequestsAvailable);
+        Assert.Equal(10, burst.UsedPercent);
+
+        // Weekly: 300 total, 270 remaining -> 30 used
+        Assert.Equal(30, weekly.RequestsUsed);
+        Assert.Equal(300, weekly.RequestsAvailable);
+        Assert.Equal(10, weekly.UsedPercent);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_CodingPlan_WithoutTextGenerationModel_ReturnsUnavailableAsync()
+    {
+        // Arrange: no text-generation model in payload -> do not guess from other models.
+        this.Config.ProviderId = MinimaxProvider.CodingPlanProviderId;
+        var responseJson = """
+            {
+                "base_resp": { "status_code": 0, "status_msg": "success" },
+                "model_remains": [
+                    {
+                        "model_name": "Image Generation",
+                        "current_interval_total_count": 200,
+                        "current_interval_usage_count": 150,
+                        "end_time": 0,
+                        "current_weekly_total_count": 1000,
+                        "current_weekly_usage_count": 900,
+                        "weekly_end_time": 0
+                    }
+                ]
+            }
+            """;
+        this.SetupResponse(HttpStatusCode.OK, responseJson, CodingPlanEndpoint);
+
+        // Act
+        var result = await this._provider.GetUsageAsync(this.Config);
+
+        // Assert
+        var usage = result.Single();
+        Assert.False(usage.IsAvailable);
+        Assert.Contains("Text Generation model missing", usage.Description, StringComparison.Ordinal);
     }
 
     [Fact]

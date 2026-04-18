@@ -18,6 +18,8 @@ public class MinimaxProvider : ProviderBase
     public const string InternationalProviderId = "minimax-io";
     public const string InternationalLegacyProviderId = "minimax-global";
     public const string CodingPlanProviderId = "minimax-coding-plan";
+    private const string TextGenerationLabel = "text generation";
+    private const string TextGenerationModelPrefix = "minimax-text";
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<MinimaxProvider> _logger;
@@ -30,7 +32,7 @@ public class MinimaxProvider : ProviderBase
 
     public static ProviderDefinition StaticDefinition { get; } = new(
         ChinaProviderId,
-        "MiniMax.com",
+        "MiniMax.io",
         PlanType.Coding,
         isQuotaBased: true)
     {
@@ -256,7 +258,26 @@ public class MinimaxProvider : ProviderBase
                 };
             }
 
-            return BuildCodingPlanUsages(config.ProviderId, providerLabel, codingPlan.ModelRemains, responseString, httpStatus);
+            var textGenerationModel = FindTextGenerationModel(codingPlan.ModelRemains);
+            if (textGenerationModel == null)
+            {
+                return new[]
+                {
+                    new ProviderUsage
+                    {
+                        ProviderId = config.ProviderId,
+                        ProviderName = providerLabel,
+                        IsAvailable = false,
+                        IsQuotaBased = this.Definition.IsQuotaBased,
+                        PlanType = this.Definition.PlanType,
+                        Description = "MiniMax Text Generation model missing in coding plan response",
+                        RawJson = responseString,
+                        HttpStatus = httpStatus,
+                    },
+                };
+            }
+
+            return BuildCodingPlanUsages(config.ProviderId, providerLabel, textGenerationModel, responseString, httpStatus);
         }
         catch (JsonException ex)
         {
@@ -281,58 +302,64 @@ public class MinimaxProvider : ProviderBase
     private static List<ProviderUsage> BuildCodingPlanUsages(
         string providerId,
         string providerLabel,
-        IReadOnlyList<MinimaxModelRemains> modelRemains,
+        MinimaxModelRemains model,
         string rawJson,
         int httpStatus)
     {
         var usages = new List<ProviderUsage>();
 
-        for (var i = 0; i < modelRemains.Count; i++)
+        var modelName = model.ModelName ?? "Text Generation";
+        var modelSlug = modelName.ToLowerInvariant().Replace(" ", "-", StringComparison.Ordinal);
+        const int modelIndex = 0;
+
+        if (model.IntervalTotal > 0)
         {
-            var model = modelRemains[i];
-            var modelName = model.ModelName ?? $"Model {(i + 1).ToString(CultureInfo.InvariantCulture)}";
-            var modelSlug = modelName.ToLowerInvariant().Replace(" ", "-", StringComparison.Ordinal);
+            usages.Add(BuildModelWindowCard(new ModelWindowCardSpec(
+                providerId,
+                providerLabel,
+                modelName,
+                modelSlug,
+                modelIndex,
+                model.IntervalTotal,
+                model.IntervalRemaining,
+                model.IntervalEndMs,
+                "burst",
+                "5h",
+                WindowKind.Burst,
+                TimeSpan.FromHours(5),
+                rawJson,
+                httpStatus)));
+        }
 
-            if (model.IntervalTotal > 0)
-            {
-                usages.Add(BuildModelWindowCard(new ModelWindowCardSpec(
-                    providerId,
-                    providerLabel,
-                    modelName,
-                    modelSlug,
-                    i,
-                    model.IntervalTotal,
-                    model.IntervalRemaining,
-                    model.IntervalEndMs,
-                    "burst",
-                    "5h",
-                    WindowKind.Burst,
-                    TimeSpan.FromHours(5),
-                    rawJson,
-                    httpStatus)));
-            }
-
-            if (model.WeeklyTotal > 0)
-            {
-                usages.Add(BuildModelWindowCard(new ModelWindowCardSpec(
-                    providerId,
-                    providerLabel,
-                    modelName,
-                    modelSlug,
-                    i,
-                    model.WeeklyTotal,
-                    model.WeeklyRemaining,
-                    model.WeeklyEndMs,
-                    "weekly",
-                    "Weekly",
-                    WindowKind.Rolling,
-                    TimeSpan.FromDays(7),
-                    rawJson,
-                    httpStatus)));
-            }
+        if (model.WeeklyTotal > 0)
+        {
+            usages.Add(BuildModelWindowCard(new ModelWindowCardSpec(
+                providerId,
+                providerLabel,
+                modelName,
+                modelSlug,
+                modelIndex,
+                model.WeeklyTotal,
+                model.WeeklyRemaining,
+                model.WeeklyEndMs,
+                "weekly",
+                "Weekly",
+                WindowKind.Rolling,
+                TimeSpan.FromDays(7),
+                rawJson,
+                httpStatus)));
         }
 
         return usages;
+    }
+
+    private static MinimaxModelRemains? FindTextGenerationModel(
+        IReadOnlyList<MinimaxModelRemains> modelRemains)
+    {
+        return modelRemains.FirstOrDefault(model =>
+            !string.IsNullOrWhiteSpace(model.ModelName) &&
+            (model.ModelName.Contains(TextGenerationLabel, StringComparison.OrdinalIgnoreCase) ||
+             model.ModelName.Contains(TextGenerationModelPrefix, StringComparison.OrdinalIgnoreCase)));
     }
 
     private static ProviderUsage BuildModelWindowCard(ModelWindowCardSpec spec)

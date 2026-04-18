@@ -83,7 +83,7 @@ public partial class Program
                 LogDebugStartupBanner(logger, monitorVersion);
             }
 
-            // Reserve the canonical monitor port with retry for transient bind races.
+            // Reserve the preferred monitor port with retry for transient bind races.
             int port = MonitorPortResolver.ResolveCanonicalPort(preferredPort: 5000, debug: isDebugMode, logger: logger);
 
             logger.LogDebug("Configuring web host on port {Port}...", port);

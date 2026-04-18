@@ -10,18 +10,18 @@ namespace AIUsageTracker.Infrastructure.Providers;
 public static class ProviderDerivedModelAssignmentResolver
 {
     public static IReadOnlyList<ProviderDerivedModelAssignment> Resolve(
-        string canonicalProviderId,
+        string ownerProviderId,
         IReadOnlyList<AgentGroupedModelUsage> orderedModels)
     {
         ArgumentNullException.ThrowIfNull(orderedModels);
 
-        if (string.IsNullOrWhiteSpace(canonicalProviderId) ||
+        if (string.IsNullOrWhiteSpace(ownerProviderId) ||
             orderedModels.Count == 0)
         {
             return Array.Empty<ProviderDerivedModelAssignment>();
         }
 
-        var definition = ProviderMetadataCatalog.Find(canonicalProviderId);
+        var definition = ProviderMetadataCatalog.Find(ownerProviderId);
         if (definition == null)
         {
             return Array.Empty<ProviderDerivedModelAssignment>();
@@ -29,12 +29,12 @@ public static class ProviderDerivedModelAssignmentResolver
 
         if (definition.VisibleDerivedProviderIds.Count > 0)
         {
-            return BuildDerivedAssignments(definition, canonicalProviderId, orderedModels);
+            return BuildDerivedAssignments(definition, ownerProviderId, orderedModels);
         }
 
         if (definition.UseChildProviderRowsForGroupedModels)
         {
-            return BuildDynamicModelAssignments(canonicalProviderId, orderedModels);
+            return BuildDynamicModelAssignments(ownerProviderId, orderedModels);
         }
 
         return Array.Empty<ProviderDerivedModelAssignment>();
@@ -42,7 +42,7 @@ public static class ProviderDerivedModelAssignmentResolver
 
     private static IReadOnlyList<ProviderDerivedModelAssignment> BuildDerivedAssignments(
         ProviderDefinition definition,
-        string canonicalProviderId,
+        string ownerProviderId,
         IReadOnlyList<AgentGroupedModelUsage> orderedModels)
     {
         var visibleDerivedProviderIds = definition.VisibleDerivedProviderIds.ToList();
@@ -79,7 +79,7 @@ public static class ProviderDerivedModelAssignmentResolver
         }
 
         var remainingAssignments = BuildDynamicModelAssignments(
-            canonicalProviderId,
+            ownerProviderId,
             orderedModels,
             assignments.Select(assignment => assignment.ProviderId),
             assignments.Select(assignment => GetModelAssignmentKey(assignment.Model))
@@ -95,7 +95,7 @@ public static class ProviderDerivedModelAssignmentResolver
     }
 
     private static List<ProviderDerivedModelAssignment> BuildDynamicModelAssignments(
-        string canonicalProviderId,
+        string ownerProviderId,
         IReadOnlyList<AgentGroupedModelUsage> orderedModels,
         IEnumerable<string>? reservedProviderIds = null,
         IEnumerable<string>? reservedModelKeys = null)
@@ -116,7 +116,7 @@ public static class ProviderDerivedModelAssignmentResolver
                 continue;
             }
 
-            var derivedProviderId = $"{canonicalProviderId}.{modelKey}";
+            var derivedProviderId = $"{ownerProviderId}.{modelKey}";
             if (!usedProviderIds.Add(derivedProviderId))
             {
                 continue;
