@@ -286,7 +286,7 @@ internal static partial class MainWindowRuntimeLogic
     /// information for multi-day quota periods.
     /// </summary>
     /// <returns></returns>
-    internal static string? BuildTooltipContent(ProviderUsage usage, string friendlyName)
+    internal static string? BuildTooltipContent(ProviderUsage usage, string friendlyName, bool useRelativeResetTime = false)
     {
         var tooltipBuilder = new System.Text.StringBuilder();
         tooltipBuilder.AppendLine(friendlyName);
@@ -296,7 +296,7 @@ internal static partial class MainWindowRuntimeLogic
             tooltipBuilder.AppendLine($"Description: {usage.Description}");
         }
 
-        AppendWindowLimitLines(tooltipBuilder, usage);
+        AppendWindowLimitLines(tooltipBuilder, usage, useRelativeResetTime);
 
         if (usage.IsAvailable && usage.PeriodDuration.HasValue && usage.PeriodDuration.Value.TotalDays >= 1)
         {
@@ -318,7 +318,10 @@ internal static partial class MainWindowRuntimeLogic
         return string.IsNullOrWhiteSpace(result) ? null : result;
     }
 
-    private static void AppendWindowLimitLines(System.Text.StringBuilder tooltipBuilder, ProviderUsage usage)
+    private static void AppendWindowLimitLines(
+        System.Text.StringBuilder tooltipBuilder,
+        ProviderUsage usage,
+        bool useRelativeResetTime)
     {
         if (usage.WindowCards == null || usage.WindowCards.Count == 0)
         {
@@ -333,14 +336,15 @@ internal static partial class MainWindowRuntimeLogic
         }
 
         tooltipBuilder.AppendLine();
-        AppendWindowLine(tooltipBuilder, burstCard, "5h");
-        AppendWindowLine(tooltipBuilder, rollingCard, "Weekly");
+        AppendWindowLine(tooltipBuilder, burstCard, "5h", useRelativeResetTime);
+        AppendWindowLine(tooltipBuilder, rollingCard, "Weekly", useRelativeResetTime);
     }
 
     private static void AppendWindowLine(
         System.Text.StringBuilder tooltipBuilder,
         ProviderUsage? windowCard,
-        string fallbackLabel)
+        string fallbackLabel,
+        bool useRelativeResetTime)
     {
         if (windowCard == null)
         {
@@ -350,7 +354,9 @@ internal static partial class MainWindowRuntimeLogic
         var label = !string.IsNullOrWhiteSpace(windowCard.Name) ? windowCard.Name : fallbackLabel;
         var remainingPercent = UsageMath.ClampPercent(100.0 - windowCard.UsedPercent);
         var resetText = windowCard.NextResetTime.HasValue
-            ? UsageMath.FormatAbsoluteDate(windowCard.NextResetTime.Value)
+            ? (useRelativeResetTime
+                ? UsageMath.FormatRelativeTime(windowCard.NextResetTime.Value)
+                : UsageMath.FormatAbsoluteDate(windowCard.NextResetTime.Value))
             : "Unknown";
 
         tooltipBuilder.AppendLine(CultureInfo.InvariantCulture, $"{label} limit: {remainingPercent:F0}% remaining");

@@ -160,7 +160,7 @@ public sealed class MainWindowRuntimeLogicTests
             },
         };
 
-        var tooltip = MainWindowRuntimeLogic.BuildTooltipContent(usage, usage.ProviderName!);
+        var tooltip = MainWindowRuntimeLogic.BuildTooltipContent(usage, usage.ProviderName!, useRelativeResetTime: false);
 
         Assert.NotNull(tooltip);
         Assert.Contains("5h limit: 60% remaining", tooltip, StringComparison.Ordinal);
@@ -181,10 +181,46 @@ public sealed class MainWindowRuntimeLogicTests
             UsedPercent = 10,
         };
 
-        var tooltip = MainWindowRuntimeLogic.BuildTooltipContent(usage, usage.ProviderName!);
+        var tooltip = MainWindowRuntimeLogic.BuildTooltipContent(usage, usage.ProviderName!, useRelativeResetTime: false);
 
         Assert.NotNull(tooltip);
         Assert.DoesNotContain("resets:", tooltip, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("limit:", tooltip, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void BuildTooltipContent_WithRelativeResetSetting_UsesRelativeResetStrings()
+    {
+        var burstReset = DateTime.UtcNow.AddDays(2).AddHours(3);
+        var weeklyReset = DateTime.UtcNow.AddDays(6).AddHours(4);
+        var usage = new ProviderUsage
+        {
+            ProviderId = "codex",
+            ProviderName = "OpenAI (Codex)",
+            IsAvailable = true,
+            WindowCards = new List<ProviderUsage>
+            {
+                new()
+                {
+                    Name = "5h",
+                    WindowKind = WindowKind.Burst,
+                    UsedPercent = 40,
+                    NextResetTime = burstReset,
+                },
+                new()
+                {
+                    Name = "Weekly",
+                    WindowKind = WindowKind.Rolling,
+                    UsedPercent = 25,
+                    NextResetTime = weeklyReset,
+                },
+            },
+        };
+
+        var tooltip = MainWindowRuntimeLogic.BuildTooltipContent(usage, usage.ProviderName!, useRelativeResetTime: true);
+
+        Assert.NotNull(tooltip);
+        Assert.Contains($"5h resets: {UsageMath.FormatRelativeTime(burstReset)}", tooltip, StringComparison.Ordinal);
+        Assert.Contains($"Weekly resets: {UsageMath.FormatRelativeTime(weeklyReset)}", tooltip, StringComparison.Ordinal);
     }
 }
