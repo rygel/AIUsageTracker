@@ -107,7 +107,8 @@ public class AppPreferences
     // Per-group collapse state for flat card groups (keyed by GroupId).
     public IDictionary<string, bool> CollapsedGroupIds { get; set; } = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
 
-    // Update channel (Stable or Beta)
+    // Update channel (Stable or Beta).
+    // Intentionally persisted as a numeric enum value (0=Stable, 1=Beta).
     public UpdateChannel UpdateChannel { get; set; } = UpdateChannel.Stable;
 
     // Display Options

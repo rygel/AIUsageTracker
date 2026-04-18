@@ -173,6 +173,18 @@ public class AppStartupTests : IDisposable
     }
 
     [Fact]
+    public async Task SavePreferencesAsync_WritesNumericUpdateChannelValueAsync()
+    {
+        var preferences = new AppPreferences { UpdateChannel = UpdateChannel.Beta };
+
+        var saved = await this._store.SaveAsync(preferences);
+        var json = await File.ReadAllTextAsync(this._testPreferencesPath);
+
+        Assert.True(saved);
+        Assert.Contains("\"UpdateChannel\": 1", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task LoadPreferencesAsync_WhenPrimaryCorrupted_UsesBackupAsync()
     {
         var original = new AppPreferences
