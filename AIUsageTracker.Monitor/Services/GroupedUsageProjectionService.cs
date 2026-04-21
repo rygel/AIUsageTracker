@@ -87,8 +87,10 @@ public static class GroupedUsageProjectionService
             return ownerUsage;
         }
 
-        throw new InvalidOperationException(
-            $"Grouped usage for owner '{ownerProviderId}' did not contain a matching owner row.");
+        // Compatibility fallback for historical snapshots that may only contain child rows.
+        return group
+            .OrderByDescending(usage => usage.FetchedAt)
+            .First();
     }
 
     private static List<AgentGroupedModelUsage> BuildModels(

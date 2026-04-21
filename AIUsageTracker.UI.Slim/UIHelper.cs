@@ -16,6 +16,11 @@ internal static class UIHelper
             return brush;
         }
 
+        if (fallback != null)
+        {
+            return fallback;
+        }
+
         throw new InvalidOperationException($"Missing SolidColorBrush resource '{key}'.");
     }
 }
