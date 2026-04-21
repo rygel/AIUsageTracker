@@ -67,7 +67,7 @@ public class OpenRouterProviderTests : HttpProviderTestBase<OpenRouterProvider>
         Assert.Equal(2.5, creditsCard.RequestsUsed);
         Assert.False(creditsCard.IsQuotaBased);
 
-        Assert.Equal("7.50$ remaining", creditsCard.Description);
+        Assert.Equal("$7.50 remaining", creditsCard.Description);
 
         Assert.Contains(
             usages,
