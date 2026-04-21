@@ -617,8 +617,7 @@ public partial class MainWindow : Window
 
         try
         {
-            var owner = this.IsVisible ? this : null;
-            settingsResult = await this._dialogService.ShowSettingsAsync(owner).ConfigureAwait(true);
+            settingsResult = await this._dialogService.ShowSettingsAsync(this).ConfigureAwait(true);
         }
         finally
         {

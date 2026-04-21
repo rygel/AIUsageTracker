@@ -19,10 +19,16 @@ internal static class GroupedUsageDisplayAdapter
         var usages = new List<ProviderUsage>(snapshot.Providers.Count * 2);
         foreach (var provider in snapshot.Providers
                      .Where(provider => !string.IsNullOrWhiteSpace(provider.ProviderId))
-                     .Where(provider => provider.Models.Count > 0)
                      .OrderBy(provider => provider.ProviderId, StringComparer.OrdinalIgnoreCase))
         {
-            usages.AddRange(FlatWindowCardBuilder.BuildFlatWindowCards(provider));
+            if (provider.Models.Count > 0)
+            {
+                usages.AddRange(FlatWindowCardBuilder.BuildFlatWindowCards(provider));
+            }
+            else
+            {
+                usages.Add(LegacyParentCardBuilder.Build(provider));
+            }
         }
 
         return usages;

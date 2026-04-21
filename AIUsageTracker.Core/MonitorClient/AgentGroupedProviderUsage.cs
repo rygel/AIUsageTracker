@@ -35,4 +35,6 @@ public sealed class AgentGroupedProviderUsage
     public DateTime? NextResetTime { get; set; }
 
     public IReadOnlyList<AgentGroupedModelUsage> Models { get; set; } = Array.Empty<AgentGroupedModelUsage>();
+
+    public IReadOnlyList<ProviderUsage> ProviderDetails { get; set; } = Array.Empty<ProviderUsage>();
 }

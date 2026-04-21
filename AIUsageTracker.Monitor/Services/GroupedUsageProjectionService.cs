@@ -49,6 +49,11 @@ public static class GroupedUsageProjectionService
                 .FirstOrDefault();
 
         var displayName = ProviderMetadataCatalog.GetConfiguredDisplayName(providerId);
+        var providerDetails = (IReadOnlyList<ProviderUsage>)group
+            .Where(u => u.WindowKind != WindowKind.None && !u.IsStale)
+            .OrderBy(u => u.NextResetTime ?? DateTime.MaxValue)
+            .ThenBy(u => u.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         return new AgentGroupedProviderUsage
         {
@@ -66,6 +71,7 @@ public static class GroupedUsageProjectionService
             FetchedAt = group.Max(usage => usage.FetchedAt),
             NextResetTime = nextResetTime,
             Models = models,
+            ProviderDetails = providerDetails,
         };
     }
 

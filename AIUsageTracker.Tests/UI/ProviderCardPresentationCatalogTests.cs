@@ -176,9 +176,8 @@ public sealed class ProviderCardPresentationCatalogTests
     // GroupedUsageDisplayAdapter → ProviderCardPresentationCatalog so that bugs
     // suppressed by a broken intermediate layer cannot be masked.
     [Fact]
-    public void Pipeline_KimiProviderDetailsWithoutModels_ProducesNoCards()
+    public void Pipeline_KimiProviderDetailsWithoutModels_ProducesParentCard()
     {
-        // Strict contract: adapter renders only provider.Models.
         var snapshot = new AgentGroupedUsageSnapshot
         {
             Providers = new[]
@@ -190,18 +189,36 @@ public sealed class ProviderCardPresentationCatalogTests
                     IsQuotaBased = true,
                     UsedPercent = 25,
                     Models = Array.Empty<AgentGroupedModelUsage>(),
+                    ProviderDetails = new[]
+                    {
+                        new ProviderUsage
+                        {
+                            ProviderId = "kimi-for-coding",
+                            Name = "5h Limit",
+                            WindowKind = WindowKind.Burst,
+                            UsedPercent = 0,
+                        },
+                        new ProviderUsage
+                        {
+                            ProviderId = "kimi-for-coding",
+                            Name = "Weekly Limit",
+                            WindowKind = WindowKind.Rolling,
+                            UsedPercent = 25,
+                        },
+                    },
                 },
             },
         };
 
         var usages = GroupedUsageDisplayAdapter.Expand(snapshot);
-        Assert.Empty(usages);
+        var parent = Assert.Single(usages);
+        Assert.NotNull(parent.WindowCards);
+        Assert.Equal(2, parent.WindowCards!.Count);
     }
 
     [Fact]
-    public void Pipeline_ClaudeCodeProviderDetailsWithoutModels_ProducesNoCards()
+    public void Pipeline_ClaudeCodeProviderDetailsWithoutModels_ProducesParentCard()
     {
-        // Strict contract: adapter renders only provider.Models.
         var snapshot = new AgentGroupedUsageSnapshot
         {
             Providers = new[]
@@ -213,18 +230,36 @@ public sealed class ProviderCardPresentationCatalogTests
                     IsQuotaBased = true,
                     UsedPercent = 51,
                     Models = Array.Empty<AgentGroupedModelUsage>(),
+                    ProviderDetails = new[]
+                    {
+                        new ProviderUsage
+                        {
+                            ProviderId = "claude-code",
+                            Name = "Current Session",
+                            WindowKind = WindowKind.Burst,
+                            UsedPercent = 51,
+                        },
+                        new ProviderUsage
+                        {
+                            ProviderId = "claude-code",
+                            Name = "All Models",
+                            WindowKind = WindowKind.Rolling,
+                            UsedPercent = 49,
+                        },
+                    },
                 },
             },
         };
 
         var usages = GroupedUsageDisplayAdapter.Expand(snapshot);
-        Assert.Empty(usages);
+        var parent = Assert.Single(usages);
+        Assert.NotNull(parent.WindowCards);
+        Assert.Equal(2, parent.WindowCards!.Count);
     }
 
     [Fact]
-    public void Pipeline_ClaudeCodeProviderDetailsOnly_ProducesNoCards()
+    public void Pipeline_ClaudeCodeProviderDetailsOnly_ProducesDualWindowStatus()
     {
-        // Strict contract: adapter renders only provider.Models.
         var snapshot = new AgentGroupedUsageSnapshot
         {
             Providers = new[]
@@ -236,12 +271,31 @@ public sealed class ProviderCardPresentationCatalogTests
                     IsQuotaBased = true,
                     UsedPercent = 84,
                     Models = Array.Empty<AgentGroupedModelUsage>(),
+                    ProviderDetails = new[]
+                    {
+                        new ProviderUsage
+                        {
+                            ProviderId = "claude-code",
+                            Name = "Current Session",
+                            WindowKind = WindowKind.Burst,
+                            UsedPercent = 84,
+                        },
+                        new ProviderUsage
+                        {
+                            ProviderId = "claude-code",
+                            Name = "All Models",
+                            WindowKind = WindowKind.Rolling,
+                            UsedPercent = 16,
+                        },
+                    },
                 },
             },
         };
 
         var usages = GroupedUsageDisplayAdapter.Expand(snapshot);
-        Assert.Empty(usages);
+        var usage = Assert.Single(usages);
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
+        Assert.Equal("Current Session 16% remaining | All Models 84% remaining", presentation.StatusText);
     }
 
     [Theory]

@@ -10,7 +10,7 @@ using AIUsageTracker.UI.Slim;
 namespace AIUsageTracker.Tests.UI;
 
 /// <summary>
-/// Verifies grouped DTO JSON round-trip behavior in the strict models-only contract.
+/// Verifies grouped DTO JSON round-trip behavior for both flat models and parent-window details.
 /// </summary>
 public sealed class DualQuotaSerializationRoundTripTests
 {
@@ -76,7 +76,7 @@ public sealed class DualQuotaSerializationRoundTripTests
     }
 
     [Fact]
-    public void FullPipeline_AfterJsonRoundTrip_WithoutModels_ProducesNoCards()
+    public void FullPipeline_AfterJsonRoundTrip_WithoutModels_ProducesParentCard()
     {
         // Simulate the full path: provider data → JSON (Monitor) → UI client → Create()
         var snapshot = new AgentGroupedUsageSnapshot
@@ -89,6 +89,23 @@ public sealed class DualQuotaSerializationRoundTripTests
                     IsAvailable = true,
                     IsQuotaBased = true,
                     UsedPercent = 4,
+                    ProviderDetails = new[]
+                    {
+                        new ProviderUsage
+                        {
+                            ProviderId = "codex",
+                            Name = "5h",
+                            WindowKind = WindowKind.Burst,
+                            UsedPercent = 4,
+                        },
+                        new ProviderUsage
+                        {
+                            ProviderId = "codex",
+                            Name = "Weekly",
+                            WindowKind = WindowKind.Rolling,
+                            UsedPercent = 51,
+                        },
+                    },
                 },
             },
         };
@@ -99,11 +116,13 @@ public sealed class DualQuotaSerializationRoundTripTests
 
         // UI builds ProviderUsage from snapshot
         var usages = GroupedUsageDisplayAdapter.Expand(deserialized);
-        Assert.Empty(usages);
+        var usage = Assert.Single(usages);
+        Assert.NotNull(usage.WindowCards);
+        Assert.Equal(2, usage.WindowCards!.Count);
     }
 
     [Fact]
-    public void FullPipeline_ClaudeCode_AfterJsonRoundTrip_WithoutModels_ProducesNoCards()
+    public void FullPipeline_ClaudeCode_AfterJsonRoundTrip_WithoutModels_ProducesParentCard()
     {
         // Simulate ClaudeCodeProvider output → GroupedUsageProjectionService → HTTP JSON → UI
         var snapshot = new AgentGroupedUsageSnapshot
@@ -116,6 +135,23 @@ public sealed class DualQuotaSerializationRoundTripTests
                     IsAvailable = true,
                     IsQuotaBased = true,
                     UsedPercent = 51,
+                    ProviderDetails = new[]
+                    {
+                        new ProviderUsage
+                        {
+                            ProviderId = "claude-code",
+                            Name = "Current Session",
+                            WindowKind = WindowKind.Burst,
+                            UsedPercent = 51,
+                        },
+                        new ProviderUsage
+                        {
+                            ProviderId = "claude-code",
+                            Name = "All Models",
+                            WindowKind = WindowKind.Rolling,
+                            UsedPercent = 49,
+                        },
+                    },
                 },
             },
         };
@@ -124,6 +160,8 @@ public sealed class DualQuotaSerializationRoundTripTests
         var deserialized = JsonSerializer.Deserialize<AgentGroupedUsageSnapshot>(json, ClientOptions)!;
 
         var usages = GroupedUsageDisplayAdapter.Expand(deserialized);
-        Assert.Empty(usages);
+        var usage = Assert.Single(usages);
+        Assert.NotNull(usage.WindowCards);
+        Assert.Equal(2, usage.WindowCards!.Count);
     }
 }
