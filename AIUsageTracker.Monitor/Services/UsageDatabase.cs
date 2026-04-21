@@ -340,7 +340,8 @@ public class UsageDatabase : IUsageDatabase
             && (usage.IsAvailable ? 1L : 0L) == last.IsAvailable
             && (long)usage.HttpStatus == last.HttpStatus
             && string.Equals(newStatusMessage, last.StatusMessage ?? string.Empty, StringComparison.Ordinal)
-            && string.Equals(newNextResetTime, last.NextResetTime, StringComparison.Ordinal);
+            && string.Equals(newNextResetTime, last.NextResetTime, StringComparison.Ordinal)
+            && string.Equals(usage.Name, last.Name, StringComparison.Ordinal);
     }
 
     private static void ClassifyHistoryEntries(
@@ -411,7 +412,8 @@ public class UsageDatabase : IUsageDatabase
                    h.is_available AS IsAvailable,
                    h.status_message AS StatusMessage,
                    h.next_reset_time AS NextResetTime,
-                   h.http_status AS HttpStatus
+                   h.http_status AS HttpStatus,
+                   h.name AS Name
             FROM provider_history h
             WHERE h.id IN (
                 SELECT MAX(id)
@@ -435,7 +437,8 @@ public class UsageDatabase : IUsageDatabase
         long IsAvailable,
         string? StatusMessage,
         string? NextResetTime,
-        long HttpStatus);
+        long HttpStatus,
+        string? Name);
 
     private sealed record HistoryInsertParams(
         string ProviderId,

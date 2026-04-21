@@ -57,4 +57,33 @@ public sealed class ProviderRenderPlanCatalogTests
             plan.RenderedCount,
             plan.Sections.SelectMany(section => section.Usages).Count());
     }
+
+    [Fact]
+    public void Build_OpenrouterCredits_AppearsInPayAsYouGoSection()
+    {
+        var usages = new[]
+        {
+            new ProviderUsage
+            {
+                ProviderId = "openrouter",
+                ProviderName = "Openrouter",
+                IsQuotaBased = false,
+                PlanType = PlanType.Usage,
+            },
+            new ProviderUsage
+            {
+                ProviderId = "gemini-cli",
+                ProviderName = "Gemini CLI",
+                IsQuotaBased = true,
+                PlanType = PlanType.Coding,
+            },
+        };
+
+        var plan = MainWindowRuntimeLogic.BuildProviderRenderPlan(usages, hiddenProviderItemIds: Array.Empty<string>());
+
+        var payAsYouGo = Assert.Single(plan.Sections, section => !section.IsQuotaBased);
+        Assert.Equal("Pay As You Go", payAsYouGo.Title);
+        Assert.Contains(payAsYouGo.Usages, usage => string.Equals(usage.ProviderId, "openrouter", StringComparison.Ordinal));
+        Assert.DoesNotContain(payAsYouGo.Usages, usage => string.Equals(usage.ProviderId, "gemini-cli", StringComparison.Ordinal));
+    }
 }

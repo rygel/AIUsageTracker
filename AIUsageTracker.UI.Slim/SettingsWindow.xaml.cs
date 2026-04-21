@@ -21,10 +21,6 @@ namespace AIUsageTracker.UI.Slim;
 
 public partial class SettingsWindow : Window
 {
-#pragma warning disable S1075 // Pack URI scheme is required by WPF
-    private const string PackApplicationUri = "pack://application:,,,/";
-#pragma warning restore S1075
-
     private static readonly JsonSerializerOptions BundleJsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
@@ -36,6 +32,7 @@ public partial class SettingsWindow : Window
     private readonly ILogger<SettingsWindow> _logger;
     private readonly IAppPathProvider _pathProvider;
     private readonly UiPreferencesStore _preferencesStore;
+    private readonly WpfProviderIconService _providerIconService;
     private readonly Func<UpdateChannel, GitHubUpdateChecker> _createUpdateChecker;
     private readonly SemaphoreSlim _autoSaveSemaphore = new(1, 1);
     private readonly DispatcherTimer _autoSaveTimer;
@@ -72,6 +69,7 @@ public partial class SettingsWindow : Window
         this._logger = logger;
         this._pathProvider = pathProvider;
         this._preferencesStore = preferencesStore;
+        this._providerIconService = new WpfProviderIconService(this._logger, UIHelper.GetResourceBrush);
         this._createUpdateChecker = createUpdateChecker;
         this._privacyChangedHandler = this.OnPrivacyChanged;
         PrivacyChangedWeakEventManager.AddHandler(this._privacyChangedHandler);
@@ -521,7 +519,7 @@ public partial class SettingsWindow : Window
     {
         if (this.ShowUsedPercentagesCheck != null)
         {
-            this.ShowUsedPercentagesCheck.IsChecked = this._preferences.PercentageDisplayMode == PercentageDisplayMode.Used;
+            this.ShowUsedPercentagesCheck.IsChecked = this._preferences.ShowUsedPercentages;
         }
 
         if (this.ShowUsagePerHourCheck != null)
@@ -601,30 +599,15 @@ public partial class SettingsWindow : Window
 
     private void PopulateFontComboBox()
     {
-        // Get all system fonts
-        var fonts = System.Windows.Media.Fonts.GetFontFamilies(new Uri(PackApplicationUri))
+        var fontsPath = Environment.GetFolderPath(Environment.SpecialFolder.Fonts);
+        var fonts = System.Windows.Media.Fonts.GetFontFamilies(fontsPath)
             .Select(ff => ff.FamilyNames.FirstOrDefault().Value ?? ff.Source)
             .OrderBy(f => f, StringComparer.Ordinal)
             .ToList();
 
-        // If no fonts from pack URI, try alternative method
         if (fonts.Count == 0)
         {
-            fonts = System.Windows.Media.Fonts.GetFontFamilies(Environment.GetFolderPath(Environment.SpecialFolder.Fonts))
-                .Select(ff => ff.FamilyNames.FirstOrDefault().Value ?? ff.Source)
-                .OrderBy(f => f, StringComparer.Ordinal)
-                .ToList();
-        }
-
-        // Fallback to common fonts if still empty
-        if (fonts.Count == 0)
-        {
-            fonts = new List<string>
-            {
-                "Arial", "Calibri", "Cambria", "Comic Sans MS", "Consolas", "Courier New",
-                "Georgia", "Helvetica", "Lucida Console", "Segoe UI", "Tahoma", "Times New Roman",
-                "Trebuchet MS", "Verdana",
-            }.OrderBy(f => f, StringComparer.Ordinal).ToList();
+            fonts = new List<string> { "Segoe UI" };
         }
 
         this.FontFamilyCombo.ItemsSource = fonts;

@@ -12,6 +12,7 @@ internal static class LegacyParentCardBuilder
 {
     internal static ProviderUsage Build(AgentGroupedProviderUsage provider)
     {
+        var definition = ProviderMetadataCatalog.Find(provider.ProviderId);
         var windowCards = provider.ProviderDetails
             .Where(d => d.WindowKind != WindowKind.None)
             .ToList();
@@ -23,8 +24,9 @@ internal static class LegacyParentCardBuilder
             AccountName = provider.AccountName,
             IsAvailable = provider.IsAvailable,
             State = provider.State,
-            PlanType = provider.PlanType,
-            IsQuotaBased = provider.IsQuotaBased,
+            PlanType = definition?.PlanType ?? provider.PlanType,
+            IsQuotaBased = definition?.IsQuotaBased ?? provider.IsQuotaBased,
+            IsCurrencyUsage = definition?.IsCurrencyUsage ?? false,
             RequestsUsed = provider.RequestsUsed,
             RequestsAvailable = provider.RequestsAvailable,
             UsedPercent = provider.UsedPercent,

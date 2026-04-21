@@ -160,7 +160,7 @@ internal static partial class MainWindowRuntimeLogic
                 return true;
             })
             .GroupBy(usage => $"{usage.ProviderId ?? string.Empty}::{usage.CardId ?? string.Empty}", StringComparer.OrdinalIgnoreCase)
-            .Select(SelectPreferredUsage)
+            .Select(group => group.OrderByDescending(usage => usage.FetchedAt).First())
             .OrderByDescending(usage => usage.IsQuotaBased)
             .ToList();
 
@@ -233,52 +233,85 @@ internal static partial class MainWindowRuntimeLogic
         }
     }
 
-    private static ProviderUsage SelectPreferredUsage(IGrouping<string, ProviderUsage> group)
-    {
-        return group
-            .OrderByDescending(GetSelectionScore)
-            .ThenByDescending(usage => usage.FetchedAt)
-            .First();
-    }
-
-    private static int GetSelectionScore(ProviderUsage usage)
-    {
-        var score = 0;
-        if (usage.IsAvailable)
-        {
-            score += 1000;
-        }
-
-        if (usage.HttpStatus is >= 200 and < 300)
-        {
-            score += 100;
-        }
-
-        if (usage.NextResetTime.HasValue)
-        {
-            score += 10;
-        }
-
-        return score;
-    }
-
-    /// <summary>
-    /// Resolves reset times for the provider card, falling back to the parent's
-    /// NextResetTime when no specific window reset is available.
-    /// </summary>
-    /// <returns></returns>
-    internal static IReadOnlyList<DateTime> ResolveResetTimes(ProviderUsage usage, bool suppressSingleResetFallback)
+    internal static IReadOnlyList<DateTime> ResolveResetTimes(ProviderUsage usage)
     {
         ArgumentNullException.ThrowIfNull(usage);
-
-        if (suppressSingleResetFallback)
-        {
-            return Array.Empty<DateTime>();
-        }
 
         return usage.NextResetTime.HasValue
             ? new[] { usage.NextResetTime.Value }
             : Array.Empty<DateTime>();
+    }
+
+    internal static string? ResolveResetWindowLabel(ProviderUsage usage)
+    {
+        ArgumentNullException.ThrowIfNull(usage);
+
+        var providerId = usage.ProviderId ?? string.Empty;
+        var ownerProviderId = ProviderMetadataCatalog.GetProviderOwnerId(providerId);
+        if (string.Equals(
+            ownerProviderId,
+            GitHubCopilotProvider.StaticDefinition.ProviderId,
+            StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var explicitLabel = NormalizeResetWindowLabel(usage.Name)
+            ?? NormalizeResetWindowLabel(usage.CardId)
+            ?? NormalizeResetWindowLabel(usage.ProviderName);
+        if (!string.IsNullOrWhiteSpace(explicitLabel))
+        {
+            return explicitLabel;
+        }
+
+        if (ProviderMetadataCatalog.TryGet(ownerProviderId, out var definition))
+        {
+            var matchedWindow = definition.QuotaWindows.FirstOrDefault(window =>
+                !string.IsNullOrWhiteSpace(window.ChildProviderId) &&
+                string.Equals(window.ChildProviderId, providerId, StringComparison.OrdinalIgnoreCase));
+            var matchedLabel = NormalizeResetWindowLabel(matchedWindow?.DualBarLabel)
+                ?? NormalizeResetWindowLabel(matchedWindow?.SettingsLabel)
+                ?? NormalizeResetWindowLabel(
+                    definition.QuotaWindows
+                        .FirstOrDefault(window => window.Kind == WindowKind.Burst)
+                        ?.DualBarLabel);
+            if (!string.IsNullOrWhiteSpace(matchedLabel))
+            {
+                return matchedLabel;
+            }
+        }
+
+        return usage.PlanType == PlanType.Coding && usage.IsQuotaBased
+            ? "5h"
+            : null;
+    }
+
+    internal static (DateTime? ResetTime, string? ResetLabel) ResolveCardResetDisplay(
+        ProviderUsage usage,
+        ProviderCardPresentation presentation,
+        bool showDualQuotaBars,
+        DualQuotaSingleBarMode dualQuotaSingleBarMode)
+    {
+        ArgumentNullException.ThrowIfNull(usage);
+        ArgumentNullException.ThrowIfNull(presentation);
+
+        if (presentation.DualBar != null)
+        {
+            var bar = showDualQuotaBars
+                ? presentation.DualBar.Primary // Dual-bar layout always surfaces the burst (5h) reset.
+                : dualQuotaSingleBarMode == DualQuotaSingleBarMode.Burst
+                    ? presentation.DualBar.Primary
+                    : presentation.DualBar.Secondary;
+
+            var label = string.IsNullOrWhiteSpace(bar.Label)
+                ? ResolveResetWindowLabel(usage)
+                : bar.Label;
+            return (bar.ResetTime, label);
+        }
+
+        return presentation.SuppressSingleResetTime
+            ? (null, null)
+            : (usage.NextResetTime, ResolveResetWindowLabel(usage));
     }
 
     /// <summary>
@@ -290,6 +323,19 @@ internal static partial class MainWindowRuntimeLogic
     {
         var tooltipBuilder = new System.Text.StringBuilder();
         tooltipBuilder.AppendLine(friendlyName);
+        var modelProvider = !string.IsNullOrWhiteSpace(usage.ParentProviderId)
+            ? usage.ParentProviderId
+            : usage.ProviderId;
+        if (!string.IsNullOrWhiteSpace(modelProvider))
+        {
+            tooltipBuilder.AppendLine($"Model provider: {modelProvider}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(usage.ModelName))
+        {
+            tooltipBuilder.AppendLine($"Model: {usage.ModelName}");
+        }
+
         tooltipBuilder.AppendLine($"Status: {(usage.IsAvailable ? "Active" : "Inactive")}");
         if (!string.IsNullOrEmpty(usage.Description))
         {
@@ -297,6 +343,7 @@ internal static partial class MainWindowRuntimeLogic
         }
 
         AppendWindowLimitLines(tooltipBuilder, usage, useRelativeResetTime);
+        AppendSingleResetLine(tooltipBuilder, usage, useRelativeResetTime);
 
         if (usage.IsAvailable && usage.PeriodDuration.HasValue && usage.PeriodDuration.Value.TotalDays >= 1)
         {
@@ -336,30 +383,121 @@ internal static partial class MainWindowRuntimeLogic
         }
 
         tooltipBuilder.AppendLine();
-        AppendWindowLine(tooltipBuilder, burstCard, "5h", useRelativeResetTime);
-        AppendWindowLine(tooltipBuilder, rollingCard, "Weekly", useRelativeResetTime);
+        AppendWindowLine(tooltipBuilder, usage, burstCard, useRelativeResetTime);
+        AppendWindowLine(tooltipBuilder, usage, rollingCard, useRelativeResetTime);
     }
 
-    private static void AppendWindowLine(
+    private static void AppendSingleResetLine(
         System.Text.StringBuilder tooltipBuilder,
-        ProviderUsage? windowCard,
-        string fallbackLabel,
+        ProviderUsage usage,
         bool useRelativeResetTime)
     {
-        if (windowCard == null)
+        if ((usage.WindowCards?.Count ?? 0) > 0 || !usage.NextResetTime.HasValue)
         {
             return;
         }
 
-        var label = !string.IsNullOrWhiteSpace(windowCard.Name) ? windowCard.Name : fallbackLabel;
+        var resetText = FormatTooltipResetText(usage, usage.NextResetTime.Value, useRelativeResetTime);
+        var label = ResolveResetWindowLabel(usage);
+        tooltipBuilder.AppendLine();
+        tooltipBuilder.AppendLine(
+            string.IsNullOrWhiteSpace(label)
+                ? $"Resets: {resetText}"
+                : $"{label} resets: {resetText}");
+    }
+
+    private static void AppendWindowLine(
+        System.Text.StringBuilder tooltipBuilder,
+        ProviderUsage ownerUsage,
+        ProviderUsage? windowCard,
+        bool useRelativeResetTime)
+    {
+        if (windowCard == null || string.IsNullOrWhiteSpace(windowCard.Name))
+        {
+            return;
+        }
+
+        var label = windowCard.Name;
         var remainingPercent = UsageMath.ClampPercent(100.0 - windowCard.UsedPercent);
-        var resetText = windowCard.NextResetTime.HasValue
-            ? (useRelativeResetTime
-                ? UsageMath.FormatRelativeTime(windowCard.NextResetTime.Value)
-                : UsageMath.FormatAbsoluteDate(windowCard.NextResetTime.Value))
-            : "Unknown";
 
         tooltipBuilder.AppendLine(CultureInfo.InvariantCulture, $"{label} limit: {remainingPercent:F0}% remaining");
-        tooltipBuilder.AppendLine($"{label} resets: {resetText}");
+        if (windowCard.NextResetTime.HasValue)
+        {
+            var resetText = FormatTooltipResetText(windowCard, windowCard.NextResetTime.Value, useRelativeResetTime, ownerUsage);
+            tooltipBuilder.AppendLine($"{label} resets: {resetText}");
+        }
+    }
+
+    private static string FormatTooltipResetText(ProviderUsage usage, DateTime resetTime, bool useRelativeResetTime, ProviderUsage? ownerUsage = null)
+    {
+        if (useRelativeResetTime)
+        {
+            return UsageMath.FormatRelativeTime(resetTime);
+        }
+
+        // MiniMax coding-plan responses expose window times in UTC milliseconds.
+        // Show explicit UTC in tooltip to avoid local-time ambiguity for this provider.
+        if (IsMinimaxCodingPlanUsage(usage) || (ownerUsage != null && IsMinimaxCodingPlanUsage(ownerUsage)))
+        {
+            return FormatUtcResetDateTime(resetTime);
+        }
+
+        return UsageMath.FormatAbsoluteDate(resetTime);
+    }
+
+    internal static bool IsMinimaxCodingPlanUsage(ProviderUsage usage)
+    {
+        ArgumentNullException.ThrowIfNull(usage);
+
+        if (string.Equals(usage.ProviderId, MinimaxProvider.CodingPlanProviderId, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return string.Equals(usage.ProviderName, "Minimax.io Coding Plan", StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static string FormatUtcResetDateTime(DateTime resetTime)
+    {
+        return $"{UsageMath.AsUtc(resetTime).ToString("MMM d, HH:mm", CultureInfo.InvariantCulture)} UTC";
+    }
+
+    private static string? NormalizeResetWindowLabel(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var normalized = value.Trim();
+        if (normalized.Contains("month", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Monthly";
+        }
+
+        if (normalized.Contains("5h", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Contains("5-hour", StringComparison.OrdinalIgnoreCase))
+        {
+            return "5h";
+        }
+
+        if (normalized.Contains("week", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Contains("7 day", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Contains("7d", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Weekly";
+        }
+
+        if (normalized.Contains("day", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Daily";
+        }
+
+        if (normalized.Contains("hour", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Hourly";
+        }
+
+        return null;
     }
 }

@@ -12,7 +12,7 @@ namespace AIUsageTracker.UI.Slim;
 /// Desktop-specific preferences store. Delegates to the shared
 /// <see cref="PreferencesStore"/> in Infrastructure.
 /// </summary>
-public class UiPreferencesStore : PreferencesStore, IUiPreferencesStore
+public class UiPreferencesStore : PreferencesStore
 {
     public UiPreferencesStore(ILogger<UiPreferencesStore> logger, IAppPathProvider pathProvider)
         : base(logger, pathProvider)

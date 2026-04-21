@@ -325,4 +325,45 @@ public sealed class GroupedUsageProjectionServiceTests
         var provider = Assert.Single(snapshot.Providers);
         Assert.Single(provider.ProviderDetails); // only WindowKind.Rolling passes; WindowKind.None is excluded
     }
+
+    [Fact]
+    public void Build_WhenOwnerRowMissing_ThrowsInvalidOperationException()
+    {
+        var older = DateTime.UtcNow.AddMinutes(-5);
+        var newer = DateTime.UtcNow;
+        var usages = new[]
+        {
+            new ProviderUsage
+            {
+                ProviderId = "claude-code.sonnet",
+                ProviderName = "Claude Code (Sonnet)",
+                CardId = "sonnet",
+                Name = "Sonnet",
+                IsAvailable = true,
+                IsQuotaBased = true,
+                UsedPercent = 20,
+                RequestsUsed = 20,
+                RequestsAvailable = 100,
+                Description = "older row",
+                FetchedAt = older,
+            },
+            new ProviderUsage
+            {
+                ProviderId = "claude-code.sonnet",
+                ProviderName = "Claude Code (Sonnet)",
+                CardId = "sonnet",
+                Name = "Sonnet",
+                IsAvailable = false,
+                IsQuotaBased = true,
+                UsedPercent = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 100,
+                Description = "newer row",
+                FetchedAt = newer,
+            },
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => GroupedUsageProjectionService.Build(usages));
+        Assert.Contains("claude-code", ex.Message, StringComparison.Ordinal);
+    }
 }

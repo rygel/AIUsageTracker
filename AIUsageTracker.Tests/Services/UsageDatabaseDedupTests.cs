@@ -109,6 +109,51 @@ public sealed class UsageDatabaseDedupTests : IDisposable
     }
 
     [Fact]
+    public async Task StoreHistoryAsync_ChangedFlatCardName_InsertsNewRowAsync()
+    {
+        var db = await this.CreateDatabaseAsync();
+        var t1 = DateTime.UtcNow.AddMinutes(-5);
+
+        await db.StoreHistoryAsync([
+            new ProviderUsage
+            {
+                ProviderId = "openrouter",
+                ProviderName = "OpenRouter",
+                CardId = "credits",
+                Name = "Credits",
+                GroupId = "openrouter",
+                RequestsUsed = 2.5,
+                RequestsAvailable = 10,
+                UsedPercent = 25,
+                IsAvailable = true,
+                Description = "7.50 Credits Remaining",
+                HttpStatus = 200,
+                FetchedAt = t1,
+            },
+        ]);
+
+        await db.StoreHistoryAsync([
+            new ProviderUsage
+            {
+                ProviderId = "openrouter",
+                ProviderName = "OpenRouter",
+                CardId = "credits",
+                Name = "Openrouter",
+                GroupId = "openrouter",
+                RequestsUsed = 2.5,
+                RequestsAvailable = 10,
+                UsedPercent = 25,
+                IsAvailable = true,
+                Description = "7.50 Credits Remaining",
+                HttpStatus = 200,
+                FetchedAt = t1.AddMinutes(5),
+            },
+        ]);
+
+        Assert.Equal(2, this.CountRows("openrouter"));
+    }
+
+    [Fact]
     public async Task StoreHistoryAsync_ChangedUsedPercent_InsertsNewRowAsync()
     {
         // Previously tested Details JSON changes; now tests flat card UsedPercent changes

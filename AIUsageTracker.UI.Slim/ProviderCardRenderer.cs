@@ -337,32 +337,13 @@ internal sealed class ProviderCardRenderer
 
     private string? BuildResetBadgeText(ProviderUsage usage, ProviderCardPresentation presentation)
     {
-        IReadOnlyList<DateTime> resetTimes;
-        if (presentation.DualBar != null && !this._preferences.ShowDualQuotaBars)
-        {
-            var bar = this._preferences.DualQuotaSingleBarMode == DualQuotaSingleBarMode.Burst
-                ? presentation.DualBar.Primary
-                : presentation.DualBar.Secondary;
-            resetTimes = bar.ResetTime.HasValue
-                ? new[] { bar.ResetTime.Value }
-                : Array.Empty<DateTime>();
-        }
-        else
-        {
-            resetTimes = MainWindowRuntimeLogic.ResolveResetTimes(
-                usage,
-                presentation.SuppressSingleResetTime);
-        }
-
-        if (resetTimes.Count == 0)
+        var (resetTime, resetLabel) = this.ResolveDisplayedReset(usage, presentation);
+        if (!resetTime.HasValue)
         {
             return null;
         }
 
-        var resetParts = resetTimes
-            .Select(this._getRelativeTimeString)
-            .ToList();
-        return $"({string.Join(" | ", resetParts)})";
+        return FormatResetText(resetTime.Value, resetLabel, this._getRelativeTimeString);
     }
 
     private void RenderSlot(
@@ -393,10 +374,10 @@ internal sealed class ProviderCardRenderer
                 this.RenderUsageRate(panel, usage);
                 break;
             case CardSlotContent.UsedPercent:
-                this.AddSlotText(panel, $"{usage.UsedPercent.ToString("F0", CultureInfo.InvariantCulture)}% used", this._getResourceBrush(ResourceKeySecondaryText, Brushes.Gray), 10);
+                this.AddSlotText(panel, GetUsedSlotText(usage), this._getResourceBrush(ResourceKeySecondaryText, Brushes.Gray), 10);
                 break;
             case CardSlotContent.RemainingPercent:
-                this.AddSlotText(panel, $"{Math.Max(0, 100 - usage.UsedPercent).ToString("F0", CultureInfo.InvariantCulture)}% remaining", this._getResourceBrush(ResourceKeySecondaryText, Brushes.Gray), 10);
+                this.AddSlotText(panel, GetRemainingSlotText(usage), this._getResourceBrush(ResourceKeySecondaryText, Brushes.Gray), 10);
                 break;
             case CardSlotContent.ResetAbsolute:
             case CardSlotContent.ResetAbsoluteDate:
@@ -498,22 +479,70 @@ internal sealed class ProviderCardRenderer
             effectiveSlot = CardSlotContent.ResetRelative;
         }
 
+        var (resetTime, resetLabel) = this.ResolveDisplayedReset(usage, presentation);
+        if (!resetTime.HasValue)
+        {
+            return;
+        }
+
         var resetText = this.BuildResetBadgeText(usage, presentation);
         if (string.IsNullOrWhiteSpace(resetText))
         {
             return;
         }
 
-        if (effectiveSlot == CardSlotContent.ResetRelative && usage.NextResetTime.HasValue)
+        if (effectiveSlot == CardSlotContent.ResetRelative)
         {
-            resetText = $"({UsageMath.FormatRelativeTime(usage.NextResetTime.Value)})";
+            resetText = FormatResetText(resetTime.Value, resetLabel, UsageMath.FormatRelativeTime);
         }
-        else if (effectiveSlot == CardSlotContent.ResetAbsoluteDate && usage.NextResetTime.HasValue)
+        else if (effectiveSlot == CardSlotContent.ResetAbsoluteDate)
         {
-            resetText = $"({UsageMath.FormatAbsoluteDate(usage.NextResetTime.Value)})";
+            resetText = FormatResetText(resetTime.Value, resetLabel, UsageMath.FormatAbsoluteDate);
         }
 
         this.AddSlotText(panel, resetText, this._getResourceBrush("StatusTextWarning", Brushes.Goldenrod), 10, FontWeights.SemiBold);
+    }
+
+    private (DateTime? ResetTime, string? ResetLabel) ResolveDisplayedReset(
+        ProviderUsage usage,
+        ProviderCardPresentation presentation)
+    {
+        return MainWindowRuntimeLogic.ResolveCardResetDisplay(
+            usage,
+            presentation,
+            this._preferences.ShowDualQuotaBars,
+            this._preferences.DualQuotaSingleBarMode);
+    }
+
+    private static string FormatResetText(DateTime resetTime, string? resetLabel, Func<DateTime, string> formatter)
+    {
+        ArgumentNullException.ThrowIfNull(formatter);
+
+        var formattedReset = formatter(resetTime);
+        return string.IsNullOrWhiteSpace(resetLabel)
+            ? $"({formattedReset})"
+            : $"({resetLabel}: {formattedReset})";
+    }
+
+    private static string GetUsedSlotText(ProviderUsage usage)
+    {
+        if (usage.IsCurrencyUsage)
+        {
+            return $"${usage.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture)} used";
+        }
+
+        return $"{usage.UsedPercent.ToString("F0", CultureInfo.InvariantCulture)}% used";
+    }
+
+    private static string GetRemainingSlotText(ProviderUsage usage)
+    {
+        if (usage.IsCurrencyUsage)
+        {
+            var remaining = Math.Max(0, usage.RequestsAvailable - usage.RequestsUsed);
+            return $"${remaining.ToString("F2", CultureInfo.InvariantCulture)} remaining";
+        }
+
+        return $"{Math.Max(0, 100 - usage.UsedPercent).ToString("F0", CultureInfo.InvariantCulture)}% remaining";
     }
 
     private void AddSlotText(DockPanel panel, string text, Brush foreground, double fontSize, FontWeight? fontWeight = null)

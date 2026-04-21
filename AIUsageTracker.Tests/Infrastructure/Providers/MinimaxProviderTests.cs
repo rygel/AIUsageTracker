@@ -785,6 +785,119 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
     }
 
     [Fact]
+    public async Task GetUsageAsync_CodingPlan_WithMiniMaxMModel_SelectsCodingModelAsync()
+    {
+        // Arrange: API naming variant uses MiniMax-M* for text-generation quotas.
+        this.Config.ProviderId = MinimaxProvider.CodingPlanProviderId;
+        var responseJson = """
+            {
+                "base_resp": { "status_code": 0, "status_msg": "success" },
+                "model_remains": [
+                    {
+                        "model_name": "MiniMax-M*",
+                        "current_interval_total_count": 4500,
+                        "current_interval_usage_count": 4435,
+                        "end_time": 1776783600000,
+                        "current_weekly_total_count": 45000,
+                        "current_weekly_usage_count": 44831,
+                        "weekly_end_time": 1777248000000
+                    }
+                ]
+            }
+            """;
+        this.SetupResponse(HttpStatusCode.OK, responseJson, CodingPlanEndpoint);
+
+        // Act
+        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+
+        // Assert
+        Assert.Equal(2, result.Count);
+        Assert.All(result, usage => Assert.True(usage.IsAvailable));
+
+        var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
+        var weekly = result.Single(u => u.WindowKind == WindowKind.Rolling);
+        Assert.Equal("5h", burst.Name);
+        Assert.Equal("Weekly", weekly.Name);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_CodingPlan_EndTimeMilliseconds_MapsToUtcResetTimeAsync()
+    {
+        // Arrange
+        this.Config.ProviderId = MinimaxProvider.CodingPlanProviderId;
+        const long burstResetMs = 1776783600000; // 2026-04-21T15:00:00Z
+        const long weeklyResetMs = 1777248000000; // 2026-04-27T00:00:00Z
+        var responseJson = $$"""
+            {
+                "base_resp": { "status_code": 0, "status_msg": "success" },
+                "model_remains": [
+                    {
+                        "model_name": "MiniMax-M*",
+                        "current_interval_total_count": 100,
+                        "current_interval_usage_count": 99,
+                        "end_time": {{burstResetMs}},
+                        "current_weekly_total_count": 500,
+                        "current_weekly_usage_count": 450,
+                        "weekly_end_time": {{weeklyResetMs}}
+                    }
+                ]
+            }
+            """;
+        this.SetupResponse(HttpStatusCode.OK, responseJson, CodingPlanEndpoint);
+
+        // Act
+        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+
+        // Assert
+        var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
+        var weekly = result.Single(u => u.WindowKind == WindowKind.Rolling);
+        Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds(burstResetMs).UtcDateTime, burst.NextResetTime);
+        Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds(weeklyResetMs).UtcDateTime, weekly.NextResetTime);
+        Assert.Equal(DateTimeKind.Utc, burst.NextResetTime!.Value.Kind);
+        Assert.Equal(DateTimeKind.Utc, weekly.NextResetTime!.Value.Kind);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_CodingPlan_UsesStartAndEndTimeForPeriodDurationAsync()
+    {
+        // Arrange
+        this.Config.ProviderId = MinimaxProvider.CodingPlanProviderId;
+        const long burstStartMs = 1776762000000; // 2026-04-21T09:00:00Z
+        const long burstEndMs = 1776783600000;   // 2026-04-21T15:00:00Z (6h window)
+        const long weeklyStartMs = 1776600000000; // 2026-04-19T12:00:00Z
+        const long weeklyEndMs = 1777248000000;   // 2026-04-27T00:00:00Z (7d 12h window)
+
+        var responseJson = $$"""
+            {
+                "base_resp": { "status_code": 0, "status_msg": "success" },
+                "model_remains": [
+                    {
+                        "model_name": "MiniMax-M*",
+                        "current_interval_total_count": 100,
+                        "current_interval_usage_count": 90,
+                        "start_time": {{burstStartMs}},
+                        "end_time": {{burstEndMs}},
+                        "current_weekly_total_count": 500,
+                        "current_weekly_usage_count": 450,
+                        "weekly_start_time": {{weeklyStartMs}},
+                        "weekly_end_time": {{weeklyEndMs}}
+                    }
+                ]
+            }
+            """;
+        this.SetupResponse(HttpStatusCode.OK, responseJson, CodingPlanEndpoint);
+
+        // Act
+        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+
+        // Assert
+        var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
+        var weekly = result.Single(u => u.WindowKind == WindowKind.Rolling);
+        Assert.Equal(TimeSpan.FromHours(6), burst.PeriodDuration);
+        Assert.Equal(TimeSpan.FromHours(180), weekly.PeriodDuration);
+    }
+
+    [Fact]
     public async Task GetUsageAsync_CodingPlan_WithoutTextGenerationModel_ReturnsUnavailableAsync()
     {
         // Arrange: no text-generation model in payload -> do not guess from other models.

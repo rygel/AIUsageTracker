@@ -27,8 +27,6 @@ public class DialogOpenBehaviorTests
     {
         return RunInStaAsync(async () =>
         {
-            EnsureAppCreated();
-
             var dialogService = new TestDialogService();
             var mainWindow = CreateMainWindowForTesting(dialogService);
             var shown = 0;
@@ -59,7 +57,7 @@ public class DialogOpenBehaviorTests
     {
         return RunInStaAsync(() =>
         {
-            var app = EnsureAppCreated();
+            var app = Application.Current as App ?? new App();
             var mainWindow = CreateMainWindowForTesting();
             var infoDialog = new Window();
             var shown = 0;
@@ -86,8 +84,6 @@ public class DialogOpenBehaviorTests
     {
         return RunInStaAsync(async () =>
         {
-            EnsureAppCreated();
-
             var dialogService = new TestDialogService
             {
                 ShowSettingsAsyncHandler = _ => Task.FromResult<bool?>(false),
@@ -126,8 +122,6 @@ public class DialogOpenBehaviorTests
     {
         return RunInStaAsync(() =>
         {
-            EnsureAppCreated();
-
             var preferences = new AppPreferences { ShowUsedPercentages = true };
             var mainWindow = CreateMainWindowForTesting();
 #pragma warning disable SYSLIB0050
@@ -156,8 +150,6 @@ public class DialogOpenBehaviorTests
     {
         return RunInStaAsync(() =>
         {
-            EnsureAppCreated();
-
             var preferences = new AppPreferences
             {
                 ShowUsedPercentages = false,
@@ -213,8 +205,6 @@ public class DialogOpenBehaviorTests
     {
         return RunInStaAsync(async () =>
         {
-            EnsureAppCreated();
-
             var dialogService = new TestDialogService
             {
                 ShowSettingsAsyncHandler = _ => Task.FromResult<bool?>(true),
@@ -275,19 +265,6 @@ public class DialogOpenBehaviorTests
         });
     }
 
-    private static App EnsureAppCreated()
-    {
-        if (Application.Current is App app)
-        {
-            return app;
-        }
-
-        var newApp = new App();
-
-        // Use reflection to initialize Host if needed, or rely on App.xaml.cs default init
-        return newApp;
-    }
-
     private static MainWindow CreateMainWindowForTesting(IDialogService? dialogService = null, IBrowserService? browserService = null)
     {
         EnsureAppCreated();
@@ -298,13 +275,22 @@ public class DialogOpenBehaviorTests
             services.GetRequiredService<MainViewModel>(),
             services.GetRequiredService<IMonitorService>(),
             services.GetRequiredService<MonitorLifecycleService>(),
-            services.GetRequiredService<MonitorStartupOrchestrator>(),
             services.GetRequiredService<ILogger<MainWindow>>(),
             services.GetRequiredService<Func<UpdateChannel, GitHubUpdateChecker>>(),
             services.GetRequiredService<GitHubUpdateChecker>(),
             dialogService ?? services.GetRequiredService<IDialogService>(),
             browserService ?? services.GetRequiredService<IBrowserService>(),
             services.GetRequiredService<UiPreferencesStore>());
+    }
+
+    private static App EnsureAppCreated()
+    {
+        if (Application.Current is App app)
+        {
+            return app;
+        }
+
+        return new App();
     }
 
     private sealed class TestDialogService : IDialogService

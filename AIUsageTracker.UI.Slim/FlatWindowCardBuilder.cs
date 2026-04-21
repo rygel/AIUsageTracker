@@ -15,6 +15,8 @@ internal static class FlatWindowCardBuilder
         ProviderMetadataCatalog.TryGet(provider.ProviderId, out var definition);
         var showPrefix = definition?.FlatCardShowProviderPrefix == true;
         var parentDisplayName = showPrefix ? ProviderMetadataCatalog.GetConfiguredDisplayName(provider.ProviderId) : null;
+        var isQuotaBased = definition?.IsQuotaBased ?? provider.IsQuotaBased;
+        var planType = definition?.PlanType ?? provider.PlanType;
 
         var cards = new List<ProviderUsage>(provider.Models.Count);
         foreach (var model in provider.Models)
@@ -29,8 +31,9 @@ internal static class FlatWindowCardBuilder
                 ProviderName = cardName,
                 AccountName = provider.AccountName,
                 IsAvailable = provider.IsAvailable,
-                PlanType = provider.PlanType,
-                IsQuotaBased = provider.IsQuotaBased,
+                PlanType = planType,
+                IsQuotaBased = isQuotaBased,
+                IsCurrencyUsage = definition?.IsCurrencyUsage ?? false,
                 RequestsUsed = modelState.UsedPercentage,
                 UsedPercent = modelState.UsedPercentage,
                 Description = modelState.Description,

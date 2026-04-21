@@ -81,12 +81,10 @@ public sealed class GroupedUsageProjectionServiceTests
     }
 
     [Fact]
-    public void Build_KimiWithWindowKindCards_ProjectsAsProviderDetailsNotModels()
+    public void Build_KimiWithWindowKindCards_ProjectsNoModels()
     {
-        // Kimi emits flat cards with CardId + WindowKind (Rolling/Burst).
-        // Because WindowKind != None, they must NOT be projected as Models (which would
-        // produce separate flat cards). They must flow through as ProviderDetails so the
-        // UI renders them as dual quota bars on a single parent card.
+        // Kimi emits WindowKind cards only. In the strict models-only grouped contract,
+        // WindowKind != None rows are not projected as grouped models.
         var usages = new[]
         {
             new ProviderUsage
@@ -124,10 +122,7 @@ public sealed class GroupedUsageProjectionServiceTests
         var snapshot = GroupedUsageProjectionService.Build(usages);
 
         var provider = Assert.Single(snapshot.Providers);
-        Assert.Empty(provider.Models); // not flat model cards
-        Assert.Equal(2, provider.ProviderDetails.Count); // both appear as quota-window details
-        Assert.Contains(provider.ProviderDetails, d => d.WindowKind == WindowKind.Rolling);
-        Assert.Contains(provider.ProviderDetails, d => d.WindowKind == WindowKind.Burst);
+        Assert.Empty(provider.Models);
     }
 
     [Fact]
@@ -181,11 +176,10 @@ public sealed class GroupedUsageProjectionServiceTests
     }
 
     [Fact]
-    public void Build_CodexAndSpark_ProjectAsTwoSeparateGroupsWithDualBarCards()
+    public void Build_CodexAndSpark_WindowKindRows_ProjectAsTwoSeparateGroupsWithoutModels()
     {
         // codex and codex.spark are standalone owner providers (FamilyMode = Standalone).
-        // Each emits a Burst + Rolling pair, resulting in two separate groups.
-        // Neither group produces flat model cards — the window-kind cards populate ProviderDetails instead.
+        // Each emits a Burst + Rolling pair, resulting in two separate groups with no grouped models.
         var usages = new[]
         {
             new ProviderUsage
@@ -244,20 +238,14 @@ public sealed class GroupedUsageProjectionServiceTests
 
         var snapshot = GroupedUsageProjectionService.Build(usages);
 
-        // Two separate groups — each with no flat model cards and a pair of ProviderDetails entries.
+        // Two separate groups — each with no grouped models.
         Assert.Equal(2, snapshot.Providers.Count);
 
         var codex = Assert.Single(snapshot.Providers, p => string.Equals(p.ProviderId, "codex", StringComparison.Ordinal));
-        Assert.Equal(0, codex.Models.Count);
-        Assert.Equal(2, codex.ProviderDetails.Count);
-        Assert.Contains(codex.ProviderDetails, d => string.Equals(d.CardId, "burst", StringComparison.Ordinal) && d.WindowKind == WindowKind.Burst);
-        Assert.Contains(codex.ProviderDetails, d => string.Equals(d.CardId, "weekly", StringComparison.Ordinal) && d.WindowKind == WindowKind.Rolling);
+        Assert.Empty(codex.Models);
 
         var spark = Assert.Single(snapshot.Providers, p => string.Equals(p.ProviderId, "codex.spark", StringComparison.Ordinal));
-        Assert.Equal(0, spark.Models.Count);
-        Assert.Equal(2, spark.ProviderDetails.Count);
-        Assert.Contains(spark.ProviderDetails, d => string.Equals(d.CardId, "spark.burst", StringComparison.Ordinal) && d.WindowKind == WindowKind.Burst);
-        Assert.Contains(spark.ProviderDetails, d => string.Equals(d.CardId, "spark.weekly", StringComparison.Ordinal) && d.WindowKind == WindowKind.Rolling);
+        Assert.Empty(spark.Models);
     }
 
     [Fact]
@@ -313,7 +301,7 @@ public sealed class GroupedUsageProjectionServiceTests
 
         Assert.Equal("MiniMax.io", minimaxIo.ProviderName);
         Assert.Equal("Minimax.io Coding Plan", minimaxCoding.ProviderName);
-        Assert.Equal(0, minimaxIo.ProviderDetails.Count);
-        Assert.Equal(2, minimaxCoding.ProviderDetails.Count);
+        Assert.Empty(minimaxIo.Models);
+        Assert.Empty(minimaxCoding.Models);
     }
 }

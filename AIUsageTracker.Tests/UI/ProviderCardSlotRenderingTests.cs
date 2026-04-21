@@ -148,8 +148,8 @@ public sealed class ProviderCardSlotRenderingTests
     }
 
     /// <summary>
-    /// Verifies that <see cref="AppPreferences.ShowUsedPercentages"/> is the authoritative source
-    /// of truth for the display mode, not any UI toggle's visual state.
+    /// Verifies that <see cref="AppPreferences.ShowUsedPercentages"/> is the persisted source
+    /// of truth for used-vs-remaining display, not any UI toggle's visual state.
     ///
     /// Prior bug: MainWindow.AddProviderCard read ShowUsedToggle.IsChecked directly. When
     /// Settings closed quickly (within the 600ms debounce window), the async void Closing
@@ -158,23 +158,19 @@ public sealed class ProviderCardSlotRenderingTests
     /// updated preference. Rendering then used the stale toggle state instead of the preference.
     /// </summary>
     [Fact]
-    public void PercentageDisplayMode_IsTruthForShowUsed_RoundTripsCorrectly()
+    public void ShowUsedPercentages_RoundTripsCorrectly()
     {
         var prefs = new AppPreferences { ShowUsedPercentages = false };
-        Assert.Equal(PercentageDisplayMode.Remaining, prefs.PercentageDisplayMode);
         Assert.False(prefs.ShowUsedPercentages);
 
         prefs.ShowUsedPercentages = true;
-        Assert.Equal(PercentageDisplayMode.Used, prefs.PercentageDisplayMode);
         Assert.True(prefs.ShowUsedPercentages);
 
-        // Round-trip: serialized as PercentageDisplayMode (ShowUsedPercentages is [JsonIgnore])
+        // Round-trip: serialized directly as ShowUsedPercentages.
         var json = System.Text.Json.JsonSerializer.Serialize(prefs);
-        Assert.Contains("\"Used\"", json, StringComparison.Ordinal);
-        Assert.DoesNotContain("ShowUsedPercentages", json, StringComparison.Ordinal);
+        Assert.Contains("\"ShowUsedPercentages\":true", json.Replace(" ", string.Empty, StringComparison.Ordinal), StringComparison.Ordinal);
 
         var reloaded = AppPreferences.Deserialize(json);
         Assert.True(reloaded.ShowUsedPercentages);
-        Assert.Equal(PercentageDisplayMode.Used, reloaded.PercentageDisplayMode);
     }
 }

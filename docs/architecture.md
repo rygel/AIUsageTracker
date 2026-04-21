@@ -120,6 +120,24 @@ Enhanced percentage calculations:
 4. No provider-catalog lookup or fallback chain exists in ViewModel pace logic.
 5. If pace adjustment is disabled, the path returns raw used percentage and suppresses the `On pace` badge.
 
+### Grouped Snapshot Ownership Contract
+
+**Location**:
+- `AIUsageTracker.Monitor/Services/GroupedUsageProjectionService.cs`
+
+**Rule**:
+Each grouped provider family must include a canonical owner row (`ProviderId == ownerProviderId`).
+Child-only grouped rows are not supported in grouped snapshot projection.
+
+**Why**:
+- Keeps projection deterministic and strict.
+- Avoids ambiguous parent-field selection when only child rows exist.
+- Forces provider pipelines to emit complete owner data at the source.
+
+**Behavior**:
+- `SelectPrimaryUsage()` selects the newest owner row.
+- If no owner row exists for a group, projection fails with `InvalidOperationException`.
+
 ### Constants
 
 **ProviderEndpoints** (`AIUsageTracker.Infrastructure/Constants/ProviderEndpoints.cs`)
@@ -299,5 +317,4 @@ caused by rate limits, auth failures, server errors, or network issues.
 - **Type-safe exceptions** enable targeted retry logic
 - **Centralized constants** reduce typos and enable IntelliSense
 - **All 162 unit tests passing**
-
 

@@ -28,8 +28,9 @@ public class OpenRouterProvider : ProviderBase
         "openrouter",
         "OpenRouter",
         PlanType.Usage,
-        isQuotaBased: true)
+        isQuotaBased: false)
     {
+        IsCurrencyUsage = true,
         DiscoveryEnvironmentVariables = new[] { "OPENROUTER_API_KEY" },
         RooConfigPropertyNames = new[] { "openrouterApiKey" },
         IconAssetName = "openai",
@@ -251,14 +252,15 @@ public class OpenRouterProvider : ProviderBase
             ProviderName = keyInfo.Label,
             CardId = "credits",
             GroupId = config.ProviderId,
-            Name = "Credits",
+            Name = "Openrouter",
             UsedPercent = 100.0 - remainingPercentage,
             RequestsUsed = used,
             RequestsAvailable = total,
+            IsCurrencyUsage = true,
             PlanType = this.Definition.PlanType,
             IsQuotaBased = this.Definition.IsQuotaBased,
             IsAvailable = true,
-            Description = $"{remaining.ToString("F2", CultureInfo.InvariantCulture)} Credits Remaining{mainReset}",
+            Description = $"${remaining.ToString("F2", CultureInfo.InvariantCulture)} remaining{mainReset}",
             NextResetTime = keyInfo.SpendingLimitResetTime,
             RawJson = creditsResponseBody,
             HttpStatus = httpStatus,

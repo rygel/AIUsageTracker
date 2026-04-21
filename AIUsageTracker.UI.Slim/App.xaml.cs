@@ -171,7 +171,6 @@ public partial class App : Application
         // Infrastructure
         services.AddSingleton<IAppPathProvider, AIUsageTracker.Infrastructure.Helpers.DefaultAppPathProvider>();
         services.AddSingleton<UiPreferencesStore>();
-        services.AddSingleton<IUiPreferencesStore>(sp => sp.GetRequiredService<UiPreferencesStore>());
         services.AddSingleton<IMonitorLauncher, MonitorLauncher>();
         services.AddSingleton<MonitorLauncher>();
         services.AddSingleton<IMonitorService, MonitorService>();
@@ -195,7 +194,6 @@ public partial class App : Application
         services.AddSingleton<Func<SettingsWindow>>(sp => () => sp.GetRequiredService<SettingsWindow>());
         services.AddSingleton<Func<InfoDialog>>(sp => () => sp.GetRequiredService<InfoDialog>());
         services.AddSingleton<IDialogService, DialogService>();
-        services.AddSingleton<MonitorStartupOrchestrator>();
         services.AddSingleton<IBrowserService, BrowserService>();
 
         // ViewModels

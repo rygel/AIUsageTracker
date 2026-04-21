@@ -105,13 +105,7 @@ internal static partial class MainWindowRuntimeLogic
 
         var dualBar = TryBuildDualBarData(usage, enablePaceAdjustment);
 
-        var (statusText, suppressSingleResetTime) = ResolveStatusText(
-            usage,
-            showUsed,
-            description,
-            isUnknown,
-            isStatusOnlyProvider,
-            dualBar);
+        var (statusText, suppressSingleResetTime) = ResolveStatusText(usage, showUsed, dualBar);
 
         return new ProviderCardPresentation(
             IsMissing: isMissing,
@@ -224,11 +218,10 @@ internal static partial class MainWindowRuntimeLogic
     private static (string StatusText, bool SuppressSingleResetTime) ResolveStatusText(
         ProviderUsage usage,
         bool showUsed,
-        string description,
-        bool isUnknown,
-        bool isStatusOnlyProvider,
         DualBarData? dualBar)
     {
+        var description = usage.Description ?? string.Empty;
+
         if (usage.IsTooltipOnly)
         {
             return (GetTooltipOnlyCompactStatus(usage, description), false);
@@ -239,7 +232,12 @@ internal static partial class MainWindowRuntimeLogic
             return (BuildDualQuotaBucketStatusText(dualBar, showUsed), true);
         }
 
-        if (!isUnknown && !isStatusOnlyProvider && usage.IsQuotaBased)
+        if (usage.State == ProviderUsageState.Unknown || usage.IsStatusOnly)
+        {
+            return (description, false);
+        }
+
+        if (usage.IsQuotaBased)
         {
             return (
                 usage.DisplayAsFraction
@@ -248,14 +246,9 @@ internal static partial class MainWindowRuntimeLogic
                 false);
         }
 
-        if (!isUnknown && !isStatusOnlyProvider && usage.PlanType == PlanType.Usage && usage.RequestsAvailable > 0)
+        if (usage.PlanType == PlanType.Usage)
         {
-            var clampedUsedPercent = UsageMath.ClampPercent(usage.UsedPercent);
-            return (
-                showUsed
-                    ? $"{clampedUsedPercent:F0}% used"
-                    : $"{100.0 - clampedUsedPercent:F0}% remaining",
-                false);
+            return (description, false);
         }
 
         return (description, false);

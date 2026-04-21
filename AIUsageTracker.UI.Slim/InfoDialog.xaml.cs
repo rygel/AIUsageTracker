@@ -11,6 +11,7 @@ using System.Windows.Media;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Infrastructure.Helpers;
 using AIUsageTracker.UI.Slim.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.UI.Slim;
@@ -208,8 +209,13 @@ public partial class InfoDialog : Window
             this._isPrivacyMode = !this._isPrivacyMode;
             App.SetPrivacyMode(this._isPrivacyMode);
 
-            // App.PrivacyChanged event will handle UI update
-            await Task.CompletedTask.ConfigureAwait(true);
+            // Persist privacy preference regardless of which window toggled it.
+            var preferencesStore = App.Host.Services.GetRequiredService<UiPreferencesStore>();
+            var saved = await preferencesStore.SaveAsync(App.Preferences).ConfigureAwait(true);
+            if (!saved)
+            {
+                this._logger.LogWarning("Failed to persist privacy mode from Info dialog.");
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

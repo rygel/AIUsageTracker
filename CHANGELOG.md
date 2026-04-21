@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [2.3.4-beta.32] - 2026-04-21
+
+### Fixed
+- **OpenRouter card: dollar sign prefixed and "Credits" removed from card name**: currency amounts now display as `$7.50 remaining` instead of `7.50$ remaining`, and the card name is `Openrouter` instead of `Openrouter Credits`.
+- **MiniMax coding plan model resolution**: coding-plan window cards now prefer the explicit text-generation model over the search model, and the owner grouping keeps token and coding plans separate.
+- **Tooltip reset details**: burst and weekly limit reset times are now shown in tooltips when present, respecting the relative reset time setting.
+
+### Changed
+- **Provider ID alignment refactor**: removed config canonicalization layer, aligned provider IDs consistently, and removed dead provider normalization API and tests.
+- **Display-name resolution centralized**: provider naming resolves through a single catalog path across UI and web surfaces.
+- **SonarQube quality fixes**: resolved all medium and INFO severity issues.
+
 ## [2.3.4-beta.31] - 2026-04-17
 
 ### Added

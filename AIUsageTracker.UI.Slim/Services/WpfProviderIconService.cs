@@ -15,12 +15,11 @@ namespace AIUsageTracker.UI.Slim.Services;
 
 /// <summary>
 /// Loads SVG provider icons from disk and returns them as WPF <see cref="FrameworkElement"/> instances.
-/// Falls back to a coloured initial badge when no SVG asset exists or loading fails.
+/// Returns an explicit missing-icon marker when no SVG asset exists or loading fails.
 /// Caches successfully loaded <see cref="ImageSource"/> objects by provider ID.
 /// </summary>
 internal sealed class WpfProviderIconService
 {
-    private static readonly Dictionary<string, Brush> BadgeBrushCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, ImageSource> _cache = new(StringComparer.OrdinalIgnoreCase);
     private readonly ILogger _logger;
     private readonly Func<string, SolidColorBrush, SolidColorBrush> _resolveResourceBrush;
@@ -35,7 +34,7 @@ internal sealed class WpfProviderIconService
 
     /// <summary>
     /// Returns a 16×16 provider icon for <paramref name="providerId"/>.
-    /// First tries an SVG asset; falls back to a coloured initial badge.
+    /// First tries an SVG asset; otherwise returns an explicit missing-icon marker.
     /// </summary>
     /// <returns></returns>
     public FrameworkElement CreateIcon(string providerId)
@@ -77,39 +76,44 @@ internal sealed class WpfProviderIconService
             {
                 this._logger.LogWarning(
                     ex,
-                    "Failed to load SVG icon for provider '{ProviderId}' at '{SvgPath}'. Falling back to initial badge.",
+                    "Failed to load SVG icon for provider '{ProviderId}' at '{SvgPath}'. Using missing-icon marker.",
                     resolvedProviderId,
                     svgPath);
             }
         }
+        else
+        {
+            this._logger.LogWarning(
+                "SVG icon asset missing for provider '{ProviderId}' at '{SvgPath}'. Using missing-icon marker.",
+                resolvedProviderId,
+                svgPath);
+        }
 
-        return this.CreateFallbackBadge(resolvedProviderId);
+        return CreateMissingIconMarker();
     }
 
-    private FrameworkElement CreateFallbackBadge(string providerId)
+    private static FrameworkElement CreateMissingIconMarker()
     {
-        var (color, initial) = GetBadge(
-            providerId,
-            this._resolveResourceBrush("SecondaryText", Brushes.Gray));
-
         var grid = new Grid { Width = 16, Height = 16 };
 
         grid.Children.Add(new Border
         {
             Width = 16,
             Height = 16,
-            Background = color,
-            CornerRadius = new CornerRadius(8),
+            Background = Brushes.Transparent,
+            BorderBrush = Brushes.OrangeRed,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(2),
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Center,
         });
 
         grid.Children.Add(new TextBlock
         {
-            Text = initial,
-            FontSize = 8,
+            Text = "!",
+            FontSize = 10,
             FontWeight = FontWeights.Bold,
-            Foreground = Brushes.White,
+            Foreground = Brushes.OrangeRed,
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Center,
             TextAlignment = TextAlignment.Center,
@@ -169,41 +173,5 @@ internal sealed class WpfProviderIconService
     private static bool IsDarkColor(Color c)
     {
         return ((0.299 * c.R) + (0.587 * c.G) + (0.114 * c.B)) < 128;
-    }
-
-    internal static (Brush Color, string Initial) GetBadge(string providerId, Brush defaultBrush)
-    {
-        var resolvedProviderId = providerId ?? string.Empty;
-        return TryGetBadgeDefinition(resolvedProviderId, out var badgeColor, out var badgeInitial)
-            ? (badgeColor, badgeInitial)
-            : (defaultBrush, resolvedProviderId[..Math.Min(2, resolvedProviderId.Length)].ToUpperInvariant());
-    }
-
-    private static bool TryGetBadgeDefinition(string providerId, out Brush color, out string initial)
-    {
-        color = null!;
-        initial = string.Empty;
-
-        if (!ProviderMetadataCatalog.TryGetBadgeDefinition(providerId, out var colorHex, out var badgeInitial))
-        {
-            return false;
-        }
-
-        color = GetOrCreateBrush(colorHex);
-        initial = badgeInitial;
-        return true;
-    }
-
-    private static Brush GetOrCreateBrush(string colorHex)
-    {
-        if (BadgeBrushCache.TryGetValue(colorHex, out var brush))
-        {
-            return brush;
-        }
-
-        brush = (SolidColorBrush)new BrushConverter().ConvertFrom(colorHex)!;
-        brush.Freeze();
-        BadgeBrushCache[colorHex] = brush;
-        return brush;
     }
 }

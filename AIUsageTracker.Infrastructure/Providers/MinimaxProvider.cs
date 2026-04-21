@@ -20,6 +20,7 @@ public class MinimaxProvider : ProviderBase
     public const string CodingPlanProviderId = "minimax-coding-plan";
     private const string TextGenerationLabel = "text generation";
     private const string TextGenerationModelPrefix = "minimax-text";
+    private const string CodingModelPrefix = "minimax-m";
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<MinimaxProvider> _logger;
@@ -36,6 +37,11 @@ public class MinimaxProvider : ProviderBase
         PlanType.Coding,
         isQuotaBased: true)
     {
+        QuotaWindows = new QuotaWindowDefinition[]
+        {
+            new(WindowKind.Burst, "5h", PeriodDuration: TimeSpan.FromHours(5)),
+            new(WindowKind.Rolling, "Weekly", PeriodDuration: TimeSpan.FromDays(7)),
+        },
         AdditionalHandledProviderIds = new[] { InternationalProviderId, InternationalLegacyProviderId, CodingPlanProviderId },
         DisplayNameOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -314,6 +320,7 @@ public class MinimaxProvider : ProviderBase
 
         if (model.IntervalTotal > 0)
         {
+            var burstPeriod = ResolvePeriodDuration(model.IntervalStartMs, model.IntervalEndMs, TimeSpan.FromHours(5));
             usages.Add(BuildModelWindowCard(new ModelWindowCardSpec(
                 providerId,
                 providerLabel,
@@ -326,13 +333,14 @@ public class MinimaxProvider : ProviderBase
                 "burst",
                 "5h",
                 WindowKind.Burst,
-                TimeSpan.FromHours(5),
+                burstPeriod,
                 rawJson,
                 httpStatus)));
         }
 
         if (model.WeeklyTotal > 0)
         {
+            var weeklyPeriod = ResolvePeriodDuration(model.WeeklyStartMs, model.WeeklyEndMs, TimeSpan.FromDays(7));
             usages.Add(BuildModelWindowCard(new ModelWindowCardSpec(
                 providerId,
                 providerLabel,
@@ -345,7 +353,7 @@ public class MinimaxProvider : ProviderBase
                 "weekly",
                 "Weekly",
                 WindowKind.Rolling,
-                TimeSpan.FromDays(7),
+                weeklyPeriod,
                 rawJson,
                 httpStatus)));
         }
@@ -353,13 +361,35 @@ public class MinimaxProvider : ProviderBase
         return usages;
     }
 
+    private static TimeSpan ResolvePeriodDuration(long startMs, long endMs, TimeSpan fallback)
+    {
+        if (startMs <= 0 || endMs <= startMs)
+        {
+            return fallback;
+        }
+
+        var duration = DateTimeOffset.FromUnixTimeMilliseconds(endMs) - DateTimeOffset.FromUnixTimeMilliseconds(startMs);
+        return duration > TimeSpan.Zero ? duration : fallback;
+    }
+
     private static MinimaxModelRemains? FindTextGenerationModel(
         IReadOnlyList<MinimaxModelRemains> modelRemains)
     {
-        return modelRemains.FirstOrDefault(model =>
+        var explicitTextGenerationModel = modelRemains.FirstOrDefault(model =>
             !string.IsNullOrWhiteSpace(model.ModelName) &&
             (model.ModelName.Contains(TextGenerationLabel, StringComparison.OrdinalIgnoreCase) ||
              model.ModelName.Contains(TextGenerationModelPrefix, StringComparison.OrdinalIgnoreCase)));
+
+        if (explicitTextGenerationModel != null)
+        {
+            return explicitTextGenerationModel;
+        }
+
+        // MiniMax Coding Plan recently shifted to names like "MiniMax-M*";
+        // treat these as text-generation equivalents to preserve compatibility.
+        return modelRemains.FirstOrDefault(model =>
+            !string.IsNullOrWhiteSpace(model.ModelName) &&
+            model.ModelName.Contains(CodingModelPrefix, StringComparison.OrdinalIgnoreCase));
     }
 
     private static ProviderUsage BuildModelWindowCard(ModelWindowCardSpec spec)
@@ -454,6 +484,9 @@ public class MinimaxProvider : ProviderBase
         [JsonPropertyName("current_interval_usage_count")]
         public double IntervalRemaining { get; set; }
 
+        [JsonPropertyName("start_time")]
+        public long IntervalStartMs { get; set; }
+
         [JsonPropertyName("end_time")]
         public long IntervalEndMs { get; set; }
 
@@ -463,6 +496,9 @@ public class MinimaxProvider : ProviderBase
         /// <summary>Gets or sets remaining count for the weekly window (misleadingly named "usage" in the API).</summary>
         [JsonPropertyName("current_weekly_usage_count")]
         public double WeeklyRemaining { get; set; }
+
+        [JsonPropertyName("weekly_start_time")]
+        public long WeeklyStartMs { get; set; }
 
         [JsonPropertyName("weekly_end_time")]
         public long WeeklyEndMs { get; set; }

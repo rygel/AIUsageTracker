@@ -9,7 +9,7 @@ namespace AIUsageTracker.Core.Models;
 
 public class AppPreferences
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
 
     public bool ShowAll { get; set; } = false;
 
@@ -35,17 +35,9 @@ public class AppPreferences
 
     public int ColorThresholdRed { get; set; } = 80;
 
-    [JsonConverter(typeof(JsonStringEnumConverter<PercentageDisplayMode>))]
-    public PercentageDisplayMode PercentageDisplayMode { get; set; } = PercentageDisplayMode.Remaining;
+    public bool ShowUsedPercentages { get; set; } = false;
 
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
-
-    [JsonIgnore]
-    public bool ShowUsedPercentages
-    {
-        get => this.PercentageDisplayMode == PercentageDisplayMode.Used;
-        set => this.PercentageDisplayMode = value ? PercentageDisplayMode.Used : PercentageDisplayMode.Remaining;
-    }
 
     public string FontFamily { get; set; } = "Segoe UI";
 
@@ -187,7 +179,8 @@ public class AppPreferences
     private void ApplyMigrations(string json)
     {
         using var document = JsonDocument.Parse(json);
-        if (!TryGetProperty(document.RootElement, nameof(this.SchemaVersion), out _) ||
+        if (!TryGetProperty(document.RootElement, nameof(this.ShowUsedPercentages), out _) ||
+            !TryGetProperty(document.RootElement, nameof(this.SchemaVersion), out _) ||
             this.SchemaVersion < CurrentSchemaVersion)
         {
             this.ApplyLegacyDisplayModeCompatibility(document.RootElement);
@@ -196,16 +189,52 @@ public class AppPreferences
 
     private void ApplyLegacyDisplayModeCompatibility(JsonElement root)
     {
-        if (TryGetProperty(root, nameof(this.PercentageDisplayMode), out _))
+        if (TryGetProperty(root, nameof(this.ShowUsedPercentages), out _))
         {
             return;
         }
 
-        if (TryGetBooleanProperty(root, nameof(this.ShowUsedPercentages), out var showUsed) ||
-            TryGetBooleanProperty(root, "InvertCalculations", out showUsed) ||
-            TryGetBooleanProperty(root, "InvertProgressBar", out showUsed))
+        if (TryGetLegacyShowUsedPreference(root, out var showUsed))
         {
             this.ShowUsedPercentages = showUsed;
         }
+    }
+
+    private static bool TryGetLegacyShowUsedPreference(JsonElement root, out bool showUsed)
+    {
+        if (TryGetProperty(root, "PercentageDisplayMode", out var displayModeProperty))
+        {
+            if (displayModeProperty.ValueKind == JsonValueKind.String)
+            {
+                var displayMode = displayModeProperty.GetString();
+                if (string.Equals(displayMode, "Used", StringComparison.OrdinalIgnoreCase))
+                {
+                    showUsed = true;
+                    return true;
+                }
+
+                if (string.Equals(displayMode, "Remaining", StringComparison.OrdinalIgnoreCase))
+                {
+                    showUsed = false;
+                    return true;
+                }
+            }
+
+            if (displayModeProperty.ValueKind == JsonValueKind.Number &&
+                displayModeProperty.TryGetInt32(out var displayModeNumber))
+            {
+                showUsed = displayModeNumber == 1;
+                return true;
+            }
+        }
+
+        if (TryGetBooleanProperty(root, "InvertCalculations", out showUsed) ||
+            TryGetBooleanProperty(root, "InvertProgressBar", out showUsed))
+        {
+            return true;
+        }
+
+        showUsed = false;
+        return false;
     }
 }

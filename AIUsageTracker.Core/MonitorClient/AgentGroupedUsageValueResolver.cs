@@ -159,8 +159,8 @@ public static class AgentGroupedUsageValueResolver
         }
 
         return model.QuotaBuckets
-            .Where(bucket => bucket.NextResetTime.HasValue)
-            .Select(bucket => bucket.NextResetTime!.Value)
+            .Select(bucket => bucket.NextResetTime)
+            .Where(reset => reset.HasValue)
             .OrderBy(reset => reset)
             .FirstOrDefault();
     }

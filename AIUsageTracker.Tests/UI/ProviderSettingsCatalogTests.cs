@@ -76,6 +76,47 @@ public sealed class ProviderSettingsCatalogTests
         Assert.False(behavior.IsInactive);
     }
 
+    [Fact]
+    public void BuildSettingsResetStatusLine_OpenAiBurstQuota_UsesWarningColorAnd5hLabel()
+    {
+        var nextReset = new DateTime(2026, 4, 21, 18, 30, 0);
+        var usage = new ProviderUsage
+        {
+            ProviderId = "openai",
+            Name = "5-hour quota",
+            IsQuotaBased = true,
+            IsAvailable = true,
+            PlanType = PlanType.Coding,
+            NextResetTime = nextReset,
+        };
+
+        var line = SettingsWindow.BuildSettingsResetStatusLine(usage, nextReset);
+
+        Assert.Equal($"Next 5h reset: {nextReset:g}", line.Text);
+        Assert.Equal("StatusTextWarning", line.ResourceKey);
+    }
+
+    [Fact]
+    public void BuildSettingsResetStatusLine_MinimaxCodingPlan_UsesUtcTimestamp()
+    {
+        var nextReset = new DateTime(2026, 4, 21, 20, 0, 0, DateTimeKind.Utc);
+        var usage = new ProviderUsage
+        {
+            ProviderId = "minimax-coding-plan",
+            ProviderName = "Minimax.io Coding Plan",
+            Name = "5h",
+            IsQuotaBased = true,
+            IsAvailable = true,
+            PlanType = PlanType.Coding,
+            NextResetTime = nextReset,
+        };
+
+        var line = SettingsWindow.BuildSettingsResetStatusLine(usage, nextReset);
+
+        Assert.Equal("Next 5h reset: Apr 21, 20:00 UTC", line.Text);
+        Assert.Equal("StatusTextWarning", line.ResourceKey);
+    }
+
     // ── Clear-key removal precondition ────────────────────────────────────────
     [Theory]
     [InlineData("deepseek")]
