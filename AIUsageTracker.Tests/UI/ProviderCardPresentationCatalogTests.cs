@@ -125,6 +125,26 @@ public sealed class ProviderCardPresentationCatalogTests
     }
 
     [Fact]
+    public void Create_UsesDescription_ForCurrencyUsagePlanStatus()
+    {
+        var usage = new ProviderUsage
+        {
+            ProviderId = "openrouter",
+            IsAvailable = true,
+            PlanType = PlanType.Usage,
+            IsCurrencyUsage = true,
+            RequestsAvailable = 100,
+            RequestsUsed = 25,
+            UsedPercent = 25,
+            Description = "75.00$ remaining",
+        };
+
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
+
+        Assert.Equal("75.00$ remaining", presentation.StatusText);
+    }
+
+    [Fact]
     public void Create_FormatsDualQuotaBucketStatus_AndSuppressesSingleResetTime()
     {
         // Dual-bar data comes from WindowCards (flat ProviderUsage companion cards).

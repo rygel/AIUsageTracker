@@ -248,6 +248,14 @@ internal static partial class MainWindowRuntimeLogic
                 false);
         }
 
+        if (!isUnknown && !isStatusOnlyProvider && usage.PlanType == PlanType.Usage && usage.IsCurrencyUsage)
+        {
+            if (!string.IsNullOrWhiteSpace(description))
+            {
+                return (description, false);
+            }
+        }
+
         if (!isUnknown && !isStatusOnlyProvider && usage.PlanType == PlanType.Usage && usage.RequestsAvailable > 0)
         {
             var clampedUsedPercent = UsageMath.ClampPercent(usage.UsedPercent);

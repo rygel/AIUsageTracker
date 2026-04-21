@@ -67,8 +67,7 @@ public class OpenRouterProviderTests : HttpProviderTestBase<OpenRouterProvider>
         Assert.Equal(2.5, creditsCard.RequestsUsed);
         Assert.False(creditsCard.IsQuotaBased);
 
-        // UsageUnit removed; OpenRouter does not set IsCurrencyUsage since it uses Credits not USD
-        Assert.Equal("7.50 Credits Remaining", creditsCard.Description);
+        Assert.Equal("7.50$ remaining", creditsCard.Description);
 
         Assert.Contains(
             usages,

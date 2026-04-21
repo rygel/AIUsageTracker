@@ -327,7 +327,7 @@ public sealed class GroupedUsageProjectionServiceTests
     }
 
     [Fact]
-    public void Build_WhenOwnerRowMissing_FallsBackToLatestChildRow()
+    public void Build_WhenOwnerRowMissing_ThrowsInvalidOperationException()
     {
         var older = DateTime.UtcNow.AddMinutes(-5);
         var newer = DateTime.UtcNow;
@@ -363,11 +363,7 @@ public sealed class GroupedUsageProjectionServiceTests
             },
         };
 
-        var snapshot = GroupedUsageProjectionService.Build(usages);
-
-        var provider = Assert.Single(snapshot.Providers);
-        Assert.Equal("claude-code", provider.ProviderId);
-        Assert.Equal("newer row", provider.Description);
-        Assert.True(provider.IsAvailable);
+        var ex = Assert.Throws<InvalidOperationException>(() => GroupedUsageProjectionService.Build(usages));
+        Assert.Contains("claude-code", ex.Message, StringComparison.Ordinal);
     }
 }
