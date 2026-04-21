@@ -117,6 +117,7 @@ public sealed class ProviderCardPresentationCatalogTests
             PlanType = PlanType.Usage,
             RequestsAvailable = 100,
             UsedPercent = 25,
+            Description = "75% remaining",
         };
 
         var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
@@ -142,6 +143,24 @@ public sealed class ProviderCardPresentationCatalogTests
         var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
 
         Assert.Equal("75.00$ remaining", presentation.StatusText);
+    }
+
+    [Fact]
+    public void Create_UsagePlanWithEmptyDescription_DoesNotFallbackToPercentText()
+    {
+        var usage = new ProviderUsage
+        {
+            ProviderId = "openrouter",
+            IsAvailable = true,
+            PlanType = PlanType.Usage,
+            RequestsAvailable = 100,
+            UsedPercent = 25,
+            Description = string.Empty,
+        };
+
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
+
+        Assert.Equal(string.Empty, presentation.StatusText);
     }
 
     [Fact]

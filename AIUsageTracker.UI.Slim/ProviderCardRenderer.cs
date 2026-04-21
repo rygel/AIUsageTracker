@@ -374,10 +374,10 @@ internal sealed class ProviderCardRenderer
                 this.RenderUsageRate(panel, usage);
                 break;
             case CardSlotContent.UsedPercent:
-                this.AddSlotText(panel, $"{usage.UsedPercent.ToString("F0", CultureInfo.InvariantCulture)}% used", this._getResourceBrush(ResourceKeySecondaryText, Brushes.Gray), 10);
+                this.AddSlotText(panel, GetUsedSlotText(usage), this._getResourceBrush(ResourceKeySecondaryText, Brushes.Gray), 10);
                 break;
             case CardSlotContent.RemainingPercent:
-                this.AddSlotText(panel, $"{Math.Max(0, 100 - usage.UsedPercent).ToString("F0", CultureInfo.InvariantCulture)}% remaining", this._getResourceBrush(ResourceKeySecondaryText, Brushes.Gray), 10);
+                this.AddSlotText(panel, GetRemainingSlotText(usage), this._getResourceBrush(ResourceKeySecondaryText, Brushes.Gray), 10);
                 break;
             case CardSlotContent.ResetAbsolute:
             case CardSlotContent.ResetAbsoluteDate:
@@ -522,6 +522,27 @@ internal sealed class ProviderCardRenderer
         return string.IsNullOrWhiteSpace(resetLabel)
             ? $"({formattedReset})"
             : $"({resetLabel}: {formattedReset})";
+    }
+
+    private static string GetUsedSlotText(ProviderUsage usage)
+    {
+        if (usage.IsCurrencyUsage)
+        {
+            return $"{usage.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture)}$ used";
+        }
+
+        return $"{usage.UsedPercent.ToString("F0", CultureInfo.InvariantCulture)}% used";
+    }
+
+    private static string GetRemainingSlotText(ProviderUsage usage)
+    {
+        if (usage.IsCurrencyUsage)
+        {
+            var remaining = Math.Max(0, usage.RequestsAvailable - usage.RequestsUsed);
+            return $"{remaining.ToString("F2", CultureInfo.InvariantCulture)}$ remaining";
+        }
+
+        return $"{Math.Max(0, 100 - usage.UsedPercent).ToString("F0", CultureInfo.InvariantCulture)}% remaining";
     }
 
     private void AddSlotText(DockPanel panel, string text, Brush foreground, double fontSize, FontWeight? fontWeight = null)

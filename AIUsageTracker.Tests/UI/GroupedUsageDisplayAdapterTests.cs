@@ -799,6 +799,7 @@ public class GroupedUsageDisplayAdapterTests
         Assert.Equal("openrouter", card.ProviderId);
         Assert.Equal(ProviderUsageState.Missing, card.State);
         Assert.False(card.IsQuotaBased);
+        Assert.True(card.IsCurrencyUsage);
         Assert.Equal(PlanType.Usage, card.PlanType);
     }
 

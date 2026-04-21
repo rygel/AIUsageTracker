@@ -33,6 +33,7 @@ internal static class FlatWindowCardBuilder
                 IsAvailable = provider.IsAvailable,
                 PlanType = planType,
                 IsQuotaBased = isQuotaBased,
+                IsCurrencyUsage = definition?.IsCurrencyUsage ?? false,
                 RequestsUsed = modelState.UsedPercentage,
                 UsedPercent = modelState.UsedPercentage,
                 Description = modelState.Description,

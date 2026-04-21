@@ -26,6 +26,7 @@ internal static class LegacyParentCardBuilder
             State = provider.State,
             PlanType = definition?.PlanType ?? provider.PlanType,
             IsQuotaBased = definition?.IsQuotaBased ?? provider.IsQuotaBased,
+            IsCurrencyUsage = definition?.IsCurrencyUsage ?? false,
             RequestsUsed = provider.RequestsUsed,
             RequestsAvailable = provider.RequestsAvailable,
             UsedPercent = provider.UsedPercent,
