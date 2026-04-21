@@ -138,7 +138,7 @@ public sealed class UsageDatabaseDedupTests : IDisposable
                 ProviderId = "openrouter",
                 ProviderName = "OpenRouter",
                 CardId = "credits",
-                Name = "Openrouter Credits",
+                Name = "Openrouter",
                 GroupId = "openrouter",
                 RequestsUsed = 2.5,
                 RequestsAvailable = 10,

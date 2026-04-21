@@ -66,7 +66,7 @@ public sealed class ProviderRenderPlanCatalogTests
             new ProviderUsage
             {
                 ProviderId = "openrouter",
-                ProviderName = "Openrouter Credits",
+                ProviderName = "Openrouter",
                 IsQuotaBased = false,
                 PlanType = PlanType.Usage,
             },

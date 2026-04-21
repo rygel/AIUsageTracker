@@ -528,7 +528,7 @@ internal sealed class ProviderCardRenderer
     {
         if (usage.IsCurrencyUsage)
         {
-            return $"{usage.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture)}$ used";
+            return $"${usage.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture)} used";
         }
 
         return $"{usage.UsedPercent.ToString("F0", CultureInfo.InvariantCulture)}% used";
@@ -539,7 +539,7 @@ internal sealed class ProviderCardRenderer
         if (usage.IsCurrencyUsage)
         {
             var remaining = Math.Max(0, usage.RequestsAvailable - usage.RequestsUsed);
-            return $"{remaining.ToString("F2", CultureInfo.InvariantCulture)}$ remaining";
+            return $"${remaining.ToString("F2", CultureInfo.InvariantCulture)} remaining";
         }
 
         return $"{Math.Max(0, 100 - usage.UsedPercent).ToString("F0", CultureInfo.InvariantCulture)}% remaining";

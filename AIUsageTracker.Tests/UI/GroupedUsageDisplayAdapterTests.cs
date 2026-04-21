@@ -822,7 +822,7 @@ public class GroupedUsageDisplayAdapterTests
                         new AgentGroupedModelUsage
                         {
                             ModelId = "credits",
-                            ModelName = "Openrouter Credits",
+                            ModelName = "Openrouter",
                             RemainingPercentage = 75,
                         },
                     },
