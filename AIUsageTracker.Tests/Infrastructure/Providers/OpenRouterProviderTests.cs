@@ -62,7 +62,7 @@ public class OpenRouterProviderTests : HttpProviderTestBase<OpenRouterProvider>
         var creditsCard = Assert.Single(usages, u => string.Equals(u.CardId, "credits", StringComparison.Ordinal));
         Assert.True(creditsCard.IsAvailable);
         Assert.Equal("My Project Key", creditsCard.ProviderName);
-        Assert.Equal("OpenRouter Credits", creditsCard.Name);
+        Assert.Equal("Openrouter Credits", creditsCard.Name);
         Assert.Equal(25.0, creditsCard.UsedPercent); // 2.5 used of 10 total = 25% used
         Assert.Equal(2.5, creditsCard.RequestsUsed);
         Assert.False(creditsCard.IsQuotaBased);
