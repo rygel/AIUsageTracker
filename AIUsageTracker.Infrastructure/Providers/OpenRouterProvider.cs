@@ -251,7 +251,7 @@ public class OpenRouterProvider : ProviderBase
             ProviderName = keyInfo.Label,
             CardId = "credits",
             GroupId = config.ProviderId,
-            Name = "Openrouter Credits",
+            Name = "Open Router Credits",
             UsedPercent = 100.0 - remainingPercentage,
             RequestsUsed = used,
             RequestsAvailable = total,
