@@ -57,7 +57,7 @@ public sealed class CheckboxCardOutputTests
     }
 
     // ---------------------------------------------------------------------------
-    // "Show used percentages" toggle (Settings → PercentageDisplayMode = Used/Remaining)
+    // "Show used percentages" toggle (Settings → ShowUsedPercentages)
     // When checked: status text says "X% used"
     // When unchecked: status text says "X% remaining"
     // ---------------------------------------------------------------------------

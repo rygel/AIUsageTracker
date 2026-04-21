@@ -242,6 +242,50 @@ internal static partial class MainWindowRuntimeLogic
             : Array.Empty<DateTime>();
     }
 
+    internal static string? ResolveResetWindowLabel(ProviderUsage usage)
+    {
+        ArgumentNullException.ThrowIfNull(usage);
+
+        var providerId = usage.ProviderId ?? string.Empty;
+        var ownerProviderId = ProviderMetadataCatalog.GetProviderOwnerId(providerId);
+        if (string.Equals(
+            ownerProviderId,
+            GitHubCopilotProvider.StaticDefinition.ProviderId,
+            StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var explicitLabel = NormalizeResetWindowLabel(usage.Name)
+            ?? NormalizeResetWindowLabel(usage.CardId)
+            ?? NormalizeResetWindowLabel(usage.ProviderName);
+        if (!string.IsNullOrWhiteSpace(explicitLabel))
+        {
+            return explicitLabel;
+        }
+
+        if (ProviderMetadataCatalog.TryGet(ownerProviderId, out var definition))
+        {
+            var matchedWindow = definition.QuotaWindows.FirstOrDefault(window =>
+                !string.IsNullOrWhiteSpace(window.ChildProviderId) &&
+                string.Equals(window.ChildProviderId, providerId, StringComparison.OrdinalIgnoreCase));
+            var matchedLabel = NormalizeResetWindowLabel(matchedWindow?.DualBarLabel)
+                ?? NormalizeResetWindowLabel(matchedWindow?.SettingsLabel)
+                ?? NormalizeResetWindowLabel(
+                    definition.QuotaWindows
+                        .FirstOrDefault(window => window.Kind == WindowKind.Burst)
+                        ?.DualBarLabel);
+            if (!string.IsNullOrWhiteSpace(matchedLabel))
+            {
+                return matchedLabel;
+            }
+        }
+
+        return usage.PlanType == PlanType.Coding && usage.IsQuotaBased
+            ? "5h"
+            : null;
+    }
+
     /// <summary>
     /// Builds a multi-line tooltip string for a provider card, including daily budget
     /// information for multi-day quota periods.
@@ -271,6 +315,7 @@ internal static partial class MainWindowRuntimeLogic
         }
 
         AppendWindowLimitLines(tooltipBuilder, usage, useRelativeResetTime);
+        AppendSingleResetLine(tooltipBuilder, usage, useRelativeResetTime);
 
         if (usage.IsAvailable && usage.PeriodDuration.HasValue && usage.PeriodDuration.Value.TotalDays >= 1)
         {
@@ -314,6 +359,27 @@ internal static partial class MainWindowRuntimeLogic
         AppendWindowLine(tooltipBuilder, rollingCard, useRelativeResetTime);
     }
 
+    private static void AppendSingleResetLine(
+        System.Text.StringBuilder tooltipBuilder,
+        ProviderUsage usage,
+        bool useRelativeResetTime)
+    {
+        if ((usage.WindowCards?.Count ?? 0) > 0 || !usage.NextResetTime.HasValue)
+        {
+            return;
+        }
+
+        var resetText = useRelativeResetTime
+            ? UsageMath.FormatRelativeTime(usage.NextResetTime.Value)
+            : UsageMath.FormatAbsoluteDate(usage.NextResetTime.Value);
+        var label = ResolveResetWindowLabel(usage);
+        tooltipBuilder.AppendLine();
+        tooltipBuilder.AppendLine(
+            string.IsNullOrWhiteSpace(label)
+                ? $"Resets: {resetText}"
+                : $"{label} resets: {resetText}");
+    }
+
     private static void AppendWindowLine(
         System.Text.StringBuilder tooltipBuilder,
         ProviderUsage? windowCard,
@@ -335,5 +401,44 @@ internal static partial class MainWindowRuntimeLogic
                 : UsageMath.FormatAbsoluteDate(windowCard.NextResetTime.Value);
             tooltipBuilder.AppendLine($"{label} resets: {resetText}");
         }
+    }
+
+    private static string? NormalizeResetWindowLabel(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var normalized = value.Trim();
+        if (normalized.Contains("month", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Monthly";
+        }
+
+        if (normalized.Contains("5h", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Contains("5-hour", StringComparison.OrdinalIgnoreCase))
+        {
+            return "5h";
+        }
+
+        if (normalized.Contains("week", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Contains("7 day", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Contains("7d", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Weekly";
+        }
+
+        if (normalized.Contains("day", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Daily";
+        }
+
+        if (normalized.Contains("hour", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Hourly";
+        }
+
+        return null;
     }
 }

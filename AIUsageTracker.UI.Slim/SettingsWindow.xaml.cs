@@ -519,7 +519,7 @@ public partial class SettingsWindow : Window
     {
         if (this.ShowUsedPercentagesCheck != null)
         {
-            this.ShowUsedPercentagesCheck.IsChecked = this._preferences.PercentageDisplayMode == PercentageDisplayMode.Used;
+            this.ShowUsedPercentagesCheck.IsChecked = this._preferences.ShowUsedPercentages;
         }
 
         if (this.ShowUsagePerHourCheck != null)

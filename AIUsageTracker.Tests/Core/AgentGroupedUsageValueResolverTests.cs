@@ -88,4 +88,31 @@ public class AgentGroupedUsageValueResolverTests
         Assert.Equal(35, result.RemainingPercentage, 3);
         Assert.Equal("35% remaining", result.Description);
     }
+
+    [Fact]
+    public void ResolveModelEffectiveState_WithoutAnyResetSignal_ReturnsNullResetTime()
+    {
+        var model = new AgentGroupedModelUsage
+        {
+            ModelId = "minimax-burst",
+            ModelName = "MiniMax Burst",
+            RemainingPercentage = 100,
+            UsedPercentage = 0,
+            QuotaBuckets = new[]
+            {
+                new AgentGroupedQuotaBucketUsage
+                {
+                    BucketId = "effective",
+                    BucketName = "Effective Quota",
+                    RemainingPercentage = 100,
+                    UsedPercentage = 0,
+                    NextResetTime = null,
+                },
+            },
+        };
+
+        var result = AgentGroupedUsageValueResolver.ResolveModelEffectiveState(model, parentIsQuotaBased: true);
+
+        Assert.Null(result.NextResetTime);
+    }
 }

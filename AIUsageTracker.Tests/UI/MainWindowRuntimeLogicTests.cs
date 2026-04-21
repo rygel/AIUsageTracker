@@ -228,6 +228,86 @@ public sealed class MainWindowRuntimeLogicTests
     }
 
     [Fact]
+    public void ResolveResetWindowLabel_CodingQuotaProviderWithoutExplicitWindow_FallsBackTo5h()
+    {
+        var usage = new ProviderUsage
+        {
+            ProviderId = "zai-coding-plan",
+            IsAvailable = true,
+            IsQuotaBased = true,
+            PlanType = PlanType.Coding,
+            NextResetTime = DateTime.UtcNow.AddHours(2),
+        };
+
+        var label = MainWindowRuntimeLogic.ResolveResetWindowLabel(usage);
+
+        Assert.Equal("5h", label);
+    }
+
+    [Fact]
+    public void ResolveResetWindowLabel_GitHubCopilotMonthlyCard_ReturnsNull()
+    {
+        var usage = new ProviderUsage
+        {
+            ProviderId = "github-copilot",
+            CardId = "monthly",
+            Name = "Monthly Quota",
+            IsAvailable = true,
+            IsQuotaBased = true,
+            PlanType = PlanType.Coding,
+            NextResetTime = DateTime.UtcNow.AddDays(20),
+        };
+
+        var label = MainWindowRuntimeLogic.ResolveResetWindowLabel(usage);
+
+        Assert.Null(label);
+    }
+
+    [Fact]
+    public void BuildTooltipContent_WithSingleCodingReset_Includes5hResetLine()
+    {
+        var reset = new DateTime(2026, 4, 18, 10, 30, 0, DateTimeKind.Utc);
+        var usage = new ProviderUsage
+        {
+            ProviderId = "zai-coding-plan",
+            ProviderName = "Z.ai Coding Plan",
+            IsAvailable = true,
+            IsQuotaBased = true,
+            PlanType = PlanType.Coding,
+            Description = "80% remaining",
+            NextResetTime = reset,
+        };
+
+        var tooltip = MainWindowRuntimeLogic.BuildTooltipContent(usage, usage.ProviderName!, useRelativeResetTime: false);
+
+        Assert.NotNull(tooltip);
+        Assert.Contains($"5h resets: {UsageMath.FormatAbsoluteDate(reset)}", tooltip, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildTooltipContent_WithSingleCopilotReset_IncludesGenericResetLine()
+    {
+        var reset = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var usage = new ProviderUsage
+        {
+            ProviderId = "github-copilot",
+            ProviderName = "GitHub Copilot",
+            CardId = "monthly",
+            Name = "Monthly Quota",
+            IsAvailable = true,
+            IsQuotaBased = true,
+            PlanType = PlanType.Coding,
+            Description = "80% remaining",
+            NextResetTime = reset,
+        };
+
+        var tooltip = MainWindowRuntimeLogic.BuildTooltipContent(usage, usage.ProviderName!, useRelativeResetTime: false);
+
+        Assert.NotNull(tooltip);
+        Assert.Contains($"Resets: {UsageMath.FormatAbsoluteDate(reset)}", tooltip, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void BuildTooltipContent_WithModelName_IncludesModelLine()
     {
         var usage = new ProviderUsage

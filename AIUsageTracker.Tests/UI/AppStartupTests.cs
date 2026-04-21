@@ -106,7 +106,7 @@ public class AppStartupTests : IDisposable
         Assert.Equal(original.WindowHeight, loaded.WindowHeight);
         Assert.Equal(original.AlwaysOnTop, loaded.AlwaysOnTop);
         Assert.Equal(original.IsPrivacyMode, loaded.IsPrivacyMode);
-        Assert.Equal(original.PercentageDisplayMode, loaded.PercentageDisplayMode);
+        Assert.Equal(original.ShowUsedPercentages, loaded.ShowUsedPercentages);
         Assert.True(loaded.ShowUsedPercentages);
     }
 
@@ -118,7 +118,6 @@ public class AppStartupTests : IDisposable
         var loaded = await this._store.LoadAsync();
 
         Assert.True(loaded.ShowUsedPercentages);
-        Assert.Equal(PercentageDisplayMode.Used, loaded.PercentageDisplayMode);
     }
 
     [Fact]

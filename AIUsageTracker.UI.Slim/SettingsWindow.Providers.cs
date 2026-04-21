@@ -20,6 +20,7 @@ public partial class SettingsWindow
     private const string ResourceKeyTertiaryText = "TertiaryText";
     private const string ResourceKeySecondaryText = "SecondaryText";
     private const string ResourceKeyProgressBarGreen = "ProgressBarGreen";
+    private const string ResourceKeyStatusTextWarning = "StatusTextWarning";
 
     private sealed record StatusPanelPresentation(
         bool UseHorizontalLayout,
@@ -28,8 +29,9 @@ public partial class SettingsWindow
         bool PrimaryItalic,
         IReadOnlyList<StatusSecondaryLine> SecondaryLines);
 
-    private readonly record struct StatusSecondaryLine(
+    internal readonly record struct StatusSecondaryLine(
         string Text,
+        string? ResourceKey = null,
         bool Wrap = false,
         bool ExtraTopMargin = false);
 
@@ -258,6 +260,7 @@ public partial class SettingsWindow
         foreach (var line in presentation.SecondaryLines)
         {
             var secondaryText = this.CreateSecondaryStatusText(line.Text);
+            secondaryText.SetResourceReference(TextBlock.ForegroundProperty, line.ResourceKey ?? ResourceKeySecondaryText);
             secondaryText.TextWrapping = line.Wrap ? TextWrapping.Wrap : TextWrapping.NoWrap;
             if (line.ExtraTopMargin)
             {
@@ -316,7 +319,7 @@ public partial class SettingsWindow
 
         if (usage?.NextResetTime is DateTime derivedReset)
         {
-            secondaryLines.Add(new StatusSecondaryLine($"Next reset: {derivedReset:g}"));
+            secondaryLines.Add(new StatusSecondaryLine(BuildSettingsResetText(usage, derivedReset)));
         }
 
         return new StatusPanelPresentation(
@@ -415,11 +418,11 @@ public partial class SettingsWindow
         var resolvedReset = usage?.NextResetTime;
         if (resolvedReset is DateTime nextReset)
         {
-            secondaryLines.Add(new StatusSecondaryLine($"Next reset: {nextReset:g}"));
+            secondaryLines.Add(BuildSettingsResetStatusLine(usage!, nextReset));
         }
         else if (isAuthenticated)
         {
-            secondaryLines.Add(new StatusSecondaryLine("Next reset: loading..."));
+            secondaryLines.Add(BuildSettingsResetLoadingStatusLine());
         }
 
         return new StatusPanelPresentation(
@@ -453,6 +456,28 @@ public partial class SettingsWindow
         return hasSessionToken && isUsageAvailable != true
             ? $"Authenticated via {providerSessionLabel} - refresh to load quota"
             : $"Authenticated via {providerSessionLabel}";
+    }
+
+    internal static StatusSecondaryLine BuildSettingsResetStatusLine(ProviderUsage usage, DateTime nextReset)
+    {
+        return new StatusSecondaryLine(
+            BuildSettingsResetText(usage, nextReset),
+            ResourceKeyStatusTextWarning);
+    }
+
+    internal static StatusSecondaryLine BuildSettingsResetLoadingStatusLine()
+    {
+        return new StatusSecondaryLine(
+            "Next reset: loading...",
+            ResourceKeyStatusTextWarning);
+    }
+
+    private static string BuildSettingsResetText(ProviderUsage usage, DateTime nextReset)
+    {
+        var resetLabel = MainWindowRuntimeLogic.ResolveResetWindowLabel(usage);
+        return string.IsNullOrWhiteSpace(resetLabel)
+            ? $"Next reset: {nextReset:g}"
+            : $"Next {resetLabel} reset: {nextReset:g}";
     }
 
     private StackPanel BuildProviderHeader(ProviderConfig config, ProviderSettingsBehavior settingsBehavior, bool isDerived)

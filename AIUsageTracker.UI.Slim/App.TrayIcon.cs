@@ -27,7 +27,7 @@ public partial class App
         var yellowThreshold = prefs?.ColorThresholdYellow ?? 60;
         var redThreshold = prefs?.ColorThresholdRed ?? 80;
         var enablePaceAdjustment = prefs?.EnablePaceAdjustment ?? true;
-        var showUsed = prefs?.PercentageDisplayMode == PercentageDisplayMode.Used;
+        var showUsed = prefs?.ShowUsedPercentages ?? false;
         var showDualQuotaBars = prefs?.ShowDualQuotaBars ?? true;
         var dualQuotaSingleBarMode = prefs?.DualQuotaSingleBarMode ?? DualQuotaSingleBarMode.Rolling;
         var desiredIcons = BuildDesiredIcons(

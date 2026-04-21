@@ -146,7 +146,6 @@ public sealed class JsonConfigLoaderPersistenceTests : IntegrationTestBase
         var preferences = await loader.LoadPreferencesAsync();
 
         Assert.True(preferences.ShowUsedPercentages);
-        Assert.Equal(PercentageDisplayMode.Used, preferences.PercentageDisplayMode);
         Assert.Equal(AppPreferences.CurrentSchemaVersion, preferences.SchemaVersion);
     }
 
@@ -176,7 +175,8 @@ public sealed class JsonConfigLoaderPersistenceTests : IntegrationTestBase
         var json = await File.ReadAllTextAsync(preferencesPath);
 
         Assert.Contains($"\"SchemaVersion\": {AppPreferences.CurrentSchemaVersion}", json, StringComparison.Ordinal);
-        Assert.Contains("\"PercentageDisplayMode\": \"Used\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"ShowUsedPercentages\": true", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("PercentageDisplayMode", json, StringComparison.Ordinal);
         Assert.DoesNotContain("InvertCalculations", json, StringComparison.Ordinal);
         Assert.DoesNotContain("InvertProgressBar", json, StringComparison.Ordinal);
     }

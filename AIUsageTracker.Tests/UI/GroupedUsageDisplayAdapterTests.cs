@@ -209,6 +209,54 @@ public class GroupedUsageDisplayAdapterTests
     }
 
     [Fact]
+    public void Expand_FlatCardWithoutReset_DoesNotSynthesizeDefaultDate()
+    {
+        var now = DateTime.UtcNow;
+        var snapshot = new AgentGroupedUsageSnapshot
+        {
+            Providers = new[]
+            {
+                new AgentGroupedProviderUsage
+                {
+                    ProviderId = "minimax-coding-plan",
+                    ProviderName = "Minimax.io Coding Plan",
+                    IsAvailable = true,
+                    IsQuotaBased = true,
+                    PlanType = PlanType.Coding,
+                    FetchedAt = now,
+                    Models = new[]
+                    {
+                        new AgentGroupedModelUsage
+                        {
+                            ModelId = "burst",
+                            ModelName = "5h",
+                            RemainingPercentage = 100,
+                            UsedPercentage = 0,
+                            NextResetTime = null,
+                            QuotaBuckets = new[]
+                            {
+                                new AgentGroupedQuotaBucketUsage
+                                {
+                                    BucketId = "effective",
+                                    BucketName = "Effective Quota",
+                                    RemainingPercentage = 100,
+                                    UsedPercentage = 0,
+                                    NextResetTime = null,
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        var usages = GroupedUsageDisplayAdapter.Expand(snapshot);
+
+        var burst = Assert.Single(usages);
+        Assert.Null(burst.NextResetTime);
+    }
+
+    [Fact]
     public void Expand_GithubCopilotWithSingleModel_ProducesSingleFlatCard()
     {
         // Any provider with models uses flat cards — one card per model.

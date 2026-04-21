@@ -470,7 +470,7 @@ public partial class MainWindow : Window
     {
         if (this.ShowUsedToggle != null)
         {
-            this.ShowUsedToggle.IsChecked = this._preferences.PercentageDisplayMode == PercentageDisplayMode.Used;
+            this.ShowUsedToggle.IsChecked = this._preferences.ShowUsedPercentages;
         }
     }
 
