@@ -31,8 +31,10 @@ jobs:
 
       - name: Extract Version and Channel
         id: extract
+        env:
+          INPUT_TAG: ${{ inputs.tag || '' }}
         run: |
-          $ref = if ('${{ inputs.tag }}') { '${{ inputs.tag }}' } else { $env:GITHUB_REF }
+          $ref = if ($env:INPUT_TAG) { $env:INPUT_TAG } else { $env:GITHUB_REF }
           $version = $ref -replace 'refs/tags/v', '' -replace '^v', ''
           $channel = if ($version -match '-beta') { 'beta' } else { 'stable' }
           
