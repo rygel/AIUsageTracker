@@ -13,7 +13,8 @@ A streamlined Windows dashboard and tray utility to monitor AI API usage, costs,
 
 ## Support
 If you want to support me and are interested in different AI model providers, you can sign up with my referral codes:
-- [Z.AI](https://z.ai/subscribe?ic=JQTB1W1M0L): GLM-4.7, GLM-4.6, GLM-4.7-flash
+- [Z.AI](https://z.ai/subscribe?ic=JQTB1W1M0L): GLM-5.1, GLM-5, GLM-4.7, GLM-4.6, GLM-4.7-flash
+- [MiniMax](https://platform.minimax.io/subscribe/token-plan?code=7tAWJBCP5L&source=link): Minimax M2.7
 - [synthetic.new](https://synthetic.new/?referral=SNJDbFCgSUZso9E): Minimax M2.1, Kimi K2.5, GLM-4.7, etc.
 
 
@@ -55,12 +56,12 @@ Download the latest installer or .zip file from the [Release](https://github.com
 
 | Provider                         | Integration         | Status              | Comment                                                      |
 |:---------------------------------|:--------------------|:--------------------|--------------------------------------------------------------|
-| **Antigravity**                  | via Antigravity GUI | ✅ Tested            |                                                              |
-| **Claude Code**                  |                     | ⚠️ partially tested | Testers welcome                                              |
+| **Antigravity**                  | via Antigravity GUI | ✅ Tested           |                                                              |
+| **Claude Code**                  |                     | ✅ Tested           |                                                              |
 | **DeepSeek**                     | API Key¹            | ⚠️ Beta             | Testers welcome                                              |
-| **Gemini**                       | not integrated yet  | 🚧 Planned          | Testers welcome                                              |
-| **GitHub Copilot**               | OAuth Device Flow   | ✅ Tested            |                                                              |
-| **Kimi (Moonshot)**              | API Key¹            | ⚠️ Beta             | Testers welcome                                              |
+| **Gemini**                       | OAuth Device Flow   | ✅ Tested           |                                                              |
+| **GitHub Copilot**               | OAuth Device Flow   | ✅ Tested           |                                                              |
+| **Kimi (Moonshot)**              | API Key¹            | ✅ Tested           |                                                              |
 | **Minimax** (China)              | API Key¹            | ⚠️ Beta             | Testers welcome                                              |
 | **Minimax** (International)      | API Key¹            | ⚠️ Beta             | Testers welcome                                              |
 | **Mistral**                      | API Key¹            | ✅ Tested            | but Mistral does not provide usage information via their API |
