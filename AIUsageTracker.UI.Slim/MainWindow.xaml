@@ -12,7 +12,7 @@
         Background="{DynamicResource Background}"
         Foreground="{DynamicResource PrimaryText}"
         ShowInTaskbar="False"
-        Topmost="True"
+        Topmost="False"
         Icon="Assets/app_icon.ico"
         KeyDown="OnKeyDown">
 
@@ -77,7 +77,7 @@
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                         <CheckBox x:Name="AlwaysOnTopCheck" 
                                   Content="Top" 
-                                  IsChecked="True"
+                                  IsChecked="False"
                                   Foreground="{DynamicResource SecondaryText}" 
                                   VerticalAlignment="Center"
                                   FontSize="11"

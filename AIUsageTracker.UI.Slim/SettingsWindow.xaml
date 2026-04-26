@@ -512,7 +512,7 @@
                         <!-- Window Behavior -->
                         <TextBlock Text="Window Behavior" FontWeight="Bold" FontSize="12"
                                    Foreground="{DynamicResource PrimaryText}" Margin="0,0,0,10"/>
-                        <CheckBox x:Name="AlwaysOnTopCheck" Content="Always On Top" IsChecked="True"
+                         <CheckBox x:Name="AlwaysOnTopCheck" Content="Always On Top" IsChecked="False"
                                   Margin="0,4" Foreground="{DynamicResource SecondaryText}"
                                   Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
                         <CheckBox x:Name="AggressiveTopmostCheck" Content="Aggressive keep-on-top"

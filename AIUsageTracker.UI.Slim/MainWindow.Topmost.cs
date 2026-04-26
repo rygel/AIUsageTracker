@@ -106,11 +106,7 @@ public partial class MainWindow
     private void ApplyTopmostState(bool alwaysOnTop)
     {
         this.Topmost = alwaysOnTop;
-
-        if (this._preferences.ForceWin32Topmost)
-        {
-            this.ApplyWin32Topmost(noActivate: true, alwaysOnTop);
-        }
+        this.ApplyWin32Topmost(noActivate: true, alwaysOnTop);
     }
 
     private void ScheduleTopmostRecovery(int generation, TimeSpan delay)
