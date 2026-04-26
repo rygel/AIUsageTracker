@@ -422,6 +422,7 @@ public class GitHubCopilotProvider : ProviderBase
             }
 
             var quotaJson = await quotaResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+            state.RawJson = quotaJson;
             using var quotaDoc = System.Text.Json.JsonDocument.Parse(quotaJson);
             var root = quotaDoc.RootElement;
 
