@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [2.3.4-beta.35] - 2026-05-03
+
+### Changed
+- **Updater diagnostics correlation**: each update attempt now carries a stable attempt ID through download, verification, and installer launch logs so support can tie UI failures to backend diagnostics quickly.
+- **Installer artifact diagnostics**: successful downloads now log installer path, file size, and SHA-256 hash before launch for faster integrity checks during support incidents.
+- **Persisted last-attempt summary**: Slim UI now writes a stable update-last-attempt.json diagnostics file with version, URL, attempt ID, result, failure reason, installer path/hash, and UTC timestamp.
+
+### Fixed
+- **Update failure triage gap**: update failures now report stage-specific context (download vs file prep vs launch, including Win32 native error codes) directly in diagnostics and user-facing failure reasons.
 ## [2.3.4] - 2026-04-26
 
 ### Added
@@ -448,3 +457,4 @@
 
 ### CI/CD
 - Updated all GitHub Actions to latest major versions (checkout v6, setup-dotnet v5, upload-artifact v7, download-artifact v8, github-script v8, cache v5, codecov v5, create-pull-request v8, paths-filter v4) to eliminate Node.js 20 deprecation warnings.
+
