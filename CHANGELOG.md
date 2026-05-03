@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [2.3.5-beta.1] - 2026-05-03
+
+### Changed
+- updater diagnostics correlation (attempt ID) and installer artifact diagnostics (path/size/SHA-256).
+- persisted `update-last-attempt.json` for post-failure triage context.
+
+### Fixed
+- update failure triage gap with stage-specific context and native error codes.
 ## [2.3.4-beta.35] - 2026-05-03
 
 ### Changed
@@ -457,4 +465,5 @@
 
 ### CI/CD
 - Updated all GitHub Actions to latest major versions (checkout v6, setup-dotnet v5, upload-artifact v7, download-artifact v8, github-script v8, cache v5, codecov v5, create-pull-request v8, paths-filter v4) to eliminate Node.js 20 deprecation warnings.
+
 
