@@ -254,3 +254,4 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 Filename: "{app}\AIUsageTracker.exe"; Description: "{cm:LaunchProgram,AI Usage Tracker UI}"; Flags: nowait postinstall skipifsilent; Components: apps\tracker; Check: ShouldRunApplication
+
