@@ -359,6 +359,11 @@ internal sealed class ProviderCardRenderer
             return;
         }
 
+        if (!ShouldRenderSlot(slot, presentation))
+        {
+            return;
+        }
+
         switch (slot)
         {
             case CardSlotContent.PaceBadge:
@@ -456,10 +461,11 @@ internal sealed class ProviderCardRenderer
 
     private void RenderStatusTextSlot(DockPanel panel, ProviderCardPresentation presentation, bool showUsed)
     {
-        var statusText = presentation.DualBar != null && !this._preferences.ShowDualQuotaBars
-            ? MainWindowRuntimeLogic.BuildSingleDualQuotaStatusText(
-                presentation, showUsed, this._preferences.DualQuotaSingleBarMode)
-            : presentation.StatusText;
+        var statusText = ResolveStatusSlotText(
+            presentation,
+            showUsed,
+            this._preferences.ShowDualQuotaBars,
+            this._preferences.DualQuotaSingleBarMode);
 
         Brush statusBrush = presentation.StatusTone switch
         {
@@ -543,6 +549,39 @@ internal sealed class ProviderCardRenderer
         }
 
         return $"{Math.Max(0, 100 - usage.UsedPercent).ToString("F0", CultureInfo.InvariantCulture)}% remaining";
+    }
+
+    internal static bool ShouldRenderSlot(CardSlotContent slot, ProviderCardPresentation presentation)
+    {
+        return slot switch
+        {
+            CardSlotContent.PaceBadge or
+            CardSlotContent.ProjectedPercent or
+            CardSlotContent.DailyBudget or
+            CardSlotContent.UsageRate or
+            CardSlotContent.UsedPercent or
+            CardSlotContent.RemainingPercent or
+            CardSlotContent.ResetAbsolute or
+            CardSlotContent.ResetAbsoluteDate or
+            CardSlotContent.ResetRelative => presentation.ShouldHaveProgress,
+            _ => true,
+        };
+    }
+
+    internal static string ResolveStatusSlotText(
+        ProviderCardPresentation presentation,
+        bool showUsed,
+        bool showDualQuotaBars,
+        DualQuotaSingleBarMode dualQuotaSingleBarMode)
+    {
+        return presentation.ShouldHaveProgress &&
+               presentation.DualBar != null &&
+               !showDualQuotaBars
+            ? MainWindowRuntimeLogic.BuildSingleDualQuotaStatusText(
+                presentation,
+                showUsed,
+                dualQuotaSingleBarMode)
+            : presentation.StatusText;
     }
 
     private void AddSlotText(DockPanel panel, string text, Brush foreground, double fontSize, FontWeight? fontWeight = null)
