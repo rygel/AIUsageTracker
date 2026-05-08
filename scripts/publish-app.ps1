@@ -6,7 +6,7 @@ param(
 )
 
 # AI Usage Tracker - Distribution Packaging Script
-# Usage: .\scripts\publish-app.ps1 -Runtime win-x64 -Version 2.3.4-beta.34 -InstallerCompression balanced
+# Usage: .\scripts\publish-app.ps1 -Runtime win-x64 -Version 2.3.5-beta.2 -InstallerCompression balanced
 
 $isWinPlatform = $Runtime.StartsWith("win-")
 $projectName = if ($isWinPlatform) { "AIUsageTracker" } else { "AIUsageTracker.CLI" }
@@ -215,4 +215,9 @@ Write-Host "Distribution ready at: $zipPath" -ForegroundColor Green
 Write-Host "Size: $((Get-Item $zipPath).Length / 1MB) MB" -ForegroundColor Gray
 Write-Host "--------------------------------------------------" -ForegroundColor Yellow
 
+<<<<<<< HEAD
+=======
 
+
+
+>>>>>>> origin/develop

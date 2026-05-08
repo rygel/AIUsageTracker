@@ -356,6 +356,44 @@ public sealed class MainWindowRuntimeLogicTests
     }
 
     [Fact]
+    public void BuildTooltipContent_UnavailableProvider_DoesNotShowDerivedQuotaFallbacks()
+    {
+        var reset = new DateTime(2026, 4, 21, 20, 0, 0, DateTimeKind.Utc);
+        var usage = new ProviderUsage
+        {
+            ProviderId = "codex",
+            ProviderName = "OpenAI (Codex)",
+            IsAvailable = false,
+            State = ProviderUsageState.Unavailable,
+            Description = "Temporarily paused after repeated failures",
+            UsedPercent = 0,
+            PeriodDuration = TimeSpan.FromDays(7),
+            NextResetTime = reset,
+            WindowCards = new List<ProviderUsage>
+            {
+                new()
+                {
+                    ProviderId = "codex",
+                    Name = "5h",
+                    WindowKind = WindowKind.Burst,
+                    UsedPercent = 0,
+                    NextResetTime = reset,
+                },
+            },
+        };
+
+        var tooltip = MainWindowRuntimeLogic.BuildTooltipContent(usage, usage.ProviderName!, useRelativeResetTime: false);
+
+        Assert.NotNull(tooltip);
+        Assert.Contains("Status: Inactive", tooltip, StringComparison.Ordinal);
+        Assert.Contains("Temporarily paused after repeated failures", tooltip, StringComparison.Ordinal);
+        Assert.DoesNotContain("limit:", tooltip, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("resets:", tooltip, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Daily budget:", tooltip, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Expected by now:", tooltip, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void ResolveCardResetDisplay_DualBarsVisible_UsesBurstReset()
     {
         var burstReset = new DateTime(2026, 4, 21, 20, 0, 0, DateTimeKind.Utc);

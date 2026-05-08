@@ -179,12 +179,14 @@ public partial class SettingsWindow : Window
     internal async Task<IReadOnlyList<string>> CaptureHeadlessTabScreenshotsAsync(string outputDirectory)
     {
         await this.PrepareForHeadlessScreenshotAsync(deterministic: true).ConfigureAwait(true);
+        var outputRoot = Path.GetFullPath(outputDirectory);
+        Directory.CreateDirectory(outputRoot);
 
         var capturedFiles = new List<string>();
         if (this.MainTabControl.Items.Count == 0)
         {
             const string fallbackName = "screenshot_settings_privacy.png";
-            App.RenderWindowContent(this, Path.Combine(outputDirectory, fallbackName));
+            App.RenderWindowContent(this, CombineAndEnsureUnderRoot(outputRoot, fallbackName));
             capturedFiles.Add(fallbackName);
             return capturedFiles;
         }
@@ -201,7 +203,7 @@ public partial class SettingsWindow : Window
 
             var tabSlug = BuildTabSlug(header, index);
             var fileName = $"screenshot_settings_{tabSlug}_privacy.png";
-            App.RenderWindowContent(this, Path.Combine(outputDirectory, fileName));
+            App.RenderWindowContent(this, CombineAndEnsureUnderRoot(outputRoot, fileName));
             capturedFiles.Add(fileName);
         }
 
@@ -210,6 +212,20 @@ public partial class SettingsWindow : Window
         this.UpdateLayout();
 
         return capturedFiles;
+    }
+
+    private static string CombineAndEnsureUnderRoot(string rootDirectory, string fileName)
+    {
+        var fullRoot = Path.GetFullPath(rootDirectory);
+        var candidatePath = Path.GetFullPath(Path.Combine(fullRoot, fileName));
+        var rootWithSeparator = fullRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        if (!candidatePath.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"Rejected screenshot path outside output directory. Root={fullRoot}, Candidate={candidatePath}");
+        }
+
+        return candidatePath;
     }
 #pragma warning restore VSTHRD001
 
@@ -578,6 +594,7 @@ public partial class SettingsWindow : Window
     {
         return new List<ThemeOption>
         {
+            new() { Value = AppTheme.System, Label = "System (Auto)" },
             new() { Value = AppTheme.Dark, Label = "Dark" },
             new() { Value = AppTheme.Light, Label = "Light" },
             new() { Value = AppTheme.Corporate, Label = "Corporate" },
@@ -1010,89 +1027,17 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        var confirmResult = MessageBox.Show(
-            $"Download and install version {this._pendingUpdate.Version}?\n\nThe application will restart after installation.",
-            "Confirm Update",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-
-        if (confirmResult != MessageBoxResult.Yes)
-        {
-            return;
-        }
-
         this.DownloadUpdateBtn.IsEnabled = false;
         this.CheckForUpdatesBtn.IsEnabled = false;
         this.UpdateCheckStatus.Text = "Downloading...";
-        Window? progressWindow = null;
 
         try
         {
-            var progressBar = new ProgressBar
-            {
-                Height = 20,
-                Minimum = 0,
-                Maximum = 100,
-            };
-
-            progressWindow = new Window
-            {
-                Title = "Downloading Update",
-                Width = 400,
-                Height = 150,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Owner = this,
-                ResizeMode = ResizeMode.NoResize,
-                Background = (Brush)this.FindResource("Background"),
-                Content = new StackPanel
-                {
-                    Margin = new Thickness(20),
-                    Children =
-                    {
-                        new TextBlock
-                        {
-                            Text = $"Downloading version {this._pendingUpdate.Version}...",
-                            Margin = new Thickness(0, 0, 0, 10),
-                            Foreground = (Brush)this.FindResource("PrimaryText"),
-                        },
-                        progressBar,
-                    },
-                },
-            };
-
-            var progress = new Progress<double>(p => progressBar.Value = p);
-            progressWindow.Show();
-
-            var result = await this._pendingUpdateChecker.DownloadAndInstallUpdateAsync(this._pendingUpdate, progress).ConfigureAwait(true);
-            progressWindow.Close();
-            progressWindow = null;
-
-            if (result.Success)
-            {
-                Application.Current.Shutdown();
-            }
-            else
-            {
-                MessageBox.Show(
-                    $"Failed to download or install version {this._pendingUpdate.Version}.\n\n" +
-                    $"Reason: {result.FailureReason}\n\n" +
-                    "Please try again or download manually from the releases page.",
-                    "Update Failed",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-                this.UpdateCheckStatus.Text = "Update failed.";
-            }
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            progressWindow?.Close();
-            this._logger.LogWarning(ex, "Download update failed");
-            MessageBox.Show(
-                $"Update error: {ex.Message}",
-                "Update Error",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
-            this.UpdateCheckStatus.Text = "Update failed.";
+            await Services.UpdateInstallerHelper.DownloadAndInstallAsync(
+                this,
+                this._pendingUpdate,
+                this._pendingUpdateChecker,
+                this._logger).ConfigureAwait(true);
         }
         finally
         {

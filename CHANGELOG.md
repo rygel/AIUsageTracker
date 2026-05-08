@@ -2,49 +2,45 @@
 
 ## [Unreleased]
 
-## [2.3.4-beta.34] - 2026-04-26
+## [2.3.5-beta.2] - 2026-05-04
 
 ### Fixed
-- **Always-on-top leaking when disabled**: window no longer stays topmost after unchecking "Always On Top". Root cause was hardcoded `Topmost="True"` in XAML and asymmetric Win32 flag management.
-- **Stale beta appcast files**: beta appcast now points to v2.3.4-beta.33 instead of v2.3.4-beta.11.
-- **Copilot raw snapshot**: stored quota API response instead of profile response.
+- **Unavailable providers no longer glitch to zero**: flat/model cards now preserve the provider's unavailable state and description instead of falling back to synthetic `0% used` or `100% remaining` text.
+- **Unavailable cards no longer leak derived quota details**: custom card slots, dual-bar status rendering, and tooltips now suppress percent, pace, budget, and reset details when the provider is not actually available.
+- **Status-only providers keep descriptive status text**: status-only cards such as connection/auth status rows now preserve messages like `Connected` instead of falling through to quota percentage formatting.
+## [2.3.5-beta.1] - 2026-05-03
 
 ### Changed
-- **Consolidated auto-start settings**: removed redundant "Start Monitor with Windows" checkbox (Monitor always auto-starts with the UI). Single "Start with Windows" checkbox controls startup behavior.
-- **Removed Monitor startup task from installer**: the installer no longer offers a separate Monitor startup option.
-
-## [2.3.4-beta.32] - 2026-04-21
+- updater diagnostics correlation (attempt ID) and installer artifact diagnostics (path/size/SHA-256).
+- persisted `update-last-attempt.json` for post-failure triage context.
 
 ### Fixed
-- **OpenRouter card: dollar sign prefixed and "Credits" removed from card name**: currency amounts now display as `$7.50 remaining` instead of `7.50$ remaining`, and the card name is `Openrouter` instead of `Openrouter Credits`.
-- **MiniMax coding plan model resolution**: coding-plan window cards now prefer the explicit text-generation model over the search model, and the owner grouping keeps token and coding plans separate.
-- **Tooltip reset details**: burst and weekly limit reset times are now shown in tooltips when present, respecting the relative reset time setting.
+- update failure triage gap with stage-specific context and native error codes.
+## [2.3.4-beta.35] - 2026-05-03
 
 ### Changed
-- **Provider ID alignment refactor**: removed config canonicalization layer, aligned provider IDs consistently, and removed dead provider normalization API and tests.
-- **Display-name resolution centralized**: provider naming resolves through a single catalog path across UI and web surfaces.
-- **SonarQube quality fixes**: resolved all medium and INFO severity issues.
+- **Updater diagnostics correlation**: each update attempt now carries a stable attempt ID through download, verification, and installer launch logs so support can tie UI failures to backend diagnostics quickly.
+- **Installer artifact diagnostics**: successful downloads now log installer path, file size, and SHA-256 hash before launch for faster integrity checks during support incidents.
+- **Persisted last-attempt summary**: Slim UI now writes a stable update-last-attempt.json diagnostics file with version, URL, attempt ID, result, failure reason, installer path/hash, and UTC timestamp.
 
-## [2.3.4-beta.31] - 2026-04-17
+### Fixed
+- **Update failure triage gap**: update failures now report stage-specific context (download vs file prep vs launch, including Win32 native error codes) directly in diagnostics and user-facing failure reasons.
+## [2.3.4] - 2026-04-26
 
 ### Added
 - **Copilot monthly quota model**: GitHub Copilot now reports a monthly quota window and no longer renders the previous weekly/burst split.
-
-### Fixed
-- **Privacy and settings persistence hardening**: preferences/config writes now use atomic write semantics with retry behavior, and preferences loading can recover from backup when the primary file is unreadable.
-- **Secret Scanning false positives on push**: Gitleaks push-mode baseline scan is now deterministic by removing `--redact` from the baseline-path execution path.
-
-### Changed
-- **Display-name resolution centralized**: provider naming now consistently resolves through a single catalog path across UI and web surfaces.
-
-## [2.3.4-beta.30] - 2026-04-12
-
-### Added
 - **MiniMax Coding Plan provider**: new `minimax-coding` provider for the MiniMax API plan tier.
 - **Auth source panel shows exact config file**: each provider card in Settings now displays the exact file path that the key was discovered from (e.g. Roo Code `secrets.json`, OpenCode `auth.json`), with **Open** and **Edit** buttons to open the file or its folder directly. Removal instructions are shown alongside the source path.
 - **Key lifecycle documentation**: user manual section 7 now covers key states, where to rotate keys in upstream sources (env vars, Roo Code, Kilo Code, OpenCode), and the note that removing a key here does not remove it from its upstream source.
 
 ### Fixed
+- **Always-on-top leaking when disabled**: window no longer stays topmost after unchecking "Always On Top". Root cause was hardcoded `Topmost="True"` in XAML and asymmetric Win32 flag management.
+- **Copilot raw snapshot**: stored quota API response instead of profile response.
+- **OpenRouter card: dollar sign prefixed and "Credits" removed from card name**: currency amounts now display as `$7.50 remaining` instead of `7.50$ remaining`, and the card name is `Openrouter` instead of `Openrouter Credits`.
+- **MiniMax coding plan model resolution**: coding-plan window cards now prefer the explicit text-generation model over the search model, and the owner grouping keeps token and coding plans separate.
+- **Tooltip reset details**: burst and weekly limit reset times are now shown in tooltips when present, respecting the relative reset time setting.
+- **Privacy and settings persistence hardening**: preferences/config writes now use atomic write semantics with retry behavior, and preferences loading can recover from backup when the primary file is unreadable.
+- **Secret Scanning false positives on push**: Gitleaks push-mode baseline scan is now deterministic by removing `--redact` from the baseline-path execution path.
 - **Unconfigured StandardApiKey provider cards no longer appear in main window**: root-cause fix across three layers — (1) `ProviderRefreshConfigSelector` never polls a StandardApiKey provider without a key, so no Missing-state rows are written; (2) `GetLatestHistoryAsync` filters history by configured provider IDs at the SQL level; (3) the compensating UI-layer filter has been removed. Session/external auth providers (GitHub Copilot, Codex) are unaffected.
 - **MiniMax International not hidden by unconfigured China sibling**: the old canonical-ID filter incorrectly excluded `minimax-io` (International) when `minimax` (China) had no key. Now filtered at the provider ID level before grouping.
 - **Show Used preference no longer resets on window close**: async-void `Closing` handler race condition and stale toggle reads caused the preference to silently revert on every close.
@@ -52,21 +48,22 @@
 - **Snapshot cache invalidated on config save**: monitor now immediately invalidates the grouped usage cache after any config save or removal, preventing stale ETag responses to the UI.
 - **Provider key deletion only suppresses after confirmed monitor deletion**: `SuppressedProviderIds` is updated only after the monitor HTTP call succeeds, not speculatively.
 - **Preferences cache invalidated in `RemoveConfigAsync`**: stale in-memory configs no longer linger after key removal.
+- **Deleted API key no longer reappears after restart**: `SuppressedProviderIds` is now persisted to disk after key deletion.
+- **CLI `set-key` accepts key via stdin**: running `act set-key <provider-id>` without a key argument now prompts securely via stdin.
+- **CORS restricted to required methods and headers**: Monitor's CORS policy now uses specific methods and headers instead of `AllowAnyMethod`/`AllowAnyHeader`.
+- **ConfigService rejects unknown provider IDs**: `SaveConfigAsync` now validates the provider ID against `ProviderMetadataCatalog` and throws `ArgumentException` for unknown IDs.
 
 ### Changed
+- **Consolidated auto-start settings**: removed redundant "Start Monitor with Windows" checkbox (Monitor always auto-starts with the UI). Single "Start with Windows" checkbox controls startup behavior.
+- **Removed Monitor startup task from installer**: the installer no longer offers a separate Monitor startup option.
+- **Provider ID alignment refactor**: removed config canonicalization layer, aligned provider IDs consistently, and removed dead provider normalization API and tests.
+- **Display-name resolution centralized**: provider naming resolves through a single catalog path across UI and web surfaces.
 - **Xiaomi and OpenRouter hidden from Settings when unconfigured**: providers without keys configured are no longer shown as empty slots in the Settings Providers tab.
 - **Minimax display names standardized**: provider card labels updated for consistency across MiniMax variants.
+- **Fire-and-forget exceptions logged**: unhandled exceptions from `CheckForUpdatesAsync` are now captured and logged.
+- **SonarQube quality fixes**: resolved all medium and INFO severity issues.
 
-## [2.3.4-beta.29] - 2026-04-09
-
-### Fixed
-- **Deleted API key no longer reappears after restart**: `SuppressedProviderIds` is now persisted to disk after key deletion. Previously the suppression was written to memory after the preferences file was saved, so removed keys (e.g. Synthetic) would reappear on next startup if originally discovered from an environment variable or Roo/Kilo Code config file.
-- **CLI `set-key` accepts key via stdin**: running `act set-key <provider-id>` without a key argument now prompts securely via stdin instead of requiring the key as a command-line argument (which is visible in process listings and logs). The 3-argument form (`act set-key <provider-id> <key>`) is preserved for scripting.
-- **CORS restricted to required methods and headers**: Monitor's CORS policy now uses `WithMethods("GET", "POST", "DELETE")` and `WithHeaders("Content-Type", "Authorization", "X-Requested-With")` instead of `AllowAnyMethod`/`AllowAnyHeader`.
-- **ConfigService rejects unknown provider IDs**: `SaveConfigAsync` now validates the provider ID against `ProviderMetadataCatalog` and throws `ArgumentException` for unknown IDs, preventing orphan config entries.
-
-### Changed
-- **Fire-and-forget exceptions logged**: unhandled exceptions from `CheckForUpdatesAsync` are now captured via `ContinueWith(OnlyOnFaulted)` and logged via `ILogger`, instead of being silently swallowed.
+## [2.3.3] - 2026-03-22
 
 ### Performance
 - **Redundant polling fetch removed**: the 1-second delay + second `GetUsageForDisplayAsync` call in the UI polling tick has been removed. The next normal poll cycle handles the follow-up, eliminating unnecessary latency.
@@ -474,3 +471,4 @@
 
 ### CI/CD
 - Updated all GitHub Actions to latest major versions (checkout v6, setup-dotnet v5, upload-artifact v7, download-artifact v8, github-script v8, cache v5, codecov v5, create-pull-request v8, paths-filter v4) to eliminate Node.js 20 deprecation warnings.
+

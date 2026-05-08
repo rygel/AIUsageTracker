@@ -3,6 +3,7 @@
 // </copyright>
 
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
 using Microsoft.Extensions.Logging;
@@ -135,57 +136,88 @@ public class GitHubUpdateChecker
     public async Task<UpdateInstallResult> DownloadAndInstallUpdateAsync(AIUsageTracker.Core.Interfaces.UpdateInfo updateInfo, IProgress<double>? progress = null)
     {
         ArgumentNullException.ThrowIfNull(updateInfo);
+        var attemptId = Guid.NewGuid().ToString("N");
 
         try
         {
             if (string.IsNullOrEmpty(updateInfo.DownloadUrl))
             {
-                return UpdateInstallResult.Fail("No download URL available.");
+                return UpdateInstallResult.Fail("No download URL available.", attemptId);
             }
 
             var downloadPath = GetInstallerDownloadPath(updateInfo.Version);
-            this._logger.LogInformation("Downloading update for version {Version} from {Url} to {Path}", updateInfo.Version, updateInfo.DownloadUrl, downloadPath);
+            this._logger.LogInformation(
+                "Update attempt {AttemptId}: downloading version {Version} from {Url} to {Path}",
+                attemptId,
+                updateInfo.Version,
+                updateInfo.DownloadUrl,
+                downloadPath);
             var downloadSucceeded = await this.DownloadInstallerAsync(updateInfo.DownloadUrl, downloadPath, progress).ConfigureAwait(false);
             if (!downloadSucceeded)
             {
-                return UpdateInstallResult.Fail($"Download failed — file not found at {downloadPath} after transfer.");
+                var exists = File.Exists(downloadPath);
+                var length = exists ? new FileInfo(downloadPath).Length : 0;
+                return UpdateInstallResult.Fail(
+                    $"Download failed — expected installer missing or invalid. AttemptId={attemptId}, Path={downloadPath}, Exists={exists}, SizeBytes={length}.",
+                    attemptId,
+                    downloadPath);
             }
 
-            this._logger.LogInformation("Download succeeded ({Path}), launching installer", downloadPath);
-            if (!this.StartInstaller(downloadPath))
+            var installerHash = ComputeFileSha256(downloadPath);
+            var installerSize = new FileInfo(downloadPath).Length;
+            this._logger.LogInformation(
+                "Update attempt {AttemptId}: download complete. Path={Path}, SizeBytes={SizeBytes}, Sha256={Sha256}",
+                attemptId,
+                downloadPath,
+                installerSize,
+                installerHash);
+
+            this._logger.LogInformation("Update attempt {AttemptId}: launching installer from {Path}", attemptId, downloadPath);
+            if (!this.StartInstaller(downloadPath, attemptId, out var launchFailureReason))
             {
-                return UpdateInstallResult.Fail($"Installer failed to launch from {downloadPath}. Check UAC or antivirus.");
+                return UpdateInstallResult.Fail(launchFailureReason, attemptId, downloadPath, installerHash);
             }
 
-            return UpdateInstallResult.Ok();
+            return UpdateInstallResult.Ok(attemptId, downloadPath, installerHash);
         }
         catch (System.Net.Http.HttpRequestException ex)
         {
-            this._logger.LogError(ex, "HTTP error during update download");
-            return UpdateInstallResult.Fail($"HTTP error: {ex.StatusCode} — {ex.Message}");
+            this._logger.LogError(ex, "Update attempt {AttemptId}: HTTP error during update download", attemptId);
+            return UpdateInstallResult.Fail($"HTTP error (AttemptId={attemptId}): {ex.StatusCode} — {ex.Message}", attemptId);
         }
         catch (TaskCanceledException ex)
         {
-            this._logger.LogError(ex, "Download timed out");
-            return UpdateInstallResult.Fail($"Download timed out: {ex.Message}");
+            this._logger.LogError(ex, "Update attempt {AttemptId}: download timed out", attemptId);
+            return UpdateInstallResult.Fail(
+                $"Download timed out while fetching installer (AttemptId={attemptId}) from {updateInfo.DownloadUrl}: {ex.Message}",
+                attemptId);
         }
         catch (System.IO.IOException ex)
         {
-            this._logger.LogError(ex, "File system error during update");
-            return UpdateInstallResult.Fail($"File error: {ex.Message}");
+            this._logger.LogError(ex, "Update attempt {AttemptId}: file system error during update", attemptId);
+            return UpdateInstallResult.Fail(
+                $"File error while preparing installer for launch (AttemptId={attemptId}): {ex.Message}",
+                attemptId);
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
         {
-            this._logger.LogError(ex, "Error during download and install");
-            return UpdateInstallResult.Fail($"{ex.GetType().Name}: {ex.Message}");
+            this._logger.LogError(ex, "Update attempt {AttemptId}: error during download/install", attemptId);
+            return UpdateInstallResult.Fail($"{ex.GetType().Name} (AttemptId={attemptId}): {ex.Message}", attemptId);
         }
     }
 
-    public readonly record struct UpdateInstallResult(bool Success, string FailureReason)
+    public readonly record struct UpdateInstallResult(
+        bool Success,
+        string FailureReason,
+        string AttemptId,
+        string? InstallerPath = null,
+        string? InstallerSha256 = null)
     {
-        public static UpdateInstallResult Ok() => new(Success: true, FailureReason: string.Empty);
+        public static UpdateInstallResult Ok(string attemptId, string installerPath, string installerSha256) =>
+            new(Success: true, FailureReason: string.Empty, AttemptId: attemptId, InstallerPath: installerPath, InstallerSha256: installerSha256);
 
-        public static UpdateInstallResult Fail(string reason) => new(Success: false, FailureReason: reason);
+        public static UpdateInstallResult Fail(string reason, string attemptId, string? installerPath = null, string? installerSha256 = null) =>
+            new(Success: false, FailureReason: reason, AttemptId: attemptId, InstallerPath: installerPath, InstallerSha256: installerSha256);
     }
 
     /// <summary>
@@ -326,9 +358,12 @@ public class GitHubUpdateChecker
 
     private static string GetInstallerDownloadPath(string version)
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), "AIUsageTracker_Updates");
-        Directory.CreateDirectory(tempDir);
-        return Path.Combine(tempDir, $"AIUsageTracker_Setup_{version}.exe");
+        var updatesDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "AIUsageTracker",
+            "Updates");
+        Directory.CreateDirectory(updatesDir);
+        return Path.Combine(updatesDir, $"AIUsageTracker_Setup_{version}.exe");
     }
 
     private static void DeleteIfExists(string path)
@@ -452,9 +487,17 @@ public class GitHubUpdateChecker
         }
     }
 
-    private bool StartInstaller(string installerPath)
+    private bool StartInstaller(string installerPath, string attemptId, out string failureReason)
     {
-        this._logger.LogInformation("Starting installer from {Path}", installerPath);
+        this._logger.LogInformation("Update attempt {AttemptId}: starting installer from {Path}", attemptId, installerPath);
+        failureReason = string.Empty;
+
+        if (!File.Exists(installerPath))
+        {
+            failureReason = $"Installer launch failed (AttemptId={attemptId}): file not found at {installerPath}.";
+            this._logger.LogError("Update attempt {AttemptId}: installer launch aborted because file does not exist: {Path}", attemptId, installerPath);
+            return false;
+        }
 
         var startInfo = new System.Diagnostics.ProcessStartInfo
         {
@@ -468,17 +511,28 @@ public class GitHubUpdateChecker
             using var process = System.Diagnostics.Process.Start(startInfo);
             if (process == null)
             {
-                this._logger.LogError("Installer launch returned no process for {Path}", installerPath);
+                this._logger.LogError("Update attempt {AttemptId}: installer launch returned no process for {Path}", attemptId, installerPath);
+                failureReason = $"Installer launch returned no process (AttemptId={attemptId}). Path={installerPath}.";
                 return false;
             }
 
-            this._logger.LogInformation("Installer started successfully from {Path} (PID {ProcessId}).", installerPath, process.Id);
+            this._logger.LogInformation("Update attempt {AttemptId}: installer started successfully from {Path} (PID {ProcessId}).", attemptId, installerPath, process.Id);
             return true;
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
         {
-            this._logger.LogError(ex, "Failed to start installer from {Path}", installerPath);
+            var nativeCode = ex is System.ComponentModel.Win32Exception win32Ex ? win32Ex.NativeErrorCode : 0;
+            var message = $"Installer launch failed (AttemptId={attemptId}). Path={installerPath}, ErrorType={ex.GetType().Name}, NativeErrorCode={nativeCode}, Message={ex.Message}";
+            this._logger.LogError(ex, "Update attempt {AttemptId}: failed to start installer from {Path}", attemptId, installerPath);
+            failureReason = message;
             return false;
         }
+    }
+
+    private static string ComputeFileSha256(string path)
+    {
+        using var stream = File.OpenRead(path);
+        var hash = SHA256.HashData(stream);
+        return Convert.ToHexString(hash);
     }
 }

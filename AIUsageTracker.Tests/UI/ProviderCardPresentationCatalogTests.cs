@@ -436,6 +436,63 @@ public sealed class ProviderCardPresentationCatalogTests
     }
 
     [Fact]
+    public void Create_ShowsWarningTone_ForUnavailableProvider()
+    {
+        var usage = new ProviderUsage
+        {
+            ProviderId = "openrouter",
+            IsAvailable = false,
+            State = ProviderUsageState.Unavailable,
+            Description = "Temporarily paused after repeated failures",
+        };
+
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
+
+        Assert.Equal(ProviderCardStatusTone.Warning, presentation.StatusTone);
+        Assert.False(presentation.IsError);
+        Assert.False(presentation.IsMissing);
+        Assert.False(presentation.ShouldHaveProgress);
+        Assert.Equal("Temporarily paused after repeated failures", presentation.StatusText);
+    }
+
+    [Fact]
+    public void Create_DoesNotFormatQuotaText_WhenProviderIsUnavailableWithoutTypedState()
+    {
+        var usage = new ProviderUsage
+        {
+            ProviderId = "openrouter",
+            IsAvailable = false,
+            State = ProviderUsageState.Available,
+            IsQuotaBased = true,
+            UsedPercent = 0,
+            Description = "Monitor paused",
+        };
+
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
+
+        Assert.False(presentation.ShouldHaveProgress);
+        Assert.Equal("Monitor paused", presentation.StatusText);
+    }
+
+    [Fact]
+    public void Create_ShowsFallbackText_ForUnavailableProviderWithEmptyDescription()
+    {
+        var usage = new ProviderUsage
+        {
+            ProviderId = "openrouter",
+            IsAvailable = false,
+            State = ProviderUsageState.Unavailable,
+            Description = string.Empty,
+        };
+
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
+
+        Assert.Equal(ProviderCardStatusTone.Warning, presentation.StatusTone);
+        Assert.Equal("Provider unavailable", presentation.StatusText);
+        Assert.False(presentation.ShouldHaveProgress);
+    }
+
+    [Fact]
     public void Create_ShowsFallbackText_ForExpiredSubscriptionWithEmptyDescription()
     {
         var usage = new ProviderUsage

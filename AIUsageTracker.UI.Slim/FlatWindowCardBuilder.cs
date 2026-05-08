@@ -23,6 +23,7 @@ internal static class FlatWindowCardBuilder
         {
             var modelState = AgentGroupedUsageValueResolver.ResolveModelEffectiveState(model, provider.IsQuotaBased);
             var cardName = showPrefix ? $"{parentDisplayName} ({model.ModelName})" : model.ModelName;
+            var description = ResolveCardDescription(provider, modelState.Description);
 
             cards.Add(new ProviderUsage
             {
@@ -31,12 +32,13 @@ internal static class FlatWindowCardBuilder
                 ProviderName = cardName,
                 AccountName = provider.AccountName,
                 IsAvailable = provider.IsAvailable,
+                State = provider.State,
                 PlanType = planType,
                 IsQuotaBased = isQuotaBased,
                 IsCurrencyUsage = definition?.IsCurrencyUsage ?? false,
                 RequestsUsed = modelState.UsedPercentage,
                 UsedPercent = modelState.UsedPercentage,
-                Description = modelState.Description,
+                Description = description,
                 FetchedAt = provider.FetchedAt,
                 NextResetTime = modelState.NextResetTime,
                 PeriodDuration = ResolvePeriodDuration(provider.ProviderId),
@@ -78,5 +80,15 @@ internal static class FlatWindowCardBuilder
             ?? definition.QuotaWindows
                 .FirstOrDefault(window => window.Kind == WindowKind.Rolling && window.PeriodDuration.HasValue)
                 ?.PeriodDuration;
+    }
+
+    private static string ResolveCardDescription(AgentGroupedProviderUsage provider, string modelDescription)
+    {
+        if (provider.IsAvailable && provider.State == ProviderUsageState.Available)
+        {
+            return modelDescription;
+        }
+
+        return provider.Description;
     }
 }

@@ -2,6 +2,7 @@
 const ThemeManager = {
     // GENERATED-THEME-LIST-START
     themes: [
+        'system',
         'dark',
         'light',
         'corporate',
@@ -22,22 +23,43 @@ const ThemeManager = {
     init() {
         const saved = localStorage.getItem('theme');
         if (saved && this.themes.includes(saved)) {
-            document.documentElement.dataset.theme = saved;
+            this.applyTheme(saved);
         }
         this.setupSelect();
+        this.setupSystemListener();
+    },
+    
+    applyTheme(theme) {
+        const resolved = this.resolveTheme(theme);
+        document.documentElement.dataset.theme = resolved;
+    },
+    
+    resolveTheme(theme) {
+        if (theme === 'system') {
+            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        return theme;
+    },
+    
+    setupSystemListener() {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+            if (localStorage.getItem('theme') === 'system') {
+                this.applyTheme('system');
+            }
+        });
     },
     
     setupSelect() {
         const select = document.getElementById('theme-select');
         if (!select) return;
         
-        const current = document.documentElement.dataset.theme || 'dark';
+        const current = localStorage.getItem('theme') || 'dark';
         select.value = current;
         
         select.addEventListener('change', (e) => {
             const theme = e.target.value;
-            document.documentElement.dataset.theme = theme;
             localStorage.setItem('theme', theme);
+            this.applyTheme(theme);
         });
     }
 };

@@ -10,6 +10,14 @@
   },
   "themes": [
     {
+      "enumName": "System",
+      "displayName": "System (Auto)",
+      "webKey": "system",
+      "category": "Core",
+      "virtual": true,
+      "notes": "Virtual theme that resolves to Dark or Light based on OS preference. No own palette or CSS block."
+    },
+    {
       "enumName": "Dark",
       "displayName": "Dark",
       "webKey": "dark",

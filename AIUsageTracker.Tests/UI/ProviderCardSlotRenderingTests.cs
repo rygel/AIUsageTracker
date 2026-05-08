@@ -3,6 +3,7 @@
 // </copyright>
 
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.UI.Slim;
 
 namespace AIUsageTracker.Tests.UI;
 
@@ -145,6 +146,68 @@ public sealed class ProviderCardSlotRenderingTests
 
         var deserialized = AppPreferences.Deserialize(json);
         Assert.Equal(CardSlotContent.ProjectedPercent, deserialized.CardPrimaryBadge);
+    }
+
+    [Fact]
+    public void ProgressDerivedSlots_AreSuppressed_WhenPresentationHasNoProgress()
+    {
+        var usage = new ProviderUsage
+        {
+            ProviderId = "openrouter",
+            IsAvailable = false,
+            State = ProviderUsageState.Unavailable,
+            Description = "Temporarily paused",
+        };
+
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
+
+        Assert.False(ProviderCardRenderer.ShouldRenderSlot(CardSlotContent.PaceBadge, presentation));
+        Assert.False(ProviderCardRenderer.ShouldRenderSlot(CardSlotContent.ProjectedPercent, presentation));
+        Assert.False(ProviderCardRenderer.ShouldRenderSlot(CardSlotContent.DailyBudget, presentation));
+        Assert.False(ProviderCardRenderer.ShouldRenderSlot(CardSlotContent.UsageRate, presentation));
+        Assert.False(ProviderCardRenderer.ShouldRenderSlot(CardSlotContent.UsedPercent, presentation));
+        Assert.False(ProviderCardRenderer.ShouldRenderSlot(CardSlotContent.RemainingPercent, presentation));
+        Assert.False(ProviderCardRenderer.ShouldRenderSlot(CardSlotContent.ResetAbsolute, presentation));
+        Assert.True(ProviderCardRenderer.ShouldRenderSlot(CardSlotContent.StatusText, presentation));
+    }
+
+    [Fact]
+    public void ResolveStatusSlotText_DoesNotFallbackToDualQuotaText_WhenProgressIsSuppressed()
+    {
+        var usage = new ProviderUsage
+        {
+            ProviderId = "codex",
+            IsAvailable = false,
+            State = ProviderUsageState.Available,
+            IsQuotaBased = true,
+            Description = "Monitor paused",
+            WindowCards = new[]
+            {
+                new ProviderUsage
+                {
+                    ProviderId = "codex",
+                    Name = "5h",
+                    WindowKind = WindowKind.Burst,
+                    UsedPercent = 40,
+                },
+                new ProviderUsage
+                {
+                    ProviderId = "codex",
+                    Name = "Weekly",
+                    WindowKind = WindowKind.Rolling,
+                    UsedPercent = 60,
+                },
+            },
+        };
+
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
+        var statusText = ProviderCardRenderer.ResolveStatusSlotText(
+            presentation,
+            showUsed: false,
+            showDualQuotaBars: false,
+            dualQuotaSingleBarMode: DualQuotaSingleBarMode.Rolling);
+
+        Assert.Equal("Monitor paused", statusText);
     }
 
     /// <summary>

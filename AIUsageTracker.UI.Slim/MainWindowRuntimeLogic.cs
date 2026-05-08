@@ -342,17 +342,20 @@ internal static partial class MainWindowRuntimeLogic
             tooltipBuilder.AppendLine($"Description: {usage.Description}");
         }
 
-        AppendWindowLimitLines(tooltipBuilder, usage, useRelativeResetTime);
-        AppendSingleResetLine(tooltipBuilder, usage, useRelativeResetTime);
-
-        if (usage.IsAvailable && usage.PeriodDuration.HasValue && usage.PeriodDuration.Value.TotalDays >= 1)
+        if (ShouldRenderDerivedUsageDetails(usage))
         {
-            var dailyBudget = 100.0 / usage.PeriodDuration.Value.TotalDays;
-            var elapsedDays = UsageMath.GetElapsedDays(usage.NextResetTime, usage.PeriodDuration);
-            var expectedAtThisPoint = dailyBudget * elapsedDays;
-            tooltipBuilder.AppendLine();
-            tooltipBuilder.AppendLine(CultureInfo.InvariantCulture, $"Daily budget: {dailyBudget:F0}%/day");
-            tooltipBuilder.AppendLine(CultureInfo.InvariantCulture, $"Expected by now: {expectedAtThisPoint:F0}% | Actual: {usage.UsedPercent:F0}%");
+            AppendWindowLimitLines(tooltipBuilder, usage, useRelativeResetTime);
+            AppendSingleResetLine(tooltipBuilder, usage, useRelativeResetTime);
+
+            if (usage.PeriodDuration.HasValue && usage.PeriodDuration.Value.TotalDays >= 1)
+            {
+                var dailyBudget = 100.0 / usage.PeriodDuration.Value.TotalDays;
+                var elapsedDays = UsageMath.GetElapsedDays(usage.NextResetTime, usage.PeriodDuration);
+                var expectedAtThisPoint = dailyBudget * elapsedDays;
+                tooltipBuilder.AppendLine();
+                tooltipBuilder.AppendLine(CultureInfo.InvariantCulture, $"Daily budget: {dailyBudget:F0}%/day");
+                tooltipBuilder.AppendLine(CultureInfo.InvariantCulture, $"Expected by now: {expectedAtThisPoint:F0}% | Actual: {usage.UsedPercent:F0}%");
+            }
         }
 
         if (!string.IsNullOrEmpty(usage.AuthSource))
@@ -363,6 +366,11 @@ internal static partial class MainWindowRuntimeLogic
 
         var result = tooltipBuilder.ToString().Trim();
         return string.IsNullOrWhiteSpace(result) ? null : result;
+    }
+
+    private static bool ShouldRenderDerivedUsageDetails(ProviderUsage usage)
+    {
+        return usage.IsAvailable && usage.State == ProviderUsageState.Available;
     }
 
     private static void AppendWindowLimitLines(
