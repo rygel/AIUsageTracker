@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [2.3.5-beta.3] - 2026-05-08
+
+### Added
+- **System (Auto) theme**: new theme option that automatically matches the Windows dark/light mode setting and switches in real-time when the OS theme changes. Available in both Slim UI (registry-based detection) and Web UI (matchMedia-based detection).
+
+### Changed
+- **Bumped Meziantou.Analyzer** from 3.0.58 to 3.0.70.
+
 ## [2.3.5-beta.2] - 2026-05-04
 
 ### Fixed
