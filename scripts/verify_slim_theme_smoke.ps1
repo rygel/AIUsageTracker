@@ -45,7 +45,7 @@ $themes = @()
 foreach ($line in ($enumMatch.Groups["body"].Value -split "`r?`n"))
 {
     $trimmed = $line.Trim().TrimEnd(',')
-    if ($trimmed -match "^[A-Za-z][A-Za-z0-9]*$")
+    if ($trimmed -match "^[A-Za-z][A-Za-z0-9]*$" -and $trimmed -ne "System")
     {
         $themes += $trimmed
     }
