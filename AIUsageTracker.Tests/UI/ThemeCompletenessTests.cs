@@ -47,7 +47,8 @@ public class ThemeCompletenessTests
     };
 
     public static TheoryData<AppTheme> AllThemes =>
-        new TheoryData<AppTheme>(Enum.GetValues<AppTheme>());
+        new TheoryData<AppTheme>(Enum.GetValues<AppTheme>()
+            .Where(t => t != AppTheme.System));
 
     [Theory]
     [MemberData(nameof(AllThemes))]

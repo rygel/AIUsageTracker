@@ -489,8 +489,9 @@ public partial class App
                 return value == 1 ? AppTheme.Light : AppTheme.Dark;
             }
         }
-        catch
+        catch (Exception)
         {
+            // Registry key not found or inaccessible — fall back to Dark
         }
 
         return AppTheme.Dark;
