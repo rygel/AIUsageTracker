@@ -8,7 +8,23 @@
 - **Unavailable providers no longer glitch to zero**: flat/model cards now preserve the provider's unavailable state and description instead of falling back to synthetic `0% used` or `100% remaining` text.
 - **Unavailable cards no longer leak derived quota details**: custom card slots, dual-bar status rendering, and tooltips now suppress percent, pace, budget, and reset details when the provider is not actually available.
 - **Status-only providers keep descriptive status text**: status-only cards such as connection/auth status rows now preserve messages like `Connected` instead of falling through to quota percentage formatting.
+## [2.3.5-beta.1] - 2026-05-03
 
+### Changed
+- updater diagnostics correlation (attempt ID) and installer artifact diagnostics (path/size/SHA-256).
+- persisted `update-last-attempt.json` for post-failure triage context.
+
+### Fixed
+- update failure triage gap with stage-specific context and native error codes.
+## [2.3.4-beta.35] - 2026-05-03
+
+### Changed
+- **Updater diagnostics correlation**: each update attempt now carries a stable attempt ID through download, verification, and installer launch logs so support can tie UI failures to backend diagnostics quickly.
+- **Installer artifact diagnostics**: successful downloads now log installer path, file size, and SHA-256 hash before launch for faster integrity checks during support incidents.
+- **Persisted last-attempt summary**: Slim UI now writes a stable update-last-attempt.json diagnostics file with version, URL, attempt ID, result, failure reason, installer path/hash, and UTC timestamp.
+
+### Fixed
+- **Update failure triage gap**: update failures now report stage-specific context (download vs file prep vs launch, including Win32 native error codes) directly in diagnostics and user-facing failure reasons.
 ## [2.3.4] - 2026-04-26
 
 ### Added
@@ -455,3 +471,4 @@
 
 ### CI/CD
 - Updated all GitHub Actions to latest major versions (checkout v6, setup-dotnet v5, upload-artifact v7, download-artifact v8, github-script v8, cache v5, codecov v5, create-pull-request v8, paths-filter v4) to eliminate Node.js 20 deprecation warnings.
+

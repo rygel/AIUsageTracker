@@ -501,6 +501,9 @@ target/
 *.DS_Store
 nul
 
+# One-off utility scripts
+fix_resources.*
+
 # CI Artifacts
 ci_screenshots/
 .claude/worktrees/

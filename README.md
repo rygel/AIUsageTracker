@@ -120,3 +120,4 @@ Configuration is stored in `auth.json` in the application data directory.
 
 ## License
 MIT
+
