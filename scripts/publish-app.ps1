@@ -214,10 +214,3 @@ Write-Host "--------------------------------------------------" -ForegroundColor
 Write-Host "Distribution ready at: $zipPath" -ForegroundColor Green
 Write-Host "Size: $((Get-Item $zipPath).Length / 1MB) MB" -ForegroundColor Gray
 Write-Host "--------------------------------------------------" -ForegroundColor Yellow
-
-<<<<<<< HEAD
-=======
-
-
-
->>>>>>> origin/develop
