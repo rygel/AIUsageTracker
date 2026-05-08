@@ -11,6 +11,7 @@ using AIUsageTracker.Infrastructure.Services;
 using AIUsageTracker.UI.Slim.Services;
 using AIUsageTracker.UI.Slim.ViewModels;
 using Hardcodet.Wpf.TaskbarNotification;
+using Microsoft.Win32;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -142,6 +143,7 @@ public partial class App : Application
         StartMonitorWarmup();
 
         ApplyTheme(Preferences.Theme);
+        SystemEvents.UserPreferenceChanged += OnSystemThemeChanged;
         IsPrivacyMode = Preferences.IsPrivacyMode;
 
         this.InitializeTrayIcon();
@@ -152,6 +154,7 @@ public partial class App : Application
 
     protected override async void OnExit(ExitEventArgs e)
     {
+        SystemEvents.UserPreferenceChanged -= OnSystemThemeChanged;
         this._trayIcon?.Dispose();
         foreach (var tray in this._providerTrayIcons.Values)
         {
@@ -169,6 +172,14 @@ public partial class App : Application
         base.OnExit(e);
     }
 #pragma warning restore VSTHRD100
+
+    private void OnSystemThemeChanged(object sender, UserPreferenceChangedEventArgs e)
+    {
+        if (e.Category == UserPreferenceCategory.General && Preferences.Theme == AppTheme.System)
+        {
+            ApplyTheme(AppTheme.System);
+        }
+    }
 
     private static void ConfigureServices(IServiceCollection services)
     {

@@ -5,6 +5,7 @@
 using System.Windows;
 using System.Windows.Media;
 using AIUsageTracker.Core.Models;
+using Microsoft.Win32;
 
 namespace AIUsageTracker.UI.Slim;
 
@@ -477,16 +478,35 @@ public partial class App
         },
     };
 
+    public static AppTheme ResolveSystemTheme()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(
+                @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", writable: false);
+            if (key?.GetValue("AppsUseLightTheme") is int value)
+            {
+                return value == 1 ? AppTheme.Light : AppTheme.Dark;
+            }
+        }
+        catch
+        {
+        }
+
+        return AppTheme.Dark;
+    }
+
     public static void ApplyTheme(AppTheme theme)
     {
         Preferences.Theme = theme;
+        var resolved = theme == AppTheme.System ? ResolveSystemTheme() : theme;
         var resources = Current?.Resources;
         if (resources == null)
         {
             return;
         }
 
-        if (!ThemePalettes.TryGetValue(theme, out var palette))
+        if (!ThemePalettes.TryGetValue(resolved, out var palette))
         {
             palette = ThemePalettes[AppTheme.Dark];
         }

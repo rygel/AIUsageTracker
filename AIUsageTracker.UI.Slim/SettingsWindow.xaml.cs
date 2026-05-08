@@ -594,6 +594,7 @@ public partial class SettingsWindow : Window
     {
         return new List<ThemeOption>
         {
+            new() { Value = AppTheme.System, Label = "System (Auto)" },
             new() { Value = AppTheme.Dark, Label = "Dark" },
             new() { Value = AppTheme.Light, Label = "Light" },
             new() { Value = AppTheme.Corporate, Label = "Corporate" },
