@@ -243,7 +243,7 @@ public class MinimaxProvider : ProviderBase
 
         if (model.IntervalTotal > 0)
         {
-            var burstPeriod = ResolvePeriodDuration(model.IntervalStartMs, model.IntervalEndMs, TimeSpan.FromHours(5));
+            var burstPeriod = ResolvePeriodDuration(model.IntervalStartMs, model.IntervalEndMs);
             usages.Add(BuildModelWindowCard(new ModelWindowCardSpec(
                 providerId,
                 providerLabel,
@@ -263,7 +263,7 @@ public class MinimaxProvider : ProviderBase
 
         if (model.WeeklyTotal > 0)
         {
-            var weeklyPeriod = ResolvePeriodDuration(model.WeeklyStartMs, model.WeeklyEndMs, TimeSpan.FromDays(7));
+            var weeklyPeriod = ResolvePeriodDuration(model.WeeklyStartMs, model.WeeklyEndMs);
             usages.Add(BuildModelWindowCard(new ModelWindowCardSpec(
                 providerId,
                 providerLabel,
@@ -284,15 +284,14 @@ public class MinimaxProvider : ProviderBase
         return usages;
     }
 
-    private static TimeSpan ResolvePeriodDuration(long startMs, long endMs, TimeSpan fallback)
+    private static TimeSpan ResolvePeriodDuration(long startMs, long endMs)
     {
         if (startMs <= 0 || endMs <= startMs)
         {
-            return fallback;
+            return TimeSpan.Zero;
         }
 
-        var duration = DateTimeOffset.FromUnixTimeMilliseconds(endMs) - DateTimeOffset.FromUnixTimeMilliseconds(startMs);
-        return duration > TimeSpan.Zero ? duration : fallback;
+        return DateTimeOffset.FromUnixTimeMilliseconds(endMs) - DateTimeOffset.FromUnixTimeMilliseconds(startMs);
     }
 
     private static MinimaxModelRemains? FindTextGenerationModel(
