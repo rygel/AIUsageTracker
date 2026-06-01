@@ -60,100 +60,78 @@ public class DeepSeekProvider : ProviderBase
 
         var providerLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId);
 
-        try
+        var fetchResult = await this.FetchJsonAsync<DeepSeekBalanceResponse>(
+            UserBalanceEndpoint,
+            config,
+            this._httpClient,
+            this._logger,
+            cancellationToken,
+            request => request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json")))
+            .ConfigureAwait(false);
+
+        if (!fetchResult.IsSuccess)
         {
-            var request = CreateBearerRequest(HttpMethod.Get, UserBalanceEndpoint, config.ApiKey);
-            request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
-
-            var response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-
-            if (!response.IsSuccessStatusCode)
+            var errorUsage = fetchResult.FailureUsage!;
+            // DeepSeek: HTTP error means key exists but request failed — show as available with error
+            // Network/timeout exceptions should remain unavailable
+            if (errorUsage.HttpStatus > 0)
             {
-                this._logger.LogWarning("DeepSeek API error: {StatusCode} - {ErrorContent}", response.StatusCode, content);
-
-                return new[]
-                {
-                    new ProviderUsage
-                    {
-                        ProviderId = this.ProviderId,
-                        ProviderName = providerLabel ?? this.ProviderId,
-                        IsAvailable = true, // Key exists, just failed request
-                        Description = $"API Error ({response.StatusCode})",
-                        PlanType = this.Definition.PlanType,
-                        IsQuotaBased = this.Definition.IsQuotaBased,
-                        HttpStatus = (int)response.StatusCode,
-                        UsedPercent = 0,
-                        RequestsUsed = 0,
-                        RequestsAvailable = 0,
-                        RawJson = content,
-                        FailureContext = HttpFailureMapper.ClassifyResponse(response),
-                    },
-                };
+                errorUsage.IsAvailable = true;
+                errorUsage.FailureContext = HttpFailureContext.FromHttpStatus(fetchResult.HttpStatus);
             }
 
-            var result = DeserializeJsonOrDefault<DeepSeekBalanceResponse>(content);
+            return new[] { errorUsage };
+        }
 
-            if (result == null)
-            {
-                return new[]
-                {
-                    this.CreateUnavailableUsage(
-                    "Failed to parse DeepSeek response"),
-                };
-            }
+        var result = fetchResult.Data!;
+        var content = fetchResult.RawContent;
+        var httpStatus = fetchResult.HttpStatus;
 
-            if (result.BalanceInfos == null || result.BalanceInfos.Count == 0)
+        if (result.BalanceInfos == null || result.BalanceInfos.Count == 0)
+        {
+            return new[]
             {
-                return new[]
-                {
-                    new ProviderUsage
-                    {
-                        ProviderId = this.ProviderId,
-                        ProviderName = providerLabel,
-                        IsAvailable = true,
-                        UsedPercent = 0,
-                        RequestsUsed = 0,
-                        RequestsAvailable = 0,
-                        IsQuotaBased = this.Definition.IsQuotaBased,
-                        PlanType = this.Definition.PlanType,
-                        Description = "No balance found",
-                        RawJson = content,
-                        HttpStatus = (int)response.StatusCode,
-                    },
-                };
-            }
-
-            var flatCards = new List<ProviderUsage>();
-            foreach (var info in result.BalanceInfos)
-            {
-                var currencyCode = info.Currency ?? "USD";
-                var currencySymbol = string.Equals(currencyCode, "CNY", StringComparison.OrdinalIgnoreCase) ? "¥" : "$";
-                flatCards.Add(new ProviderUsage
+                new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
                     ProviderName = providerLabel,
-                    Name = $"Balance ({currencyCode})",
-                    CardId = $"balance-{currencyCode.ToLowerInvariant()}",
-                    GroupId = this.ProviderId,
-                    Description = string.Format(CultureInfo.InvariantCulture, "{0}{1:F2} ({2:F2} topped-up + {3:F2} granted)", currencySymbol, info.TotalBalance, info.ToppedUpBalance, info.GrantedBalance),
                     IsAvailable = true,
-                    PlanType = this.Definition.PlanType,
-                    IsCurrencyUsage = true,
-                    IsQuotaBased = this.Definition.IsQuotaBased,
                     UsedPercent = 0,
+                    RequestsUsed = 0,
+                    RequestsAvailable = 0,
+                    IsQuotaBased = this.Definition.IsQuotaBased,
+                    PlanType = this.Definition.PlanType,
+                    Description = "No balance found",
                     RawJson = content,
-                    HttpStatus = (int)response.StatusCode,
-                });
-            }
+                    HttpStatus = httpStatus,
+                },
+            };
+        }
 
-            return flatCards;
-        }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+        var flatCards = new List<ProviderUsage>();
+        foreach (var info in result.BalanceInfos)
         {
-            this._logger.LogError(ex, "DeepSeek check failed");
-            return new[] { this.CreateUnavailableUsage(DescribeUnavailableException(ex, "DeepSeek check failed"), failureContext: HttpFailureMapper.ClassifyException(ex)) };
+            var currencyCode = info.Currency ?? "USD";
+            var currencySymbol = string.Equals(currencyCode, "CNY", StringComparison.OrdinalIgnoreCase) ? "¥" : "$";
+            flatCards.Add(new ProviderUsage
+            {
+                ProviderId = this.ProviderId,
+                ProviderName = providerLabel,
+                Name = $"Balance ({currencyCode})",
+                CardId = $"balance-{currencyCode.ToLowerInvariant()}",
+                GroupId = this.ProviderId,
+                Description = string.Format(CultureInfo.InvariantCulture, "{0}{1:F2} ({2:F2} topped-up + {3:F2} granted)", currencySymbol, info.TotalBalance, info.ToppedUpBalance, info.GrantedBalance),
+                IsAvailable = true,
+                PlanType = this.Definition.PlanType,
+                IsCurrencyUsage = true,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                UsedPercent = 0,
+                RawJson = content,
+                HttpStatus = httpStatus,
+            });
         }
+
+        return flatCards;
     }
 
     private sealed class DeepSeekBalanceResponse
