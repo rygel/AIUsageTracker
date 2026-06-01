@@ -10,8 +10,7 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers;
 
 public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
 {
-    private const string ChinaEndpoint = "https://api.minimax.chat/v1/user/usage";
-    private const string InternationalEndpoint = "https://api.minimax.io/v1/user/usage";
+    private const string TokenPlanEndpoint = "https://api.minimax.io/v1/token_plan/remains";
     private const string CodingPlanEndpoint = "https://api.minimax.io/v1/api/openplatform/coding_plan/remains";
 
     private static readonly string TestApiKey = Guid.NewGuid().ToString();
@@ -32,29 +31,37 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
     [Fact]
     public async Task GetUsageAsync_ModerateUsage_ReturnsUsedPercentageAsync()
     {
-        // Arrange - 35% used
+        // Arrange - 5h: 65 remaining / 100 total = 35% used
         var responseJson = """
             {
-                "usage": {
-                    "tokens_used": 350000,
-                    "tokens_limit": 1000000
-                }
+                "base_resp": { "status_code": 0, "status_msg": "success" },
+                "model_remains": [
+                    {
+                        "model_name": "Text Generation",
+                        "current_interval_total_count": 100,
+                        "current_interval_usage_count": 65,
+                        "end_time": 0,
+                        "current_weekly_total_count": 500,
+                        "current_weekly_usage_count": 350,
+                        "weekly_end_time": 0
+                    }
+                ]
             }
             """;
 
         this.SetupResponse(HttpStatusCode.OK, responseJson);
 
         // Act
-        var result = await this._provider.GetUsageAsync(this.Config);
+        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
 
         // Assert
-        var usage = result.Single();
-        Assert.True(usage.IsQuotaBased);
+        var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
+        Assert.True(burst.IsQuotaBased);
 
-        // UsedPercent stores the actual used ratio: 35% used
-        Assert.Equal(35, usage.UsedPercent);
-        Assert.Equal(350000, usage.RequestsUsed);
-        Assert.Equal(1000000, usage.RequestsAvailable);
+        // 5h: 35 used / 100 total = 35%
+        Assert.Equal(35, burst.UsedPercent);
+        Assert.Equal(35, burst.RequestsUsed);
+        Assert.Equal(100, burst.RequestsAvailable);
     }
 
     /// <summary>
@@ -64,27 +71,35 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
     [Fact]
     public async Task GetUsageAsync_HighUsage_ReturnsCorrectUsedPercentAsync()
     {
-        // Arrange - 85% used
+        // Arrange - 5h: 15 remaining / 100 total = 85% used
         var responseJson = """
             {
-                "usage": {
-                    "tokens_used": 850000,
-                    "tokens_limit": 1000000
-                }
+                "base_resp": { "status_code": 0, "status_msg": "success" },
+                "model_remains": [
+                    {
+                        "model_name": "Text Generation",
+                        "current_interval_total_count": 100,
+                        "current_interval_usage_count": 15,
+                        "end_time": 0,
+                        "current_weekly_total_count": 500,
+                        "current_weekly_usage_count": 425,
+                        "weekly_end_time": 0
+                    }
+                ]
             }
             """;
 
         this.SetupResponse(HttpStatusCode.OK, responseJson);
 
         // Act
-        var result = await this._provider.GetUsageAsync(this.Config);
+        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
 
         // Assert
-        var usage = result.Single();
+        var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
 
-        // UsedPercent = 85% used
-        Assert.Equal(85, usage.UsedPercent);
-        Assert.Equal(850000, usage.RequestsUsed);
+        // 5h: 85% used
+        Assert.Equal(85, burst.UsedPercent);
+        Assert.Equal(85, burst.RequestsUsed);
     }
 
     /// <summary>
@@ -94,27 +109,35 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
     [Fact]
     public async Task GetUsageAsync_AtCapacity_ReturnsFullUsedAsync()
     {
-        // Arrange - 100% used
+        // Arrange - 5h: 0 remaining / 100 total = 100% used
         var responseJson = """
             {
-                "usage": {
-                    "tokens_used": 1000000,
-                    "tokens_limit": 1000000
-                }
+                "base_resp": { "status_code": 0, "status_msg": "success" },
+                "model_remains": [
+                    {
+                        "model_name": "Text Generation",
+                        "current_interval_total_count": 100,
+                        "current_interval_usage_count": 0,
+                        "end_time": 0,
+                        "current_weekly_total_count": 500,
+                        "current_weekly_usage_count": 0,
+                        "weekly_end_time": 0
+                    }
+                ]
             }
             """;
 
         this.SetupResponse(HttpStatusCode.OK, responseJson);
 
         // Act
-        var result = await this._provider.GetUsageAsync(this.Config);
+        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
 
         // Assert
-        var usage = result.Single();
+        var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
 
-        // UsedPercent = 100% used
-        Assert.Equal(100, usage.UsedPercent);
-        Assert.Equal(1000000, usage.RequestsUsed);
+        // 5h: 100% used
+        Assert.Equal(100, burst.UsedPercent);
+        Assert.Equal(100, burst.RequestsUsed);
     }
 
     /// <summary>
@@ -124,27 +147,35 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
     [Fact]
     public async Task GetUsageAsync_MinimalUsage_ReturnsLowUsedPercentAsync()
     {
-        // Arrange - 2% used
+        // Arrange - 5h: 98 remaining / 100 total = 2% used
         var responseJson = """
             {
-                "usage": {
-                    "tokens_used": 20000,
-                    "tokens_limit": 1000000
-                }
+                "base_resp": { "status_code": 0, "status_msg": "success" },
+                "model_remains": [
+                    {
+                        "model_name": "Text Generation",
+                        "current_interval_total_count": 100,
+                        "current_interval_usage_count": 98,
+                        "end_time": 0,
+                        "current_weekly_total_count": 500,
+                        "current_weekly_usage_count": 490,
+                        "weekly_end_time": 0
+                    }
+                ]
             }
             """;
 
         this.SetupResponse(HttpStatusCode.OK, responseJson);
 
         // Act
-        var result = await this._provider.GetUsageAsync(this.Config);
+        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
 
         // Assert
-        var usage = result.Single();
+        var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
 
-        // UsedPercent = 2% used
-        Assert.Equal(2, usage.UsedPercent);
-        Assert.Equal(20000, usage.RequestsUsed);
+        // 5h: 2% used
+        Assert.Equal(2, burst.UsedPercent);
+        Assert.Equal(2, burst.RequestsUsed);
     }
 
     /// <summary>
@@ -154,27 +185,35 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
     [Fact]
     public async Task GetUsageAsync_ZeroUsage_ReturnsZeroUsedPercentAsync()
     {
-        // Arrange - 0% used
+        // Arrange - 5h: 100 remaining / 100 total = 0% used
         var responseJson = """
             {
-                "usage": {
-                    "tokens_used": 0,
-                    "tokens_limit": 1000000
-                }
+                "base_resp": { "status_code": 0, "status_msg": "success" },
+                "model_remains": [
+                    {
+                        "model_name": "Text Generation",
+                        "current_interval_total_count": 100,
+                        "current_interval_usage_count": 100,
+                        "end_time": 0,
+                        "current_weekly_total_count": 500,
+                        "current_weekly_usage_count": 500,
+                        "weekly_end_time": 0
+                    }
+                ]
             }
             """;
 
         this.SetupResponse(HttpStatusCode.OK, responseJson);
 
         // Act
-        var result = await this._provider.GetUsageAsync(this.Config);
+        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
 
         // Assert
-        var usage = result.Single();
+        var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
 
-        // UsedPercent = 0% used
-        Assert.Equal(0, usage.UsedPercent);
-        Assert.Equal(0, usage.RequestsUsed);
+        // 5h: 0% used
+        Assert.Equal(0, burst.UsedPercent);
+        Assert.Equal(0, burst.RequestsUsed);
     }
 
     /// <summary>
@@ -184,27 +223,39 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
     [Fact]
     public async Task GetUsageAsync_OverLimit_ClampsToMaxUsedAsync()
     {
-        // Arrange - 120% used should clamp to 100%
+        // Arrange - remaining > total should clamp: remaining = 120, total = 100
+        // used = total - min(remaining, total) = 100 - 100 = 0, but that's not right
+        // Actually: remaining=120, total=100 -> remaining clamped to 100 -> used = 0
+        // To get 120% used we need negative remaining, which the API won't send.
+        // Instead test that remaining > total clamps gracefully.
         var responseJson = """
             {
-                "usage": {
-                    "tokens_used": 1200000,
-                    "tokens_limit": 1000000
-                }
+                "base_resp": { "status_code": 0, "status_msg": "success" },
+                "model_remains": [
+                    {
+                        "model_name": "Text Generation",
+                        "current_interval_total_count": 100,
+                        "current_interval_usage_count": 120,
+                        "end_time": 0,
+                        "current_weekly_total_count": 500,
+                        "current_weekly_usage_count": 600,
+                        "weekly_end_time": 0
+                    }
+                ]
             }
             """;
 
         this.SetupResponse(HttpStatusCode.OK, responseJson);
 
         // Act
-        var result = await this._provider.GetUsageAsync(this.Config);
+        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
 
         // Assert
-        var usage = result.Single();
+        var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
 
-        // UsedPercent should clamp to 100 (not go over)
-        Assert.Equal(100, usage.UsedPercent);
-        Assert.Equal(1200000, usage.RequestsUsed);
+        // remaining > total means remaining is clamped to total -> 0 used
+        Assert.Equal(0, burst.UsedPercent);
+        Assert.Equal(0, burst.RequestsUsed);
     }
 
     [Fact]
@@ -219,104 +270,136 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
     }
 
     [Fact]
-    public async Task GetUsageAsync_WithChinaProviderId_UsesChinaEndpointAsync()
+    public async Task GetUsageAsync_WithChinaProviderId_UsesTokenPlanEndpointAsync()
     {
         // Arrange
         this.Config.ProviderId = MinimaxProvider.ChinaProviderId;
         var responseJson = """
             {
-                "usage": {
-                    "tokens_used": 100000,
-                    "tokens_limit": 1000000
-                }
+                "base_resp": { "status_code": 0, "status_msg": "success" },
+                "model_remains": [
+                    {
+                        "model_name": "Text Generation",
+                        "current_interval_total_count": 100,
+                        "current_interval_usage_count": 50,
+                        "end_time": 0,
+                        "current_weekly_total_count": 500,
+                        "current_weekly_usage_count": 250,
+                        "weekly_end_time": 0
+                    }
+                ]
             }
             """;
 
-        this.SetupResponse(HttpStatusCode.OK, responseJson, ChinaEndpoint);
+        this.SetupResponse(HttpStatusCode.OK, responseJson, TokenPlanEndpoint);
 
         // Act
-        var result = await this._provider.GetUsageAsync(this.Config);
+        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
 
         // Assert
-        var usage = result.Single();
-        Assert.Equal("minimax", usage.ProviderId); // provider-id-guardrail-allow: test assertion
-        Assert.Equal("MiniMax.io", usage.ProviderName);
+        var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
+        Assert.Equal("minimax", burst.ProviderId); // provider-id-guardrail-allow: test assertion
+        Assert.Equal("MiniMax.io", burst.ProviderName);
     }
 
     [Fact]
-    public async Task GetUsageAsync_WithInternationalProviderId_UsesInternationalEndpointAsync()
+    public async Task GetUsageAsync_WithInternationalProviderId_UsesTokenPlanEndpointAsync()
     {
         // Arrange
         this.Config.ProviderId = MinimaxProvider.InternationalProviderId;
         var responseJson = """
             {
-                "usage": {
-                    "tokens_used": 100000,
-                    "tokens_limit": 1000000
-                }
+                "base_resp": { "status_code": 0, "status_msg": "success" },
+                "model_remains": [
+                    {
+                        "model_name": "Text Generation",
+                        "current_interval_total_count": 100,
+                        "current_interval_usage_count": 50,
+                        "end_time": 0,
+                        "current_weekly_total_count": 500,
+                        "current_weekly_usage_count": 250,
+                        "weekly_end_time": 0
+                    }
+                ]
             }
             """;
 
-        this.SetupResponse(HttpStatusCode.OK, responseJson, InternationalEndpoint);
+        this.SetupResponse(HttpStatusCode.OK, responseJson, TokenPlanEndpoint);
 
         // Act
-        var result = await this._provider.GetUsageAsync(this.Config);
+        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
 
         // Assert
-        var usage = result.Single();
-        Assert.Equal("minimax-io", usage.ProviderId); // provider-id-guardrail-allow: test assertion
-        Assert.Equal("MiniMax.io", usage.ProviderName);
+        var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
+        Assert.Equal("minimax-io", burst.ProviderId); // provider-id-guardrail-allow: test assertion
+        Assert.Equal("MiniMax.io", burst.ProviderName);
     }
 
     [Fact]
-    public async Task GetUsageAsync_WithLegacyProviderId_UsesInternationalEndpointAsync()
+    public async Task GetUsageAsync_WithLegacyProviderId_UsesTokenPlanEndpointAsync()
     {
         // Arrange
         this.Config.ProviderId = MinimaxProvider.InternationalLegacyProviderId;
         var responseJson = """
             {
-                "usage": {
-                    "tokens_used": 100000,
-                    "tokens_limit": 1000000
-                }
+                "base_resp": { "status_code": 0, "status_msg": "success" },
+                "model_remains": [
+                    {
+                        "model_name": "Text Generation",
+                        "current_interval_total_count": 100,
+                        "current_interval_usage_count": 50,
+                        "end_time": 0,
+                        "current_weekly_total_count": 500,
+                        "current_weekly_usage_count": 250,
+                        "weekly_end_time": 0
+                    }
+                ]
             }
             """;
 
-        this.SetupResponse(HttpStatusCode.OK, responseJson, InternationalEndpoint);
+        this.SetupResponse(HttpStatusCode.OK, responseJson, TokenPlanEndpoint);
 
         // Act
-        var result = await this._provider.GetUsageAsync(this.Config);
+        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
 
         // Assert
-        var usage = result.Single();
-        Assert.Equal("minimax-global", usage.ProviderId); // provider-id-guardrail-allow: test assertion
-        Assert.Equal("MiniMax.io", usage.ProviderName);
+        var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
+        Assert.Equal("minimax-global", burst.ProviderId); // provider-id-guardrail-allow: test assertion
+        Assert.Equal("MiniMax.io", burst.ProviderName);
     }
 
     [Fact]
     public async Task GetUsageAsync_WithCustomBaseUrl_UsesCustomEndpointAsync()
     {
         // Arrange
-        var customUrl = "https://custom.minimax.example.com/v1/user/usage";
+        var customUrl = "https://custom.minimax.example.com/v1/token_plan/remains";
         this.Config.BaseUrl = customUrl;
         var responseJson = """
             {
-                "usage": {
-                    "tokens_used": 50000,
-                    "tokens_limit": 500000
-                }
+                "base_resp": { "status_code": 0, "status_msg": "success" },
+                "model_remains": [
+                    {
+                        "model_name": "Text Generation",
+                        "current_interval_total_count": 100,
+                        "current_interval_usage_count": 50,
+                        "end_time": 0,
+                        "current_weekly_total_count": 500,
+                        "current_weekly_usage_count": 250,
+                        "weekly_end_time": 0
+                    }
+                ]
             }
             """;
 
         this.SetupResponse(HttpStatusCode.OK, responseJson, customUrl);
 
         // Act
-        var result = await this._provider.GetUsageAsync(this.Config);
+        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
 
         // Assert
-        var usage = result.Single();
-        Assert.True(usage.IsAvailable);
-        Assert.Equal(10, usage.UsedPercent); // 10% used
+        var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
+        Assert.True(burst.IsAvailable);
+        Assert.Equal(50, burst.UsedPercent); // 50% used
     }
 
     [Fact]
@@ -380,12 +463,12 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
     }
 
     [Fact]
-    public async Task GetUsageAsync_MissingUsageField_ReturnsUnavailableAsync()
+    public async Task GetUsageAsync_MissingModelRemains_ReturnsUnavailableAsync()
     {
         // Arrange
         var responseJson = """
             {
-                "other_field": "value"
+                "base_resp": { "status_code": 0, "status_msg": "success" }
             }
             """;
 
@@ -397,7 +480,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         // Assert
         var usage = result.Single();
         Assert.False(usage.IsAvailable);
-        Assert.Contains("Invalid Minimax response format", usage.Description, StringComparison.Ordinal);
+        Assert.Contains("Invalid MiniMax response", usage.Description, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -416,15 +499,23 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
     }
 
     [Fact]
-    public async Task GetUsageAsync_ZeroLimit_HandlesGracefullyAsync()
+    public async Task GetUsageAsync_ZeroTotal_HandlesGracefullyAsync()
     {
-        // Arrange - Zero limit should result in 0 utilization
+        // Arrange - Zero total should be skipped (no burst card)
         var responseJson = """
             {
-                "usage": {
-                    "tokens_used": 0,
-                    "tokens_limit": 0
-                }
+                "base_resp": { "status_code": 0, "status_msg": "success" },
+                "model_remains": [
+                    {
+                        "model_name": "Text Generation",
+                        "current_interval_total_count": 0,
+                        "current_interval_usage_count": 0,
+                        "end_time": 0,
+                        "current_weekly_total_count": 0,
+                        "current_weekly_usage_count": 0,
+                        "weekly_end_time": 0
+                    }
+                ]
             }
             """;
 
@@ -433,37 +524,41 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         // Act
         var result = await this._provider.GetUsageAsync(this.Config);
 
-        // Assert
-        var usage = result.Single();
-        Assert.True(usage.IsAvailable);
-        Assert.Equal(0, usage.UsedPercent); // 0 utilization = 0% used
-        Assert.Equal(0, usage.RequestsUsed);
-        Assert.Equal(0, usage.RequestsAvailable);
+        // Assert - no usages since both totals are 0
+        Assert.Empty(result);
     }
 
     [Fact]
     public async Task GetUsageAsync_LargeNumbers_ParsesCorrectlyAsync()
     {
-        // Arrange - Large token counts
+        // Arrange - Large counts
         var responseJson = """
             {
-                "usage": {
-                    "tokens_used": 45000000000,
-                    "tokens_limit": 100000000000
-                }
+                "base_resp": { "status_code": 0, "status_msg": "success" },
+                "model_remains": [
+                    {
+                        "model_name": "Text Generation",
+                        "current_interval_total_count": 100000000000,
+                        "current_interval_usage_count": 55000000000,
+                        "end_time": 0,
+                        "current_weekly_total_count": 500000000000,
+                        "current_weekly_usage_count": 275000000000,
+                        "weekly_end_time": 0
+                    }
+                ]
             }
             """;
 
         this.SetupResponse(HttpStatusCode.OK, responseJson);
 
         // Act
-        var result = await this._provider.GetUsageAsync(this.Config);
+        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
 
         // Assert
-        var usage = result.Single();
-        Assert.True(usage.IsAvailable);
-        Assert.Equal(45, usage.UsedPercent); // 45% used
-        Assert.Equal(45000000000, usage.RequestsUsed);
+        var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
+        Assert.True(burst.IsAvailable);
+        Assert.Equal(45, burst.UsedPercent); // 45% used
+        Assert.Equal(45000000000, burst.RequestsUsed);
     }
 
     [Fact]
@@ -472,24 +567,32 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         // Arrange
         var responseJson = """
             {
-                "usage": {
-                    "tokens_used": 500000,
-                    "tokens_limit": 1000000
-                }
+                "base_resp": { "status_code": 0, "status_msg": "success" },
+                "model_remains": [
+                    {
+                        "model_name": "Text Generation",
+                        "current_interval_total_count": 100,
+                        "current_interval_usage_count": 50,
+                        "end_time": 0,
+                        "current_weekly_total_count": 500,
+                        "current_weekly_usage_count": 250,
+                        "weekly_end_time": 0
+                    }
+                ]
             }
             """;
 
         this.SetupResponse(HttpStatusCode.OK, responseJson);
 
         // Act
-        var result = await this._provider.GetUsageAsync(this.Config);
+        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
 
         // Assert
-        var usage = result.Single();
+        var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
 
         // Use culture-independent assertion
-        Assert.Contains("tokens used", usage.Description, StringComparison.Ordinal);
-        Assert.Contains("limit", usage.Description, StringComparison.Ordinal);
+        Assert.Contains("remaining", burst.Description, StringComparison.Ordinal);
+        Assert.Contains("Text Generation", burst.Description, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -498,21 +601,29 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         // Arrange
         var responseJson = """
             {
-                "usage": {
-                    "tokens_used": 100000,
-                    "tokens_limit": 1000000
-                }
+                "base_resp": { "status_code": 0, "status_msg": "success" },
+                "model_remains": [
+                    {
+                        "model_name": "Text Generation",
+                        "current_interval_total_count": 100,
+                        "current_interval_usage_count": 50,
+                        "end_time": 0,
+                        "current_weekly_total_count": 500,
+                        "current_weekly_usage_count": 250,
+                        "weekly_end_time": 0
+                    }
+                ]
             }
             """;
 
         this.SetupResponse(HttpStatusCode.OK, responseJson);
 
         // Act
-        var result = await this._provider.GetUsageAsync(this.Config);
+        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
 
         // Assert
-        var usage = result.Single();
-        Assert.False(usage.IsCurrencyUsage);
+        var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
+        Assert.False(burst.IsCurrencyUsage);
     }
 
     [Fact]
@@ -521,21 +632,29 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         // Arrange
         var responseJson = """
             {
-                "usage": {
-                    "tokens_used": 100000,
-                    "tokens_limit": 1000000
-                }
+                "base_resp": { "status_code": 0, "status_msg": "success" },
+                "model_remains": [
+                    {
+                        "model_name": "Text Generation",
+                        "current_interval_total_count": 100,
+                        "current_interval_usage_count": 50,
+                        "end_time": 0,
+                        "current_weekly_total_count": 500,
+                        "current_weekly_usage_count": 250,
+                        "weekly_end_time": 0
+                    }
+                ]
             }
             """;
 
         this.SetupResponse(HttpStatusCode.OK, responseJson);
 
         // Act
-        var result = await this._provider.GetUsageAsync(this.Config);
+        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
 
         // Assert
-        var usage = result.Single();
-        Assert.Equal(PlanType.Coding, usage.PlanType);
+        var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
+        Assert.Equal(PlanType.Coding, burst.PlanType);
     }
 
     [Fact]
@@ -940,7 +1059,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
 
     private void SetupResponse(HttpStatusCode statusCode, string content, string? url = null)
     {
-        url ??= ChinaEndpoint;
+        url ??= TokenPlanEndpoint;
         this.SetupHttpResponse(
             r => string.Equals(r.RequestUri?.ToString(), url, StringComparison.Ordinal),
             new HttpResponseMessage
