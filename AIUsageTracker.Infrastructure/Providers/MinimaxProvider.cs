@@ -102,104 +102,16 @@ public class MinimaxProvider : ProviderBase
         string url;
         if (!string.IsNullOrEmpty(config.BaseUrl))
         {
-            url = config.BaseUrl;
-            if (!url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-            {
-                url = "https://" + url;
-            }
+            url = config.BaseUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+                ? config.BaseUrl
+                : "https://" + config.BaseUrl;
         }
         else
         {
-            url = string.Equals(config.ProviderId, InternationalProviderId, StringComparison.OrdinalIgnoreCase) ||
-                  string.Equals(config.ProviderId, InternationalLegacyProviderId, StringComparison.OrdinalIgnoreCase)
-                ? ProviderEndpoints.Minimax.UserUsage
-                : ProviderEndpoints.Minimax.ChatUserUsage;
+            url = ProviderEndpoints.Minimax.TokenPlanRemains;
         }
 
-        var request = CreateBearerRequest(HttpMethod.Get, url, config.ApiKey);
-        var response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        var httpStatus = (int)response.StatusCode;
-
-        if (!response.IsSuccessStatusCode)
-        {
-            var errorContent = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            return new[]
-            {
-                new ProviderUsage
-                {
-                    ProviderId = config.ProviderId,
-                    ProviderName = providerLabel,
-                    IsAvailable = false,
-                    IsQuotaBased = this.Definition.IsQuotaBased,
-                    PlanType = this.Definition.PlanType,
-                    Description = $"API returned {response.StatusCode} for {url}",
-                    RawJson = errorContent,
-                    HttpStatus = httpStatus,
-                },
-            };
-        }
-
-        var responseString = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-
-        try
-        {
-            var minimax = JsonSerializer.Deserialize<MinimaxTokenResponse>(responseString);
-            if (minimax?.Usage == null)
-            {
-                return new[]
-                {
-                    new ProviderUsage
-                    {
-                        ProviderId = config.ProviderId,
-                        ProviderName = providerLabel,
-                        IsAvailable = false,
-                        IsQuotaBased = this.Definition.IsQuotaBased,
-                        PlanType = this.Definition.PlanType,
-                        Description = "Invalid Minimax response format",
-                        RawJson = responseString,
-                        HttpStatus = httpStatus,
-                    },
-                };
-            }
-
-            var used = minimax.Usage.TokensUsed;
-            var total = minimax.Usage.TokensLimit > 0 ? minimax.Usage.TokensLimit : 0;
-            var utilization = total > 0 ? (used / total) * 100.0 : 0;
-
-            return new[]
-            {
-                new ProviderUsage
-                {
-                    ProviderId = config.ProviderId,
-                    ProviderName = providerLabel,
-                    UsedPercent = Math.Clamp(utilization, 0, 100),
-                    RequestsUsed = used,
-                    RequestsAvailable = total,
-                    PlanType = this.Definition.PlanType,
-                    IsQuotaBased = this.Definition.IsQuotaBased,
-                    Description = $"{used.ToString("N0", CultureInfo.InvariantCulture)} tokens used" + (total > 0 ? $" / {total.ToString("N0", CultureInfo.InvariantCulture)} limit" : string.Empty),
-                    RawJson = responseString,
-                    HttpStatus = httpStatus,
-                },
-            };
-        }
-        catch (JsonException ex)
-        {
-            return new[]
-            {
-                new ProviderUsage
-                {
-                    ProviderId = config.ProviderId,
-                    ProviderName = providerLabel,
-                    IsAvailable = false,
-                    IsQuotaBased = this.Definition.IsQuotaBased,
-                    PlanType = this.Definition.PlanType,
-                    Description = $"Failed to parse Minimax response: {ex.Message}",
-                    RawJson = responseString,
-                    HttpStatus = httpStatus,
-                },
-            };
-        }
+        return await this.GetRemainsUsageAsync(config, providerLabel, url, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<IEnumerable<ProviderUsage>> GetCodingPlanUsageAsync(
@@ -219,6 +131,15 @@ public class MinimaxProvider : ProviderBase
             url = ProviderEndpoints.Minimax.CodingPlanRemains;
         }
 
+        return await this.GetRemainsUsageAsync(config, providerLabel, url, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<IEnumerable<ProviderUsage>> GetRemainsUsageAsync(
+        ProviderConfig config,
+        string providerLabel,
+        string url,
+        CancellationToken cancellationToken)
+    {
         var request = CreateBearerRequest(HttpMethod.Get, url, config.ApiKey);
         var response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var httpStatus = (int)response.StatusCode;
@@ -244,10 +165,12 @@ public class MinimaxProvider : ProviderBase
 
         try
         {
-            var codingPlan = JsonSerializer.Deserialize<MinimaxCodingPlanResponse>(responseString);
-            if (codingPlan?.BaseResp?.StatusCode != 0 || codingPlan.ModelRemains == null || codingPlan.ModelRemains.Count == 0)
+            var remainsResponse = JsonSerializer.Deserialize<MinimaxRemainsResponse>(responseString);
+            if (remainsResponse?.BaseResp?.StatusCode != 0 || remainsResponse.ModelRemains == null || remainsResponse.ModelRemains.Count == 0)
             {
-                var errMsg = codingPlan?.BaseResp?.StatusMsg ?? "Invalid MiniMax Coding Plan response";
+                var errMsg = remainsResponse?.BaseResp is { StatusCode: not 0, StatusMsg: not null }
+                    ? remainsResponse.BaseResp.StatusMsg
+                    : "Invalid MiniMax response";
                 return new[]
                 {
                     new ProviderUsage
@@ -264,7 +187,7 @@ public class MinimaxProvider : ProviderBase
                 };
             }
 
-            var textGenerationModel = FindTextGenerationModel(codingPlan.ModelRemains);
+            var textGenerationModel = FindTextGenerationModel(remainsResponse.ModelRemains);
             if (textGenerationModel == null)
             {
                 return new[]
@@ -276,18 +199,18 @@ public class MinimaxProvider : ProviderBase
                         IsAvailable = false,
                         IsQuotaBased = this.Definition.IsQuotaBased,
                         PlanType = this.Definition.PlanType,
-                        Description = "MiniMax Text Generation model missing in coding plan response",
+                        Description = "MiniMax Text Generation model missing in response",
                         RawJson = responseString,
                         HttpStatus = httpStatus,
                     },
                 };
             }
 
-            return BuildCodingPlanUsages(config.ProviderId, providerLabel, textGenerationModel, responseString, httpStatus);
+            return BuildRemainsUsages(config.ProviderId, providerLabel, textGenerationModel, responseString, httpStatus);
         }
         catch (JsonException ex)
         {
-            this._logger.LogWarning(ex, "Failed to parse MiniMax Coding Plan response");
+            this._logger.LogWarning(ex, "Failed to parse MiniMax remains response");
             return new[]
             {
                 new ProviderUsage
@@ -297,7 +220,7 @@ public class MinimaxProvider : ProviderBase
                     IsAvailable = false,
                     IsQuotaBased = this.Definition.IsQuotaBased,
                     PlanType = this.Definition.PlanType,
-                    Description = $"Failed to parse MiniMax Coding Plan response: {ex.Message}",
+                    Description = $"Failed to parse MiniMax response: {ex.Message}",
                     RawJson = responseString,
                     HttpStatus = httpStatus,
                 },
@@ -305,7 +228,7 @@ public class MinimaxProvider : ProviderBase
         }
     }
 
-    private static List<ProviderUsage> BuildCodingPlanUsages(
+    private static List<ProviderUsage> BuildRemainsUsages(
         string providerId,
         string providerLabel,
         MinimaxModelRemains model,
@@ -439,22 +362,7 @@ public class MinimaxProvider : ProviderBase
         string RawJson,
         int HttpStatus);
 
-    private sealed class MinimaxTokenResponse
-    {
-        [JsonPropertyName("usage")]
-        public MinimaxTokenUsage? Usage { get; set; }
-    }
-
-    private sealed class MinimaxTokenUsage
-    {
-        [JsonPropertyName("tokens_used")]
-        public double TokensUsed { get; set; }
-
-        [JsonPropertyName("tokens_limit")]
-        public double TokensLimit { get; set; }
-    }
-
-    private sealed class MinimaxCodingPlanResponse
+    private sealed class MinimaxRemainsResponse
     {
         [JsonPropertyName("base_resp")]
         public MinimaxBaseResp? BaseResp { get; set; }
