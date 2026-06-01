@@ -58,44 +58,30 @@ public class KimiProvider : ProviderBase
             return new[] { this.CreateUnavailableUsage("API Key missing", authSource: config.AuthSource, state: ProviderUsageState.Missing) };
         }
 
-        try
+        var fetchResult = await this.FetchJsonAsync<KimiUsageResponse>(
+            CodingUsagesEndpoint,
+            config,
+            this._httpClient,
+            this._logger,
+            cancellationToken)
+            .ConfigureAwait(false);
+
+        if (!fetchResult.IsSuccess)
         {
-            var request = CreateBearerRequest(HttpMethod.Get, CodingUsagesEndpoint, config.ApiKey);
-
-            var response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
-            {
-                this._logger.LogWarning("Failed to fetch Kimi usage: {StatusCode}", response.StatusCode);
-                return new[] { this.CreateUnavailableUsage(DescribeUnavailableStatus(response.StatusCode), (int)response.StatusCode, authSource: config.AuthSource) };
-            }
-
-            var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            KimiUsageResponse? data;
-            try
-            {
-                data = JsonSerializer.Deserialize<KimiUsageResponse>(content, JsonOptions);
-            }
-            catch (JsonException ex)
-            {
-                this._logger.LogError(
-                    ex,
-                    "Kimi API response could not be deserialized. Unexpected format? Raw: {Raw}",
-                    content.Length > 500 ? content[..500] : content);
-                return new[] { this.CreateUnavailableUsage($"Failed to parse response: {ex.Message}", authSource: config.AuthSource) };
-            }
-
-            if (data == null || data.Usage == null)
-            {
-                return new[] { this.CreateUnavailableUsage("Response missing usage data", authSource: config.AuthSource) };
-            }
-
-            return this.BuildUsageCards(data, content, (int)response.StatusCode, config.AuthSource, ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId));
+            return new[] { fetchResult.FailureUsage! };
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+
+        var data = fetchResult.Data!;
+        var content = fetchResult.RawContent;
+        var httpStatus = fetchResult.HttpStatus;
+        var providerLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId);
+
+        if (data.Usage == null)
         {
-            this._logger.LogError(ex, "Kimi check failed");
-            return new[] { this.CreateUnavailableUsage(DescribeUnavailableException(ex), authSource: config.AuthSource) };
+            return new[] { this.CreateUnavailableUsage("Response missing usage data", authSource: config.AuthSource) };
         }
+
+        return this.BuildUsageCards(data, content, httpStatus, config.AuthSource, providerLabel);
     }
 
     private IEnumerable<ProviderUsage> BuildUsageCards(KimiUsageResponse data, string content, int statusCode, string? authSource, string providerLabel)
