@@ -1,0 +1,26 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "papi": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@papi-ai/server"
+      ],
+      "environment": {
+        "PAPI_PROJECT_ID": "eb170d1b-84bf-4240-b8bc-79b8df50f6da",
+        "PAPI_DATA_API_KEY": "papi_bd988cdd7f89ff693a393266e8b427edc70e64b1d1b27849c6712e04732a1f67"
+      }
+    },
+    "gitnexus": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "gitnexus@latest",
+        "mcp"
+      ]
+    }
+  }
+}

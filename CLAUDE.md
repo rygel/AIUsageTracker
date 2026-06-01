@@ -365,3 +365,45 @@ Call the adapter method with structured entries for each observation:
 - **commercial** — cost, pricing, or business model observations
 
 This is autonomous plumbing — log observations after release without asking.
+
+<!-- PAPI_ENRICHMENT_TIER_1 -->
+
+## Batch Building (unlocked at cycle 6)
+
+For cycles with multiple tasks, batch build them without stopping between each:
+- Build XS/S tasks first, then M/L — same-module tasks land on the cycle branch automatically regardless of size
+- One commit per task for traceable history on the shared cycle branch
+- After all tasks built, batch review them together
+
+### Gestalt Pre-Build Check (multi-task cycles)
+
+**Before `build_execute` on the first task of any multi-task cycle, read the cycle as a whole:**
+
+1. Run `build_list` to see every task assigned to the current cycle.
+2. Read the BUILD HANDOFFs together — not one at a time. Look for:
+   - **Shared files** across handoffs — the same path in two FILES LIKELY TOUCHED lists usually means a refactor opportunity, a shared helper to extract first, or a sequencing constraint.
+   - **Shared modules** — multiple tasks in the same module should land on a shared cycle branch (`feat/cycle-N-<module>`) so they merge together.
+   - **Design decisions implicit across tasks** — e.g. one task introduces a new field, a later task consumes it. Build the producer first.
+   - **Module split** — tasks in different modules will land on different cycle branches (`feat/cycle-N-<module>`) and merge separately. Flag any cross-module coordination required before kicking off.
+3. Only then run `build_execute` on the first task.
+
+This is a one-time check at the start of the cycle, not per-task. It catches scope conflicts, redundant work, and ordering hazards that an isolated handoff read can't see. Skip it for single-task cycles.
+
+## Strategy Reviews
+
+Every 5 cycles, PAPI offers a strategy review — a deep analysis of velocity, estimation accuracy, active decisions, and project direction.
+
+- **Don't skip them.** They're where compounding value comes from.
+- Strategy reviews run in their own session — don't mix with building.
+- Reviews produce recommendations that feed into the next plan.
+- If the review recommends AD changes, use `strategy_change` to apply them.
+
+## Active Decision Lifecycle
+
+Active Decisions (ADs) track architectural and product choices with confidence levels (LOW → MEDIUM → HIGH).
+
+- Check ADs before making architectural choices — run `health` for the AD summary.
+- ADs are for product/architecture choices only, not process preferences.
+- When new evidence appears, update AD confidence via `strategy_change`.
+- Supersede rather than overwrite — old decisions stay as history.
+- New ADs should include a `### Reversal Trigger` section: specify the signal that would invalidate the stance, the action to take (modify/supersede/abandon), and why writing it now prevents sunk-cost drift later.
