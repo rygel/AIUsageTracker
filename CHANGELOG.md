@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.3.5-beta.4] - 2026-06-01
+
+### Fixed
+- **Minimax provider migrated to new API endpoint**: Minimax removed their `/v1/user/usage` endpoint (returns 404). Migrated to the new `/v1/token_plan/remains` credit-based endpoint. The `minimax`, `minimax-io`, and `minimax-global` provider IDs now produce burst + weekly window cards aligned with Minimax's credit-based quota windows (5h rolling + weekly).
+
 ## [2.3.5-beta.3] - 2026-05-08
 
 ### Added
