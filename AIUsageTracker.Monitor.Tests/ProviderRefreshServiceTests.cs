@@ -103,12 +103,7 @@ public class ProviderRefreshServiceTests
             this._mockPathProvider.Object,
             NullLogger<StartupSequenceService>.Instance);
 
-        this._service = new ProviderRefreshService(
-            this._mockLogger.Object,
-            this._mockDatabase.Object,
-            this._mockNotificationService.Object,
-            this._mockConfigService.Object,
-            this._mockPathProvider.Object,
+        var refreshDeps = new ProviderRefreshDependencies(
             this._providerRefreshCircuitBreakerService,
             configLoadingService,
             usagePersistenceService,
@@ -118,6 +113,14 @@ public class ProviderRefreshServiceTests
             refreshNotificationService,
             startupSequenceService,
             processingPipeline);
+
+        this._service = new ProviderRefreshService(
+            this._mockLogger.Object,
+            this._mockDatabase.Object,
+            this._mockNotificationService.Object,
+            this._mockConfigService.Object,
+            this._mockPathProvider.Object,
+            refreshDeps);
     }
 
     [Fact]
@@ -693,12 +696,7 @@ public class ProviderRefreshServiceTests
             pathProvider,
             NullLogger<StartupSequenceService>.Instance);
 
-        return new ProviderRefreshService(
-            logger,
-            database,
-            notificationService,
-            configService,
-            pathProvider,
+        var refreshDeps = new ProviderRefreshDependencies(
             circuitBreakerService,
             configLoadingService,
             usagePersistenceService,
@@ -708,6 +706,14 @@ public class ProviderRefreshServiceTests
             refreshNotificationService,
             startupSequenceService,
             pipeline);
+
+        return new ProviderRefreshService(
+            logger,
+            database,
+            notificationService,
+            configService,
+            pathProvider,
+            refreshDeps);
     }
 
     private static PipelineTestFiles CreatePipelineTestFiles()
