@@ -7,7 +7,7 @@
       "enabled": true,
       "environment": {
         "PAPI_DATA_API_KEY": "{env:PAPI_DATA_API_KEY}",
-        "PAPI_PROJECT_ID": "{env:PAPI_PROJECT_ID}"
+        "PAPI_PROJECT_ID": "eb170d1b-84bf-4240-b8bc-79b8df50f6da"
       }
     }
   }

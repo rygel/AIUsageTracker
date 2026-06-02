@@ -72,6 +72,7 @@ public class MonitorDiResolutionTests
         services.AddSingleton<ProviderManagerLifecycleService>();
         services.AddSingleton<ProviderRefreshNotificationService>();
         services.AddSingleton<StartupSequenceService>();
+        services.AddSingleton<ProviderRefreshDependencies>();
 
         // Refresh service
         services.AddSingleton<ProviderRefreshService>();
