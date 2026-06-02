@@ -338,6 +338,7 @@ public partial class Program
         builder.Services.AddSingleton<ProviderManagerLifecycleService>();
         builder.Services.AddSingleton<ProviderRefreshNotificationService>();
         builder.Services.AddSingleton<StartupSequenceService>();
+        builder.Services.AddSingleton<ProviderRefreshDependencies>();
         builder.Services.AddSingleton<ProviderRefreshService>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<ProviderRefreshService>());
 
