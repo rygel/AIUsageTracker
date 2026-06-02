@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 
 namespace AIUsageTracker.Infrastructure.Providers;
@@ -227,26 +228,34 @@ public static class ProviderMetadataCatalog
 
     private static List<ProviderDefinition> LoadDefinitions()
     {
-        var definitions = new List<ProviderDefinition>
+        var definitions = new List<ProviderDefinition>();
+
+        var providerTypes = typeof(ProviderMetadataCatalog).Assembly
+            .GetTypes()
+            .Where(t => t.IsClass && !t.IsAbstract && typeof(IProviderService).IsAssignableFrom(t));
+
+        foreach (var providerType in providerTypes)
         {
-            AntigravityProvider.StaticDefinition,
-            ClaudeCodeProvider.StaticDefinition,
-            CodexProvider.StaticDefinition,
-            CodexProvider.SparkDefinition,
-            DeepSeekProvider.StaticDefinition,
-            GeminiProvider.StaticDefinition,
-            GitHubCopilotProvider.StaticDefinition,
-            KimiProvider.StaticDefinition,
-            MinimaxProvider.StaticDefinition,
-            MistralProvider.StaticDefinition,
-            OpenAIProvider.StaticDefinition,
-            OpenCodeZenProvider.StaticDefinition,
-            OpenCodeProvider.StaticDefinition,
-            OpenRouterProvider.StaticDefinition,
-            SyntheticProvider.StaticDefinition,
-            XiaomiProvider.StaticDefinition,
-            ZaiProvider.StaticDefinition,
-        };
+            var staticDefProp = providerType.GetProperty("StaticDefinition",
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+            if (staticDefProp?.GetValue(null) is ProviderDefinition definition)
+            {
+                definitions.Add(definition);
+            }
+
+            // Some providers have additional definitions (e.g. CodexProvider.SparkDefinition)
+            var additionalDefs = providerType.GetProperties(
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+                .Where(p => p.PropertyType == typeof(ProviderDefinition) && p.Name != "StaticDefinition");
+
+            foreach (var prop in additionalDefs)
+            {
+                if (prop.GetValue(null) is ProviderDefinition additionalDef)
+                {
+                    definitions.Add(additionalDef);
+                }
+            }
+        }
 
         definitions.Sort((a, b) => string.Compare(a.ProviderId, b.ProviderId, StringComparison.OrdinalIgnoreCase));
 
