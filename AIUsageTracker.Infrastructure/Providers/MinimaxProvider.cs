@@ -21,6 +21,7 @@ public class MinimaxProvider : ProviderBase
     private const string TextGenerationLabel = "text generation";
     private const string TextGenerationModelPrefix = "minimax-text";
     private const string CodingModelPrefix = "minimax-m";
+    private const string GeneralModelName = "general";
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<MinimaxProvider> _logger;
@@ -241,7 +242,17 @@ public class MinimaxProvider : ProviderBase
         var modelSlug = modelName.ToLowerInvariant().Replace(" ", "-", StringComparison.Ordinal);
         const int modelIndex = 0;
 
-        if (model.IntervalTotal > 0)
+        // Token Plan uses remaining_percent when total count is 0.
+        // Build synthetic total/remaining from percent when counts are absent.
+        var burstTotal = model.IntervalTotal;
+        var burstRemaining = model.IntervalRemaining;
+        if (burstTotal <= 0 && model.IntervalRemainingPercent > 0)
+        {
+            burstTotal = 100;
+            burstRemaining = model.IntervalRemainingPercent;
+        }
+
+        if (burstTotal > 0)
         {
             var burstPeriod = ResolvePeriodDuration(model.IntervalStartMs, model.IntervalEndMs, TimeSpan.FromHours(5));
             usages.Add(BuildModelWindowCard(new ModelWindowCardSpec(
@@ -250,8 +261,8 @@ public class MinimaxProvider : ProviderBase
                 modelName,
                 modelSlug,
                 modelIndex,
-                model.IntervalTotal,
-                model.IntervalRemaining,
+                burstTotal,
+                burstRemaining,
                 model.IntervalEndMs,
                 "burst",
                 "5h",
@@ -261,7 +272,15 @@ public class MinimaxProvider : ProviderBase
                 httpStatus)));
         }
 
-        if (model.WeeklyTotal > 0)
+        var weeklyTotal = model.WeeklyTotal;
+        var weeklyRemaining = model.WeeklyRemaining;
+        if (weeklyTotal <= 0 && model.WeeklyRemainingPercent > 0)
+        {
+            weeklyTotal = 100;
+            weeklyRemaining = model.WeeklyRemainingPercent;
+        }
+
+        if (weeklyTotal > 0)
         {
             var weeklyPeriod = ResolvePeriodDuration(model.WeeklyStartMs, model.WeeklyEndMs, TimeSpan.FromDays(7));
             usages.Add(BuildModelWindowCard(new ModelWindowCardSpec(
@@ -270,8 +289,8 @@ public class MinimaxProvider : ProviderBase
                 modelName,
                 modelSlug,
                 modelIndex,
-                model.WeeklyTotal,
-                model.WeeklyRemaining,
+                weeklyTotal,
+                weeklyRemaining,
                 model.WeeklyEndMs,
                 "weekly",
                 "Weekly",
@@ -306,6 +325,15 @@ public class MinimaxProvider : ProviderBase
         if (explicitTextGenerationModel != null)
         {
             return explicitTextGenerationModel;
+        }
+
+        // Token Plan uses "general" as the model name for text generation credits.
+        var generalModel = modelRemains.FirstOrDefault(model =>
+            string.Equals(model.ModelName, GeneralModelName, StringComparison.OrdinalIgnoreCase));
+
+        if (generalModel != null)
+        {
+            return generalModel;
         }
 
         // MiniMax Coding Plan recently shifted to names like "MiniMax-M*";
@@ -410,5 +438,23 @@ public class MinimaxProvider : ProviderBase
 
         [JsonPropertyName("weekly_end_time")]
         public long WeeklyEndMs { get; set; }
+
+        [JsonPropertyName("current_interval_remaining_percent")]
+        public double IntervalRemainingPercent { get; set; }
+
+        [JsonPropertyName("current_weekly_remaining_percent")]
+        public double WeeklyRemainingPercent { get; set; }
+
+        [JsonPropertyName("remains_time")]
+        public long RemainsTimeMs { get; set; }
+
+        [JsonPropertyName("weekly_remains_time")]
+        public long WeeklyRemainsTimeMs { get; set; }
+
+        [JsonPropertyName("current_interval_status")]
+        public int IntervalStatus { get; set; }
+
+        [JsonPropertyName("current_weekly_status")]
+        public int WeeklyStatus { get; set; }
     }
 }
