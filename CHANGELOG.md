@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [2.3.5-beta.5] - 2026-06-02
+
+### Fixed
+- **Minimax Token Plan response format**: Handle new API response where `current_interval_total_count` is always 0 and actual usage is in `current_interval_remaining_percent`. Model name changed from "Text Generation" to "general".
+- **Gitleaks baseline regenerated**: Fixed stale line numbers causing false positives on CI.
+
+### Changed
+- **ProviderBase template method**: Added `FetchJsonAsync<T>` for common HTTP send/status/deserialize pattern. Migrated DeepSeek, Kimi, and Xiaomi providers.
+- **ProviderRefreshService refactored**: Grouped 14 constructor dependencies into `ProviderRefreshDependencies` record (14 → 6 params).
+- **ProviderMetadataCatalog**: Uses reflection to discover provider definitions instead of hardcoded list.
+- **opencode.json untracked**: Moved to `.gitignore` — local config with per-user secrets.
+
 ## [2.3.5-beta.4] - 2026-06-01
 
 ### Fixed
