@@ -161,6 +161,11 @@ public partial class App
                 throw new ArgumentException($"Unknown theme '{themeArg}'.", nameof(args));
             }
 
+            if (selectedTheme == AppTheme.System)
+            {
+                selectedTheme = ResolveSystemTheme();
+            }
+
             var isThemeSmokeMode = args.Contains("--theme-smoke", StringComparer.OrdinalIgnoreCase);
             var isCardCatalogMode = args.Contains("--card-catalog", StringComparer.OrdinalIgnoreCase);
             this.ConfigureHeadlessScreenshotPreferences(selectedTheme);
@@ -170,7 +175,7 @@ public partial class App
             if (isThemeSmokeMode)
             {
                 var smokeFileName = $"theme_smoke_{selectedTheme.ToString().ToLowerInvariant()}.png";
-                await CaptureMainWindowScreenshotAsync(Path.Combine(screenshotsDir, smokeFileName)).ConfigureAwait(true);
+                await CaptureMainWindowScreenshotAsync(CombineAndEnsureUnderRoot(screenshotsDir, smokeFileName)).ConfigureAwait(true);
                 return;
             }
 
@@ -180,9 +185,9 @@ public partial class App
                 return;
             }
 
-            await CaptureMainWindowScreenshotAsync(Path.Combine(screenshotsDir, "screenshot_dashboard_privacy.png")).ConfigureAwait(true);
+            await CaptureMainWindowScreenshotAsync(CombineAndEnsureUnderRoot(screenshotsDir, "screenshot_dashboard_privacy.png")).ConfigureAwait(true);
             await CaptureSettingsScreenshotsAsync(screenshotsDir).ConfigureAwait(true);
-            this.CaptureInfoScreenshot(Path.Combine(screenshotsDir, "screenshot_info_privacy.png"));
+            this.CaptureInfoScreenshot(CombineAndEnsureUnderRoot(screenshotsDir, "screenshot_info_privacy.png"));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -198,9 +203,27 @@ public partial class App
     private static string ResolveOutputDirectory(IReadOnlyList<string> args)
     {
         var outputDirectoryArg = GetArgumentValue(args, "--output-dir");
-        return string.IsNullOrWhiteSpace(outputDirectoryArg)
+        var outputDirectory = string.IsNullOrWhiteSpace(outputDirectoryArg)
             ? ResolveScreenshotsDirectory()
             : outputDirectoryArg;
+
+        return Path.GetFullPath(outputDirectory);
+    }
+
+    private static string CombineAndEnsureUnderRoot(string rootDirectory, string fileName)
+    {
+        var fullRoot = Path.GetFullPath(rootDirectory);
+        Directory.CreateDirectory(fullRoot);
+
+        var combinedPath = Path.GetFullPath(Path.Combine(fullRoot, fileName));
+        var rootWithSeparator = fullRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        if (!combinedPath.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"Rejected output path outside screenshot directory. Root={fullRoot}, Candidate={combinedPath}");
+        }
+
+        return combinedPath;
     }
 
     private void ConfigureHeadlessScreenshotPreferences(AppTheme selectedTheme)
@@ -268,7 +291,7 @@ public partial class App
         foreach (var permutation in CardCatalogPermutations.All)
         {
             var fileName = $"card_{permutation.Slug}.png";
-            var outputPath = Path.Combine(catalogDir, fileName);
+            var outputPath = CombineAndEnsureUnderRoot(catalogDir, fileName);
             logger.LogInformation("Capturing card catalog: {Slug}", permutation.Slug);
 
             var window = Host.Services.GetRequiredService<MainWindow>();
@@ -295,7 +318,7 @@ public partial class App
 
         // Generate markdown index.
         var markdown = CardCatalogPermutations.GenerateMarkdown(captured);
-        var markdownPath = Path.Combine(catalogDir, "CARD-CATALOG.md");
+        var markdownPath = CombineAndEnsureUnderRoot(catalogDir, "CARD-CATALOG.md");
         await File.WriteAllTextAsync(markdownPath, markdown).ConfigureAwait(true);
         logger.LogInformation("Card catalog: {Count} screenshots + markdown index written to {Dir}", captured.Count, catalogDir);
     }

@@ -81,11 +81,10 @@ public class DeepSeekProviderTests : HttpProviderTestBase<DeepSeekProvider>
         var usage = result.First();
 
         // Assert
-        // Note: DeepSeek currently handles errors by returning IsAvailable = true but with Error message in description
-        // This is inconsistent with other providers but we maintain existing behavior here.
+        // Note: DeepSeek handles errors by returning IsAvailable = true with the standard status description.
         Assert.True(usage.IsAvailable);
-        Assert.Contains("API Error", usage.Description, StringComparison.Ordinal);
-        Assert.Contains("Unauthorized", usage.Description, StringComparison.Ordinal);
+        Assert.Contains("failed", usage.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("401", usage.Description, StringComparison.Ordinal);
     }
 
     // --- Phase 4: FailureContext attachment ---
@@ -109,7 +108,7 @@ public class DeepSeekProviderTests : HttpProviderTestBase<DeepSeekProvider>
 
         // Output behavior is unchanged
         Assert.True(usage.IsAvailable);
-        Assert.Contains("API Error", usage.Description, StringComparison.Ordinal);
+        Assert.False(string.IsNullOrWhiteSpace(usage.Description));
         Assert.Equal((int)statusCode, usage.HttpStatus);
 
         // FailureContext is now attached

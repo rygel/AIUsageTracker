@@ -2,6 +2,36 @@
 
 ## [Unreleased]
 
+## [2.3.5] - 2026-06-03
+
+### Added
+- **System (Auto) theme**: new theme option that automatically matches the Windows dark/light mode setting and switches in real-time when the OS theme changes. Available in both Slim UI (registry-based detection) and Web UI (matchMedia-based detection).
+
+### Fixed
+- **Minimax Token Plan response format**: Handle new API response where `current_interval_total_count` is always 0 and actual usage is in `current_interval_remaining_percent`. Model name changed from "Text Generation" to "general".
+- **Minimax provider migrated to new API endpoint**: Minimax removed their `/v1/user/usage` endpoint (returns 404). Migrated to the new `/v1/token_plan/remains` credit-based endpoint. The `minimax`, `minimax-io`, and `minimax-global` provider IDs now produce burst + weekly window cards aligned with Minimax's credit-based quota windows (5h rolling + weekly).
+- **Unavailable providers no longer glitch to zero**: flat/model cards now preserve the provider's unavailable state and description instead of falling back to synthetic `0% used` or `100% remaining` text.
+- **Unavailable cards no longer leak derived quota details**: custom card slots, dual-bar status rendering, and tooltips now suppress percent, pace, budget, and reset details when the provider is not actually available.
+- **Status-only providers keep descriptive status text**: status-only cards such as connection/auth status rows now preserve messages like `Connected` instead of falling through to quota percentage formatting.
+- **Gitleaks baseline regenerated**: Fixed stale line numbers causing false positives on CI.
+- **Update failure triage**: Improved diagnostics with stage-specific context and native error codes.
+
+### Changed
+- **ProviderBase template method**: Added `FetchJsonAsync<T>` for common HTTP send/status/deserialize pattern. Migrated DeepSeek, Kimi, and Xiaomi providers.
+- **ProviderRefreshService refactored**: Grouped 14 constructor dependencies into `ProviderRefreshDependencies` record (14 → 6 params).
+- **ProviderMetadataCatalog**: Uses reflection to discover provider definitions instead of hardcoded list.
+- **Updater diagnostics**: Added correlation attempt ID, installer artifact diagnostics (path/size/SHA-256), and persisted last-attempt summary for post-failure triage.
+- **opencode.json untracked**: Moved to `.gitignore` — local config with per-user secrets.
+- **Bumped Meziantou.Analyzer** from 3.0.58 to 3.0.70.
+## [2.3.4-beta.35] - 2026-05-03
+
+### Changed
+- **Updater diagnostics correlation**: each update attempt now carries a stable attempt ID through download, verification, and installer launch logs so support can tie UI failures to backend diagnostics quickly.
+- **Installer artifact diagnostics**: successful downloads now log installer path, file size, and SHA-256 hash before launch for faster integrity checks during support incidents.
+- **Persisted last-attempt summary**: Slim UI now writes a stable update-last-attempt.json diagnostics file with version, URL, attempt ID, result, failure reason, installer path/hash, and UTC timestamp.
+
+### Fixed
+- **Update failure triage gap**: update failures now report stage-specific context (download vs file prep vs launch, including Win32 native error codes) directly in diagnostics and user-facing failure reasons.
 ## [2.3.4] - 2026-04-26
 
 ### Added
@@ -448,3 +478,4 @@
 
 ### CI/CD
 - Updated all GitHub Actions to latest major versions (checkout v6, setup-dotnet v5, upload-artifact v7, download-artifact v8, github-script v8, cache v5, codecov v5, create-pull-request v8, paths-filter v4) to eliminate Node.js 20 deprecation warnings.
+

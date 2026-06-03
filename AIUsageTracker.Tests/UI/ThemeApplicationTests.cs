@@ -209,6 +209,14 @@ public class ThemeApplicationTests
         }
     }
 
+    [Fact]
+    public void ResolveSystemTheme_ReturnsDarkOrLight()
+    {
+        var result = App.ResolveSystemTheme();
+        Assert.True(result == AppTheme.Dark || result == AppTheme.Light,
+            $"ResolveSystemTheme returned {result}, expected Dark or Light");
+    }
+
     private static Dictionary<string, Color>? GetPalette(AppTheme theme)
     {
         // Access the private ThemePalettes dictionary via reflection

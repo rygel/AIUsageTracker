@@ -44,53 +44,47 @@ public class XiaomiProvider : ProviderBase
     {
         ArgumentNullException.ThrowIfNull(config);
 
-        var providerLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId);
-
         if (string.IsNullOrEmpty(config.ApiKey))
         {
             return new[]
             {
-                new ProviderUsage
-            {
-                ProviderId = config.ProviderId,
-                ProviderName = providerLabel,
-                IsAvailable = false,
-                IsQuotaBased = this.Definition.IsQuotaBased,
-                PlanType = this.Definition.PlanType,
-                Description = "API Key missing",
-                State = ProviderUsageState.Missing,
-            },
+                this.CreateUnavailableUsage("API Key missing", state: ProviderUsageState.Missing),
             };
         }
 
-        try
+        var providerLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId);
+
+        var fetchResult = await this.FetchJsonAsync<XiaomiResponse>(
+            UserBalanceEndpoint,
+            config,
+            this._httpClient,
+            this._logger,
+            cancellationToken)
+            .ConfigureAwait(false);
+
+        if (!fetchResult.IsSuccess)
         {
-            // Endpoint based on research/best-guess
-            var request = CreateBearerRequest(HttpMethod.Get, UserBalanceEndpoint, config.ApiKey);
+            return new[] { fetchResult.FailureUsage! };
+        }
 
-            var response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            response.EnsureSuccessStatusCode();
+        var data = fetchResult.Data!;
+        var content = fetchResult.RawContent;
+        var httpStatus = fetchResult.HttpStatus;
 
-            var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            var data = DeserializeJsonOrDefault<XiaomiResponse>(content);
+        if (data.Data == null)
+        {
+            return new[] { this.CreateUnavailableUsage("Invalid response from Xiaomi API", httpStatus) };
+        }
 
-            if (data == null || data.Data == null)
-            {
-                throw new InvalidOperationException("Invalid response from Xiaomi API");
-            }
+        double balance = data.Data.Balance;
+        double quota = data.Data.Quota;
 
-            double balance = data.Data.Balance;
+        var used = quota > 0 ? Math.Max(0, quota - balance) : 0;
+        var usedPercent = quota > 0 ? UsageMath.CalculateUsedPercent(used, quota) : 0;
 
-            // Assuming quota is available in response or unlimited
-            double quota = data.Data.Quota;
-
-            // If quota is 0, treat as pay-as-you-go balance only
-            var used = quota > 0 ? Math.Max(0, quota - balance) : 0;
-            var usedPercent = quota > 0 ? UsageMath.CalculateUsedPercent(used, quota) : 0;
-
-            return new[]
-            {
-                new ProviderUsage
+        return new[]
+        {
+            new ProviderUsage
             {
                 ProviderId = config.ProviderId,
                 ProviderName = providerLabel,
@@ -104,26 +98,9 @@ public class XiaomiProvider : ProviderBase
                     ? $"{balance.ToString(CultureInfo.InvariantCulture)} remaining / {quota.ToString(CultureInfo.InvariantCulture)} total"
                     : $"Balance: {balance.ToString(CultureInfo.InvariantCulture)}",
                 RawJson = content,
-                HttpStatus = (int)response.StatusCode,
+                HttpStatus = httpStatus,
             },
-            };
-        }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
-        {
-            this._logger.LogError(ex, "Failed to fetch Xiaomi usage");
-            return new[]
-            {
-                new ProviderUsage
-            {
-                ProviderId = config.ProviderId,
-                ProviderName = providerLabel,
-                IsAvailable = false,
-                IsQuotaBased = this.Definition.IsQuotaBased,
-                PlanType = this.Definition.PlanType,
-                Description = $"Error: {ex.Message}",
-            },
-            };
-        }
+        };
     }
 
     private sealed class XiaomiResponse

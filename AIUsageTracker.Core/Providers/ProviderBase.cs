@@ -9,6 +9,7 @@ using System.Text.Json;
 using AIUsageTracker.Core.Exceptions;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Core.Providers;
 
@@ -176,5 +177,78 @@ public abstract class ProviderBase : IProviderService
             InvalidOperationException => $"Invalid operation: {ex.Message}",
             _ => $"{context}: {ex.Message}",
         };
+    }
+
+    /// <summary>
+    /// Fetches JSON from a provider endpoint with Bearer auth, deserializes the response,
+    /// and handles common HTTP errors. Returns a result that is either the parsed response
+    /// or a failure with an unavailable <see cref="ProviderUsage"/>.
+    /// </summary>
+    protected async Task<ProviderFetchResult<TResponse>> FetchJsonAsync<TResponse>(
+        string endpoint,
+        ProviderConfig config,
+        HttpClient httpClient,
+        ILogger logger,
+        CancellationToken cancellationToken,
+        Action<HttpRequestMessage>? customizeRequest = null)
+        where TResponse : class
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        ArgumentNullException.ThrowIfNull(httpClient);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        try
+        {
+            using var request = CreateBearerRequest(HttpMethod.Get, endpoint, config.ApiKey);
+            customizeRequest?.Invoke(request);
+
+            using var response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                logger.LogWarning("{ProviderId} API error: {StatusCode}", this.ProviderId, response.StatusCode);
+                return ProviderFetchResult<TResponse>.Failure(
+                    this.CreateUnavailableUsage(
+                        DescribeUnavailableStatus(response.StatusCode),
+                        (int)response.StatusCode,
+                        authSource: config.AuthSource),
+                    content);
+            }
+
+            var data = DeserializeJsonOrDefault<TResponse>(content);
+            if (data == null)
+            {
+                return ProviderFetchResult<TResponse>.Failure(
+                    this.CreateUnavailableUsage("Failed to parse response", (int)response.StatusCode, authSource: config.AuthSource),
+                    content);
+            }
+
+            return ProviderFetchResult<TResponse>.Success(data, content, (int)response.StatusCode);
+        }
+        catch (HttpRequestException ex)
+        {
+            logger.LogError(ex, "{ProviderId} check failed", this.ProviderId);
+            return ProviderFetchResult<TResponse>.Failure(
+                this.CreateUnavailableUsage(
+                    "Connection failed - check network",
+                    authSource: config.AuthSource,
+                    failureContext: HttpFailureContext.FromException(ex, HttpFailureClassification.Network)));
+        }
+        catch (TaskCanceledException ex)
+        {
+            logger.LogError(ex, "{ProviderId} check failed", this.ProviderId);
+            return ProviderFetchResult<TResponse>.Failure(
+                this.CreateUnavailableUsage(
+                    "Request timed out",
+                    authSource: config.AuthSource,
+                    failureContext: HttpFailureContext.FromException(ex, HttpFailureClassification.Timeout)));
+        }
+        catch (JsonException ex)
+        {
+            logger.LogError(ex, "{ProviderId} JSON parse failed", this.ProviderId);
+            return ProviderFetchResult<TResponse>.Failure(
+                this.CreateUnavailableUsage($"Failed to parse response: {ex.Message}", authSource: config.AuthSource));
+        }
     }
 }

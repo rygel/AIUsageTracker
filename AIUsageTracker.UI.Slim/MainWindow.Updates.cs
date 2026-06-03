@@ -120,89 +120,11 @@ public partial class MainWindow : Window
             return;
         }
 
-        var confirmResult = MessageBox.Show(
-            $"Download and install version {this._latestUpdate.Version}?\n\nThe application will restart after installation.",
-            "Confirm Update",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-
-        if (confirmResult != MessageBoxResult.Yes)
-        {
-            return;
-        }
-
-        Window? progressWindow = null;
-
-        try
-        {
-            var progressBar = new ProgressBar
-            {
-                Height = 20,
-                Minimum = 0,
-                Maximum = 100,
-            };
-
-            progressWindow = new Window
-            {
-                Title = "Downloading Update",
-                Width = 400,
-                Height = 150,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Owner = this,
-                Topmost = this.Topmost,
-                ResizeMode = ResizeMode.NoResize,
-                Background = GetResourceBrush("Background", Brushes.Black),
-                Content = new StackPanel
-                {
-                    Margin = new Thickness(20),
-                    Children =
-                    {
-                        new TextBlock
-                        {
-                            Text = $"Downloading version {this._latestUpdate.Version}...",
-                            Margin = new Thickness(0, 0, 0, 10),
-                            Foreground = GetResourceBrush("PrimaryText", Brushes.White),
-                        },
-                        progressBar,
-                    },
-                },
-            };
-
-            var progress = new Progress<double>(p => progressBar.Value = p);
-            progressWindow.Show();
-
-            UiDiagnosticFileLog.Write($"[UPDATE] Starting download: {this._latestUpdate.DownloadUrl}");
-            var result = await this._updateChecker.DownloadAndInstallUpdateAsync(this._latestUpdate, progress).ConfigureAwait(true);
-            progressWindow.Close();
-            progressWindow = null;
-
-            if (result.Success)
-            {
-                UiDiagnosticFileLog.Write("[UPDATE] Download and install succeeded, shutting down.");
-                Application.Current.Shutdown();
-            }
-            else
-            {
-                UiDiagnosticFileLog.Write($"[UPDATE] Failed: {result.FailureReason}");
-                MessageBox.Show(
-                    $"Failed to download or install version {this._latestUpdate.Version}.\n\n" +
-                    $"Reason: {result.FailureReason}\n\n" +
-                    $"Download URL: {this._latestUpdate.DownloadUrl}\n\n" +
-                    "Please try again or download manually from the releases page.",
-                    "Update Failed",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-            }
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            progressWindow?.Close();
-            UiDiagnosticFileLog.Write($"[UPDATE] Exception: {ex}");
-            MessageBox.Show(
-                $"Update error: {ex.Message}",
-                "Update Error",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
-        }
+        await Services.UpdateInstallerHelper.DownloadAndInstallAsync(
+            this,
+            this._latestUpdate,
+            this._updateChecker,
+            this._logger,
+            this.Topmost).ConfigureAwait(true);
     }
 }

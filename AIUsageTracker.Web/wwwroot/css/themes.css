@@ -1,5 +1,22 @@
 /* Theme tokens shared with Slim UI names */
 
+/* System (Auto) — JS resolves to dark/light before applying; these fallback values match dark */
+[data-theme="system"] {
+    --bg-primary: #1a1a1a;
+    --bg-secondary: #242424;
+    --bg-tertiary: #2e2e2e;
+    --bg-hover: #333333;
+    --text-primary: #e8e8e8;
+    --text-secondary: #a0a0a0;
+    --text-muted: #666666;
+    --accent-primary: #3b82f6;
+    --accent-secondary: #60a5fa;
+    --accent-success: #22c55e;
+    --accent-warning: #eab308;
+    --accent-danger: #ef4444;
+    --border-color: #333333;
+}
+
 /* Dark (Default) */
 :root,
 [data-theme="dark"] {

@@ -46,16 +46,19 @@ internal static partial class MainWindowRuntimeLogic
         var isConsoleCheck = usage.State == ProviderUsageState.ConsoleCheck;
         var isError = usage.State == ProviderUsageState.Error;
         var isUnknown = usage.State == ProviderUsageState.Unknown;
+        var isUnavailable = usage.State == ProviderUsageState.Unavailable;
         var isExpired = usage.State == ProviderUsageState.Expired;
         var isStatusOnlyProvider = usage.IsStatusOnly;
         var remainingPercent = usage.RemainingPercent;
         var usedPercent = usage.UsedPercent;
+
         var shouldHaveProgress = usage.IsAvailable &&
             !isUnknown &&
             !isStatusOnlyProvider &&
             (usage.UsedPercent > 0 || usage.IsQuotaBased) &&
             !isMissing &&
-            !isError;
+            !isError &&
+            !isUnavailable;
 
         // Always compute pace — used for bar color and badge regardless of card layout.
         var paceColor = UsageMath.ComputePaceColor(
@@ -90,6 +93,7 @@ internal static partial class MainWindowRuntimeLogic
             isMissing,
             isUnknown,
             isError,
+            isUnavailable,
             isConsoleCheck,
             isExpired,
             shouldHaveProgress,
@@ -127,6 +131,7 @@ internal static partial class MainWindowRuntimeLogic
         bool isMissing,
         bool isUnknown,
         bool isError,
+        bool isUnavailable,
         bool isConsoleCheck,
         bool isExpired,
         bool shouldHaveProgress,
@@ -150,6 +155,40 @@ internal static partial class MainWindowRuntimeLogic
                 RemainingPercent: remainingPercent,
                 StatusText: description,
                 StatusTone: ProviderCardStatusTone.Missing,
+                PaceColor: paceColor,
+                IsStale: isStale);
+            return true;
+        }
+
+        if (isUnknown)
+        {
+            presentation = new ProviderCardPresentation(
+                IsMissing: false,
+                IsUnknown: true,
+                IsError: false,
+                ShouldHaveProgress: false,
+                SuppressSingleResetTime: false,
+                UsedPercent: usedPercent,
+                RemainingPercent: remainingPercent,
+                StatusText: string.IsNullOrWhiteSpace(description) ? "Status unknown" : description,
+                StatusTone: ProviderCardStatusTone.Warning,
+                PaceColor: paceColor,
+                IsStale: isStale);
+            return true;
+        }
+
+        if (isUnavailable)
+        {
+            presentation = new ProviderCardPresentation(
+                IsMissing: false,
+                IsUnknown: false,
+                IsError: false,
+                ShouldHaveProgress: false,
+                SuppressSingleResetTime: false,
+                UsedPercent: usedPercent,
+                RemainingPercent: remainingPercent,
+                StatusText: string.IsNullOrWhiteSpace(description) ? "Provider unavailable" : description,
+                StatusTone: ProviderCardStatusTone.Warning,
                 PaceColor: paceColor,
                 IsStale: isStale);
             return true;
@@ -222,6 +261,17 @@ internal static partial class MainWindowRuntimeLogic
     {
         var description = usage.Description ?? string.Empty;
 
+        // Safety check: unavailable providers should never show percentage-based text.
+        if (!usage.IsAvailable || usage.State != ProviderUsageState.Available)
+        {
+            return (description, false);
+        }
+
+        if (usage.IsStatusOnly)
+        {
+            return (description, false);
+        }
+
         if (usage.IsTooltipOnly)
         {
             return (GetTooltipOnlyCompactStatus(usage, description), false);
@@ -230,11 +280,6 @@ internal static partial class MainWindowRuntimeLogic
         if (dualBar != null)
         {
             return (BuildDualQuotaBucketStatusText(dualBar, showUsed), true);
-        }
-
-        if (usage.State == ProviderUsageState.Unknown || usage.IsStatusOnly)
-        {
-            return (description, false);
         }
 
         if (usage.IsQuotaBased)

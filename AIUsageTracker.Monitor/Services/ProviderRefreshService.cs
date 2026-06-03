@@ -18,53 +18,27 @@ public class ProviderRefreshService : BackgroundService
     private readonly INotificationService _notificationService;
     private readonly IConfigService _configService;
     private readonly IAppPathProvider _pathProvider;
-    private readonly ProviderRefreshCircuitBreakerService _providerCircuitBreakerService;
-    private readonly ProviderRefreshConfigLoadingService _configLoadingService;
+    private readonly ProviderRefreshDependencies _refreshDeps;
     private readonly ProviderRefreshTelemetryManager _refreshTelemetryManager = new();
-    private readonly ProviderUsagePersistenceService _usagePersistenceService;
-    private readonly ProviderConnectivityCheckService _connectivityCheckService;
-    private readonly ProviderRefreshJobScheduler _refreshJobScheduler;
-    private readonly ProviderManagerLifecycleService _providerManagerLifecycle;
-    private readonly ProviderRefreshNotificationService _refreshNotificationService;
     private static readonly ActivitySource ActivitySource = MonitorActivitySources.Refresh;
-    private readonly StartupSequenceService _startupSequenceService;
-    private readonly IProviderUsageProcessingPipeline _usageProcessingPipeline;
     private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
     private volatile CancellationTokenSource? _activeRefreshCts;
     private readonly TimeSpan _refreshInterval = TimeSpan.FromMinutes(5);
 
-#pragma warning disable S107
     public ProviderRefreshService(
         ILogger<ProviderRefreshService> logger,
         IUsageDatabase database,
         INotificationService notificationService,
         IConfigService configService,
         IAppPathProvider pathProvider,
-        ProviderRefreshCircuitBreakerService providerCircuitBreakerService,
-        ProviderRefreshConfigLoadingService configLoadingService,
-        ProviderUsagePersistenceService usagePersistenceService,
-        ProviderConnectivityCheckService connectivityCheckService,
-        ProviderRefreshJobScheduler refreshJobScheduler,
-        ProviderManagerLifecycleService providerManagerLifecycle,
-        ProviderRefreshNotificationService refreshNotificationService,
-        StartupSequenceService startupSequenceService,
-        IProviderUsageProcessingPipeline usageProcessingPipeline)
-#pragma warning restore S107
+        ProviderRefreshDependencies refreshDeps)
     {
         this._logger = logger;
         this._database = database;
         this._notificationService = notificationService;
         this._configService = configService;
         this._pathProvider = pathProvider;
-        this._providerCircuitBreakerService = providerCircuitBreakerService;
-        this._configLoadingService = configLoadingService;
-        this._usagePersistenceService = usagePersistenceService;
-        this._connectivityCheckService = connectivityCheckService;
-        this._refreshJobScheduler = refreshJobScheduler;
-        this._providerManagerLifecycle = providerManagerLifecycle;
-        this._refreshNotificationService = refreshNotificationService;
-        this._startupSequenceService = startupSequenceService;
-        this._usageProcessingPipeline = usageProcessingPipeline;
+        this._refreshDeps = refreshDeps;
     }
 
     public bool QueueManualRefresh(
@@ -73,7 +47,7 @@ public class ProviderRefreshService : BackgroundService
         bool bypassCircuitBreaker = false)
     {
         var coalesceKey = BuildManualRefreshCoalesceKey(forceAll, includeProviderIds, bypassCircuitBreaker);
-        return this._refreshJobScheduler.QueueManualRefresh(
+        return this._refreshDeps.RefreshJobScheduler.QueueManualRefresh(
             ct => this.TriggerRefreshAsync(forceAll, includeProviderIds, bypassCircuitBreaker, ct),
             coalesceKey);
     }
@@ -129,14 +103,14 @@ public class ProviderRefreshService : BackgroundService
         var initialConcurrency = await this.GetConfiguredMaxConcurrentProviderRequestsAsync().ConfigureAwait(false);
         this.InitializeProviders(initialConcurrency);
 
-        this._refreshJobScheduler.RegisterRecurringRefresh(
+        this._refreshDeps.RefreshJobScheduler.RegisterRecurringRefresh(
             this._refreshInterval,
             ct => this.TriggerRefreshAsync(cancellationToken: ct));
 
         var isEmpty = await this._database.IsHistoryEmptyAsync().ConfigureAwait(false);
         if (isEmpty)
         {
-            this._startupSequenceService.QueueInitialDataSeeding(
+            this._refreshDeps.StartupSequenceService.QueueInitialDataSeeding(
                 ct => this.TriggerRefreshAsync(forceAll: true, cancellationToken: ct));
         }
         else
@@ -147,7 +121,7 @@ public class ProviderRefreshService : BackgroundService
 
             // Only do targeted refresh for system providers that need immediate correctness
             // All other providers will be refreshed on the normal scheduled interval
-            this._startupSequenceService.QueueStartupTargetedRefresh(
+            this._refreshDeps.StartupSequenceService.QueueStartupTargetedRefresh(
                 (providerIds, ct) => this.TriggerRefreshAsync(forceAll: true, includeProviderIds: providerIds, cancellationToken: ct));
         }
 
@@ -199,19 +173,19 @@ public class ProviderRefreshService : BackgroundService
 
             this._logger.LogDebug("Starting data refresh - {Time}", DateTime.Now.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture));
 
-            await this._refreshNotificationService.NotifyRefreshStartedAsync().ConfigureAwait(false);
+            await this._refreshDeps.RefreshNotificationService.NotifyRefreshStartedAsync().ConfigureAwait(false);
 
             this._logger.LogInformation("Refreshing...");
-            var (configs, activeConfigs) = await this._configLoadingService
+            var (configs, activeConfigs) = await this._refreshDeps.ConfigLoadingService
                 .LoadConfigsForRefreshAsync(forceAll, includeProviderIds)
                 .ConfigureAwait(false);
             refreshActivity?.SetTag("refresh.configs.total", configs.Count);
             refreshActivity?.SetTag("refresh.configs.active", activeConfigs.Count);
-            await this._configLoadingService.PersistConfiguredProvidersAsync(configs).ConfigureAwait(false);
+            await this._refreshDeps.ConfigLoadingService.PersistConfiguredProvidersAsync(configs).ConfigureAwait(false);
 
             var refreshableConfigs = bypassCircuitBreaker
                 ? activeConfigs
-                : this._providerCircuitBreakerService.GetRefreshableConfigs(activeConfigs, forceAll);
+                : this._refreshDeps.CircuitBreakerService.GetRefreshableConfigs(activeConfigs, forceAll);
             var refreshableIdSet = refreshableConfigs
                 .Select(c => c.ProviderId)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -250,7 +224,7 @@ public class ProviderRefreshService : BackgroundService
             refreshSucceeded = true;
             refreshActivity?.SetStatus(ActivityStatusCode.Ok);
 
-            await this._refreshNotificationService.NotifyUsageUpdatedAsync(refreshedUsages).ConfigureAwait(false);
+            await this._refreshDeps.RefreshNotificationService.NotifyUsageUpdatedAsync(refreshedUsages).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or IOException)
         {
@@ -300,7 +274,7 @@ public class ProviderRefreshService : BackgroundService
 
         // Synthesize "circuit open" entries so the UI shows an actionable message
         // instead of stale cached data for providers currently in backoff.
-        var circuitOpenUsages = this._providerCircuitBreakerService.CreateCircuitOpenUsages(circuitSkippedConfigs);
+        var circuitOpenUsages = this._refreshDeps.CircuitBreakerService.CreateCircuitOpenUsages(circuitSkippedConfigs);
         if (circuitOpenUsages.Count > 0)
         {
             this._logger.LogDebug("Synthesizing {Count} circuit-open usage entries", circuitOpenUsages.Count);
@@ -323,7 +297,7 @@ public class ProviderRefreshService : BackgroundService
 
         var prefs = await this._configService.GetPreferencesAsync().ConfigureAwait(false);
 
-        var processingResult = this._usageProcessingPipeline.Process(
+        var processingResult = this._refreshDeps.UsageProcessingPipeline.Process(
             usages,
             activeProviderIds,
             prefs.IsPrivacyMode);
@@ -350,12 +324,12 @@ public class ProviderRefreshService : BackgroundService
             this._logger.LogDebug("  {ProviderId}: [{Status}] {Message}", usage.ProviderId, status, message);
         }
 
-        this._providerCircuitBreakerService.UpdateProviderFailureStates(refreshableConfigs, filteredUsages);
-        await this._usagePersistenceService
+        this._refreshDeps.CircuitBreakerService.UpdateProviderFailureStates(refreshableConfigs, filteredUsages);
+        await this._refreshDeps.UsagePersistenceService
             .PersistUsageAndDynamicProvidersAsync(filteredUsages, activeProviderIds)
             .ConfigureAwait(false);
 
-        await this._refreshNotificationService
+        await this._refreshDeps.RefreshNotificationService
             .ProcessUsageAlertsAsync(filteredUsages, prefs, allConfigs)
             .ConfigureAwait(false);
 
@@ -366,7 +340,7 @@ public class ProviderRefreshService : BackgroundService
 
     public RefreshTelemetrySnapshot GetRefreshTelemetrySnapshot()
     {
-        return this._refreshTelemetryManager.GetSnapshot(this._providerCircuitBreakerService.GetProviderDiagnostics());
+        return this._refreshTelemetryManager.GetSnapshot(this._refreshDeps.CircuitBreakerService.GetProviderDiagnostics());
     }
 
     public async Task<(bool Success, string Message, int Status)> CheckProviderAsync(string providerId, CancellationToken cancellationToken = default)
@@ -389,7 +363,7 @@ public class ProviderRefreshService : BackgroundService
                 }
 
                 var usages = await providerManager.GetUsageAsync(providerId, cancellationToken).ConfigureAwait(false);
-                return await this._connectivityCheckService.EvaluateAsync(providerId, usages).ConfigureAwait(false);
+                return await this._refreshDeps.ConnectivityCheckService.EvaluateAsync(providerId, usages).ConfigureAwait(false);
             }
             finally
             {
@@ -405,11 +379,11 @@ public class ProviderRefreshService : BackgroundService
 
     public override void Dispose()
     {
-        this._providerManagerLifecycle.Dispose();
+        this._refreshDeps.ProviderManagerLifecycle.Dispose();
         base.Dispose();
     }
 
-    private ProviderManager? ProviderManager => this._providerManagerLifecycle.CurrentManager;
+    private ProviderManager? ProviderManager => this._refreshDeps.ProviderManagerLifecycle.CurrentManager;
 
     private static (bool Success, string Message, int Status) ProviderManagerNotInitialized()
     {
@@ -433,16 +407,16 @@ public class ProviderRefreshService : BackgroundService
 
     private async Task<int> GetConfiguredMaxConcurrentProviderRequestsAsync()
     {
-        return await this._providerManagerLifecycle.GetConfiguredMaxConcurrentProviderRequestsAsync().ConfigureAwait(false);
+        return await this._refreshDeps.ProviderManagerLifecycle.GetConfiguredMaxConcurrentProviderRequestsAsync().ConfigureAwait(false);
     }
 
     private async Task EnsureProviderManagerConcurrencyAsync()
     {
-        await this._providerManagerLifecycle.EnsureConcurrencyAsync().ConfigureAwait(false);
+        await this._refreshDeps.ProviderManagerLifecycle.EnsureConcurrencyAsync().ConfigureAwait(false);
     }
 
     private void InitializeProviders(int maxConcurrentProviderRequests)
     {
-        this._providerManagerLifecycle.Initialize(maxConcurrentProviderRequests);
+        this._refreshDeps.ProviderManagerLifecycle.Initialize(maxConcurrentProviderRequests);
     }
 }

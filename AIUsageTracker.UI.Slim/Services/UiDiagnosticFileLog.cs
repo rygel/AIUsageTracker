@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Text.Json;
 
 namespace AIUsageTracker.UI.Slim.Services;
 
@@ -13,6 +14,10 @@ internal static class UiDiagnosticFileLog
     private static readonly object Sync = new();
     private static readonly TimeSpan RetentionPeriod = TimeSpan.FromDays(14);
     private static DateTime _lastPruneUtc = DateTime.MinValue;
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+    };
 
     public static void Write(string message)
     {
@@ -43,6 +48,49 @@ internal static class UiDiagnosticFileLog
         catch (UnauthorizedAccessException ex)
         {
             Debug.WriteLine($"[UiDiagnosticFileLog] Failed to write diagnostic entry: {ex.Message}");
+        }
+    }
+
+    public static void WriteUpdateAttemptSummary(
+        string attemptId,
+        string version,
+        string downloadUrl,
+        bool success,
+        string failureReason,
+        string? installerPath,
+        string? installerSha256)
+    {
+        try
+        {
+            var now = DateTimeOffset.UtcNow;
+            var summary = new
+            {
+                AttemptId = attemptId,
+                Version = version,
+                DownloadUrl = downloadUrl,
+                Success = success,
+                FailureReason = failureReason,
+                InstallerPath = installerPath,
+                InstallerSha256 = installerSha256,
+                TimestampUtc = now.ToString("O", CultureInfo.InvariantCulture),
+            };
+
+            lock (Sync)
+            {
+                var logDirectory = ResolveLogDirectory();
+                Directory.CreateDirectory(logDirectory);
+                var summaryPath = Path.Combine(logDirectory, "update-last-attempt.json");
+                var json = JsonSerializer.Serialize(summary, JsonOptions);
+                File.WriteAllText(summaryPath, json);
+            }
+        }
+        catch (IOException ex)
+        {
+            Debug.WriteLine($"[UiDiagnosticFileLog] Failed to write update summary: {ex.Message}");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Debug.WriteLine($"[UiDiagnosticFileLog] Failed to write update summary: {ex.Message}");
         }
     }
 

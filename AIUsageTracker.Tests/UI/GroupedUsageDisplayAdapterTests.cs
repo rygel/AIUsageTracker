@@ -537,6 +537,81 @@ public class GroupedUsageDisplayAdapterTests
     }
 
     [Fact]
+    public void Expand_FlatCards_PropagateUnavailableStateAndProviderDescription()
+    {
+        var snapshot = new AgentGroupedUsageSnapshot
+        {
+            Providers = new[]
+            {
+                new AgentGroupedProviderUsage
+                {
+                    ProviderId = "gemini-cli",
+                    ProviderName = "Google Gemini",
+                    IsAvailable = false,
+                    State = ProviderUsageState.Unavailable,
+                    IsQuotaBased = true,
+                    PlanType = PlanType.Coding,
+                    Description = "Temporarily paused after repeated failures",
+                    Models = new[]
+                    {
+                        new AgentGroupedModelUsage
+                        {
+                            ModelId = "gemini-2.5-flash-lite",
+                            ModelName = "Gemini 2.5 Flash Lite",
+                        },
+                    },
+                },
+            },
+        };
+
+        var usages = GroupedUsageDisplayAdapter.Expand(snapshot);
+
+        var card = Assert.Single(usages);
+        Assert.False(card.IsAvailable);
+        Assert.Equal(ProviderUsageState.Unavailable, card.State);
+        Assert.Equal("Temporarily paused after repeated failures", card.Description);
+    }
+
+    [Fact]
+    public void Expand_FlatCards_UnavailableWithoutProviderDescription_DoesNotFallbackToModelDescription()
+    {
+        var snapshot = new AgentGroupedUsageSnapshot
+        {
+            Providers = new[]
+            {
+                new AgentGroupedProviderUsage
+                {
+                    ProviderId = "gemini-cli",
+                    ProviderName = "Google Gemini",
+                    IsAvailable = false,
+                    State = ProviderUsageState.Unavailable,
+                    IsQuotaBased = true,
+                    PlanType = PlanType.Coding,
+                    Description = string.Empty,
+                    Models = new[]
+                    {
+                        new AgentGroupedModelUsage
+                        {
+                            ModelId = "gemini-2.5-flash-lite",
+                            ModelName = "Gemini 2.5 Flash Lite",
+                            EffectiveDescription = "100% Remaining",
+                            EffectiveRemainingPercentage = 100,
+                            EffectiveUsedPercentage = 0,
+                        },
+                    },
+                },
+            },
+        };
+
+        var usages = GroupedUsageDisplayAdapter.Expand(snapshot);
+
+        var card = Assert.Single(usages);
+        Assert.False(card.IsAvailable);
+        Assert.Equal(ProviderUsageState.Unavailable, card.State);
+        Assert.Equal(string.Empty, card.Description);
+    }
+
+    [Fact]
     public void Expand_AntigravitySnapshot_ProducesSingleFlatCard_NoParent()
     {
         // Antigravity uses FlatWindowCards: each model becomes an independent flat card.

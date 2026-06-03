@@ -21,30 +21,14 @@ public class StartupAntiHammerTests
             INotificationService notificationService,
             IConfigService configService,
             IAppPathProvider pathProvider,
-            ProviderRefreshCircuitBreakerService providerCircuitBreakerService,
-            ProviderRefreshConfigLoadingService configLoadingService,
-            ProviderUsagePersistenceService usagePersistenceService,
-            ProviderConnectivityCheckService connectivityCheckService,
-            ProviderRefreshJobScheduler refreshJobScheduler,
-            ProviderManagerLifecycleService providerManagerLifecycle,
-            ProviderRefreshNotificationService refreshNotificationService,
-            StartupSequenceService startupSequenceService,
-            IProviderUsageProcessingPipeline usageProcessingPipeline)
+            ProviderRefreshDependencies refreshDeps)
             : base(
                 logger,
                 database,
                 notificationService,
                 configService,
                 pathProvider,
-                providerCircuitBreakerService,
-                configLoadingService,
-                usagePersistenceService,
-                connectivityCheckService,
-                refreshJobScheduler,
-                providerManagerLifecycle,
-                refreshNotificationService,
-                startupSequenceService,
-                usageProcessingPipeline)
+                refreshDeps)
         {
         }
 
@@ -120,12 +104,7 @@ public class StartupAntiHammerTests
         var refreshNotificationService = new ProviderRefreshNotificationService(usageAlertsService);
         var startupSequenceService = new StartupSequenceService(refreshJobScheduler, mockConfigService.Object, mockPathProvider.Object, NullLogger<StartupSequenceService>.Instance);
 
-        var service = new TestableProviderRefreshService(
-            mockLogger.Object,
-            mockDb.Object,
-            mockNotificationService.Object,
-            mockConfigService.Object,
-            mockPathProvider.Object,
+        var refreshDeps = new ProviderRefreshDependencies(
             providerCircuitBreakerService,
             configLoadingService,
             usagePersistenceService,
@@ -135,6 +114,14 @@ public class StartupAntiHammerTests
             refreshNotificationService,
             startupSequenceService,
             processingPipeline);
+
+        var service = new TestableProviderRefreshService(
+            mockLogger.Object,
+            mockDb.Object,
+            mockNotificationService.Object,
+            mockConfigService.Object,
+            mockPathProvider.Object,
+            refreshDeps);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
 
@@ -203,12 +190,7 @@ public class StartupAntiHammerTests
         var refreshNotificationService = new ProviderRefreshNotificationService(usageAlertsService);
         var startupSequenceService = new StartupSequenceService(refreshJobScheduler, mockConfigService.Object, mockPathProvider.Object, NullLogger<StartupSequenceService>.Instance);
 
-        var service = new TestableProviderRefreshService(
-            mockLogger.Object,
-            mockDb.Object,
-            mockNotificationService.Object,
-            mockConfigService.Object,
-            mockPathProvider.Object,
+        var refreshDeps = new ProviderRefreshDependencies(
             providerCircuitBreakerService,
             configLoadingService,
             usagePersistenceService,
@@ -218,6 +200,14 @@ public class StartupAntiHammerTests
             refreshNotificationService,
             startupSequenceService,
             processingPipeline);
+
+        var service = new TestableProviderRefreshService(
+            mockLogger.Object,
+            mockDb.Object,
+            mockNotificationService.Object,
+            mockConfigService.Object,
+            mockPathProvider.Object,
+            refreshDeps);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
 

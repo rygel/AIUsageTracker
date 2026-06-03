@@ -5,6 +5,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Reflection;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Services;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -146,17 +147,37 @@ public class GitHubUpdateCheckerExtendedTests : IDisposable
     [Fact]
     public void UpdateInstallResult_Ok_ReturnsSuccess()
     {
-        var result = GitHubUpdateChecker.UpdateInstallResult.Ok();
+        var result = GitHubUpdateChecker.UpdateInstallResult.Ok("attempt-1", @"C:\tmp\setup.exe", "ABC123");
         Assert.True(result.Success);
         Assert.Equal(string.Empty, result.FailureReason);
+        Assert.Equal("attempt-1", result.AttemptId);
     }
 
     [Fact]
     public void UpdateInstallResult_Fail_ReturnsFailure()
     {
-        var result = GitHubUpdateChecker.UpdateInstallResult.Fail("test reason");
+        var result = GitHubUpdateChecker.UpdateInstallResult.Fail("test reason", "attempt-2");
         Assert.False(result.Success);
         Assert.Equal("test reason", result.FailureReason);
+        Assert.Equal("attempt-2", result.AttemptId);
+    }
+
+    [Fact]
+    public void GetInstallerDownloadPath_UsesLocalAppData_NotTemp()
+    {
+        var method = typeof(GitHubUpdateChecker).GetMethod(
+            "GetInstallerDownloadPath",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        var path = (string)method!.Invoke(null, ["2.3.4"])!;
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var tempPath = Path.GetTempPath();
+
+        Assert.StartsWith(localAppData, path, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(tempPath.TrimEnd(Path.DirectorySeparatorChar), path, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(Path.Combine("AIUsageTracker", "Updates"), path, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith("AIUsageTracker_Setup_2.3.4.exe", path, StringComparison.OrdinalIgnoreCase);
     }
 
     private void SetupHttpResponse(string content, HttpStatusCode statusCode)

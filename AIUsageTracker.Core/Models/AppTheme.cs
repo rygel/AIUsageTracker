@@ -20,4 +20,5 @@ public enum AppTheme
     CatppuccinMacchiato,
     CatppuccinMocha,
     CatppuccinLatte,
+    System,
 }
