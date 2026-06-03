@@ -2,45 +2,27 @@
 
 ## [Unreleased]
 
-## [2.3.5-beta.5] - 2026-06-02
+## [2.3.5] - 2026-06-03
+
+### Added
+- **System (Auto) theme**: new theme option that automatically matches the Windows dark/light mode setting and switches in real-time when the OS theme changes. Available in both Slim UI (registry-based detection) and Web UI (matchMedia-based detection).
 
 ### Fixed
 - **Minimax Token Plan response format**: Handle new API response where `current_interval_total_count` is always 0 and actual usage is in `current_interval_remaining_percent`. Model name changed from "Text Generation" to "general".
+- **Minimax provider migrated to new API endpoint**: Minimax removed their `/v1/user/usage` endpoint (returns 404). Migrated to the new `/v1/token_plan/remains` credit-based endpoint. The `minimax`, `minimax-io`, and `minimax-global` provider IDs now produce burst + weekly window cards aligned with Minimax's credit-based quota windows (5h rolling + weekly).
+- **Unavailable providers no longer glitch to zero**: flat/model cards now preserve the provider's unavailable state and description instead of falling back to synthetic `0% used` or `100% remaining` text.
+- **Unavailable cards no longer leak derived quota details**: custom card slots, dual-bar status rendering, and tooltips now suppress percent, pace, budget, and reset details when the provider is not actually available.
+- **Status-only providers keep descriptive status text**: status-only cards such as connection/auth status rows now preserve messages like `Connected` instead of falling through to quota percentage formatting.
 - **Gitleaks baseline regenerated**: Fixed stale line numbers causing false positives on CI.
+- **Update failure triage**: Improved diagnostics with stage-specific context and native error codes.
 
 ### Changed
 - **ProviderBase template method**: Added `FetchJsonAsync<T>` for common HTTP send/status/deserialize pattern. Migrated DeepSeek, Kimi, and Xiaomi providers.
 - **ProviderRefreshService refactored**: Grouped 14 constructor dependencies into `ProviderRefreshDependencies` record (14 → 6 params).
 - **ProviderMetadataCatalog**: Uses reflection to discover provider definitions instead of hardcoded list.
+- **Updater diagnostics**: Added correlation attempt ID, installer artifact diagnostics (path/size/SHA-256), and persisted last-attempt summary for post-failure triage.
 - **opencode.json untracked**: Moved to `.gitignore` — local config with per-user secrets.
-
-## [2.3.5-beta.4] - 2026-06-01
-
-### Fixed
-- **Minimax provider migrated to new API endpoint**: Minimax removed their `/v1/user/usage` endpoint (returns 404). Migrated to the new `/v1/token_plan/remains` credit-based endpoint. The `minimax`, `minimax-io`, and `minimax-global` provider IDs now produce burst + weekly window cards aligned with Minimax's credit-based quota windows (5h rolling + weekly).
-
-## [2.3.5-beta.3] - 2026-05-08
-
-### Added
-- **System (Auto) theme**: new theme option that automatically matches the Windows dark/light mode setting and switches in real-time when the OS theme changes. Available in both Slim UI (registry-based detection) and Web UI (matchMedia-based detection).
-
-### Changed
 - **Bumped Meziantou.Analyzer** from 3.0.58 to 3.0.70.
-
-## [2.3.5-beta.2] - 2026-05-04
-
-### Fixed
-- **Unavailable providers no longer glitch to zero**: flat/model cards now preserve the provider's unavailable state and description instead of falling back to synthetic `0% used` or `100% remaining` text.
-- **Unavailable cards no longer leak derived quota details**: custom card slots, dual-bar status rendering, and tooltips now suppress percent, pace, budget, and reset details when the provider is not actually available.
-- **Status-only providers keep descriptive status text**: status-only cards such as connection/auth status rows now preserve messages like `Connected` instead of falling through to quota percentage formatting.
-## [2.3.5-beta.1] - 2026-05-03
-
-### Changed
-- updater diagnostics correlation (attempt ID) and installer artifact diagnostics (path/size/SHA-256).
-- persisted `update-last-attempt.json` for post-failure triage context.
-
-### Fixed
-- update failure triage gap with stage-specific context and native error codes.
 ## [2.3.4-beta.35] - 2026-05-03
 
 ### Changed
