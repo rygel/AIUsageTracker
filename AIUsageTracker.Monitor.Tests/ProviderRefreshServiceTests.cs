@@ -747,13 +747,13 @@ public class ProviderRefreshServiceTests
 
     private static int GetProviderManagerConcurrency(ProviderRefreshService service)
     {
-        var lifecycleField = typeof(ProviderRefreshService).GetField(
-            "_providerManagerLifecycle",
+        var refreshDepsField = typeof(ProviderRefreshService).GetField(
+            "_refreshDeps",
             BindingFlags.Instance | BindingFlags.NonPublic);
-        Assert.NotNull(lifecycleField);
+        Assert.NotNull(refreshDepsField);
 
-        var lifecycle = Assert.IsType<ProviderManagerLifecycleService>(lifecycleField!.GetValue(service));
-        return lifecycle.CurrentMaxConcurrency;
+        var refreshDeps = Assert.IsType<ProviderRefreshDependencies>(refreshDepsField!.GetValue(service));
+        return refreshDeps.ProviderManagerLifecycle.CurrentMaxConcurrency;
     }
 
     [Fact]
