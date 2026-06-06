@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [2.3.6-beta.1] - 2026-06-06
+
+### Fixed
+- **Minimax always shows two bars**: The Minimax provider had conditional fallback logic that skipped the burst (5h) card when `remaining_percent` was 0 (exhausted quota). Now always returns both 5h and Weekly cards using `remaining_percent` directly. No conditionals, no fallbacks.
+
+### Changed
+- **Minimax test fixtures**: Rewritten to match real API response format (`remaining_percent` fields). Added test using sanitized live API response snapshot.
+
 ## [2.3.5] - 2026-06-03
 
 ### Added
