@@ -25,6 +25,47 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
     }
 
     [Fact]
+    public async Task GetUsageAsync_RealApiFixture_ReturnsTwoCardsAsync()
+    {
+        var responseJson = """
+            {
+                "base_resp": { "status_code": 0, "status_msg": "success" },
+                "model_remains": [
+                    {
+                        "start_time": 1780740000000,
+                        "end_time": 1780758000000,
+                        "remains_time": 2118991,
+                        "current_interval_total_count": 0,
+                        "current_interval_usage_count": 0,
+                        "model_name": "general",
+                        "current_weekly_total_count": 0,
+                        "current_weekly_usage_count": 0,
+                        "weekly_start_time": 1780272000000,
+                        "weekly_end_time": 1780876800000,
+                        "weekly_remains_time": 120918991,
+                        "current_interval_status": 2,
+                        "current_interval_remaining_percent": 0,
+                        "current_weekly_status": 1,
+                        "current_weekly_remaining_percent": 49
+                    }
+                ]
+            }
+            """;
+
+        this.SetupResponse(HttpStatusCode.OK, responseJson);
+
+        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+
+        Assert.Equal(2, result.Count);
+        var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
+        var weekly = result.Single(u => u.WindowKind == WindowKind.Rolling);
+        Assert.Equal(100, burst.UsedPercent);
+        Assert.Equal(51, weekly.UsedPercent);
+        Assert.NotNull(burst.NextResetTime);
+        Assert.NotNull(weekly.NextResetTime);
+    }
+
+    [Fact]
     public async Task GetUsageAsync_Always_ReturnsTwoCardsAsync()
     {
         var responseJson = """
