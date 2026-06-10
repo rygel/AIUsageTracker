@@ -77,10 +77,18 @@ public partial class SettingsWindow
         // Input row
         var keyPanel = new Grid { Margin = new Thickness(0, 0, 0, 0) };
         keyPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        keyPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         var keyContent = this.BuildProviderInputContent(config, usage, settingsBehavior);
         Grid.SetColumn(keyContent, 0);
         keyPanel.Children.Add(keyContent);
+
+        if (settingsBehavior.InputMode == ProviderInputMode.StandardApiKey)
+        {
+            var testButton = this.BuildTestConnectionButton(config, keyContent);
+            Grid.SetColumn(testButton, 1);
+            keyPanel.Children.Add(testButton);
+        }
 
         Grid.SetRow(keyPanel, 1);
         grid.Children.Add(keyPanel);
@@ -632,6 +640,71 @@ public partial class SettingsWindow
         panel.Children.Add(keyBox);
         panel.Children.Add(authSourcePanel);
         return panel;
+    }
+
+    private Button BuildTestConnectionButton(ProviderConfig config, FrameworkElement keyContent)
+    {
+        var resultText = new TextBlock
+        {
+            FontSize = 9,
+            TextWrapping = TextWrapping.Wrap,
+            Visibility = Visibility.Collapsed,
+        };
+        resultText.SetResourceReference(TextBlock.ForegroundProperty, ResourceKeySecondaryText);
+
+        var button = new Button
+        {
+            Content = "Test",
+            FontSize = 10,
+            Padding = new Thickness(10, 4, 10, 4),
+            Margin = new Thickness(8, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Top,
+            MinWidth = 50,
+            Tag = resultText,
+        };
+        button.SetResourceReference(Button.ForegroundProperty, ResourceKeySecondaryText);
+
+        button.Click += async (_, _) =>
+        {
+            var trackedConfig = this.GetOrCreateTrackedConfig(config);
+            var apiKey = trackedConfig.ApiKey;
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                resultText.Text = "Enter an API key first";
+                resultText.Visibility = Visibility.Visible;
+                return;
+            }
+
+            button.IsEnabled = false;
+            button.Content = "...";
+            resultText.Visibility = Visibility.Collapsed;
+
+            try
+            {
+                var result = await this._monitorService
+                    .TestProviderConnectionAsync(config.ProviderId, apiKey)
+                    .ConfigureAwait(true);
+
+                resultText.Text = result.Success ? "Connected" : result.Message;
+                resultText.Foreground = result.Success
+                    ? new SolidColorBrush(Color.FromRgb(106, 168, 79))
+                    : new SolidColorBrush(Color.FromRgb(205, 92, 92));
+                resultText.Visibility = Visibility.Visible;
+            }
+            catch (InvalidOperationException ex)
+            {
+                resultText.Text = $"Error: {ex.Message}";
+                resultText.Foreground = new SolidColorBrush(Color.FromRgb(205, 92, 92));
+                resultText.Visibility = Visibility.Visible;
+            }
+            finally
+            {
+                button.Content = "Test";
+                button.IsEnabled = true;
+            }
+        };
+
+        return button;
     }
 
     private static FrameworkElement? BuildAuthSourcePanel(string? authSource)
