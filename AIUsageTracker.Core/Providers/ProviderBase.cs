@@ -117,7 +117,8 @@ public abstract class ProviderBase : IProviderService
 
         var statusCode = (int)response.StatusCode;
         var description = DescribeUnavailableStatus(response.StatusCode);
-        return this.CreateUnavailableUsage(description, statusCode, authSource);
+        var failureContext = HttpFailureContext.FromHttpStatus(statusCode, description);
+        return this.CreateUnavailableUsage(description, statusCode, authSource, failureContext: failureContext);
     }
 
     protected ProviderUsage CreateUnavailableUsageFromException(
@@ -126,7 +127,14 @@ public abstract class ProviderBase : IProviderService
         string? authSource = null)
     {
         var message = DescribeUnavailableException(ex, context);
-        return this.CreateUnavailableUsage(message, 0, authSource);
+        var classification = ex switch
+        {
+            TaskCanceledException => HttpFailureClassification.Timeout,
+            HttpRequestException => HttpFailureClassification.Network,
+            _ => HttpFailureClassification.Unknown,
+        };
+        var failureContext = HttpFailureContext.FromException(ex, classification, message);
+        return this.CreateUnavailableUsage(message, 0, authSource, failureContext: failureContext);
     }
 
     protected ProviderUsage CreateUnavailableUsageFromProviderException(
@@ -149,7 +157,19 @@ public abstract class ProviderBase : IProviderService
             _ => ex.Message,
         };
 
-        return this.CreateUnavailableUsage(description, ex.HttpStatusCode ?? 0, authSource);
+        var classification = ex.ErrorType switch
+        {
+            ProviderErrorType.AuthenticationError => HttpFailureClassification.Authentication,
+            ProviderErrorType.AuthorizationError => HttpFailureClassification.Authorization,
+            ProviderErrorType.NetworkError => HttpFailureClassification.Network,
+            ProviderErrorType.TimeoutError => HttpFailureClassification.Timeout,
+            ProviderErrorType.RateLimitError => HttpFailureClassification.RateLimit,
+            ProviderErrorType.ServerError => HttpFailureClassification.Server,
+            ProviderErrorType.DeserializationError => HttpFailureClassification.Deserialization,
+            _ => HttpFailureClassification.Unknown,
+        };
+        var failureContext = HttpFailureContext.FromException(ex, classification, description);
+        return this.CreateUnavailableUsage(description, ex.HttpStatusCode ?? 0, authSource, failureContext: failureContext);
     }
 
     protected static string DescribeUnavailableStatus(HttpStatusCode statusCode)
@@ -208,11 +228,14 @@ public abstract class ProviderBase : IProviderService
             if (!response.IsSuccessStatusCode)
             {
                 logger.LogWarning("{ProviderId} API error: {StatusCode}", this.ProviderId, response.StatusCode);
+                var statusCode = (int)response.StatusCode;
+                var statusDescription = DescribeUnavailableStatus(response.StatusCode);
                 return ProviderFetchResult<TResponse>.Failure(
                     this.CreateUnavailableUsage(
-                        DescribeUnavailableStatus(response.StatusCode),
-                        (int)response.StatusCode,
-                        authSource: config.AuthSource),
+                        statusDescription,
+                        statusCode,
+                        authSource: config.AuthSource,
+                        failureContext: HttpFailureContext.FromHttpStatus(statusCode, statusDescription)),
                     content);
             }
 
@@ -220,7 +243,16 @@ public abstract class ProviderBase : IProviderService
             if (data == null)
             {
                 return ProviderFetchResult<TResponse>.Failure(
-                    this.CreateUnavailableUsage("Failed to parse response", (int)response.StatusCode, authSource: config.AuthSource),
+                    this.CreateUnavailableUsage(
+                        "Failed to parse response",
+                        (int)response.StatusCode,
+                        authSource: config.AuthSource,
+                        failureContext: new HttpFailureContext
+                        {
+                            Classification = HttpFailureClassification.Deserialization,
+                            HttpStatus = (int)response.StatusCode,
+                            UserMessage = "Failed to parse response",
+                        }),
                     content);
             }
 
@@ -248,7 +280,10 @@ public abstract class ProviderBase : IProviderService
         {
             logger.LogError(ex, "{ProviderId} JSON parse failed", this.ProviderId);
             return ProviderFetchResult<TResponse>.Failure(
-                this.CreateUnavailableUsage($"Failed to parse response: {ex.Message}", authSource: config.AuthSource));
+                this.CreateUnavailableUsage(
+                    $"Failed to parse response: {ex.Message}",
+                    authSource: config.AuthSource,
+                    failureContext: HttpFailureContext.FromException(ex, HttpFailureClassification.Deserialization)));
         }
     }
 }
