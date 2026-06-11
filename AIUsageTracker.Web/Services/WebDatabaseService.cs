@@ -313,7 +313,142 @@ public class WebDatabaseService : IWebDatabaseRepository
         return await this.GetTableRawAsync("reset_events", page, pageSize, "timestamp DESC").ConfigureAwait(false);
     }
 
+    public async Task<IReadOnlyList<ModelUsageBreakdown>> GetModelUsageBreakdownAsync(int hours = 168)
+    {
+        var cutoffUtc = DateTime.UtcNow.AddHours(-hours).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+
+        const string sql = @"
+            SELECT
+                COALESCE(h.model_name, h.name, h.provider_id) AS ModelName,
+                MIN(p.provider_name) AS ProviderName,
+                COUNT(*) AS SampleCount,
+                SUM(h.requests_used) AS TotalUsed,
+                AVG(h.requests_percentage) AS AvgUsedPercent
+            FROM provider_history h
+            JOIN providers p ON h.provider_id = p.provider_id
+            WHERE h.fetched_at >= @CutoffUtc
+              AND (h.model_name IS NOT NULL OR h.name IS NOT NULL)
+            GROUP BY COALESCE(h.model_name, h.name, h.provider_id)
+            ORDER BY TotalUsed DESC";
+
+        return await this.QueryIfDatabaseAvailableAsync(
+            async connection => (await connection.QueryAsync<ModelUsageBreakdown>(sql, new { CutoffUtc = cutoffUtc }).ConfigureAwait(false)).ToList(),
+            []).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<LatencyDataPoint>> GetLatencyTrendAsync(int hours = 24)
+    {
+        var cutoffUtc = DateTime.UtcNow.AddHours(-hours).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+        var bucketSeconds = hours <= 24 ? 60 : hours <= 72 ? 300 : 3600;
+
+        const string sql = @"
+            SELECT
+                h.provider_id AS ProviderId,
+                MIN(p.provider_name) AS ProviderName,
+                datetime((strftime('%s', h.fetched_at) / @BucketSeconds) * @BucketSeconds, 'unixepoch') AS Timestamp,
+                AVG(h.response_latency_ms) AS AvgLatencyMs,
+                MAX(h.response_latency_ms) AS MaxLatencyMs
+            FROM provider_history h
+            JOIN providers p ON h.provider_id = p.provider_id
+            WHERE h.fetched_at >= @CutoffUtc
+              AND h.response_latency_ms > 0
+            GROUP BY h.provider_id, (strftime('%s', h.fetched_at) / @BucketSeconds)
+            ORDER BY Timestamp ASC";
+
+        return await this.QueryDisplayNamedListIfDatabaseAvailableAsync(
+            connection => connection.QueryAsync<LatencyDataPoint>(sql, new { CutoffUtc = cutoffUtc, BucketSeconds = bucketSeconds }),
+            []).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<HttpStatusHistoryPoint>> GetHttpStatusHistoryAsync(int hours = 24)
+    {
+        var cutoffUtc = DateTime.UtcNow.AddHours(-hours).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+        var bucketSeconds = hours <= 24 ? 60 : hours <= 72 ? 300 : 3600;
+
+        const string sql = @"
+            SELECT
+                h.provider_id AS ProviderId,
+                MIN(p.provider_name) AS ProviderName,
+                datetime((strftime('%s', h.fetched_at) / @BucketSeconds) * @BucketSeconds, 'unixepoch') AS Timestamp,
+                SUM(CASE WHEN h.http_status >= 200 AND h.http_status < 300 THEN 1 ELSE 0 END) AS SuccessCount,
+                SUM(CASE WHEN h.http_status >= 400 THEN 1 ELSE 0 END) AS ErrorCount,
+                COUNT(*) AS TotalCount
+            FROM provider_history h
+            JOIN providers p ON h.provider_id = p.provider_id
+            WHERE h.fetched_at >= @CutoffUtc
+            GROUP BY h.provider_id, (strftime('%s', h.fetched_at) / @BucketSeconds)
+            ORDER BY Timestamp ASC";
+
+        return await this.QueryDisplayNamedListIfDatabaseAvailableAsync(
+            connection => connection.QueryAsync<HttpStatusHistoryPoint>(sql, new { CutoffUtc = cutoffUtc, BucketSeconds = bucketSeconds }),
+            []).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<DetailsJsonEntry>> GetRecentDetailsJsonAsync(int limit = 20)
+    {
+        const string sql = @"
+            SELECT
+                h.provider_id AS ProviderId,
+                MIN(p.provider_name) AS ProviderName,
+                h.details_json AS DetailsJson,
+                h.fetched_at AS FetchedAt
+            FROM provider_history h
+            JOIN providers p ON h.provider_id = p.provider_id
+            WHERE h.details_json IS NOT NULL
+              AND h.details_json != ''
+              AND h.details_json != '[]'
+              AND h.details_json != '{}'
+            GROUP BY h.provider_id
+            ORDER BY MAX(h.id) DESC
+            LIMIT @Limit";
+
+        return await this.QueryIfDatabaseAvailableAsync(
+            async connection =>
+            {
+                var rows = await connection.QueryAsync<dynamic>(sql, new { Limit = limit }).ConfigureAwait(false);
+                return rows.Select(r => new DetailsJsonEntry
+                {
+                    ProviderId = (string)r.ProviderId,
+                    ProviderName = (string)r.ProviderName,
+                    DetailsJson = (string?)r.DetailsJson ?? string.Empty,
+                    FetchedAt = ParseFetchedAt(r.FetchedAt),
+                }).ToList();
+            },
+            []).ConfigureAwait(false);
+    }
+
     public string GetDatabasePath() => this._connectionFactory.GetDatabasePath();
+
+    private static DateTime ParseFetchedAt(object? value)
+    {
+        if (value == null || value is DBNull)
+        {
+            return DateTime.UtcNow;
+        }
+
+        if (value is DateTime dt)
+        {
+            return dt.Kind == DateTimeKind.Utc ? dt : dt.ToUniversalTime();
+        }
+
+        if (value is long epoch)
+        {
+            return DateTimeOffset.FromUnixTimeSeconds(epoch).UtcDateTime;
+        }
+
+        if (value is double dbl && double.IsFinite(dbl))
+        {
+            return DateTimeOffset.FromUnixTimeSeconds((long)dbl).UtcDateTime;
+        }
+
+        return DateTime.TryParse(
+            Convert.ToString(value, CultureInfo.InvariantCulture),
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+            out var parsed)
+            ? parsed
+            : DateTime.UtcNow;
+    }
 
     private async Task<(IReadOnlyList<IReadOnlyDictionary<string, object?>> Rows, int TotalCount)> GetTableRawAsync(string tableName, int page, int pageSize, string? orderBy = null)
     {
