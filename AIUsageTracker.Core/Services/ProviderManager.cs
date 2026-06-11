@@ -48,6 +48,9 @@ public class ProviderManager : IDisposable
 
     public IReadOnlyList<ProviderConfig>? LastConfigs => this._lastConfigs;
 
+    public IProviderService? GetProviderService(string providerId) =>
+        this._providers.FirstOrDefault(p => p.CanHandleProviderId(providerId));
+
     public int MaxConcurrentProviderRequests { get; }
 
     public static int ClampMaxConcurrentProviderRequests(int value)

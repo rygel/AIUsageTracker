@@ -48,6 +48,12 @@ internal static partial class MainWindowRuntimeLogic
         var isUnknown = usage.State == ProviderUsageState.Unknown;
         var isUnavailable = usage.State == ProviderUsageState.Unavailable;
         var isExpired = usage.State == ProviderUsageState.Expired;
+
+        // Enrich generic descriptions with actionable messages from FailureContext.
+        if (!isMissing && (isError || isUnavailable) && usage.FailureContext is not null)
+        {
+            description = ResolveActionableErrorText(description, usage.FailureContext);
+        }
         var isStatusOnlyProvider = usage.IsStatusOnly;
         var remainingPercent = usage.RemainingPercent;
         var usedPercent = usage.UsedPercent;
@@ -434,6 +440,27 @@ internal static partial class MainWindowRuntimeLogic
     public static void SetIsCollapsed(AppPreferences preferences, string providerId, bool isCollapsed)
     {
         ArgumentNullException.ThrowIfNull(preferences);
+    }
+
+    private static string ResolveActionableErrorText(string description, HttpFailureContext failureContext)
+    {
+        if (!string.IsNullOrWhiteSpace(failureContext.UserMessage))
+        {
+            return failureContext.UserMessage;
+        }
+
+        return failureContext.Classification switch
+        {
+            HttpFailureClassification.Authentication => "Invalid API key — check your credentials",
+            HttpFailureClassification.Authorization => "Access denied — check your account permissions",
+            HttpFailureClassification.RateLimit => "Rate limited — wait a moment and try again",
+            HttpFailureClassification.Network => "Network error — check your internet connection",
+            HttpFailureClassification.Timeout => "Connection timed out — the provider may be slow",
+            HttpFailureClassification.Server => "Provider service error — try again later",
+            HttpFailureClassification.Client => "Bad request — provider may need reconfiguration",
+            HttpFailureClassification.Deserialization => "Unexpected response from provider",
+            _ => string.IsNullOrWhiteSpace(description) ? "Provider unavailable" : description,
+        };
     }
 
     private static string NormalizeIdentity(string? value)

@@ -13,6 +13,7 @@ A streamlined Windows dashboard and tray utility to monitor AI API usage, costs,
 
 ## Support
 If you want to support me and are interested in different AI model providers, you can sign up with my referral codes:
+- [Opencode Go](https://opencode.ai/go?ref=BJK682KYXH):GLM-5.1, Kimi K2.6, MiMo-V2.5 (Pro), MiniMax M3, Qwen3.7 Max, DeepSeek V4 Pro/Flash
 - [Z.AI](https://z.ai/subscribe?ic=JQTB1W1M0L): GLM-5.1, GLM-5, GLM-4.7, GLM-4.6, GLM-4.7-flash
 - [MiniMax](https://platform.minimax.io/subscribe/token-plan?code=7tAWJBCP5L&source=link): Minimax M2.7
 - [synthetic.new](https://synthetic.new/?referral=SNJDbFCgSUZso9E): Minimax M2.1, Kimi K2.5, GLM-4.7, etc.
