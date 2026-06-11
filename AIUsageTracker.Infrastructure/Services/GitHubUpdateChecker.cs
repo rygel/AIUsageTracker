@@ -236,7 +236,9 @@ public class GitHubUpdateChecker
         {
             coreVersion = version[..betaIndex];
             var betaNumStr = version[(betaIndex + 6)..]; // skip "-beta."
-            preRelease = int.TryParse(betaNumStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : 0;
+            var dashIdx = betaNumStr.IndexOf('-', StringComparison.Ordinal);
+            var numericPart = dashIdx >= 0 ? betaNumStr[..dashIdx] : betaNumStr;
+            preRelease = int.TryParse(numericPart, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : 0;
         }
         else
         {

@@ -149,7 +149,7 @@ jobs:
       - name: Setup .NET with Cache
         uses: ./.github/actions/setup-dotnet-cache
         with:
-          dotnet-version: "8.0.x"
+          dotnet-version: "10.0.x"
           cache-key-prefix: "test"
 
       - name: Restore dependencies
@@ -212,11 +212,11 @@ jobs:
         with:
           name: test-binaries-debug
           path: |
-            AIUsageTracker.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
-            AIUsageTracker.Monitor.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
-            AIUsageTracker.Monitor.Tests/bin/Debug/net8.0/**
-            AIUsageTracker.Web.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
-            scripts/Seeder/bin/Debug/net8.0/**
+            AIUsageTracker.Tests/bin/Debug/net10.0-windows10.0.17763.0/**
+            AIUsageTracker.Monitor.Tests/bin/Debug/net10.0-windows10.0.17763.0/**
+            AIUsageTracker.Monitor.Tests/bin/Debug/net10.0/**
+            AIUsageTracker.Web.Tests/bin/Debug/net10.0-windows10.0.17763.0/**
+            scripts/Seeder/bin/Debug/net10.0/**
             scripts/run-vstest-with-retry.ps1
             scripts/resolve-test-assembly.ps1
             .github/test-quarantine.txt
@@ -377,7 +377,7 @@ jobs:
         shell: pwsh
         run: |
           $ciBinaries = Join-Path $PWD "_ci_test_binaries"
-          $seederPath = Join-Path $ciBinaries "scripts\Seeder\bin\Debug\net8.0\Seeder.dll"
+          $seederPath = Join-Path $ciBinaries "scripts\Seeder\bin\Debug\net10.0\Seeder.dll"
           $fixturePath = Join-Path $ciBinaries "test-fixtures\provider-data.json"
           if (Test-Path $seederPath) {
             & dotnet $seederPath $fixturePath
@@ -496,7 +496,7 @@ jobs:
       - name: Setup .NET with Cache
         uses: ./.github/actions/setup-dotnet-cache
         with:
-          dotnet-version: "8.0.x"
+          dotnet-version: "10.0.x"
           cache-key-prefix: "cross-platform"
 
       - name: Restore Core

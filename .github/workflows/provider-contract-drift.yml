@@ -33,7 +33,7 @@ jobs:
       - name: Setup .NET with Cache
         uses: ./.github/actions/setup-dotnet-cache
         with:
-          dotnet-version: "8.0.x"
+          dotnet-version: "10.0.x"
           cache-key-prefix: "provider-contract"
 
       - name: Restore dependencies
