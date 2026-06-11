@@ -9,7 +9,7 @@ $ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $enumPath = Join-Path $projectRoot "AIUsageTracker.Core/Models/AppTheme.cs"
-$exePath = Join-Path $projectRoot "AIUsageTracker.UI.Slim/bin/$Configuration/net8.0-windows10.0.17763.0/AIUsageTracker.exe"
+$exePath = Join-Path $projectRoot "AIUsageTracker.UI.Slim/bin/$Configuration/net10.0-windows10.0.17763.0/AIUsageTracker.exe"
 
 if (-not (Test-Path $enumPath))
 {
