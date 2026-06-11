@@ -1,0 +1,345 @@
+@page "/analytics"
+@model AnalyticsModel
+@{
+    ViewData["Title"] = "Analytics";
+}
+
+<h1 class="page-title">Analytics</h1>
+
+@if (!Model.IsDatabaseAvailable)
+{
+    <div class="alert alert-warning">
+        <strong>Database not found!</strong> The Monitor database is not available.
+        Ensure the Monitor has run at least once to initialize the database.
+    </div>
+}
+else
+{
+    <div class="chart-controls mb-2">
+        <select id="timeRange"
+                name="hours"
+                class="theme-select"
+                style="width: auto;"
+                hx-get="/analytics?handler=AnalyticsPayload"
+                hx-trigger="change"
+                hx-include="this"
+                hx-target="#analytics-chart-loader"
+                hx-swap="none">
+            <option value="6" selected="@(Model.SelectedHours == 6)">Last 6 hours</option>
+            <option value="12" selected="@(Model.SelectedHours == 12)">Last 12 hours</option>
+            <option value="24" selected="@(Model.SelectedHours == 24)">Last 24 hours</option>
+            <option value="48" selected="@(Model.SelectedHours == 48)">Last 48 hours</option>
+            <option value="168" selected="@(Model.SelectedHours == 168)">Last 7 days</option>
+        </select>
+    </div>
+    <div id="analytics-chart-loader"
+         hx-get="/analytics?handler=AnalyticsPayload&hours=@Model.SelectedHours"
+         hx-trigger="load"
+         hx-swap="none"></div>
+
+    @* Section 1: Per-Model Usage Breakdown *@
+    <div class="section-header">
+        <h2 class="mb-2">Model Usage Breakdown</h2>
+    </div>
+    @if (Model.ModelBreakdown.Count > 0)
+    {
+        var maxTotal = Model.ModelBreakdown.Max(m => m.TotalUsed);
+        <div class="analytics-table-container">
+            <table class="analytics-table">
+                <thead>
+                    <tr>
+                        <th>Model</th>
+                        <th>Provider</th>
+                        <th>Total Used</th>
+                        <th>Avg Usage %</th>
+                        <th>Samples</th>
+                        <th>Distribution</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model.ModelBreakdown)
+                    {
+                        var barWidth = maxTotal > 0 ? (item.TotalUsed / maxTotal * 100) : 0;
+                        <tr>
+                            <td class="model-name">@item.ModelName</td>
+                            <td class="provider-label">@item.ProviderName</td>
+                            <td>@item.TotalUsed.ToString("N0")</td>
+                            <td>@item.AvgUsedPercent.ToString("F1")%</td>
+                            <td>@item.SampleCount</td>
+                            <td class="distribution-cell">
+                                <div class="distribution-bar">
+                                    <div class="distribution-fill" style="width: @barWidth.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%"></div>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info">No per-model data available. Providers with model_name or card names will appear here.</div>
+    }
+
+    @* Section 2: Latency Trend Chart *@
+    <div class="section-header">
+        <h2 class="mb-2">Latency Trends</h2>
+    </div>
+    <div class="chart-container">
+        <canvas id="latencyChart"></canvas>
+    </div>
+    @if (Model.LatencyData.Count == 0)
+    {
+        <div class="alert alert-info">No latency data available yet.</div>
+    }
+
+    @* Section 3: HTTP Status History *@
+    <div class="section-header">
+        <h2 class="mb-2">HTTP Status History</h2>
+    </div>
+    <div class="chart-container">
+        <canvas id="httpStatusChart"></canvas>
+    </div>
+    @if (Model.HttpStatusData.Count == 0)
+    {
+        <div class="alert alert-info">No HTTP status history available yet.</div>
+    }
+
+    @* Section 4: Details JSON Panel *@
+    <div class="section-header">
+        <h2 class="mb-2">Provider Details (Latest)</h2>
+    </div>
+    @if (Model.DetailsEntries.Count > 0)
+    {
+        <div class="details-grid">
+            @foreach (var entry in Model.DetailsEntries)
+            {
+                <div class="details-card">
+                    <div class="details-header">
+                        <span class="provider-name">@entry.ProviderName</span>
+                        <span class="details-timestamp">@entry.FetchedAt.ToLocalTime().ToString("g")</span>
+                    </div>
+                    <div class="details-json-container">
+                        <pre class="details-json"><code>@FormatDetailsJson(entry.DetailsJson)</code></pre>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info">No details_json data available from recent provider snapshots.</div>
+    }
+}
+
+@functions {
+    static string FormatDetailsJson(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return "{}";
+        }
+
+        try
+        {
+            var doc = System.Text.Json.JsonDocument.Parse(json);
+            return System.Text.Json.JsonSerializer.Serialize(doc, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        }
+        catch
+        {
+            return json;
+        }
+    }
+}
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const latencyData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.LatencyData ?? new List<AIUsageTracker.Core.Models.LatencyDataPoint>()));
+        const httpStatusData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.HttpStatusData ?? new List<AIUsageTracker.Core.Models.HttpStatusHistoryPoint>()));
+
+        let currentLatencyData = latencyData;
+        let currentHttpStatusData = httpStatusData;
+        let latencyChartInstance = null;
+        let httpStatusChartInstance = null;
+
+        const providerChartColors = {
+            'Antigravity': '#ef4444',
+            'Anthropic': '#ec4899',
+            'OpenAI': '#22c55e',
+            'GitHub Copilot': '#3b82f6',
+            'OpenCode': '#eab308'
+        };
+        const fallbackColors = ['#06b6d4', '#8b5cf6', '#f97316', '#64748b', '#14b8a6', '#f43f5e'];
+
+        function getProviderColor(name, index) {
+            for (const key in providerChartColors) {
+                if (name.includes(key)) return providerChartColors[key];
+            }
+            return fallbackColors[index % fallbackColors.length];
+        }
+
+        function buildLatencyChart() {
+            const ctx = document.getElementById('latencyChart');
+            if (!ctx || currentLatencyData.length === 0) return;
+
+            const providers = [...new Set(currentLatencyData.map(d => d.ProviderName))].sort();
+            const allTimestamps = [...new Set(currentLatencyData.map(d => d.Timestamp))].sort();
+
+            const labels = allTimestamps.map(ts => {
+                const date = new Date(ts);
+                return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            });
+
+            const datasets = providers.map((name, i) => {
+                const providerData = currentLatencyData.filter(d => d.ProviderName === name);
+                const color = getProviderColor(name, i);
+                return {
+                    label: name,
+                    data: allTimestamps.map(ts => {
+                        const point = providerData.find(d => d.Timestamp === ts);
+                        return point ? Math.round(point.AvgLatencyMs) : null;
+                    }),
+                    borderColor: color,
+                    backgroundColor: color + '20',
+                    fill: false,
+                    tension: 0.2,
+                    pointRadius: 2,
+                    pointHoverRadius: 5,
+                    spanGaps: true
+                };
+            });
+
+            if (latencyChartInstance) {
+                latencyChartInstance.data.labels = labels;
+                latencyChartInstance.data.datasets = datasets;
+                latencyChartInstance.update('none');
+                return;
+            }
+
+            latencyChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: { labels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { intersect: false, mode: 'index' },
+                    animation: false,
+                    scales: {
+                        x: { ticks: { maxRotation: 45, minRotation: 45, maxTicksLimit: 20 } },
+                        y: { beginAtZero: true, title: { display: true, text: 'Latency (ms)' } }
+                    },
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, padding: 15 } },
+                        tooltip: {
+                            callbacks: {
+                                label: c => `${c.dataset.label}: ${c.parsed.y?.toLocaleString() ?? '-'}ms`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function buildHttpStatusChart() {
+            const ctx = document.getElementById('httpStatusChart');
+            if (!ctx || currentHttpStatusData.length === 0) return;
+
+            const providers = [...new Set(currentHttpStatusData.map(d => d.ProviderName))].sort();
+            const allTimestamps = [...new Set(currentHttpStatusData.map(d => d.Timestamp))].sort();
+
+            const labels = allTimestamps.map(ts => {
+                const date = new Date(ts);
+                return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            });
+
+            const successDatasets = providers.map((name, i) => {
+                const providerData = currentHttpStatusData.filter(d => d.ProviderName === name);
+                const color = getProviderColor(name, i);
+                return {
+                    label: name + ' (2xx)',
+                    data: allTimestamps.map(ts => {
+                        const point = providerData.find(d => d.Timestamp === ts);
+                        return point ? point.SuccessCount : null;
+                    }),
+                    borderColor: color,
+                    backgroundColor: color + '40',
+                    fill: true,
+                    tension: 0.1,
+                    pointRadius: 1,
+                    spanGaps: true
+                };
+            });
+
+            const errorDatasets = providers.map((name, i) => {
+                const providerData = currentHttpStatusData.filter(d => d.ProviderName === name);
+                const color = getProviderColor(name, i);
+                return {
+                    label: name + ' (4xx/5xx)',
+                    data: allTimestamps.map(ts => {
+                        const point = providerData.find(d => d.Timestamp === ts);
+                        return point && point.ErrorCount > 0 ? point.ErrorCount : null;
+                    }),
+                    borderColor: '#ef4444',
+                    backgroundColor: '#ef444440',
+                    borderDash: [5, 3],
+                    fill: false,
+                    tension: 0.1,
+                    pointRadius: 2,
+                    pointBackgroundColor: '#ef4444',
+                    spanGaps: true
+                };
+            });
+
+            const datasets = [...successDatasets, ...errorDatasets];
+
+            if (httpStatusChartInstance) {
+                httpStatusChartInstance.data.labels = labels;
+                httpStatusChartInstance.data.datasets = datasets;
+                httpStatusChartInstance.update('none');
+                return;
+            }
+
+            httpStatusChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: { labels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { intersect: false, mode: 'index' },
+                    animation: false,
+                    scales: {
+                        x: { ticks: { maxRotation: 45, minRotation: 45, maxTicksLimit: 20 } },
+                        y: { beginAtZero: true, title: { display: true, text: 'Request Count' } }
+                    },
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, padding: 10 } },
+                        tooltip: {
+                            callbacks: {
+                                label: c => `${c.dataset.label}: ${c.parsed.y ?? '-'}`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        document.body.addEventListener('htmx:afterRequest', event => {
+            const sourceId = event.detail?.elt?.id;
+            if (sourceId !== 'timeRange' && sourceId !== 'analytics-chart-loader') return;
+            if (!event.detail?.successful) return;
+
+            try {
+                const payload = JSON.parse(event.detail.xhr.responseText);
+                currentLatencyData = payload.latencyData ?? [];
+                currentHttpStatusData = payload.httpStatusData ?? [];
+                buildLatencyChart();
+                buildHttpStatusChart();
+            } catch { }
+        });
+
+        buildLatencyChart();
+        buildHttpStatusChart();
+    </script>
+}
