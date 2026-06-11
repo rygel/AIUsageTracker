@@ -4,7 +4,7 @@
 
 namespace AIUsageTracker.Core.Models;
 
-public sealed class ProviderDefinition
+public sealed class ProviderDefinition : IEquatable<ProviderDefinition>
 {
     private HashSet<string>? _handledProviderIdsSet;
 
@@ -191,4 +191,35 @@ public sealed class ProviderDefinition
             Description = description,
         };
     }
+
+    public bool Equals(ProviderDefinition? other)
+    {
+        if (other is null)
+        {
+            return false;
+        }
+
+        if (ReferenceEquals(this, other))
+        {
+            return true;
+        }
+
+        return string.Equals(this.ProviderId, other.ProviderId, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public override bool Equals(object? obj) => this.Equals(obj as ProviderDefinition);
+
+    public override int GetHashCode() => StringComparer.OrdinalIgnoreCase.GetHashCode(this.ProviderId);
+
+    public static bool operator ==(ProviderDefinition? left, ProviderDefinition? right)
+    {
+        if (left is null)
+        {
+            return right is null;
+        }
+
+        return left.Equals(right);
+    }
+
+    public static bool operator !=(ProviderDefinition? left, ProviderDefinition? right) => !(left == right);
 }
