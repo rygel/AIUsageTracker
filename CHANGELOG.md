@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [2.3.6-beta.4] - 2026-06-11
+
+### Added
+- **Web Analytics page** (`/analytics`): new page with 4 analytics sections — Model Usage Breakdown (per-model distribution table), Latency Trend Chart (response_latency_ms over time), HTTP Status History (2xx vs 4xx/5xx over time), and Provider Details Panel (pretty-printed details_json from latest snapshots).
+- **Test Connection button**: Settings UI now has a Test button that calls `POST /api/providers/{providerId}/test` to verify API key connectivity.
+- **Descriptive error states**: `ProviderBase` auto-attaches `HttpFailureContext` in all error paths; UI reads `FailureContext.Classification` for actionable messages (rate-limited, auth-failed, unreachable, etc.).
+- **Provider health indicators**: `FetchedAt` relative time badge on provider cards showing data freshness.
+- **Minimax API provider**: new provider with credit-based quota windows.
+
+### Changed
+- **Migrated to .NET 10**: all projects now target `net10.0`. CI/CD workflows, PowerShell scripts, and `global.json` updated for SDK 10.0.300.
+- **Fixed `IsNewerVersion` for `-develop` suffix**: `ParseAppVersion` now strips non-numeric suffix from beta number before parsing.
+- **Added `/api/providers/{providerId}/test` to OpenAPI contract**: pre-existing endpoint gap.
+
 ## [2.3.6-beta.1] - 2026-06-06
 
 ### Fixed
