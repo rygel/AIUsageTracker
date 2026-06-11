@@ -92,7 +92,8 @@ internal static partial class MainWindowRuntimeLogic
                 StatusText: rateLimitText,
                 StatusTone: ProviderCardStatusTone.Warning,
                 PaceColor: paceColor,
-                IsStale: isStale);
+                IsStale: isStale,
+                FetchedAt: usage.FetchedAt);
         }
 
         if (TryCreateSpecialPresentation(
@@ -129,7 +130,8 @@ internal static partial class MainWindowRuntimeLogic
             StatusTone: ProviderCardStatusTone.Secondary,
             PaceColor: paceColor,
             DualBar: dualBar,
-            IsStale: isStale);
+            IsStale: isStale,
+            FetchedAt: usage.FetchedAt);
     }
 
 #pragma warning disable S107
@@ -501,7 +503,8 @@ internal sealed record ProviderCardPresentation(
     PaceColorResult PaceColor,
     DualBarData? DualBar = null,
     bool IsExpired = false,
-    bool IsStale = false)
+    bool IsStale = false,
+    DateTime FetchedAt = default)
 {
     public bool HasDualBuckets => this.DualBar != null;
 }
