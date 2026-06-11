@@ -143,6 +143,39 @@ internal sealed class ProviderCardRenderer
                     margin: new Thickness(6, 0, 0, 0)),
                 Dock.Right);
         }
+
+        if (presentation.FetchedAt != default)
+        {
+            var fetchedUtc = UsageMath.AsUtc(presentation.FetchedAt);
+            var ago = DateTime.UtcNow - fetchedUtc;
+            string freshnessText;
+            if (ago.TotalMinutes < 1)
+            {
+                freshnessText = "just now";
+            }
+            else if (ago.TotalHours < 1)
+            {
+                freshnessText = $"{(int)ago.TotalMinutes}m ago";
+            }
+            else if (ago.TotalDays < 1)
+            {
+                freshnessText = $"{(int)ago.TotalHours}h ago";
+            }
+            else
+            {
+                freshnessText = fetchedUtc.ToLocalTime().ToString("MMM d", CultureInfo.InvariantCulture);
+            }
+
+            var tertiaryBrush = this._getResourceBrush(ResourceKeyTertiaryText, Brushes.Gray);
+            AddDockedElement(
+                contentPanel,
+                this.CreateDockedTextBlock(
+                    freshnessText,
+                    fontSize: 8,
+                    foreground: tertiaryBrush,
+                    margin: new Thickness(6, 0, 0, 0)),
+                Dock.Right);
+        }
     }
 
     private void AttachTooltip(Grid grid, ProviderUsage usage, string friendlyName)
