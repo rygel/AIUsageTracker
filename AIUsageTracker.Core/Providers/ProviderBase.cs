@@ -71,6 +71,23 @@ public abstract class ProviderBase : IProviderService
         return JsonSerializer.Deserialize<T>(content, JsonOptions);
     }
 
+    protected ProviderUsage CreateBaseUsage(
+        string providerLabel,
+        string? rawJson = null,
+        int httpStatus = 0)
+    {
+        return new ProviderUsage
+        {
+            ProviderId = this.ProviderId,
+            ProviderName = providerLabel,
+            IsAvailable = true,
+            PlanType = this.Definition.PlanType,
+            IsQuotaBased = this.Definition.IsQuotaBased,
+            RawJson = rawJson,
+            HttpStatus = httpStatus,
+        };
+    }
+
     protected ProviderUsage CreateUnavailableUsage(
         string description,
         int httpStatus = 0,
