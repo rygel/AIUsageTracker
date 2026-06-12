@@ -40,6 +40,8 @@ public class GitHubUpdateCheckerExtendedTests : IDisposable
     [InlineData("0.0.1", 0, 0, 1, int.MaxValue)]
     [InlineData("99.99.99-beta.99", 99, 99, 99, 99)]
     [InlineData("1.0.0-beta.0", 1, 0, 0, 0)]
+    [InlineData("2.3.6-beta.5-develop", 2, 3, 6, 5)]
+    [InlineData("2.3.6-beta.4-develop", 2, 3, 6, 4)]
     public void ParseAppVersion_EdgeCases(string version, int major, int minor, int patch, int preRelease)
     {
         var result = GitHubUpdateChecker.ParseAppVersion(version);
