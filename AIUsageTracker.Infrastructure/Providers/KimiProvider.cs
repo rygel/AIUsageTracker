@@ -106,24 +106,13 @@ public class KimiProvider : ProviderBase
 
         if (flatCards.Count == 0)
         {
-            return new[]
-            {
-                new ProviderUsage
-                {
-                    ProviderId = this.ProviderId,
-                    ProviderName = providerLabel,
-                    UsedPercent = data.Usage!.Limit > 0 ? UsageMath.CalculateUsedPercent(data.Usage!.Used, data.Usage!.Limit) : 0,
-                    RequestsUsed = data.Usage!.Used,
-                    RequestsAvailable = data.Usage!.Limit,
-                    IsQuotaBased = this.Definition.IsQuotaBased,
-                    PlanType = this.Definition.PlanType,
-                    IsAvailable = true,
-                    Description = "Active",
-                    RawJson = content,
-                    HttpStatus = statusCode,
-                    AuthSource = authSource ?? string.Empty,
-                },
-            };
+            var fallback = this.CreateBaseUsage(providerLabel, content, statusCode);
+            fallback.UsedPercent = data.Usage!.Limit > 0 ? UsageMath.CalculateUsedPercent(data.Usage!.Used, data.Usage!.Limit) : 0;
+            fallback.RequestsUsed = data.Usage!.Used;
+            fallback.RequestsAvailable = data.Usage!.Limit;
+            fallback.Description = "Active";
+            fallback.AuthSource = authSource ?? string.Empty;
+            return new[] { fallback };
         }
 
         return flatCards;
@@ -144,27 +133,19 @@ public class KimiProvider : ProviderBase
             weeklyResetDt = weeklyDt.ToUniversalTime();
         }
 
-        return new ProviderUsage
-        {
-            ProviderId = this.ProviderId,
-            ProviderName = providerLabel,
-            CardId = "weekly",
-            GroupId = this.ProviderId,
-            Name = "Weekly Limit",
-            WindowKind = WindowKind.Rolling,
-            UsedPercent = weeklyUsedPct,
-            RequestsUsed = usage.Used,
-            RequestsAvailable = usage.Limit,
-            IsQuotaBased = this.Definition.IsQuotaBased,
-            PlanType = this.Definition.PlanType,
-            IsAvailable = true,
-            Description = $"{usage.Remaining.ToString(CultureInfo.InvariantCulture)} remaining{(!string.IsNullOrEmpty(usage.ResetTime) ? $" (Resets: {FormatResetTime(usage.ResetTime)})" : string.Empty)}",
-            RawJson = content,
-            HttpStatus = statusCode,
-            NextResetTime = weeklyResetDt,
-            PeriodDuration = TimeSpan.FromDays(7),
-            AuthSource = authSource ?? string.Empty,
-        };
+        var weekly = this.CreateBaseUsage(providerLabel, content, statusCode);
+        weekly.CardId = "weekly";
+        weekly.GroupId = this.ProviderId;
+        weekly.Name = "Weekly Limit";
+        weekly.WindowKind = WindowKind.Rolling;
+        weekly.UsedPercent = weeklyUsedPct;
+        weekly.RequestsUsed = usage.Used;
+        weekly.RequestsAvailable = usage.Limit;
+        weekly.Description = $"{usage.Remaining.ToString(CultureInfo.InvariantCulture)} remaining{(!string.IsNullOrEmpty(usage.ResetTime) ? $" (Resets: {FormatResetTime(usage.ResetTime)})" : string.Empty)}";
+        weekly.NextResetTime = weeklyResetDt;
+        weekly.PeriodDuration = TimeSpan.FromDays(7);
+        weekly.AuthSource = authSource ?? string.Empty;
+        return weekly;
     }
 
     private void AddLimitCards(List<KimiLimitItem> limits, List<ProviderUsage> flatCards, HashSet<string> usedCardIds, string content, int statusCode, string? authSource, string providerLabel)
@@ -209,27 +190,19 @@ public class KimiProvider : ProviderBase
         var periodDuration = ResolvePeriodDuration(quotaBucketKind, win);
         var cardId = DeduplicateCardId(name, usedCardIds);
 
-        return new ProviderUsage
-        {
-            ProviderId = this.ProviderId,
-            ProviderName = providerLabel,
-            CardId = cardId,
-            GroupId = this.ProviderId,
-            Name = name,
-            WindowKind = quotaBucketKind,
-            UsedPercent = itemUsedPercentage,
-            RequestsUsed = itemUsed,
-            RequestsAvailable = det.Limit,
-            IsQuotaBased = this.Definition.IsQuotaBased,
-            PlanType = this.Definition.PlanType,
-            IsAvailable = true,
-            Description = $"{det.Remaining.ToString(CultureInfo.InvariantCulture)} / {det.Limit.ToString(CultureInfo.InvariantCulture)} remaining (Resets: {resetDisplay})",
-            RawJson = content,
-            HttpStatus = statusCode,
-            NextResetTime = itemResetDt,
-            PeriodDuration = periodDuration,
-            AuthSource = authSource ?? string.Empty,
-        };
+        var limit = this.CreateBaseUsage(providerLabel, content, statusCode);
+        limit.CardId = cardId;
+        limit.GroupId = this.ProviderId;
+        limit.Name = name;
+        limit.WindowKind = quotaBucketKind;
+        limit.UsedPercent = itemUsedPercentage;
+        limit.RequestsUsed = itemUsed;
+        limit.RequestsAvailable = det.Limit;
+        limit.Description = $"{det.Remaining.ToString(CultureInfo.InvariantCulture)} / {det.Limit.ToString(CultureInfo.InvariantCulture)} remaining (Resets: {resetDisplay})";
+        limit.NextResetTime = itemResetDt;
+        limit.PeriodDuration = periodDuration;
+        limit.AuthSource = authSource ?? string.Empty;
+        return limit;
     }
 
     private static string DeduplicateCardId(string name, HashSet<string> usedCardIds)
