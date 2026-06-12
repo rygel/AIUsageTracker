@@ -12,6 +12,12 @@
 - **Collapsed unnecessary interfaces**: Removed `IPreferencesStore`, `IUsageAnalyticsService`, and `IMonitorLauncher` — single-implementation interfaces with no test mocking. Consumers now use concrete types directly.
 - **Deleted dead scaffolded types**: Removed `PercentageValueSemantic`, `BudgetPolicy`, and `ProviderResponseException` — 59 lines of unused code.
 
+## v2.3.6-beta.6-develop — 2026-06-12
+
+- 5ebfacfb release: v2.3.6-beta.6 (cycle 19) (#645)
+- a901763a chore: update 1 screenshot baseline(s) from CI (windows-2025) [skip ci]
+- a0fd59a2 Cycle 19: Carry-Forward Clearance (#644)
+
 ## v2.3.6-beta.5-develop — 2026-06-12
 
 - 9d9f2132 release: v2.3.6-beta.5 (#643)
