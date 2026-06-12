@@ -53,7 +53,7 @@ public partial class SettingsWindow
 
     private void AddProviderCard(ProviderConfig config, ProviderUsage? usage, bool isDerived = false)
     {
-        var isSubItem = ShouldRenderAsSettingsSubItem(config.ProviderId, isDerived);
+        var isSubItem = false;
 
         var card = new Border
         {
@@ -95,17 +95,6 @@ public partial class SettingsWindow
 
         card.Child = grid;
         this.ProvidersStack.Children.Add(card);
-    }
-
-    internal static bool ShouldRenderAsSettingsSubItem(
-        string providerId,
-        bool isDerived) => false;
-
-    internal static IReadOnlyList<string> GetEligibleSubTrayDetails(ProviderUsage? usage)
-    {
-        // Sub-tray details are no longer derived from ProviderUsageDetail.
-        // Flat ProviderUsage cards replaced the detail model; sub-tray icons are not supported.
-        return Array.Empty<string>();
     }
 
     internal static IReadOnlyList<ProviderSettingsDisplayItem> CreateProviderDisplayItems(
