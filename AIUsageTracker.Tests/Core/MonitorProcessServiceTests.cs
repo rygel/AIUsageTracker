@@ -6,6 +6,7 @@ using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Infrastructure.MonitorClient;
 using AIUsageTracker.Tests.Infrastructure;
 using AIUsageTracker.Web.Services;
 using Microsoft.Extensions.Logging.Abstractions;

@@ -4,6 +4,7 @@
 
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Infrastructure.MonitorClient;
 using AIUsageTracker.Infrastructure.Configuration;
 using AIUsageTracker.Infrastructure.Helpers;
 using AIUsageTracker.Infrastructure.Services;

@@ -7,6 +7,7 @@ using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Infrastructure.MonitorClient;
 using AIUsageTracker.Infrastructure.Configuration;
 using AIUsageTracker.Infrastructure.Extensions;
 using AIUsageTracker.Infrastructure.Providers;

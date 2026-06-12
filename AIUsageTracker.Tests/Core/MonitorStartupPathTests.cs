@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Infrastructure.MonitorClient;
 using AIUsageTracker.Tests.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;

@@ -8,6 +8,7 @@ using System.Globalization;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Infrastructure.MonitorClient;
 
 namespace AIUsageTracker.Web.Services;
 

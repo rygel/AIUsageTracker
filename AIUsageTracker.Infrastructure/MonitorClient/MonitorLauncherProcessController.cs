@@ -8,7 +8,7 @@ using System.Globalization;
 using AIUsageTracker.Core.Models;
 using Microsoft.Extensions.Logging;
 
-namespace AIUsageTracker.Core.MonitorClient;
+namespace AIUsageTracker.Infrastructure.MonitorClient;
 
 internal static class MonitorLauncherProcessController
 {

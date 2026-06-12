@@ -10,9 +10,10 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.MonitorClient;
 using Microsoft.Extensions.Logging;
 
-namespace AIUsageTracker.Core.MonitorClient;
+namespace AIUsageTracker.Infrastructure.MonitorClient;
 
 public class MonitorService : IMonitorService
 {

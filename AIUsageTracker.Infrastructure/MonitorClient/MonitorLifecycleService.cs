@@ -2,7 +2,9 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Core.MonitorClient;
+
+namespace AIUsageTracker.Infrastructure.MonitorClient;
 
 public sealed class MonitorLifecycleService
 {
