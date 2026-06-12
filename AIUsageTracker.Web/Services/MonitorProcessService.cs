@@ -18,15 +18,7 @@ public class MonitorProcessService
     private readonly IMonitorService _monitorService;
     private readonly IMonitorLauncherClient _monitorLauncherClient;
 
-    public MonitorProcessService(ILogger<MonitorProcessService> logger, IMonitorService monitorService)
-        : this(logger, monitorService, new MonitorLauncherClient(new MonitorLauncher(Microsoft.Extensions.Logging.Abstractions.NullLogger<MonitorLauncher>.Instance)))
-    {
-    }
-
-    public MonitorProcessService(
-        ILogger<MonitorProcessService> logger,
-        IMonitorService monitorService,
-        IMonitorLauncherClient monitorLauncherClient)
+    public MonitorProcessService(ILogger<MonitorProcessService> logger, IMonitorService monitorService, IMonitorLauncherClient monitorLauncherClient)
     {
         this._logger = logger;
         this._monitorService = monitorService;
