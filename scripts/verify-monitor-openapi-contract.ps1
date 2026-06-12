@@ -10,7 +10,7 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 
 if ([string]::IsNullOrWhiteSpace($AgentExecutablePath)) {
     $candidateExecutables = @(
-        (Join-Path $projectRoot "AIUsageTracker.Monitor\bin\Debug\net8.0\AIUsageTracker.Monitor.exe")
+        (Join-Path $projectRoot "AIUsageTracker.Monitor\bin\Debug\net10.0\AIUsageTracker.Monitor.exe")
     )
 
     $defaultExe = $candidateExecutables | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1

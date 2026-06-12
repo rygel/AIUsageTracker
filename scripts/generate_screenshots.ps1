@@ -16,7 +16,7 @@ Write-Host ""
 
 # Determine the correct paths
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$binPath = Join-Path $projectRoot "AIUsageTracker.UI.Slim\bin\$Configuration\net8.0-windows10.0.17763.0"
+$binPath = Join-Path $projectRoot "AIUsageTracker.UI.Slim\bin\$Configuration\net10.0-windows10.0.17763.0"
 $exePath = Join-Path $binPath "AIUsageTracker.exe"
 
 # Check if executable exists before optional build

@@ -521,7 +521,6 @@ public partial class SettingsWindow : Window
         this.YellowThreshold.Text = this._preferences.ColorThresholdYellow.ToString(System.Globalization.CultureInfo.InvariantCulture);
         this.RedThreshold.Text = this._preferences.ColorThresholdRed.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
-        // Font settings
         this.PopulateFontComboBox();
         this.FontFamilyCombo.SelectedItem = this._preferences.FontFamily;
         this.FontSizeBox.Text = this._preferences.FontSize.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -636,19 +635,15 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        // Update font family
         if (!string.IsNullOrEmpty(this._preferences.FontFamily))
         {
             this.FontPreviewText.FontFamily = new System.Windows.Media.FontFamily(this._preferences.FontFamily);
         }
 
-        // Update font size
         this.FontPreviewText.FontSize = this._preferences.FontSize > 0 ? this._preferences.FontSize : 12;
 
-        // Update font weight
         this.FontPreviewText.FontWeight = this._preferences.FontBold ? FontWeights.Bold : FontWeights.Normal;
 
-        // Update font style
         this.FontPreviewText.FontStyle = this._preferences.FontItalic ? FontStyles.Italic : FontStyles.Normal;
     }
 
@@ -757,13 +752,11 @@ public partial class SettingsWindow : Window
     {
         try
         {
-            // Trigger refresh on agent
             await this._monitorService.TriggerRefreshAsync().ConfigureAwait(true);
 
             // Wait a moment for refresh to complete
             await Task.Delay(2000).ConfigureAwait(true);
 
-            // Reload data
             await this.LoadDataAsync().ConfigureAwait(true);
 
             MessageBox.Show(

@@ -2,6 +2,43 @@
 
 ## [Unreleased]
 
+## v2.3.6-beta.5-develop — 2026-06-12
+
+- 9d9f2132 release: v2.3.6-beta.5 (#643)
+- 1724f3a8 refactor: cycle 18 Infrastructure - remove dead dependency and constructor (#638)
+- 5bc91986 refactor: remove 21 code-restating comments across UI files (#642)
+- 2e5bb568 refactor: cycle 18 UI - remove dead dependencies and dead code (#637)
+- 6d364121 refactor: deduplicate architecture normalization, replace fake generic ParseValue (#641)
+- d9ba8b93 refactor: lean cleanup batch 3 - merge connection methods, simplify dispose, clean temp files (#640)
+- 0107ce47 refactor: lean cleanup batch 2 - remove dead code and simplify patterns (#639)
+
+## [2.3.6-beta.5] - 2026-06-12
+
+### Changed
+- **Lean code sweep (cycle 18)**: Removed ~300 lines of dead code, redundant wrappers, and restating comments across all projects. Merged duplicate connection methods, replaced fake generic parsing, simplified dispose patterns, and removed unused NuGet references (System.Drawing.Common from Infrastructure, System.Reactive from UI.Slim/Tests, System.Net.Http.Json from UI.Slim).
+
+## [2.3.6-beta.4] - 2026-06-11
+
+### Added
+- **Web Analytics page** (`/analytics`): new page with 4 analytics sections — Model Usage Breakdown (per-model distribution table), Latency Trend Chart (response_latency_ms over time), HTTP Status History (2xx vs 4xx/5xx over time), and Provider Details Panel (pretty-printed details_json from latest snapshots).
+- **Test Connection button**: Settings UI now has a Test button that calls `POST /api/providers/{providerId}/test` to verify API key connectivity.
+- **Descriptive error states**: `ProviderBase` auto-attaches `HttpFailureContext` in all error paths; UI reads `FailureContext.Classification` for actionable messages (rate-limited, auth-failed, unreachable, etc.).
+- **Provider health indicators**: `FetchedAt` relative time badge on provider cards showing data freshness.
+- **Minimax API provider**: new provider with credit-based quota windows.
+
+### Changed
+- **Migrated to .NET 10**: all projects now target `net10.0`. CI/CD workflows, PowerShell scripts, and `global.json` updated for SDK 10.0.300.
+- **Fixed `IsNewerVersion` for `-develop` suffix**: `ParseAppVersion` now strips non-numeric suffix from beta number before parsing.
+- **Added `/api/providers/{providerId}/test` to OpenAPI contract**: pre-existing endpoint gap.
+
+## [2.3.6-beta.1] - 2026-06-06
+
+### Fixed
+- **Minimax always shows two bars**: The Minimax provider had conditional fallback logic that skipped the burst (5h) card when `remaining_percent` was 0 (exhausted quota). Now always returns both 5h and Weekly cards using `remaining_percent` directly. No conditionals, no fallbacks.
+
+### Changed
+- **Minimax test fixtures**: Rewritten to match real API response format (`remaining_percent` fields). Added test using sanitized live API response snapshot.
+
 ## [2.3.5] - 2026-06-03
 
 ### Added

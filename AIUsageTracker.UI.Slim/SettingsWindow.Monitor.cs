@@ -21,10 +21,8 @@ public partial class SettingsWindow
     {
         try
         {
-            // Check if agent is running
             var isRunning = await this._monitorLifecycleService.IsAgentRunningAsync().ConfigureAwait(true);
 
-            // Get the actual port from the agent
             int port = await this._monitorLifecycleService.GetAgentPortAsync().ConfigureAwait(true);
 
             if (this.MonitorStatusText != null)
@@ -32,7 +30,6 @@ public partial class SettingsWindow
                 this.MonitorStatusText.Text = isRunning ? "Running" : "Not Running";
             }
 
-            // Update port display
             if (this.FindName("MonitorPortText") is TextBlock portText)
             {
                 portText.Text = port.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -93,7 +90,6 @@ public partial class SettingsWindow
     {
         try
         {
-            // Kill any running agent process
             foreach (var process in System.Diagnostics.Process.GetProcessesByName("AIUsageTracker.Monitor")
                 .Concat(System.Diagnostics.Process.GetProcessesByName("AIUsageTracker.Monitor")))
             {
@@ -109,7 +105,6 @@ public partial class SettingsWindow
 
             await Task.Delay(1000).ConfigureAwait(true);
 
-            // Restart agent
             if (await this._monitorLifecycleService.EnsureAgentRunningAsync().ConfigureAwait(true))
             {
                 MessageBox.Show(

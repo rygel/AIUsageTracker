@@ -36,6 +36,10 @@ public class GitHubUpdateCheckerTests
     [InlineData("2.4.0", "2.3.99", true)] // higher minor wins
     [InlineData("3.0.0", "2.99.99", true)] // higher major wins
     [InlineData("v2.3.4-beta.8", "2.3.4-beta.7", true)] // v-prefix stripped
+    [InlineData("2.3.6-beta.2-develop", "2.3.6-beta.1", true)] // develop suffix ignored, beta.2 > beta.1
+    [InlineData("2.3.6-beta.3-develop", "2.3.6-beta.3", false)] // develop suffix same beta = not newer
+    [InlineData("2.3.6", "2.3.6-beta.3-develop", true)] // stable > any beta with develop suffix
+    [InlineData("2.3.6-beta.2-develop", "2.3.6-beta.3", false)] // beta.2 < beta.3 even with develop suffix
     public void IsNewerVersion_ReturnsExpectedResult(string candidate, string current, bool expected)
     {
         Assert.Equal(expected, GitHubUpdateChecker.IsNewerVersion(candidate, current));

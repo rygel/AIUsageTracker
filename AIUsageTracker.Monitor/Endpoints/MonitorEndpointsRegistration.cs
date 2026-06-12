@@ -26,5 +26,6 @@ internal static class MonitorEndpointsRegistration
         MonitorUsageEndpoints.Map(app);
         MonitorConfigEndpoints.Map(app);
         MonitorHistoryEndpoints.Map(app);
+        MonitorProviderEndpoints.Map(app);
     }
 }

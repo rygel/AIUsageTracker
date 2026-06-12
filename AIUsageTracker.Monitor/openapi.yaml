@@ -244,6 +244,24 @@ paths:
                 items:
                   $ref: "#/components/schemas/ResetEvent"
 
+  /api/providers/{providerId}/test:
+    post:
+      summary: Test provider connectivity
+      operationId: testProviderConnection
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Provider connectivity test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
 components:
   schemas:
     HealthResponse:

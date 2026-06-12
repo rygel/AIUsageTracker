@@ -351,6 +351,7 @@ public sealed class UpdatePipelineEndToEndTests : IDisposable
         var betas = releases!.Value.EnumerateArray()
             .Where(r => r.GetProperty("prerelease").GetBoolean())
             .Select(r => r.GetProperty("tag_name").GetString()!.TrimStart('v'))
+            .Where(v => !v.Contains("-develop", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
         Assert.True(betas.Count >= 2, "Need at least 2 beta releases to compare.");

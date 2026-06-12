@@ -89,23 +89,12 @@ public class DeepSeekProvider : ProviderBase
 
         if (result.BalanceInfos == null || result.BalanceInfos.Count == 0)
         {
-            return new[]
-            {
-                new ProviderUsage
-                {
-                    ProviderId = this.ProviderId,
-                    ProviderName = providerLabel,
-                    IsAvailable = true,
-                    UsedPercent = 0,
-                    RequestsUsed = 0,
-                    RequestsAvailable = 0,
-                    IsQuotaBased = this.Definition.IsQuotaBased,
-                    PlanType = this.Definition.PlanType,
-                    Description = "No balance found",
-                    RawJson = content,
-                    HttpStatus = httpStatus,
-                },
-            };
+            var noBalance = this.CreateBaseUsage(providerLabel, content, httpStatus);
+            noBalance.UsedPercent = 0;
+            noBalance.RequestsUsed = 0;
+            noBalance.RequestsAvailable = 0;
+            noBalance.Description = "No balance found";
+            return new[] { noBalance };
         }
 
         var flatCards = new List<ProviderUsage>();
@@ -113,22 +102,14 @@ public class DeepSeekProvider : ProviderBase
         {
             var currencyCode = info.Currency ?? "USD";
             var currencySymbol = string.Equals(currencyCode, "CNY", StringComparison.OrdinalIgnoreCase) ? "¥" : "$";
-            flatCards.Add(new ProviderUsage
-            {
-                ProviderId = this.ProviderId,
-                ProviderName = providerLabel,
-                Name = $"Balance ({currencyCode})",
-                CardId = $"balance-{currencyCode.ToLowerInvariant()}",
-                GroupId = this.ProviderId,
-                Description = string.Format(CultureInfo.InvariantCulture, "{0}{1:F2} ({2:F2} topped-up + {3:F2} granted)", currencySymbol, info.TotalBalance, info.ToppedUpBalance, info.GrantedBalance),
-                IsAvailable = true,
-                PlanType = this.Definition.PlanType,
-                IsCurrencyUsage = true,
-                IsQuotaBased = this.Definition.IsQuotaBased,
-                UsedPercent = 0,
-                RawJson = content,
-                HttpStatus = httpStatus,
-            });
+            var card = this.CreateBaseUsage(providerLabel, content, httpStatus);
+            card.Name = $"Balance ({currencyCode})";
+            card.CardId = $"balance-{currencyCode.ToLowerInvariant()}";
+            card.GroupId = this.ProviderId;
+            card.Description = string.Format(CultureInfo.InvariantCulture, "{0}{1:F2} ({2:F2} topped-up + {3:F2} granted)", currencySymbol, info.TotalBalance, info.ToppedUpBalance, info.GrantedBalance);
+            card.IsCurrencyUsage = true;
+            card.UsedPercent = 0;
+            flatCards.Add(card);
         }
 
         return flatCards;

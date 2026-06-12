@@ -636,6 +636,56 @@ public class MonitorService : IMonitorService
         }
     }
 
+    public async Task<MonitorActionResult> TestProviderConnectionAsync(string providerId, string apiKey)
+    {
+        try
+        {
+            var requestUrl = this.BuildMonitorUrl(MonitorApiRoutes.ProviderTest(providerId));
+            var payload = new ProviderTestRequest { ApiKey = apiKey };
+            using var content = JsonContent.Create(payload);
+            using var response = await this._httpClient.PostAsync(requestUrl, content).ConfigureAwait(false);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await this.ReadMonitorResponseJsonAsync<AgentProviderCheckResponse>(
+                    response,
+                    nameof(this.TestProviderConnectionAsync)).ConfigureAwait(false);
+                return new MonitorActionResult
+                {
+                    Success = result?.Success ?? false,
+                    Message = result?.Message ?? "Unknown status",
+                };
+            }
+
+            var error = await this.ReadMonitorResponseJsonAsync<AgentProviderCheckResponse>(
+                response,
+                nameof(this.TestProviderConnectionAsync)).ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(error?.Message))
+            {
+                return new MonitorActionResult
+                {
+                    Success = false,
+                    Message = error.Message,
+                };
+            }
+
+            return new MonitorActionResult
+            {
+                Success = false,
+                Message = $"HTTP {response.StatusCode}",
+            };
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+        {
+            this._logger?.LogWarning(ex, "TestProviderConnectionAsync failed for {ProviderId}", providerId);
+            return new MonitorActionResult
+            {
+                Success = false,
+                Message = $"Connection error: {ex.Message}",
+            };
+        }
+    }
+
     /// <inheritdoc/>
     public async Task<string> ExportDataAsync(string format)
     {

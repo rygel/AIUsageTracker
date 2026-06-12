@@ -236,71 +236,46 @@ public class MinimaxProvider : ProviderBase
         string rawJson,
         int httpStatus)
     {
-        var usages = new List<ProviderUsage>();
-
         var modelName = model.ModelName ?? "Text Generation";
         var modelSlug = modelName.ToLowerInvariant().Replace(" ", "-", StringComparison.Ordinal);
-        const int modelIndex = 0;
 
-        // Token Plan uses remaining_percent when total count is 0.
-        // Build synthetic total/remaining from percent when counts are absent.
-        var burstTotal = model.IntervalTotal;
-        var burstRemaining = model.IntervalRemaining;
-        if (burstTotal <= 0 && model.IntervalRemainingPercent > 0)
-        {
-            burstTotal = 100;
-            burstRemaining = model.IntervalRemainingPercent;
-        }
+        var burstPeriod = ResolvePeriodDuration(model.IntervalStartMs, model.IntervalEndMs);
+        var weeklyPeriod = ResolvePeriodDuration(model.WeeklyStartMs, model.WeeklyEndMs);
 
-        if (burstTotal > 0)
+        return new List<ProviderUsage>
         {
-            var burstPeriod = ResolvePeriodDuration(model.IntervalStartMs, model.IntervalEndMs);
-            usages.Add(BuildModelWindowCard(new ModelWindowCardSpec(
+            BuildModelWindowCard(new ModelWindowCardSpec(
                 providerId,
                 providerLabel,
                 modelName,
                 modelSlug,
-                modelIndex,
-                burstTotal,
-                burstRemaining,
+                0,
+                100,
+                model.IntervalRemainingPercent,
                 model.IntervalEndMs,
                 "burst",
                 "5h",
                 WindowKind.Burst,
                 burstPeriod,
                 rawJson,
-                httpStatus)));
-        }
+                httpStatus)),
 
-        var weeklyTotal = model.WeeklyTotal;
-        var weeklyRemaining = model.WeeklyRemaining;
-        if (weeklyTotal <= 0 && model.WeeklyRemainingPercent > 0)
-        {
-            weeklyTotal = 100;
-            weeklyRemaining = model.WeeklyRemainingPercent;
-        }
-
-        if (weeklyTotal > 0)
-        {
-            var weeklyPeriod = ResolvePeriodDuration(model.WeeklyStartMs, model.WeeklyEndMs);
-            usages.Add(BuildModelWindowCard(new ModelWindowCardSpec(
+            BuildModelWindowCard(new ModelWindowCardSpec(
                 providerId,
                 providerLabel,
                 modelName,
                 modelSlug,
-                modelIndex,
-                weeklyTotal,
-                weeklyRemaining,
+                0,
+                100,
+                model.WeeklyRemainingPercent,
                 model.WeeklyEndMs,
                 "weekly",
                 "Weekly",
                 WindowKind.Rolling,
                 weeklyPeriod,
                 rawJson,
-                httpStatus)));
-        }
-
-        return usages;
+                httpStatus)),
+        };
     }
 
     private static TimeSpan ResolvePeriodDuration(long startMs, long endMs)
