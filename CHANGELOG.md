@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## v2.3.6-beta.5-develop — 2026-06-12
+
+- 9d9f2132 release: v2.3.6-beta.5 (#643)
+- 1724f3a8 refactor: cycle 18 Infrastructure - remove dead dependency and constructor (#638)
+- 5bc91986 refactor: remove 21 code-restating comments across UI files (#642)
+- 2e5bb568 refactor: cycle 18 UI - remove dead dependencies and dead code (#637)
+- 6d364121 refactor: deduplicate architecture normalization, replace fake generic ParseValue (#641)
+- d9ba8b93 refactor: lean cleanup batch 3 - merge connection methods, simplify dispose, clean temp files (#640)
+- 0107ce47 refactor: lean cleanup batch 2 - remove dead code and simplify patterns (#639)
+
 ## [2.3.6-beta.5] - 2026-06-12
 
 ### Changed
