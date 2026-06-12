@@ -278,4 +278,212 @@ public class AppStartupTests : IDisposable
         Assert.Equal(AppTheme.Dark, loaded.Theme);
         Assert.False(loaded.ShowUsedPercentages);
     }
+
+    /// <summary>
+    /// Regression: During an update restart, the preferences file is briefly locked.
+    /// LoadAsync must retry and eventually read the real data, NOT return defaults
+    /// that would later overwrite the real preferences on save.
+    /// </summary>
+    [Fact]
+    public async Task LoadAsync_WhenFileTransientlyLocked_RetriesAndReadsRealDataAsync()
+    {
+        var savedPrefs = new AppPreferences
+        {
+            Theme = AppTheme.Nord,
+            ShowUsedPercentages = true,
+            AlwaysOnTop = false,
+            ColorThresholdYellow = 55,
+            ColorThresholdRed = 75,
+        };
+        var json = JsonSerializer.Serialize(savedPrefs);
+        await File.WriteAllTextAsync(this._testPreferencesPath, json);
+
+        // Hold an exclusive lock that releases after 150ms (before retries exhaust).
+        var lockStream = new FileStream(
+            this._testPreferencesPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        _ = Task.Delay(150).ContinueWith(_ => lockStream.Dispose());
+
+        var loaded = await this._store.LoadAsync();
+
+        Assert.NotNull(loaded);
+        Assert.Equal(AppTheme.Nord, loaded.Theme);
+        Assert.True(loaded.ShowUsedPercentages);
+        Assert.False(loaded.AlwaysOnTop);
+        Assert.Equal(55, loaded.ColorThresholdYellow);
+        Assert.Equal(75, loaded.ColorThresholdRed);
+    }
+
+    /// <summary>
+    /// If the file remains locked after all retries, LoadAsync must still return
+    /// defaults without throwing — never crash the app on startup.
+    /// </summary>
+    [Fact]
+    public async Task LoadAsync_WhenFilePersistentlyLocked_ReturnsDefaultsAsync()
+    {
+        var json = JsonSerializer.Serialize(new AppPreferences { Theme = AppTheme.Light });
+        await File.WriteAllTextAsync(this._testPreferencesPath, json);
+
+        await using var lockStream = new FileStream(
+            this._testPreferencesPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+        var loaded = await this._store.LoadAsync();
+
+        Assert.NotNull(loaded);
+        Assert.Equal(AppTheme.Dark, loaded.Theme);
+    }
+
+    /// <summary>
+    /// LoadAsync must be read-only — it must never modify the existing file.
+    /// </summary>
+    [Fact]
+    public async Task LoadAsync_DoesNotModifyExistingFileAsync()
+    {
+        var originalContent = JsonSerializer.Serialize(new AppPreferences
+        {
+            Theme = AppTheme.Light,
+            ShowUsedPercentages = true,
+        });
+        await File.WriteAllTextAsync(this._testPreferencesPath, originalContent);
+
+        _ = await this._store.LoadAsync();
+
+        var fileContent = await File.ReadAllTextAsync(this._testPreferencesPath);
+        Assert.Equal(originalContent, fileContent);
+    }
+
+    /// <summary>
+    /// SaveAsync must not create backup (.bak) files — the backup mechanism was
+    /// removed because it caused the reset bug (defaults were backed up and restored).
+    /// </summary>
+    [Fact]
+    public async Task SaveAsync_DoesNotCreateBackupFileAsync()
+    {
+        await this._store.SaveAsync(new AppPreferences { Theme = AppTheme.Light });
+
+        var bakPath = this._testPreferencesPath + ".bak";
+        Assert.False(File.Exists(bakPath), ".bak file should not exist after save");
+    }
+
+    /// <summary>
+    /// Comprehensive round-trip: every user-facing preference must survive
+    /// a save-load cycle. This catches serialization regressions.
+    /// </summary>
+    [Fact]
+    public async Task SaveAsync_LoadAsync_RoundTripsAllUserPreferencesAsync()
+    {
+        var original = new AppPreferences
+        {
+            ShowAll = true,
+            WindowWidth = 350,
+            WindowHeight = 600,
+            WindowLeft = 100,
+            WindowTop = 200,
+            StayOpen = true,
+            AlwaysOnTop = false,
+            AggressiveAlwaysOnTop = true,
+            ForceWin32Topmost = true,
+            CompactMode = false,
+            ColorThresholdYellow = 50,
+            ColorThresholdRed = 90,
+            ShowUsedPercentages = true,
+            FontFamily = "Consolas",
+            FontSize = 14,
+            FontBold = true,
+            FontItalic = true,
+            AutoRefreshInterval = 120,
+            MaxConcurrentProviderRequests = 4,
+            IsPrivacyMode = true,
+            EnableNotifications = true,
+            NotificationThreshold = 85.5,
+            NotifyOnUsageThreshold = false,
+            NotifyOnQuotaExceeded = false,
+            NotifyOnProviderErrors = true,
+            NotifyOnSubscriptionExpired = false,
+            EnableQuietHours = true,
+            QuietHoursStart = "23:00",
+            QuietHoursEnd = "06:00",
+            StartUiWithWindows = true,
+            Theme = AppTheme.SolarizedDark,
+            DebugMode = true,
+            IsPlansAndQuotasCollapsed = true,
+            IsPayAsYouGoCollapsed = true,
+            IsAntigravityCollapsed = true,
+            HiddenProviderItemIds = ["openai", "gemini"],
+            SuppressedProviderIds = ["deepseek", "kimi"],
+            CollapsedGroupIds = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["group1"] = true,
+                ["group2"] = false,
+            },
+            UpdateChannel = UpdateChannel.Beta,
+            ShowInactiveProviders = true,
+            UseRelativeResetTime = true,
+            ShowUsagePerHour = true,
+            ShowDualQuotaBars = false,
+            DualQuotaSingleBarMode = DualQuotaSingleBarMode.Burst,
+            EnablePaceAdjustment = false,
+            CardPrimaryBadge = CardSlotContent.UsageRate,
+            CardSecondaryBadge = CardSlotContent.PaceBadge,
+            CardStatusLine = CardSlotContent.ResetAbsolute,
+            CardResetInfo = CardSlotContent.StatusText,
+            CardCompactMode = true,
+            CardBackgroundBar = false,
+        };
+
+        await this._store.SaveAsync(original);
+        var loaded = await this._store.LoadAsync();
+
+        // Verify every field
+        Assert.Equal(original.ShowAll, loaded.ShowAll);
+        Assert.Equal(original.WindowWidth, loaded.WindowWidth);
+        Assert.Equal(original.WindowHeight, loaded.WindowHeight);
+        Assert.Equal(original.WindowLeft, loaded.WindowLeft);
+        Assert.Equal(original.WindowTop, loaded.WindowTop);
+        Assert.Equal(original.StayOpen, loaded.StayOpen);
+        Assert.Equal(original.AlwaysOnTop, loaded.AlwaysOnTop);
+        Assert.Equal(original.AggressiveAlwaysOnTop, loaded.AggressiveAlwaysOnTop);
+        Assert.Equal(original.ForceWin32Topmost, loaded.ForceWin32Topmost);
+        Assert.Equal(original.CompactMode, loaded.CompactMode);
+        Assert.Equal(original.ColorThresholdYellow, loaded.ColorThresholdYellow);
+        Assert.Equal(original.ColorThresholdRed, loaded.ColorThresholdRed);
+        Assert.Equal(original.ShowUsedPercentages, loaded.ShowUsedPercentages);
+        Assert.Equal(original.FontFamily, loaded.FontFamily);
+        Assert.Equal(original.FontSize, loaded.FontSize);
+        Assert.Equal(original.FontBold, loaded.FontBold);
+        Assert.Equal(original.FontItalic, loaded.FontItalic);
+        Assert.Equal(original.AutoRefreshInterval, loaded.AutoRefreshInterval);
+        Assert.Equal(original.MaxConcurrentProviderRequests, loaded.MaxConcurrentProviderRequests);
+        Assert.Equal(original.IsPrivacyMode, loaded.IsPrivacyMode);
+        Assert.Equal(original.EnableNotifications, loaded.EnableNotifications);
+        Assert.Equal(original.NotificationThreshold, loaded.NotificationThreshold);
+        Assert.Equal(original.NotifyOnUsageThreshold, loaded.NotifyOnUsageThreshold);
+        Assert.Equal(original.NotifyOnQuotaExceeded, loaded.NotifyOnQuotaExceeded);
+        Assert.Equal(original.NotifyOnProviderErrors, loaded.NotifyOnProviderErrors);
+        Assert.Equal(original.NotifyOnSubscriptionExpired, loaded.NotifyOnSubscriptionExpired);
+        Assert.Equal(original.EnableQuietHours, loaded.EnableQuietHours);
+        Assert.Equal(original.QuietHoursStart, loaded.QuietHoursStart);
+        Assert.Equal(original.QuietHoursEnd, loaded.QuietHoursEnd);
+        Assert.Equal(original.StartUiWithWindows, loaded.StartUiWithWindows);
+        Assert.Equal(original.Theme, loaded.Theme);
+        Assert.Equal(original.DebugMode, loaded.DebugMode);
+        Assert.Equal(original.IsPlansAndQuotasCollapsed, loaded.IsPlansAndQuotasCollapsed);
+        Assert.Equal(original.IsPayAsYouGoCollapsed, loaded.IsPayAsYouGoCollapsed);
+        Assert.Equal(original.IsAntigravityCollapsed, loaded.IsAntigravityCollapsed);
+        Assert.Equal(original.HiddenProviderItemIds, loaded.HiddenProviderItemIds);
+        Assert.Equal(original.SuppressedProviderIds, loaded.SuppressedProviderIds);
+        Assert.Equal(original.CollapsedGroupIds, loaded.CollapsedGroupIds);
+        Assert.Equal(original.UpdateChannel, loaded.UpdateChannel);
+        Assert.Equal(original.ShowInactiveProviders, loaded.ShowInactiveProviders);
+        Assert.Equal(original.UseRelativeResetTime, loaded.UseRelativeResetTime);
+        Assert.Equal(original.ShowUsagePerHour, loaded.ShowUsagePerHour);
+        Assert.Equal(original.ShowDualQuotaBars, loaded.ShowDualQuotaBars);
+        Assert.Equal(original.DualQuotaSingleBarMode, loaded.DualQuotaSingleBarMode);
+        Assert.Equal(original.EnablePaceAdjustment, loaded.EnablePaceAdjustment);
+        Assert.Equal(original.CardPrimaryBadge, loaded.CardPrimaryBadge);
+        Assert.Equal(original.CardSecondaryBadge, loaded.CardSecondaryBadge);
+        Assert.Equal(original.CardStatusLine, loaded.CardStatusLine);
+        Assert.Equal(original.CardResetInfo, loaded.CardResetInfo);
+        Assert.Equal(original.CardCompactMode, loaded.CardCompactMode);
+        Assert.Equal(original.CardBackgroundBar, loaded.CardBackgroundBar);
+    }
 }
