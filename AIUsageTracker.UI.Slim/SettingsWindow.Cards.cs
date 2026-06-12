@@ -56,7 +56,6 @@ public partial class SettingsWindow
 
         this.PopulateCardSlotOptions();
 
-        // Load saved slot configuration from preferences
         this.PrimaryBadgeSlot.SelectedValue = this._preferences.CardPrimaryBadge;
         this.SecondaryBadgeSlot.SelectedValue = this._preferences.CardSecondaryBadge;
         this.StatusLineSlot.SelectedValue = this._preferences.CardStatusLine;

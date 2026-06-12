@@ -706,7 +706,6 @@ public partial class SettingsWindow
 
         var panel = new StackPanel { Margin = new Thickness(0, 4, 0, 0) };
 
-        // Source line
         var sourceLine = new TextBlock
         {
             FontSize = 9,
