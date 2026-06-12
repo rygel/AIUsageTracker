@@ -76,7 +76,10 @@ public class ProviderRefreshCircuitBreakerService
         lock (this._providerFailureLock)
         {
             var now = DateTime.UtcNow;
-            _ = queriedConfigs.Select(config => this.ApplyFailureStateUpdate(config, usages, now)).ToArray();
+            foreach (var config in queriedConfigs)
+            {
+                this.ApplyFailureStateUpdate(config, usages, now);
+            }
         }
     }
 

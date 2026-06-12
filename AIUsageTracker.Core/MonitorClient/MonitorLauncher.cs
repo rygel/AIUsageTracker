@@ -450,11 +450,7 @@ public class MonitorLauncher : IMonitorLauncher
             this._logger?.LogDebug(ex, "Access denied reading monitor metadata: {Message}", ex.Message);
             return (null, path);
         }
-        catch (Exception ex) when (ex is IOException or JsonException)
-        {
-            this._logger?.LogDebug(ex, "Failed to load monitor metadata: {Message}", ex.Message);
-            return (null, path);
-        }
+
     }
 
     private async Task<MonitorMetadataState> ReadValidatedAgentInfoAsync()

@@ -393,19 +393,7 @@ public class AntigravityProvider : ProviderBase
         return ($" (Resets: ({dt.ToString("MMM dd HH:mm", CultureInfo.InvariantCulture)}))", dt);
     }
 
-    private static string ResolveDisplayModelName(string label)
-    {
-        return label;
-    }
-
     private sealed record ModelEntry(string Name, string ModelName, string GroupName, string Description, DateTime? NextResetTime, double? RemainingPct);
-
-    private static List<ModelEntry> SortEntries(List<ModelEntry> entries)
-    {
-        return entries
-            .OrderBy(e => e.Name, StringComparer.Ordinal)
-            .ToList();
-    }
 
     private static void ApplySummaryRawNumbers(ProviderUsage summary, Dictionary<string, ClientModelConfig> configMap)
     {
@@ -750,7 +738,7 @@ public class AntigravityProvider : ProviderBase
             configMap.TryGetValue(label, out var modelConfig);
             var remainingPct = this.ResolveRemainingPercentage(label, modelConfig);
             var (resetDescription, nextResetTime) = ResolveResetInfo(modelConfig);
-            var modelName = ResolveDisplayModelName(label);
+            var modelName = label;
             var groupName = labelToGroup.TryGetValue(label, out var grp) ? grp : "Ungrouped Models";
             entries.Add(new ModelEntry(label, modelName, groupName, resetDescription, nextResetTime, remainingPct));
 
@@ -784,7 +772,9 @@ public class AntigravityProvider : ProviderBase
             };
         }
 
-        var sortedEntries = SortEntries(entries);
+        var sortedEntries = entries
+            .OrderBy(e => e.Name, StringComparer.Ordinal)
+            .ToList();
         var summary = this.BuildSummaryUsage(data.UserStatus, sortedEntries, minRemaining.Value, responseString, httpStatus, providerLabel);
         ApplySummaryRawNumbers(summary, configMap);
 

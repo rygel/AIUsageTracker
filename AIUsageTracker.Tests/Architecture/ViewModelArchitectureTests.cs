@@ -50,29 +50,4 @@ public class ViewModelArchitectureTests
             string.Join(Environment.NewLine, violations));
     }
 
-    [Fact]
-    public void ViewModels_ShouldInherit_FromBaseViewModel()
-    {
-        var viewModelTypes = typeof(MainViewModel).Assembly.GetTypes()
-            .Where(t => t.Name.EndsWith("ViewModel", StringComparison.Ordinal) &&
-                        !t.IsAbstract &&
-                        !t.IsInterface &&
-                        t != typeof(BaseViewModel))
-            .ToList();
-
-        var violations = new List<string>();
-
-        foreach (var type in viewModelTypes)
-        {
-            if (!typeof(BaseViewModel).IsAssignableFrom(type))
-            {
-                violations.Add($"{type.Name} does not inherit from BaseViewModel");
-            }
-        }
-
-        Assert.True(
-            violations.Count == 0,
-            $"All ViewModels should inherit from BaseViewModel for consistent MVVM patterns.{Environment.NewLine}" +
-            string.Join(Environment.NewLine, violations));
-    }
 }

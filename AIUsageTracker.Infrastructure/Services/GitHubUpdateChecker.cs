@@ -368,14 +368,6 @@ public class GitHubUpdateChecker
         return Path.Combine(updatesDir, $"AIUsageTracker_Setup_{version}.exe");
     }
 
-    private static void DeleteIfExists(string path)
-    {
-        if (File.Exists(path))
-        {
-            File.Delete(path);
-        }
-    }
-
     private static string GetCurrentArchitectureName()
     {
         return System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture switch
@@ -415,8 +407,8 @@ public class GitHubUpdateChecker
     {
         var partialDownloadPath = $"{downloadPath}.partial";
         this._logger.LogInformation("Downloading from {Url} to {Path}", downloadUrl, downloadPath);
-        DeleteIfExists(downloadPath);
-        DeleteIfExists(partialDownloadPath);
+        File.Delete(downloadPath);
+        File.Delete(partialDownloadPath);
 
         using var response = await this._httpClient.GetAsync(downloadUrl, System.Net.Http.HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
