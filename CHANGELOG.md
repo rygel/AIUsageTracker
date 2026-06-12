@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.3.6-beta.5] - 2026-06-12
+
+### Changed
+- **Lean code sweep (cycle 18)**: Removed ~300 lines of dead code, redundant wrappers, and restating comments across all projects. Merged duplicate connection methods, replaced fake generic parsing, simplified dispose patterns, and removed unused NuGet references (System.Drawing.Common from Infrastructure, System.Reactive from UI.Slim/Tests, System.Net.Http.Json from UI.Slim).
+
 ## [2.3.6-beta.4] - 2026-06-11
 
 ### Added
