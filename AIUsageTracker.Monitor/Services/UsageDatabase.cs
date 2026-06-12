@@ -143,34 +143,16 @@ public class UsageDatabase : IUsageDatabase
 
         public void Dispose()
         {
-            this.Dispose(disposing: true);
-            GC.SuppressFinalize(this);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
         }
     }
 
-    private static async Task EnableForeignKeysAsync(SqliteConnection connection)
-    {
-        await connection.ExecuteAsync("PRAGMA foreign_keys = ON").ConfigureAwait(false);
-    }
-
-    private async Task<SqliteConnection> OpenReadConnectionAsync()
-    {
-        var connection = new SqliteConnection(this._connectionString);
-        await connection.OpenAsync().ConfigureAwait(false);
-        return connection;
-    }
-
-    private async Task<SqliteConnection> OpenWriteConnectionAsync(bool enableForeignKeys = false)
+    private async Task<SqliteConnection> OpenConnectionAsync(bool enableForeignKeys = false)
     {
         var connection = new SqliteConnection(this._connectionString);
         await connection.OpenAsync().ConfigureAwait(false);
         if (enableForeignKeys)
         {
-            await EnableForeignKeysAsync(connection).ConfigureAwait(false);
+            await connection.ExecuteAsync("PRAGMA foreign_keys = ON").ConfigureAwait(false);
         }
 
         return connection;
@@ -183,7 +165,7 @@ public class UsageDatabase : IUsageDatabase
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = await this.OpenWriteConnectionAsync(enableForeignKeys: true).ConfigureAwait(false);
+            using var connection = await this.OpenConnectionAsync(enableForeignKeys: true).ConfigureAwait(false);
 
             const string sql = @"
                 INSERT INTO providers (
@@ -237,7 +219,7 @@ public class UsageDatabase : IUsageDatabase
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = await this.OpenWriteConnectionAsync(enableForeignKeys: true).ConfigureAwait(false);
+            using var connection = await this.OpenConnectionAsync(enableForeignKeys: true).ConfigureAwait(false);
 
             const string providerUpsertSql = @"
                 INSERT INTO providers (
@@ -470,7 +452,7 @@ public class UsageDatabase : IUsageDatabase
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = await this.OpenWriteConnectionAsync(enableForeignKeys: true).ConfigureAwait(false);
+            using var connection = await this.OpenConnectionAsync(enableForeignKeys: true).ConfigureAwait(false);
 
             const string sql = @"
                 INSERT INTO raw_snapshots (provider_id, raw_json, http_status, fetched_at)
@@ -489,7 +471,7 @@ public class UsageDatabase : IUsageDatabase
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = await this.OpenWriteConnectionAsync().ConfigureAwait(false);
+            using var connection = await this.OpenConnectionAsync().ConfigureAwait(false);
 
             const string sql = "DELETE FROM raw_snapshots WHERE fetched_at < (strftime('%s', 'now') - 604800)";
             await connection.ExecuteAsync(sql).ConfigureAwait(false);
@@ -511,7 +493,7 @@ public class UsageDatabase : IUsageDatabase
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = await this.OpenWriteConnectionAsync().ConfigureAwait(false);
+            using var connection = await this.OpenConnectionAsync().ConfigureAwait(false);
 
             // Phase 1: rows in the 7–90 day window → keep last row per (provider, hour)
             const string downsampleHourly = @"
@@ -551,7 +533,7 @@ public class UsageDatabase : IUsageDatabase
 
                 // VACUUM must run outside a transaction and requires a separate connection.
                 await connection.CloseAsync().ConfigureAwait(false);
-                using var vacuumConnection = await this.OpenWriteConnectionAsync().ConfigureAwait(false);
+                using var vacuumConnection = await this.OpenConnectionAsync().ConfigureAwait(false);
                 await vacuumConnection.ExecuteAsync("VACUUM").ConfigureAwait(false);
             }
             else
@@ -572,7 +554,7 @@ public class UsageDatabase : IUsageDatabase
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = await this.OpenWriteConnectionAsync().ConfigureAwait(false);
+            using var connection = await this.OpenConnectionAsync().ConfigureAwait(false);
             await connection.ExecuteAsync("PRAGMA optimize").ConfigureAwait(false);
         }
         finally
@@ -591,7 +573,7 @@ public class UsageDatabase : IUsageDatabase
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = await this.OpenWriteConnectionAsync(enableForeignKeys: true).ConfigureAwait(false);
+            using var connection = await this.OpenConnectionAsync(enableForeignKeys: true).ConfigureAwait(false);
 
             const string sql = @"
                 INSERT INTO reset_events (
@@ -622,7 +604,7 @@ public class UsageDatabase : IUsageDatabase
             return Array.Empty<ProviderUsage>();
         }
 
-        using var connection = await this.OpenReadConnectionAsync().ConfigureAwait(false);
+        using var connection = await this.OpenConnectionAsync().ConfigureAwait(false);
 
         // When a provider-ID set is supplied, restrict the subquery to those IDs so that
         // stale history rows for removed/unconfigured providers are excluded at the SQL level
@@ -813,7 +795,7 @@ public class UsageDatabase : IUsageDatabase
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(limit, 10_000);
 
-        using var connection = await this.OpenReadConnectionAsync().ConfigureAwait(false);
+        using var connection = await this.OpenConnectionAsync().ConfigureAwait(false);
 
         var sql = $@"
                 SELECT h.provider_id AS ProviderId, p.provider_name AS ProviderName,
@@ -845,7 +827,7 @@ public class UsageDatabase : IUsageDatabase
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(limit, 10_000);
 
-        using var connection = await this.OpenReadConnectionAsync().ConfigureAwait(false);
+        using var connection = await this.OpenConnectionAsync().ConfigureAwait(false);
 
         var sql = $@"
                 SELECT h.provider_id AS ProviderId, p.provider_name AS ProviderName,
@@ -878,7 +860,7 @@ public class UsageDatabase : IUsageDatabase
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(countPerProvider);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(countPerProvider, 10_000);
 
-        using var connection = await this.OpenReadConnectionAsync().ConfigureAwait(false);
+        using var connection = await this.OpenConnectionAsync().ConfigureAwait(false);
 
         var sql = $@"
                 WITH RankedHistory AS (
@@ -914,7 +896,7 @@ public class UsageDatabase : IUsageDatabase
 
     public async Task<IReadOnlyList<ResetEvent>> GetResetEventsAsync(string providerId, int limit = 50)
     {
-        using var connection = await this.OpenReadConnectionAsync().ConfigureAwait(false);
+        using var connection = await this.OpenConnectionAsync().ConfigureAwait(false);
 
         var sql = $@"
                 SELECT id AS Id, provider_id AS ProviderId, provider_name AS ProviderName,
@@ -931,7 +913,7 @@ public class UsageDatabase : IUsageDatabase
 
     public async Task<bool> IsHistoryEmptyAsync()
     {
-        using var connection = await this.OpenReadConnectionAsync().ConfigureAwait(false);
+        using var connection = await this.OpenConnectionAsync().ConfigureAwait(false);
         var count = await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM provider_history").ConfigureAwait(false);
         return count == 0;
     }
@@ -941,7 +923,7 @@ public class UsageDatabase : IUsageDatabase
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = await this.OpenWriteConnectionAsync().ConfigureAwait(false);
+            using var connection = await this.OpenConnectionAsync().ConfigureAwait(false);
 
             await connection.ExecuteAsync(
                 "UPDATE providers SET is_active = @IsActive, updated_at = CURRENT_TIMESTAMP WHERE provider_id = @ProviderId",
