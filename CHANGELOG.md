@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Cleaned
+- **Removed backup mechanism from AtomicFileWriter**: Dropped unused `backupPath` parameter from `WriteAllTextAtomicAsync` and `ReplaceFile`. The backup logic was the root cause of the preferences reset regression.
+
+### Fixed
+- **Comprehensive regression tests**: Added tests proving LoadAsync never throws for any file state (corrupt, locked, missing), LoadAsync is read-only, no `.bak` files are created, and all 50+ preference fields survive a save/load round-trip.
+
 ## [2.3.7-beta.1] - 2026-06-12
 
 ### Fixed
