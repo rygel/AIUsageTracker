@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [2.3.7-beta.1] - 2026-06-12
+
+### Fixed
+- **Preferences no longer reset after update**: `PreferencesStore.LoadAsync` threw an exception when the file was briefly locked during update restart, causing `App.xaml.cs` to create fresh defaults that overwrote real user settings. LoadAsync now returns defaults without throwing — the catch block never fires, the overwrite cycle is broken.
+
+### Removed
+- **Preferences backup mechanism**: Removed the `.bak` backup file logic from `PreferencesStore`. The atomic writer already prevents corruption (temp file → atomic replace); the backup was redundant complexity that didn't prevent the actual bug.
+
 ## [2.3.6-beta.6] - 2026-06-12
 
 ### Fixed
