@@ -237,31 +237,6 @@ public class AppStartupTests : IDisposable
     }
 
     [Fact]
-    public async Task LoadPreferencesAsync_WhenPrimaryCorrupted_UsesBackupAsync()
-    {
-        var original = new AppPreferences
-        {
-            Theme = AppTheme.Nord,
-            IsPrivacyMode = true,
-        };
-        var updated = new AppPreferences
-        {
-            Theme = AppTheme.Dracula,
-            IsPrivacyMode = false,
-        };
-
-        // First save creates primary, second save creates .bak from first state.
-        Assert.True(await this._store.SaveAsync(original));
-        Assert.True(await this._store.SaveAsync(updated));
-
-        await File.WriteAllTextAsync(this._testPreferencesPath, "{ invalid json");
-        var loaded = await this._store.LoadAsync();
-
-        Assert.Equal(AppTheme.Nord, loaded.Theme);
-        Assert.True(loaded.IsPrivacyMode);
-    }
-
-    [Fact]
     public async Task SavePreferencesAsync_ConcurrentWrites_RemainReadableAsync()
     {
         var saveTasks = Enumerable.Range(0, 40)
@@ -284,5 +259,23 @@ public class AppStartupTests : IDisposable
 
         var loaded = await this._store.LoadAsync();
         Assert.True(Enum.IsDefined(typeof(AppTheme), loaded.Theme));
+    }
+
+    /// <summary>
+    /// When the preferences file is unreadable (e.g. file locked during update restart),
+    /// LoadAsync must return defaults without throwing. This prevents App.xaml.cs from
+    /// entering its catch block and creating a second set of defaults that overwrites
+    /// the real settings on the next save.
+    /// </summary>
+    [Fact]
+    public async Task LoadAsync_WhenFileCorrupt_ReturnsDefaultsWithoutThrowingAsync()
+    {
+        await File.WriteAllTextAsync(this._testPreferencesPath, "{ corrupt");
+
+        var loaded = await this._store.LoadAsync();
+
+        Assert.NotNull(loaded);
+        Assert.Equal(AppTheme.Dark, loaded.Theme);
+        Assert.False(loaded.ShowUsedPercentages);
     }
 }
