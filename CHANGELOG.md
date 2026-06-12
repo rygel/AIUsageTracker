@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [2.3.6-beta.6] - 2026-06-12
+
+### Fixed
+- **ParseAppVersion `-develop` suffix**: `int.TryParse` failed on pre-release numbers like `"5-develop"`, defaulting `preRelease` to 0 and breaking version comparison. Now strips non-numeric suffixes before parsing.
+
+### Changed
+- **MonitorClient namespace split**: Process/HTTP types (`MonitorLauncher`, `MonitorLauncherProcessController`, `MonitorLifecycleService`, `MonitorService`) moved from `Core.MonitorClient` to `Infrastructure.MonitorClient`. DTO/snapshot types remain in Core.
+- **Collapsed unnecessary interfaces**: Removed `IPreferencesStore`, `IUsageAnalyticsService`, and `IMonitorLauncher` — single-implementation interfaces with no test mocking. Consumers now use concrete types directly.
+- **Deleted dead scaffolded types**: Removed `PercentageValueSemantic`, `BudgetPolicy`, and `ProviderResponseException` — 59 lines of unused code.
+
 ## v2.3.6-beta.5-develop — 2026-06-12
 
 - 9d9f2132 release: v2.3.6-beta.5 (#643)
