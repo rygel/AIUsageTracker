@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Services;
 
-public class UsageAnalyticsService : IUsageAnalyticsService
+public class UsageAnalyticsService
 {
     private readonly IWebDatabaseRepository _repository;
     private readonly IMemoryCache _cache;

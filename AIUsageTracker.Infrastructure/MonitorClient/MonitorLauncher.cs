@@ -5,13 +5,14 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
+using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Runtime;
 using Microsoft.Extensions.Logging;
 
-namespace AIUsageTracker.Core.MonitorClient;
+namespace AIUsageTracker.Infrastructure.MonitorClient;
 
-public class MonitorLauncher : IMonitorLauncher
+public class MonitorLauncher
 {
     private static readonly JsonSerializerOptions CaseInsensitiveOptions = new() { PropertyNameCaseInsensitive = true };
     internal const int DefaultPort = 5000;

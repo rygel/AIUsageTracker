@@ -6,6 +6,7 @@ using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Infrastructure.MonitorClient;
 using AIUsageTracker.Tests.Infrastructure;
 using AIUsageTracker.Web.Services;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -295,7 +296,7 @@ public sealed class MonitorProcessServiceTests : IDisposable
         TestTempPaths.CleanupPath(this._tempDirectory);
     }
 
-    private MonitorProcessService CreateService(MonitorHealthSnapshot? healthSnapshot = null, IMonitorLauncher? launcher = null)
+    private MonitorProcessService CreateService(MonitorHealthSnapshot? healthSnapshot = null, MonitorLauncher? launcher = null)
     {
         launcher ??= new MonitorLauncher();
         var monitorService = new Mock<IMonitorService>();

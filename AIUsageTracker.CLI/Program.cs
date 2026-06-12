@@ -7,6 +7,7 @@ using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Infrastructure.MonitorClient;
 using AIUsageTracker.Infrastructure.Configuration;
 using AIUsageTracker.Infrastructure.Extensions;
 using AIUsageTracker.Infrastructure.Providers;
@@ -69,7 +70,7 @@ public static class Program
 
         services.AddHttpClient();
         services.AddConfiguredHttpClients();
-        services.AddSingleton<IMonitorLauncher, MonitorLauncher>();
+        services.AddSingleton<MonitorLauncher>();
         services.AddSingleton<IMonitorService, MonitorService>();
         services.AddSingleton<MonitorLifecycleService>();
 

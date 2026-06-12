@@ -4,6 +4,7 @@
 
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Infrastructure.MonitorClient;
 using AIUsageTracker.Infrastructure.Configuration;
 using AIUsageTracker.Infrastructure.Helpers;
 using AIUsageTracker.Infrastructure.Services;
@@ -26,8 +27,8 @@ internal static class WebServiceCollectionExtensions
             return new WebDatabaseService(cache, logger, pathProvider, connectionFactory, databasePath);
         });
         services.AddSingleton<IWebDatabaseRepository>(sp => sp.GetRequiredService<WebDatabaseService>());
-        services.AddSingleton<IUsageAnalyticsService, UsageAnalyticsService>();
-        services.AddSingleton<IMonitorLauncher, MonitorLauncher>();
+        services.AddSingleton<UsageAnalyticsService>();
+        services.AddSingleton<MonitorLauncher>();
         services.AddSingleton<IMonitorService, MonitorService>();
         services.AddSingleton<IMonitorLauncherClient>(sp =>
         {
@@ -38,7 +39,7 @@ internal static class WebServiceCollectionExtensions
                 return new ScenarioMonitorLauncherClient(scenarioPath);
             }
 
-            var launcher = sp.GetRequiredService<IMonitorLauncher>();
+            var launcher = sp.GetRequiredService<MonitorLauncher>();
             return new MonitorLauncherClient(launcher);
         });
         services.AddSingleton<IDataExportService>(sp =>
@@ -51,7 +52,7 @@ internal static class WebServiceCollectionExtensions
         services.AddSingleton<MonitorLifecycleService>();
         services.AddSingleton<MonitorProcessService>();
         services.AddSingleton<IConfigLoader, JsonConfigLoader>();
-        services.AddSingleton<IPreferencesStore>(sp =>
+        services.AddSingleton<PreferencesStore>(sp =>
             new PreferencesStore(
                 sp.GetRequiredService<ILogger<PreferencesStore>>(),
                 sp.GetRequiredService<IAppPathProvider>()));

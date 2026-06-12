@@ -10,9 +10,10 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.MonitorClient;
 using Microsoft.Extensions.Logging;
 
-namespace AIUsageTracker.Core.MonitorClient;
+namespace AIUsageTracker.Infrastructure.MonitorClient;
 
 public class MonitorService : IMonitorService
 {
@@ -44,14 +45,14 @@ public class MonitorService : IMonitorService
     private readonly HttpClient _httpClient;
     private readonly JsonSerializerOptions _jsonOptions;
     private readonly ILogger<MonitorService>? _logger;
-    private readonly IMonitorLauncher _monitorLauncher;
+    private readonly MonitorLauncher _monitorLauncher;
 
     public MonitorService()
         : this(CreateDefaultHttpClient(), logger: null)
     {
     }
 
-    public MonitorService(HttpClient httpClient, ILogger<MonitorService>? logger, IMonitorLauncher? monitorLauncher = null)
+    public MonitorService(HttpClient httpClient, ILogger<MonitorService>? logger, MonitorLauncher? monitorLauncher = null)
     {
         this._httpClient = httpClient;
         this._logger = logger;

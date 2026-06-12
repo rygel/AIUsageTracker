@@ -4,6 +4,8 @@
 
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Infrastructure.Configuration;
+using AIUsageTracker.Infrastructure.Services;
 using AIUsageTracker.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -15,10 +17,10 @@ namespace AIUsageTracker.Web.Pages;
 public class IndexModel : PageModel
 {
     private readonly WebDatabaseService _dbService;
-    private readonly IUsageAnalyticsService _analyticsService;
-    private readonly IPreferencesStore _preferencesStore;
+    private readonly UsageAnalyticsService _analyticsService;
+    private readonly PreferencesStore _preferencesStore;
 
-    public IndexModel(WebDatabaseService dbService, IUsageAnalyticsService analyticsService, IPreferencesStore preferencesStore)
+    public IndexModel(WebDatabaseService dbService, UsageAnalyticsService analyticsService, PreferencesStore preferencesStore)
     {
         this._dbService = dbService;
         this._analyticsService = analyticsService;

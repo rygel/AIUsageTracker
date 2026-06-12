@@ -3,14 +3,15 @@
 // </copyright>
 
 using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Infrastructure.MonitorClient;
 
 namespace AIUsageTracker.Web.Services;
 
 public sealed class MonitorLauncherClient : IMonitorLauncherClient
 {
-    private readonly IMonitorLauncher _monitorLauncher;
+    private readonly MonitorLauncher _monitorLauncher;
 
-    public MonitorLauncherClient(IMonitorLauncher monitorLauncher)
+    public MonitorLauncherClient(MonitorLauncher monitorLauncher)
     {
         this._monitorLauncher = monitorLauncher;
     }

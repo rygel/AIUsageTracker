@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Infrastructure.MonitorClient;
 using AIUsageTracker.Tests.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -491,7 +492,7 @@ public sealed class MonitorStartupPathTests : IDisposable
         TestTempPaths.CleanupPath(this._tempDirectory);
     }
 
-    private MonitorService CreateMonitorService(IMonitorLauncher? launcher = null)
+    private MonitorService CreateMonitorService(MonitorLauncher? launcher = null)
     {
         return new MonitorService(
             new HttpClient(new Mock<HttpMessageHandler>().Object),
