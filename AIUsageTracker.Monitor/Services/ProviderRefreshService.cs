@@ -255,7 +255,6 @@ public class ProviderRefreshService : BackgroundService
         IEnumerable<ProviderUsage> usages = Enumerable.Empty<ProviderUsage>();
         if (refreshableConfigs.Count > 0)
         {
-            this._logger.LogDebug("Querying {Count} providers with API keys...", refreshableConfigs.Count);
             this._logger.LogInformation("Querying {Count} providers", refreshableConfigs.Count);
 
             var providerIdsToQuery = refreshableConfigs
