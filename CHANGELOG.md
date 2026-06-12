@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.3.6-beta.8] - 2026-06-12
+
+### Tests
+- **Regression test**: LoadAsync must never throw when the preferences file is locked during update restart. This is the exact scenario that caused the preferences reset bug.
+
 ## [2.3.6-beta.7] - 2026-06-12
 
 ### Fixed

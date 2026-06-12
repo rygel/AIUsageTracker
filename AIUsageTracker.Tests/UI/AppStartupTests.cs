@@ -280,6 +280,25 @@ public class AppStartupTests : IDisposable
     }
 
     /// <summary>
+    /// Regression: commit d9036e5d made LoadAsync re-throw when the file was locked
+    /// and no .bak existed. App.xaml.cs caught the throw, created defaults, and those
+    /// defaults overwrote real user settings on the next save. LoadAsync must NEVER throw.
+    /// </summary>
+    [Fact]
+    public async Task LoadAsync_WhenFileLocked_NeverThrowsAsync()
+    {
+        await File.WriteAllTextAsync(this._testPreferencesPath,
+            JsonSerializer.Serialize(new AppPreferences { Theme = AppTheme.Nord }));
+
+        await using var lockStream = new FileStream(
+            this._testPreferencesPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+        var loaded = await this._store.LoadAsync();
+
+        Assert.NotNull(loaded);
+    }
+
+    /// <summary>
     /// LoadAsync must be read-only — it must never modify the existing file.
     /// </summary>
     [Fact]
