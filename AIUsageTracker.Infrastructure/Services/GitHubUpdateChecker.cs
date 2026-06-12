@@ -381,23 +381,7 @@ public class GitHubUpdateChecker
 
     private string GetAppcastUrlForCurrentArchitecture()
     {
-        var currentArch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLower(System.Globalization.CultureInfo.InvariantCulture);
-
-        var archMapping = new Dictionary<string, string>(StringComparer.Ordinal)
-        {
-            [ArchX64] = ArchX64,
-            [ArchX86] = ArchX86,
-            [ArchArm64] = ArchArm64,
-            [ArchArm] = ArchArm64,
-        };
-
-        var targetArch = archMapping.GetValueOrDefault(currentArch, ArchX64);
-
-        if (!archMapping.ContainsKey(currentArch))
-        {
-            this._logger.LogWarning("Unknown architecture {Architecture}, falling back to x64", currentArch);
-        }
-
+        var targetArch = GetCurrentArchitectureName();
         var url = GetAppcastUrl(targetArch, this._channel == UpdateChannel.Beta);
         this._logger.LogDebug("Using appcast for architecture {Architecture} ({Channel}): {Url}", targetArch, this._channel, url);
         return url;
