@@ -432,18 +432,6 @@ internal static partial class MainWindowRuntimeLogic
             : $"{UsageMath.ClampPercent(usage.RemainingPercent):F0}% remaining";
     }
 
-    public static bool GetIsCollapsed(AppPreferences preferences, string providerId)
-    {
-        ArgumentNullException.ThrowIfNull(preferences);
-
-        return false;
-    }
-
-    public static void SetIsCollapsed(AppPreferences preferences, string providerId, bool isCollapsed)
-    {
-        ArgumentNullException.ThrowIfNull(preferences);
-    }
-
     private static string ResolveActionableErrorText(string description, HttpFailureContext failureContext)
     {
         if (!string.IsNullOrWhiteSpace(failureContext.UserMessage))
@@ -464,7 +452,6 @@ internal static partial class MainWindowRuntimeLogic
             _ => string.IsNullOrWhiteSpace(description) ? "Provider unavailable" : description,
         };
     }
-
     private static string NormalizeIdentity(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
