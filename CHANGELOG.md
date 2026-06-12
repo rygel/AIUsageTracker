@@ -2,19 +2,16 @@
 
 ## [Unreleased]
 
+## [2.3.6-beta.7] - 2026-06-12
+
+### Fixed
+- **Preferences no longer reset after update**: `PreferencesStore.LoadAsync` re-threw when the file was locked during update restart (introduced by commit d9036e5d's backup mechanism). App.xaml.cs caught the throw and created defaults that overwrote real user settings. LoadAsync now catches and returns defaults without throwing.
+
 ### Cleaned
 - **Removed backup mechanism from AtomicFileWriter**: Dropped unused `backupPath` parameter from `WriteAllTextAtomicAsync` and `ReplaceFile`. The backup logic was the root cause of the preferences reset regression.
 
-### Fixed
-- **Comprehensive regression tests**: Added tests proving LoadAsync never throws for any file state (corrupt, locked, missing), LoadAsync is read-only, no `.bak` files are created, and all 50+ preference fields survive a save/load round-trip.
-
-## [2.3.7-beta.1] - 2026-06-12
-
-### Fixed
-- **Preferences no longer reset after update**: `PreferencesStore.LoadAsync` threw an exception when the file was briefly locked during update restart, causing `App.xaml.cs` to create fresh defaults that overwrote real user settings. LoadAsync now returns defaults without throwing — the catch block never fires, the overwrite cycle is broken.
-
-### Removed
-- **Preferences backup mechanism**: Removed the `.bak` backup file logic from `PreferencesStore`. The atomic writer already prevents corruption (temp file → atomic replace); the backup was redundant complexity that didn't prevent the actual bug.
+### Tests
+- **Regression tests**: LoadAsync never throws for any file state, LoadAsync is read-only, no `.bak` files created, all 50+ preference fields survive save/load round-trip.
 
 ## [2.3.6-beta.6] - 2026-06-12
 
