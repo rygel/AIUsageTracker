@@ -186,7 +186,6 @@ public partial class App : Application
         // Infrastructure
         services.AddSingleton<IAppPathProvider, AIUsageTracker.Infrastructure.Helpers.DefaultAppPathProvider>();
         services.AddSingleton<UiPreferencesStore>();
-        services.AddSingleton<IMonitorLauncher, MonitorLauncher>();
         services.AddSingleton<MonitorLauncher>();
         services.AddSingleton<IMonitorService, MonitorService>();
         services.AddSingleton<MonitorLifecycleService>();

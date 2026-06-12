@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Core.MonitorClient;
 
-public class MonitorLauncher : IMonitorLauncher
+public class MonitorLauncher
 {
     private static readonly JsonSerializerOptions CaseInsensitiveOptions = new() { PropertyNameCaseInsensitive = true };
     internal const int DefaultPort = 5000;

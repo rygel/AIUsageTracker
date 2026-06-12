@@ -295,7 +295,7 @@ public sealed class MonitorProcessServiceTests : IDisposable
         TestTempPaths.CleanupPath(this._tempDirectory);
     }
 
-    private MonitorProcessService CreateService(MonitorHealthSnapshot? healthSnapshot = null, IMonitorLauncher? launcher = null)
+    private MonitorProcessService CreateService(MonitorHealthSnapshot? healthSnapshot = null, MonitorLauncher? launcher = null)
     {
         launcher ??= new MonitorLauncher();
         var monitorService = new Mock<IMonitorService>();

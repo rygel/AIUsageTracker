@@ -13,7 +13,7 @@ namespace AIUsageTracker.Infrastructure.Configuration;
 /// Reads and writes AppPreferences to the shared preferences.json file.
 /// Shared across Desktop, Monitor, and Web projects.
 /// </summary>
-public class PreferencesStore : IPreferencesStore
+public class PreferencesStore
 {
     private readonly ILogger<PreferencesStore> _logger;
     private readonly IAppPathProvider _pathProvider;

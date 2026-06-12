@@ -491,7 +491,7 @@ public sealed class MonitorStartupPathTests : IDisposable
         TestTempPaths.CleanupPath(this._tempDirectory);
     }
 
-    private MonitorService CreateMonitorService(IMonitorLauncher? launcher = null)
+    private MonitorService CreateMonitorService(MonitorLauncher? launcher = null)
     {
         return new MonitorService(
             new HttpClient(new Mock<HttpMessageHandler>().Object),
