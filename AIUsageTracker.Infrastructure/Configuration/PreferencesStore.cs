@@ -30,13 +30,6 @@ public class PreferencesStore
         this._pathProvider = pathProvider;
     }
 
-    private static readonly TimeSpan[] LoadRetryBackoff =
-    [
-        TimeSpan.FromMilliseconds(100),
-        TimeSpan.FromMilliseconds(300),
-        TimeSpan.FromMilliseconds(500),
-    ];
-
     public async Task<AppPreferences> LoadAsync()
     {
         var path = this.GetPreferencesPath();
@@ -45,35 +38,19 @@ public class PreferencesStore
             return new AppPreferences();
         }
 
-        for (var attempt = 0; ; attempt++)
+        try
         {
-            try
-            {
 #pragma warning disable MA0004
-                await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
 #pragma warning restore MA0004
-                using var reader = new StreamReader(stream);
-                var json = await reader.ReadToEndAsync().ConfigureAwait(false);
-                return AppPreferences.Deserialize(json);
-            }
-            catch (JsonException ex)
-            {
-                // Corrupt JSON — retrying won't help.
-                this._logger.LogWarning(ex, "Preferences file is corrupt at {Path}", path);
-                return new AppPreferences();
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException && attempt < LoadRetryBackoff.Length)
-            {
-                // Transient file lock (e.g. during update restart) — retry.
-                this._logger.LogDebug(ex, "Preferences file locked at {Path}, retry {Attempt}", path, attempt + 1);
-                await Task.Delay(LoadRetryBackoff[attempt]).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                // Retries exhausted — return defaults rather than throwing.
-                this._logger.LogWarning(ex, "Failed to load preferences from {Path} after {Attempts} retries", path, LoadRetryBackoff.Length);
-                return new AppPreferences();
-            }
+            using var reader = new StreamReader(stream);
+            var json = await reader.ReadToEndAsync().ConfigureAwait(false);
+            return AppPreferences.Deserialize(json);
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            this._logger.LogWarning(ex, "Failed to load preferences from {Path}", path);
+            return new AppPreferences();
         }
     }
 

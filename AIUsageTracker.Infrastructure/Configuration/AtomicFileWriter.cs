@@ -21,8 +21,7 @@ internal static class AtomicFileWriter
     public static async Task WriteAllTextAtomicAsync(
         string path,
         string content,
-        ILogger logger,
-        string? backupPath = null)
+        ILogger logger)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ArgumentNullException.ThrowIfNull(content);
@@ -48,7 +47,7 @@ internal static class AtomicFileWriter
                 try
                 {
                     await File.WriteAllTextAsync(tempPath, content, Encoding.UTF8).ConfigureAwait(false);
-                    ReplaceFile(tempPath, normalizedPath, backupPath);
+                    ReplaceFile(tempPath, normalizedPath);
                     return;
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -75,13 +74,13 @@ internal static class AtomicFileWriter
         }
     }
 
-    private static void ReplaceFile(string tempPath, string targetPath, string? backupPath)
+    private static void ReplaceFile(string tempPath, string targetPath)
     {
         if (File.Exists(targetPath))
         {
             try
             {
-                File.Replace(tempPath, targetPath, backupPath, ignoreMetadataErrors: true);
+                File.Replace(tempPath, targetPath, null, ignoreMetadataErrors: true);
                 return;
             }
             catch (PlatformNotSupportedException)

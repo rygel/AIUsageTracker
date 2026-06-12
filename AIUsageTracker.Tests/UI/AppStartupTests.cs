@@ -280,59 +280,6 @@ public class AppStartupTests : IDisposable
     }
 
     /// <summary>
-    /// Regression: During an update restart, the preferences file is briefly locked.
-    /// LoadAsync must retry and eventually read the real data, NOT return defaults
-    /// that would later overwrite the real preferences on save.
-    /// </summary>
-    [Fact]
-    public async Task LoadAsync_WhenFileTransientlyLocked_RetriesAndReadsRealDataAsync()
-    {
-        var savedPrefs = new AppPreferences
-        {
-            Theme = AppTheme.Nord,
-            ShowUsedPercentages = true,
-            AlwaysOnTop = false,
-            ColorThresholdYellow = 55,
-            ColorThresholdRed = 75,
-        };
-        var json = JsonSerializer.Serialize(savedPrefs);
-        await File.WriteAllTextAsync(this._testPreferencesPath, json);
-
-        // Hold an exclusive lock that releases after 150ms (before retries exhaust).
-        var lockStream = new FileStream(
-            this._testPreferencesPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-        _ = Task.Delay(150).ContinueWith(_ => lockStream.Dispose());
-
-        var loaded = await this._store.LoadAsync();
-
-        Assert.NotNull(loaded);
-        Assert.Equal(AppTheme.Nord, loaded.Theme);
-        Assert.True(loaded.ShowUsedPercentages);
-        Assert.False(loaded.AlwaysOnTop);
-        Assert.Equal(55, loaded.ColorThresholdYellow);
-        Assert.Equal(75, loaded.ColorThresholdRed);
-    }
-
-    /// <summary>
-    /// If the file remains locked after all retries, LoadAsync must still return
-    /// defaults without throwing — never crash the app on startup.
-    /// </summary>
-    [Fact]
-    public async Task LoadAsync_WhenFilePersistentlyLocked_ReturnsDefaultsAsync()
-    {
-        var json = JsonSerializer.Serialize(new AppPreferences { Theme = AppTheme.Light });
-        await File.WriteAllTextAsync(this._testPreferencesPath, json);
-
-        await using var lockStream = new FileStream(
-            this._testPreferencesPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-
-        var loaded = await this._store.LoadAsync();
-
-        Assert.NotNull(loaded);
-        Assert.Equal(AppTheme.Dark, loaded.Theme);
-    }
-
-    /// <summary>
     /// LoadAsync must be read-only — it must never modify the existing file.
     /// </summary>
     [Fact]

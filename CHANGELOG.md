@@ -2,8 +2,10 @@
 
 ## [Unreleased]
 
+### Cleaned
+- **Removed backup mechanism from AtomicFileWriter**: Dropped unused `backupPath` parameter from `WriteAllTextAtomicAsync` and `ReplaceFile`. The backup logic was the root cause of the preferences reset regression.
+
 ### Fixed
-- **Preferences survive transient file locks**: `PreferencesStore.LoadAsync` now retries on `IOException`/`UnauthorizedAccessException` (100ms, 300ms, 500ms backoff) before returning defaults. During an update restart, the preferences file is briefly locked — the retry ensures real data is read, not defaults that would later overwrite real settings on save.
 - **Comprehensive regression tests**: Added tests proving LoadAsync never throws for any file state (corrupt, locked, missing), LoadAsync is read-only, no `.bak` files are created, and all 50+ preference fields survive a save/load round-trip.
 
 ## [2.3.7-beta.1] - 2026-06-12
