@@ -83,19 +83,19 @@ public partial class MainWindow : Window
         {
             this._isUpdateCheckInProgress = true;
             UiDiagnosticFileLog.Write("[UPDATE] Checking for updates...");
-            this._latestUpdate = await this._updateChecker.CheckForUpdatesAsync().ConfigureAwait(true);
+            var result = await this._updateChecker.CheckForUpdatesAsync().ConfigureAwait(true);
 
-            var latestVersion = this._latestUpdate?.Version;
-            if (!string.IsNullOrWhiteSpace(latestVersion))
+            if (result != null)
             {
-                UiDiagnosticFileLog.Write($"[UPDATE] New version available: {latestVersion} (download: {this._latestUpdate?.DownloadUrl})");
+                this._latestUpdate = result;
+                UiDiagnosticFileLog.Write($"[UPDATE] New version available: {result.Version} (download: {result.DownloadUrl})");
                 if (this.UpdateNotificationBanner != null && this.UpdateText != null)
                 {
-                    this.UpdateText.Text = $"New version available: {latestVersion}";
+                    this.UpdateText.Text = $"New version available: {result.Version}";
                     this.UpdateNotificationBanner.Visibility = Visibility.Visible;
                 }
             }
-            else if (this.UpdateNotificationBanner != null)
+            else if (this._latestUpdate == null && this.UpdateNotificationBanner != null)
             {
                 UiDiagnosticFileLog.Write("[UPDATE] No updates available.");
                 this.UpdateNotificationBanner.Visibility = Visibility.Collapsed;
