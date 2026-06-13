@@ -27,6 +27,14 @@ public partial class Program
     public static async Task Main(string[] args)
     {
         bool isDebugMode = args.Contains("--debug", StringComparer.Ordinal);
+
+        try
+        {
+            Console.Title = "AI Usage Tracker - Monitor";
+        }
+        catch (PlatformNotSupportedException) { }
+        catch (System.IO.IOException) { }
+
         IAppPathProvider pathProvider = new DefaultAppPathProvider();
         var holdsStartupMutex = false;
 
