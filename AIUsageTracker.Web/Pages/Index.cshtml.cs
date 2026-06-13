@@ -44,6 +44,9 @@ public class IndexModel : PageModel
 
     public IReadOnlyList<UsageComparison> UsageComparisons { get; private set; } = [];
 
+    public IReadOnlyDictionary<string, List<double>> SparklineData { get; private set; }
+        = new Dictionary<string, List<double>>(StringComparer.OrdinalIgnoreCase);
+
     public bool IsDatabaseAvailable => this._dbService.IsDatabaseAvailable();
 
     public bool ShowUsedPercentage { get; set; }
@@ -152,6 +155,7 @@ public class IndexModel : PageModel
         }
 
         await this.LoadAnalyticsAsync(this.LatestUsage.Select(x => x.ProviderId).ToList()).ConfigureAwait(false);
+        await this.LoadSparklineDataAsync(this.LatestUsage.Select(x => x.ProviderId).ToList()).ConfigureAwait(false);
     }
 
     private async Task LoadAnalyticsAsync(IReadOnlyList<string> providerIds)
@@ -183,6 +187,22 @@ public class IndexModel : PageModel
         {
             this.UsageComparisons = (await this._analyticsService.GetUsageComparisonsAsync(providerIds).ConfigureAwait(false)).ToList();
         }
+    }
+
+    private async Task LoadSparklineDataAsync(IReadOnlyList<string> providerIds)
+    {
+        var samples = await this._dbService.GetHistorySamplesAsync(providerIds, 24, 24).ConfigureAwait(false);
+
+        this.SparklineData = samples
+            .GroupBy(s => s.ProviderId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderBy(s => s.FetchedAt)
+                      .Select(s => s.RequestsAvailable > 0
+                          ? Math.Clamp((s.RequestsUsed / s.RequestsAvailable) * 100.0, 0, 100)
+                          : 0)
+                      .ToList(),
+                StringComparer.OrdinalIgnoreCase);
     }
 
     private async Task LoadColorThresholdsAsync()
