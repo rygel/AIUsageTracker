@@ -38,6 +38,32 @@
             var visibleUsage = (Model.LatestUsage ?? new List<AIUsageTracker.Core.Models.ProviderUsage>())
                 .Where(u => Model.ShowInactiveProviders || u.IsAvailable)
                 .ToList();
+
+            var currencyProviders = visibleUsage.Where(u => u.IsCurrencyUsage && u.IsAvailable).ToList();
+            var totalSpent = currencyProviders.Sum(u => u.RequestsUsed);
+            var totalBudget = currencyProviders.Sum(u => u.RequestsAvailable);
+            var spentPercent = totalBudget > 0 ? (totalSpent / totalBudget) * 100.0 : 0;
+        }
+
+        @if (currencyProviders.Count > 0)
+        {
+            <div class="section-header">
+                <h2 class="mb-2">Spending Overview</h2>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Spent</h3>
+                    <div class="stat-value @GetUsageClass(spentPercent)">$@totalSpent.ToString("F2")</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Budget</h3>
+                    <div class="stat-value">$@totalBudget.ToString("F2")</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Currency Providers</h3>
+                    <div class="stat-value">@currencyProviders.Count</div>
+                </div>
+            </div>
         }
 
         @if (visibleUsage.Count > 0)
