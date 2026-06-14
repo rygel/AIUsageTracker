@@ -13,7 +13,7 @@ public sealed class ProviderCardPresentationCatalogTests
     [Fact]
     public void Create_ReturnsMissingStatus_ForMissingKeyDescription()
     {
-        var usage = new ProviderUsage
+        var usage = new QuotaProviderUsage
         {
             ProviderId = "openai",
             Description = "API key not found",
@@ -32,7 +32,7 @@ public sealed class ProviderCardPresentationCatalogTests
     [Fact]
     public void Create_RendersAntigravityAsNormalQuotaProvider_WhenDescriptionMissing()
     {
-        var usage = new ProviderUsage
+        var usage = new QuotaProviderUsage
         {
             ProviderId = "antigravity",
             IsAvailable = true,
@@ -50,7 +50,7 @@ public sealed class ProviderCardPresentationCatalogTests
     public void Create_ShowsProgress_ForClaudeCodeCard()
     {
         // claude-code is a standalone quota-based provider — it must show a progress bar.
-        var usage = new ProviderUsage
+        var usage = new QuotaProviderUsage
         {
             ProviderId = "claude-code",
             IsAvailable = true,
@@ -69,7 +69,7 @@ public sealed class ProviderCardPresentationCatalogTests
     [Fact]
     public void Create_FormatsQuotaFractionStatus_WhenDisplayAsFraction()
     {
-        var usage = new ProviderUsage
+        var usage = new QuotaProviderUsage
         {
             ProviderId = "synthetic",
             IsAvailable = true,
@@ -91,7 +91,7 @@ public sealed class ProviderCardPresentationCatalogTests
     [Fact]
     public void Create_KeepsDescription_ForStatusUsage()
     {
-        var usage = new ProviderUsage
+        var usage = new QuotaProviderUsage
         {
             ProviderId = "mistral",
             Description = "Connected",
@@ -110,7 +110,7 @@ public sealed class ProviderCardPresentationCatalogTests
     [Fact]
     public void Create_FormatsUsagePlanPercentStatus()
     {
-        var usage = new ProviderUsage
+        var usage = new QuotaProviderUsage
         {
             ProviderId = "openrouter",
             IsAvailable = true,
@@ -128,7 +128,7 @@ public sealed class ProviderCardPresentationCatalogTests
     [Fact]
     public void Create_UsesDescription_ForCurrencyUsagePlanStatus()
     {
-        var usage = new ProviderUsage
+        var usage = new QuotaProviderUsage
         {
             ProviderId = "openrouter",
             IsAvailable = true,
@@ -148,7 +148,7 @@ public sealed class ProviderCardPresentationCatalogTests
     [Fact]
     public void Create_UsagePlanWithEmptyDescription_DoesNotFallbackToPercentText()
     {
-        var usage = new ProviderUsage
+        var usage = new QuotaProviderUsage
         {
             ProviderId = "openrouter",
             IsAvailable = true,
@@ -167,7 +167,7 @@ public sealed class ProviderCardPresentationCatalogTests
     public void Create_FormatsDualQuotaBucketStatus_AndSuppressesSingleResetTime()
     {
         // Dual-bar data comes from WindowCards (flat ProviderUsage companion cards).
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "codex",
             IsAvailable = true,
@@ -176,8 +176,8 @@ public sealed class ProviderCardPresentationCatalogTests
             NextResetTime = new DateTime(2026, 3, 7, 1, 0, 0),
             WindowCards = new[]
             {
-                new ProviderUsage { ProviderId = "codex", Name = "5h",     WindowKind = WindowKind.Burst,   UsedPercent = 4.0 },
-                new ProviderUsage { ProviderId = "codex", Name = "Weekly", WindowKind = WindowKind.Rolling, UsedPercent = 51.0 },
+                new WindowedProviderUsage { ProviderId = "codex", Name = "5h",     WindowKind = WindowKind.Burst,   UsedPercent = 4.0 },
+                new WindowedProviderUsage { ProviderId = "codex", Name = "Weekly", WindowKind = WindowKind.Rolling, UsedPercent = 51.0 },
             },
         };
 
@@ -191,7 +191,7 @@ public sealed class ProviderCardPresentationCatalogTests
     public void Create_UsesDeclaredWindowLabels_ForKimiStyleLimitNames()
     {
         // Labels are driven by the window card's Name property.
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "kimi-for-coding",
             IsAvailable = true,
@@ -199,8 +199,8 @@ public sealed class ProviderCardPresentationCatalogTests
             UsedPercent = 25,
             WindowCards = new[]
             {
-                new ProviderUsage { ProviderId = "kimi-for-coding", Name = "5h Limit",     WindowKind = WindowKind.Burst,   UsedPercent = 0.0 },
-                new ProviderUsage { ProviderId = "kimi-for-coding", Name = "Weekly Limit", WindowKind = WindowKind.Rolling, UsedPercent = 25.0 },
+                new WindowedProviderUsage { ProviderId = "kimi-for-coding", Name = "5h Limit",     WindowKind = WindowKind.Burst,   UsedPercent = 0.0 },
+                new WindowedProviderUsage { ProviderId = "kimi-for-coding", Name = "Weekly Limit", WindowKind = WindowKind.Rolling, UsedPercent = 25.0 },
             },
         };
 
@@ -230,14 +230,14 @@ public sealed class ProviderCardPresentationCatalogTests
                     Models = Array.Empty<AgentGroupedModelUsage>(),
                     ProviderDetails = new[]
                     {
-                        new ProviderUsage
+                        new WindowedProviderUsage
                         {
                             ProviderId = "kimi-for-coding",
                             Name = "5h Limit",
                             WindowKind = WindowKind.Burst,
                             UsedPercent = 0,
                         },
-                        new ProviderUsage
+                        new WindowedProviderUsage
                         {
                             ProviderId = "kimi-for-coding",
                             Name = "Weekly Limit",
@@ -250,7 +250,7 @@ public sealed class ProviderCardPresentationCatalogTests
         };
 
         var usages = GroupedUsageDisplayAdapter.Expand(snapshot);
-        var parent = Assert.Single(usages);
+        var parent = (WindowedProviderUsage)Assert.Single(usages);
         Assert.NotNull(parent.WindowCards);
         Assert.Equal(2, parent.WindowCards!.Count);
     }
@@ -271,14 +271,14 @@ public sealed class ProviderCardPresentationCatalogTests
                     Models = Array.Empty<AgentGroupedModelUsage>(),
                     ProviderDetails = new[]
                     {
-                        new ProviderUsage
+                        new WindowedProviderUsage
                         {
                             ProviderId = "claude-code",
                             Name = "Current Session",
                             WindowKind = WindowKind.Burst,
                             UsedPercent = 51,
                         },
-                        new ProviderUsage
+                        new WindowedProviderUsage
                         {
                             ProviderId = "claude-code",
                             Name = "All Models",
@@ -291,7 +291,7 @@ public sealed class ProviderCardPresentationCatalogTests
         };
 
         var usages = GroupedUsageDisplayAdapter.Expand(snapshot);
-        var parent = Assert.Single(usages);
+        var parent = (WindowedProviderUsage)Assert.Single(usages);
         Assert.NotNull(parent.WindowCards);
         Assert.Equal(2, parent.WindowCards!.Count);
     }
@@ -312,14 +312,14 @@ public sealed class ProviderCardPresentationCatalogTests
                     Models = Array.Empty<AgentGroupedModelUsage>(),
                     ProviderDetails = new[]
                     {
-                        new ProviderUsage
+                        new WindowedProviderUsage
                         {
                             ProviderId = "claude-code",
                             Name = "Current Session",
                             WindowKind = WindowKind.Burst,
                             UsedPercent = 84,
                         },
-                        new ProviderUsage
+                        new WindowedProviderUsage
                         {
                             ProviderId = "claude-code",
                             Name = "All Models",
@@ -342,7 +342,7 @@ public sealed class ProviderCardPresentationCatalogTests
     [InlineData("opencode-go")]
     public void Create_UsesCompactInlineStatus_ForOpenCodeProviders(string providerId)
     {
-        var usage = new ProviderUsage
+        var usage = new QuotaProviderUsage
         {
             ProviderId = providerId,
             IsAvailable = true,
@@ -361,7 +361,7 @@ public sealed class ProviderCardPresentationCatalogTests
     [Fact]
     public void Create_ShowsWarningTone_ForHttp429Response()
     {
-        var usage = new ProviderUsage
+        var usage = new QuotaProviderUsage
         {
             ProviderId = "openai",
             IsAvailable = false,
@@ -381,7 +381,7 @@ public sealed class ProviderCardPresentationCatalogTests
     [Fact]
     public void Create_ShowsFallbackRateLimitText_WhenDescriptionIsEmpty()
     {
-        var usage = new ProviderUsage
+        var usage = new QuotaProviderUsage
         {
             ProviderId = "openai",
             IsAvailable = false,
@@ -399,7 +399,7 @@ public sealed class ProviderCardPresentationCatalogTests
     [Fact]
     public void Create_TreatsNon429HttpErrorsAsError()
     {
-        var usage = new ProviderUsage
+        var usage = new QuotaProviderUsage
         {
             ProviderId = "openai",
             IsAvailable = false,
@@ -417,7 +417,7 @@ public sealed class ProviderCardPresentationCatalogTests
     [Fact]
     public void Create_ShowsWarningTone_ForExpiredSubscription()
     {
-        var usage = new ProviderUsage
+        var usage = new QuotaProviderUsage
         {
             ProviderId = "synthetic",
             IsAvailable = false,
@@ -438,7 +438,7 @@ public sealed class ProviderCardPresentationCatalogTests
     [Fact]
     public void Create_ShowsWarningTone_ForUnavailableProvider()
     {
-        var usage = new ProviderUsage
+        var usage = new QuotaProviderUsage
         {
             ProviderId = "openrouter",
             IsAvailable = false,
@@ -458,7 +458,7 @@ public sealed class ProviderCardPresentationCatalogTests
     [Fact]
     public void Create_DoesNotFormatQuotaText_WhenProviderIsUnavailableWithoutTypedState()
     {
-        var usage = new ProviderUsage
+        var usage = new QuotaProviderUsage
         {
             ProviderId = "openrouter",
             IsAvailable = false,
@@ -477,7 +477,7 @@ public sealed class ProviderCardPresentationCatalogTests
     [Fact]
     public void Create_ShowsFallbackText_ForUnavailableProviderWithEmptyDescription()
     {
-        var usage = new ProviderUsage
+        var usage = new QuotaProviderUsage
         {
             ProviderId = "openrouter",
             IsAvailable = false,
@@ -495,7 +495,7 @@ public sealed class ProviderCardPresentationCatalogTests
     [Fact]
     public void Create_ShowsFallbackText_ForExpiredSubscriptionWithEmptyDescription()
     {
-        var usage = new ProviderUsage
+        var usage = new QuotaProviderUsage
         {
             ProviderId = "synthetic",
             IsAvailable = false,

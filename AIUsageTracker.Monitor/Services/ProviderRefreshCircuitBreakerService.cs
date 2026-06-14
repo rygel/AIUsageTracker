@@ -17,7 +17,7 @@ public class ProviderRefreshCircuitBreakerService
     // have passed without a successful refresh. If you change this value, update StaleDataThreshold too.
     private static readonly TimeSpan CircuitBreakerMaxBackoff = TimeSpan.FromMinutes(30);
     private readonly ILogger<ProviderRefreshCircuitBreakerService> _logger;
-    private readonly object _providerFailureLock = new();
+    private readonly Lock _providerFailureLock = new();
     private readonly Dictionary<string, ProviderFailureState> _providerFailureStates = new(StringComparer.OrdinalIgnoreCase);
 
     public ProviderRefreshCircuitBreakerService(ILogger<ProviderRefreshCircuitBreakerService> logger)
@@ -177,15 +177,13 @@ public class ProviderRefreshCircuitBreakerService
                     : $"Temporarily paused — next check at {retryLocal:HH:mm} (last error: {state.LastError})";
 
                 var displayName = ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId);
-                result.Add(new ProviderUsage
+                result.Add(new QuotaProviderUsage
                 {
                     ProviderId = config.ProviderId,
                     ProviderName = displayName,
                     IsAvailable = false,
                     State = ProviderUsageState.Unavailable,
                     Description = description,
-                    RequestsUsed = 0,
-                    RequestsAvailable = 0,
                     FetchedAt = now,
                     AuthSource = config.AuthSource ?? string.Empty,
                 });

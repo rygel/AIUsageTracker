@@ -39,7 +39,7 @@ public sealed class UsageDatabasePipelineTests : IDisposable
         var db = await this.CreateDatabaseAsync();
         var fetchedAt = DateTime.UtcNow.AddMinutes(-5);
 
-        var originalUsage = new ProviderUsage
+        var originalUsage = new WindowedProviderUsage
         {
             ProviderId = "codex",
             ProviderName = "OpenAI Codex",
@@ -57,7 +57,7 @@ public sealed class UsageDatabasePipelineTests : IDisposable
 
         var latest = await db.GetLatestHistoryAsync();
 
-        var codex = Assert.Single(latest, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal));
+        var codex = (QuotaProviderUsage)Assert.Single(latest, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal));
         Assert.Equal(123.5, codex.RequestsUsed, precision: 5);
         Assert.Equal(876.5, codex.RequestsAvailable, precision: 5);
         Assert.True(codex.IsAvailable);
@@ -69,7 +69,7 @@ public sealed class UsageDatabasePipelineTests : IDisposable
     {
         var db = await this.CreateDatabaseAsync();
 
-        var unavailable = new ProviderUsage
+        var unavailable = new WindowedProviderUsage
         {
             ProviderId = "codex",
             ProviderName = "OpenAI Codex",
@@ -97,7 +97,7 @@ public sealed class UsageDatabasePipelineTests : IDisposable
     {
         var db = await this.CreateDatabaseAsync();
 
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "inactive-provider",
             ProviderName = "Inactive",
@@ -129,8 +129,8 @@ public sealed class UsageDatabasePipelineTests : IDisposable
 
         var usages = new[]
         {
-            new ProviderUsage { ProviderId = "codex", ProviderName = "Codex", RequestsUsed = 50, RequestsAvailable = 950, IsAvailable = true, Description = "ok", HttpStatus = 200, FetchedAt = fetchedAt },
-            new ProviderUsage { ProviderId = "suspended-provider", ProviderName = "Suspended", RequestsUsed = 10, RequestsAvailable = 90, IsAvailable = true, Description = "ok", HttpStatus = 200, FetchedAt = fetchedAt },
+            new WindowedProviderUsage { ProviderId = "codex", ProviderName = "Codex", RequestsUsed = 50, RequestsAvailable = 950, IsAvailable = true, Description = "ok", HttpStatus = 200, FetchedAt = fetchedAt },
+            new WindowedProviderUsage { ProviderId = "suspended-provider", ProviderName = "Suspended", RequestsUsed = 10, RequestsAvailable = 90, IsAvailable = true, Description = "ok", HttpStatus = 200, FetchedAt = fetchedAt },
         };
 
         var result = this._pipeline.Process(usages, activeProviderIds: ["codex"], isPrivacyMode: false);
@@ -147,7 +147,7 @@ public sealed class UsageDatabasePipelineTests : IDisposable
         var db = await this.CreateDatabaseAsync();
 
         // Flat burst card — replaces the old Details round-trip test
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "codex",
             ProviderName = "OpenAI Codex",
@@ -169,7 +169,7 @@ public sealed class UsageDatabasePipelineTests : IDisposable
 
         var latest = await db.GetLatestHistoryAsync();
 
-        var codex = Assert.Single(latest, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal));
+        var codex = (WindowedProviderUsage)Assert.Single(latest, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal));
         Assert.Equal(WindowKind.Burst, codex.WindowKind);
         Assert.Equal("burst", codex.CardId);
         Assert.Equal("5-hour quota", codex.Name);
@@ -183,8 +183,8 @@ public sealed class UsageDatabasePipelineTests : IDisposable
         var t1 = DateTime.UtcNow.AddMinutes(-5);
         var t2 = t1.AddMinutes(3);
 
-        var usageT1 = new ProviderUsage { ProviderId = "codex", ProviderName = "Codex", RequestsUsed = 50, RequestsAvailable = 950, IsAvailable = true, Description = "ok", HttpStatus = 200, FetchedAt = t1 };
-        var usageT2 = new ProviderUsage { ProviderId = "codex", ProviderName = "Codex", RequestsUsed = 50, RequestsAvailable = 950, IsAvailable = true, Description = "ok", HttpStatus = 200, FetchedAt = t2 };
+        var usageT1 = new WindowedProviderUsage { ProviderId = "codex", ProviderName = "Codex", RequestsUsed = 50, RequestsAvailable = 950, IsAvailable = true, Description = "ok", HttpStatus = 200, FetchedAt = t1 };
+        var usageT2 = new WindowedProviderUsage { ProviderId = "codex", ProviderName = "Codex", RequestsUsed = 50, RequestsAvailable = 950, IsAvailable = true, Description = "ok", HttpStatus = 200, FetchedAt = t2 };
 
         var r1 = this._pipeline.Process([usageT1], activeProviderIds: ["codex"], isPrivacyMode: false);
         await db.StoreHistoryAsync(r1.Usages);

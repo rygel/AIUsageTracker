@@ -54,7 +54,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
 
         this.SetupResponse(HttpStatusCode.OK, responseJson);
 
-        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+        var result = (await this._provider.GetUsageAsync(this.Config)).OfType<WindowedProviderUsage>().ToList();
 
         Assert.Equal(2, result.Count);
         var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
@@ -83,7 +83,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
 
         this.SetupResponse(HttpStatusCode.OK, responseJson);
 
-        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+        var result = (await this._provider.GetUsageAsync(this.Config)).OfType<WindowedProviderUsage>().ToList();
 
         Assert.Equal(2, result.Count);
         Assert.Single(result, u => u.WindowKind == WindowKind.Burst);
@@ -108,7 +108,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
 
         this.SetupResponse(HttpStatusCode.OK, responseJson);
 
-        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+        var result = (await this._provider.GetUsageAsync(this.Config)).OfType<WindowedProviderUsage>().ToList();
 
         var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
         Assert.True(burst.IsQuotaBased);
@@ -134,7 +134,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
 
         this.SetupResponse(HttpStatusCode.OK, responseJson);
 
-        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+        var result = (await this._provider.GetUsageAsync(this.Config)).OfType<WindowedProviderUsage>().ToList();
 
         var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
         Assert.Equal(85, burst.UsedPercent);
@@ -158,7 +158,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
 
         this.SetupResponse(HttpStatusCode.OK, responseJson);
 
-        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+        var result = (await this._provider.GetUsageAsync(this.Config)).OfType<WindowedProviderUsage>().ToList();
 
         var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
         Assert.Equal(100, burst.UsedPercent);
@@ -186,7 +186,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
 
         this.SetupResponse(HttpStatusCode.OK, responseJson);
 
-        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+        var result = (await this._provider.GetUsageAsync(this.Config)).OfType<WindowedProviderUsage>().ToList();
 
         var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
         Assert.Equal(2, burst.UsedPercent);
@@ -210,7 +210,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
 
         this.SetupResponse(HttpStatusCode.OK, responseJson);
 
-        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+        var result = (await this._provider.GetUsageAsync(this.Config)).OfType<WindowedProviderUsage>().ToList();
 
         var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
         Assert.Equal(0, burst.UsedPercent);
@@ -235,7 +235,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
 
         this.SetupResponse(HttpStatusCode.OK, responseJson);
 
-        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+        var result = (await this._provider.GetUsageAsync(this.Config)).OfType<WindowedProviderUsage>().ToList();
 
         var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
         Assert.Equal(0, burst.UsedPercent);
@@ -271,7 +271,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
 
         this.SetupResponse(HttpStatusCode.OK, responseJson, TokenPlanEndpoint);
 
-        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+        var result = (await this._provider.GetUsageAsync(this.Config)).OfType<WindowedProviderUsage>().ToList();
 
         var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
         Assert.Equal("minimax", burst.ProviderId); // provider-id-guardrail-allow: test assertion
@@ -297,7 +297,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
 
         this.SetupResponse(HttpStatusCode.OK, responseJson, TokenPlanEndpoint);
 
-        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+        var result = (await this._provider.GetUsageAsync(this.Config)).OfType<WindowedProviderUsage>().ToList();
 
         var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
         Assert.Equal("minimax-io", burst.ProviderId); // provider-id-guardrail-allow: test assertion
@@ -323,7 +323,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
 
         this.SetupResponse(HttpStatusCode.OK, responseJson, TokenPlanEndpoint);
 
-        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+        var result = (await this._provider.GetUsageAsync(this.Config)).OfType<WindowedProviderUsage>().ToList();
 
         var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
         Assert.Equal("minimax-global", burst.ProviderId); // provider-id-guardrail-allow: test assertion
@@ -350,7 +350,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
 
         this.SetupResponse(HttpStatusCode.OK, responseJson, customUrl);
 
-        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+        var result = (await this._provider.GetUsageAsync(this.Config)).OfType<WindowedProviderUsage>().ToList();
 
         var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
         Assert.True(burst.IsAvailable);
@@ -453,7 +453,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
 
         this.SetupResponse(HttpStatusCode.OK, responseJson);
 
-        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+        var result = (await this._provider.GetUsageAsync(this.Config)).OfType<WindowedProviderUsage>().ToList();
 
         Assert.Equal(2, result.Count);
         Assert.All(result, u => Assert.Equal(100, u.UsedPercent));
@@ -477,7 +477,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
 
         this.SetupResponse(HttpStatusCode.OK, responseJson);
 
-        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+        var result = (await this._provider.GetUsageAsync(this.Config)).OfType<WindowedProviderUsage>().ToList();
 
         var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
         Assert.Contains("remaining", burst.Description, StringComparison.Ordinal);
@@ -501,7 +501,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
 
         this.SetupResponse(HttpStatusCode.OK, responseJson);
 
-        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+        var result = (await this._provider.GetUsageAsync(this.Config)).OfType<WindowedProviderUsage>().ToList();
 
         var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
         Assert.False(burst.IsCurrencyUsage);
@@ -525,7 +525,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
 
         this.SetupResponse(HttpStatusCode.OK, responseJson);
 
-        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+        var result = (await this._provider.GetUsageAsync(this.Config)).OfType<WindowedProviderUsage>().ToList();
 
         var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
         Assert.Equal(PlanType.Coding, burst.PlanType);
@@ -550,7 +550,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
 
         this.SetupResponse(HttpStatusCode.OK, responseJson, CodingPlanEndpoint);
 
-        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+        var result = (await this._provider.GetUsageAsync(this.Config)).OfType<WindowedProviderUsage>().ToList();
 
         Assert.Equal(2, result.Count);
         var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
@@ -609,7 +609,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
             """;
         this.SetupResponse(HttpStatusCode.OK, responseJson, CodingPlanEndpoint);
 
-        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+        var result = (await this._provider.GetUsageAsync(this.Config)).OfType<WindowedProviderUsage>().ToList();
 
         Assert.Equal(2, result.Count);
         Assert.All(result, u => Assert.Equal(100, u.UsedPercent));
@@ -661,7 +661,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
             """;
         this.SetupResponse(HttpStatusCode.OK, responseJson, CodingPlanEndpoint);
 
-        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+        var result = (await this._provider.GetUsageAsync(this.Config)).OfType<WindowedProviderUsage>().ToList();
 
         var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
         Assert.Equal(20, burst.UsedPercent);
@@ -691,7 +691,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
             """;
         this.SetupResponse(HttpStatusCode.OK, responseJson, CodingPlanEndpoint);
 
-        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+        var result = (await this._provider.GetUsageAsync(this.Config)).OfType<WindowedProviderUsage>().ToList();
 
         Assert.Equal(2, result.Count);
         Assert.All(result, usage => Assert.DoesNotContain("Search", usage.Name ?? string.Empty, StringComparison.OrdinalIgnoreCase));
@@ -723,7 +723,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
             """;
         this.SetupResponse(HttpStatusCode.OK, responseJson, CodingPlanEndpoint);
 
-        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+        var result = (await this._provider.GetUsageAsync(this.Config)).OfType<WindowedProviderUsage>().ToList();
 
         Assert.Equal(2, result.Count);
         Assert.All(result, usage => Assert.True(usage.IsAvailable));
@@ -756,7 +756,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
             """;
         this.SetupResponse(HttpStatusCode.OK, responseJson, CodingPlanEndpoint);
 
-        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+        var result = (await this._provider.GetUsageAsync(this.Config)).OfType<WindowedProviderUsage>().ToList();
 
         var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
         var weekly = result.Single(u => u.WindowKind == WindowKind.Rolling);
@@ -793,7 +793,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
             """;
         this.SetupResponse(HttpStatusCode.OK, responseJson, CodingPlanEndpoint);
 
-        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+        var result = (await this._provider.GetUsageAsync(this.Config)).OfType<WindowedProviderUsage>().ToList();
 
         var burst = result.Single(u => u.WindowKind == WindowKind.Burst);
         var weekly = result.Single(u => u.WindowKind == WindowKind.Rolling);

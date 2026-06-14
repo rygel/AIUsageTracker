@@ -8,7 +8,6 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.MonitorClient;
 using AIUsageTracker.Infrastructure.Services;
 using AIUsageTracker.UI.Slim;

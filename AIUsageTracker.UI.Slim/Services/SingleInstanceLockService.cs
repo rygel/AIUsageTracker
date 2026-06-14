@@ -11,7 +11,7 @@ public sealed class SingleInstanceLockService
 {
     private const int SingleInstanceLockWaitMilliseconds = 250;
 
-    private readonly object _sync = new();
+    private readonly Lock _sync = new();
     private readonly string _mutexName;
     private readonly ILogger<SingleInstanceLockService> _logger;
 

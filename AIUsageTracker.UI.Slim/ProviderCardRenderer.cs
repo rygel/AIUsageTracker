@@ -444,18 +444,24 @@ internal sealed class ProviderCardRenderer
 
     private void RenderDailyBudget(DockPanel panel, ProviderUsage usage)
     {
-        if (usage.PeriodDuration.HasValue && usage.PeriodDuration.Value.TotalDays >= 1)
+        var periodDuration = usage switch
         {
-            var dailyBudget = 100.0 / usage.PeriodDuration.Value.TotalDays;
+            WindowedProviderUsage w => w.PeriodDuration,
+            ModelScopedProviderUsage m => m.PeriodDuration,
+            _ => null,
+        };
+        if (periodDuration.HasValue && periodDuration.Value.TotalDays >= 1)
+        {
+            var dailyBudget = 100.0 / periodDuration.Value.TotalDays;
             this.AddSlotText(panel, $"{dailyBudget.ToString("F0", CultureInfo.InvariantCulture)}%/day budget", this._getResourceBrush(ResourceKeyTertiaryText, Brushes.Gray), 9);
         }
     }
 
     private void RenderUsageRate(DockPanel panel, ProviderUsage usage)
     {
-        if (this._preferences.ShowUsagePerHour && usage.UsagePerHour.HasValue)
+        if (this._preferences.ShowUsagePerHour && usage is QuotaProviderUsage q && q.UsagePerHour.HasValue)
         {
-            this.AddSlotText(panel, $"{usage.UsagePerHour.Value:F1}/hr", this._getResourceBrush(ResourceKeyTertiaryText, Brushes.Gray), 9);
+            this.AddSlotText(panel, $"{q.UsagePerHour.Value:F1}/hr", this._getResourceBrush(ResourceKeyTertiaryText, Brushes.Gray), 9);
         }
     }
 
@@ -565,23 +571,33 @@ internal sealed class ProviderCardRenderer
 
     private static string GetUsedSlotText(ProviderUsage usage)
     {
-        if (usage.IsCurrencyUsage)
+        if (usage is QuotaProviderUsage q && q.IsCurrencyUsage)
         {
-            return $"${usage.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture)} used";
+            return $"${q.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture)} used";
         }
 
-        return $"{usage.UsedPercent.ToString("F0", CultureInfo.InvariantCulture)}% used";
+        if (usage is QuotaProviderUsage q2)
+        {
+            return $"{q2.UsedPercent.ToString("F0", CultureInfo.InvariantCulture)}% used";
+        }
+
+        return string.Empty;
     }
 
     private static string GetRemainingSlotText(ProviderUsage usage)
     {
-        if (usage.IsCurrencyUsage)
+        if (usage is QuotaProviderUsage q && q.IsCurrencyUsage)
         {
-            var remaining = Math.Max(0, usage.RequestsAvailable - usage.RequestsUsed);
+            var remaining = Math.Max(0, q.RequestsAvailable - q.RequestsUsed);
             return $"${remaining.ToString("F2", CultureInfo.InvariantCulture)} remaining";
         }
 
-        return $"{Math.Max(0, 100 - usage.UsedPercent).ToString("F0", CultureInfo.InvariantCulture)}% remaining";
+        if (usage is QuotaProviderUsage q2)
+        {
+            return $"{Math.Max(0, 100 - q2.UsedPercent).ToString("F0", CultureInfo.InvariantCulture)}% remaining";
+        }
+
+        return string.Empty;
     }
 
     internal static bool ShouldRenderSlot(CardSlotContent slot, ProviderCardPresentation presentation)

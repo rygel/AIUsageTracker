@@ -54,23 +54,31 @@ internal static partial class MainWindowRuntimeLogic
         {
             description = ResolveActionableErrorText(description, usage.FailureContext);
         }
-        var isStatusOnlyProvider = usage.IsStatusOnly;
-        var remainingPercent = usage.RemainingPercent;
-        var usedPercent = usage.UsedPercent;
+
+        var qUsage = usage as QuotaProviderUsage;
+        var isStatusOnlyProvider = qUsage?.IsStatusOnly ?? false;
+        var remainingPercent = qUsage?.RemainingPercent ?? 0;
+        var usedPercent = qUsage?.UsedPercent ?? 0;
 
         var shouldHaveProgress = usage.IsAvailable &&
             !isUnknown &&
             !isStatusOnlyProvider &&
-            (usage.UsedPercent > 0 || usage.IsQuotaBased) &&
+            (usedPercent > 0 || (qUsage?.IsQuotaBased ?? false)) &&
             !isMissing &&
             !isError &&
             !isUnavailable;
 
         // Always compute pace — used for bar color and badge regardless of card layout.
+        var periodDuration = usage switch
+        {
+            WindowedProviderUsage w => w.PeriodDuration,
+            ModelScopedProviderUsage m => m.PeriodDuration,
+            _ => null,
+        };
         var paceColor = UsageMath.ComputePaceColor(
             usedPercent,
-            usage.NextResetTime,
-            usage.PeriodDuration,
+            qUsage?.NextResetTime,
+            periodDuration,
             enablePaceAdjustment);
 
         // HTTP 429 (rate limited) is a known temporary state — show as Warning (orange), not Error (red),
@@ -268,6 +276,7 @@ internal static partial class MainWindowRuntimeLogic
         DualBarData? dualBar)
     {
         var description = usage.Description ?? string.Empty;
+        var qu = usage as QuotaProviderUsage;
 
         // Safety check: unavailable providers should never show percentage-based text.
         if (!usage.IsAvailable || usage.State != ProviderUsageState.Available)
@@ -275,7 +284,7 @@ internal static partial class MainWindowRuntimeLogic
             return (description, false);
         }
 
-        if (usage.IsStatusOnly)
+        if (qu?.IsStatusOnly == true)
         {
             return (description, false);
         }
@@ -290,16 +299,16 @@ internal static partial class MainWindowRuntimeLogic
             return (BuildDualQuotaBucketStatusText(dualBar, showUsed), true);
         }
 
-        if (usage.IsQuotaBased)
+        if (qu?.IsQuotaBased == true)
         {
             return (
-                usage.DisplayAsFraction
-                    ? GetQuotaFractionStatusText(usage, showUsed)
-                    : GetQuotaPercentStatusText(usage, showUsed),
+                qu.DisplayAsFraction
+                    ? GetQuotaFractionStatusText(qu, showUsed)
+                    : GetQuotaPercentStatusText(qu, showUsed),
                 false);
         }
 
-        if (usage.PlanType == PlanType.Usage)
+        if (qu?.PlanType == PlanType.Usage)
         {
             return (description, false);
         }
@@ -314,14 +323,14 @@ internal static partial class MainWindowRuntimeLogic
             return description;
         }
 
-        if (usage.PlanType == PlanType.Usage && usage.RequestsUsed >= 0)
+        if (usage is QuotaProviderUsage qu && qu.PlanType == PlanType.Usage && qu.RequestsUsed >= 0)
         {
-            if (usage.IsCurrencyUsage)
+            if (qu.IsCurrencyUsage)
             {
-                return $"${usage.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture)}";
+                return $"${qu.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture)}";
             }
 
-            return usage.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture);
+            return qu.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture);
         }
 
         return description;
@@ -357,14 +366,19 @@ internal static partial class MainWindowRuntimeLogic
 
     internal static DualBarData? TryBuildDualBarData(ProviderUsage usage, bool enablePaceAdjustment)
     {
-        var windowCards = usage.WindowCards;
+        if (usage is not WindowedProviderUsage wu)
+        {
+            return null;
+        }
+
+        var windowCards = wu.WindowCards;
         if (windowCards == null || windowCards.Count == 0)
         {
             return null;
         }
 
-        var burstCard = windowCards.FirstOrDefault(c => c.WindowKind == WindowKind.Burst);
-        var rollingCard = windowCards.FirstOrDefault(c => c.WindowKind == WindowKind.Rolling);
+        var burstCard = windowCards.OfType<WindowedProviderUsage>().FirstOrDefault(c => c.WindowKind == WindowKind.Burst);
+        var rollingCard = windowCards.OfType<WindowedProviderUsage>().FirstOrDefault(c => c.WindowKind == WindowKind.Rolling);
 
         if (burstCard == null || rollingCard == null)
         {
@@ -414,7 +428,7 @@ internal static partial class MainWindowRuntimeLogic
             : $"{label} {clampedRemaining:F0}% remaining";
     }
 
-    private static string GetQuotaFractionStatusText(ProviderUsage usage, bool showUsed)
+    private static string GetQuotaFractionStatusText(QuotaProviderUsage usage, bool showUsed)
     {
         if (showUsed)
         {
@@ -425,7 +439,7 @@ internal static partial class MainWindowRuntimeLogic
         return $"{remaining:N0} / {usage.RequestsAvailable:N0} remaining";
     }
 
-    private static string GetQuotaPercentStatusText(ProviderUsage usage, bool showUsed)
+    private static string GetQuotaPercentStatusText(QuotaProviderUsage usage, bool showUsed)
     {
         return showUsed
             ? $"{UsageMath.ClampPercent(usage.UsedPercent):F0}% used"
@@ -452,6 +466,7 @@ internal static partial class MainWindowRuntimeLogic
             _ => string.IsNullOrWhiteSpace(description) ? "Provider unavailable" : description,
         };
     }
+
     private static string NormalizeIdentity(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))

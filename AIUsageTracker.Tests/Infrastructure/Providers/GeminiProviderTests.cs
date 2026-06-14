@@ -64,7 +64,7 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
 
         // Assert — Gemini emits one flat model card per bucket with a modelId
         var usage = Assert.Single(
-            result,
+            result.OfType<ModelScopedProviderUsage>(),
             item => string.Equals(item.ProviderId, "gemini-cli", StringComparison.Ordinal));
         Assert.True(usage.IsAvailable);
         Assert.Equal("user@example.com", usage.AccountName);
@@ -189,7 +189,7 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         var result = await provider.GetUsageAsync(this.Config);
 
         // Assert — buckets without modelId produce no flat cards; provider returns unavailable when no cards
-        var resultList = result.ToList();
+        var resultList = result.OfType<ModelScopedProviderUsage>().ToList();
         Assert.All(resultList, u => Assert.Equal("gemini-cli", u.ProviderId));
         Assert.DoesNotContain(
             resultList,
@@ -243,7 +243,7 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         var result = await provider.GetUsageAsync(this.Config);
 
         // Assert — provider now emits one flat card per model (no parent card)
-        var resultList = result.ToList();
+        var resultList = result.OfType<ModelScopedProviderUsage>().ToList();
         Assert.Equal(5, resultList.Count);
         Assert.All(resultList, u => Assert.Equal("gemini-cli", u.ProviderId));
         Assert.All(resultList, u => Assert.True(u.IsAvailable));
@@ -300,7 +300,7 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         var result = await provider.GetUsageAsync(this.Config);
 
         // Provider now emits one flat card per model (no parent card)
-        var resultList = result.ToList();
+        var resultList = result.OfType<ModelScopedProviderUsage>().ToList();
         Assert.Equal(3, resultList.Count);
         Assert.All(resultList, u => Assert.Equal("gemini-cli", u.ProviderId));
         Assert.Contains(resultList, u => string.Equals(u.ModelName, "gemini-2.5-flash-lite", StringComparison.Ordinal));
@@ -357,7 +357,7 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         var result = await provider.GetUsageAsync(this.Config);
 
         // Provider now emits one flat card per model (buckets without modelId are ignored)
-        var resultList = result.ToList();
+        var resultList = result.OfType<ModelScopedProviderUsage>().ToList();
         Assert.All(resultList, u => Assert.Equal("gemini-cli", u.ProviderId));
         Assert.Contains(resultList, u => string.Equals(u.Name, "Gemini 2.5 Flash Lite", StringComparison.Ordinal));
         Assert.Contains(resultList, u => string.Equals(u.Name, "Gemini 3 Flash Preview", StringComparison.Ordinal));
@@ -401,7 +401,7 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         var result = await provider.GetUsageAsync(this.Config);
 
         // Provider now emits one flat card per model (no parent card)
-        var resultList = result.ToList();
+        var resultList = result.OfType<ModelScopedProviderUsage>().ToList();
         Assert.All(resultList, u => Assert.Equal("gemini-cli", u.ProviderId));
         Assert.Contains(resultList, u => string.Equals(u.Name, "Gemini 2.5 Flash Lite", StringComparison.Ordinal));
         Assert.Contains(resultList, u => string.Equals(u.Name, "Gemini 3.1 Pro Preview", StringComparison.Ordinal));

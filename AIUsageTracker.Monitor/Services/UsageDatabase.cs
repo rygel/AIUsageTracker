@@ -276,7 +276,7 @@ public class UsageDatabase : IUsageDatabase
                         response_latency_ms, http_status,
                         upstream_response_validity, upstream_response_note,
                         parent_provider_id, card_id, group_id,
-                        window_kind, model_name, name
+                        window_kind, model_name, name, card_type
                     ) VALUES (
                         @ProviderId,
                         @RequestsUsed, @RequestsAvailable, @RequestsPercentage,
@@ -284,7 +284,7 @@ public class UsageDatabase : IUsageDatabase
                         @ResponseLatencyMs, @HttpStatus,
                         @UpstreamResponseValidity, @UpstreamResponseNote,
                         @ParentProviderId, @CardId, @GroupId,
-                        @WindowKind, @ModelName, @Name
+                        @WindowKind, @ModelName, @Name, @CardType
                     )";
 
                 await connection.ExecuteAsync(insertSql, toInsert).ConfigureAwait(false);
@@ -317,13 +317,14 @@ public class UsageDatabase : IUsageDatabase
         string? newNextResetTime,
         string newStatusMessage)
     {
-        return Math.Abs(usage.RequestsUsed - last.RequestsUsed) < 0.001
-            && Math.Abs(usage.RequestsAvailable - last.RequestsAvailable) < 0.001
+        var q = usage as QuotaProviderUsage;
+        return Math.Abs((q?.RequestsUsed ?? 0) - last.RequestsUsed) < 0.001
+            && Math.Abs((q?.RequestsAvailable ?? 0) - last.RequestsAvailable) < 0.001
             && (usage.IsAvailable ? 1L : 0L) == last.IsAvailable
             && (long)usage.HttpStatus == last.HttpStatus
             && string.Equals(newStatusMessage, last.StatusMessage ?? string.Empty, StringComparison.Ordinal)
             && string.Equals(newNextResetTime, last.NextResetTime, StringComparison.Ordinal)
-            && string.Equals(usage.Name, last.Name, StringComparison.Ordinal);
+            && string.Equals((usage as WindowedProviderUsage)?.Name ?? (usage as ModelScopedProviderUsage)?.Name, last.Name, StringComparison.Ordinal);
     }
 
     private static void ClassifyHistoryEntries(
@@ -335,7 +336,10 @@ public class UsageDatabase : IUsageDatabase
         foreach (var u in validUsages)
         {
             var fetchedAt = ToUnixEpoch(u.FetchedAt == default ? DateTime.UtcNow : u.FetchedAt);
-            var nextResetTime = u.NextResetTime?.ToString("O");
+            var q = u as QuotaProviderUsage;
+            var w = u as WindowedProviderUsage;
+            var m = u as ModelScopedProviderUsage;
+            var nextResetTime = q?.NextResetTime?.ToString("O");
             var statusMessage = u.Description ?? string.Empty;
             var validityEval = u.EvaluateUpstreamResponseValidity();
             var validityInt = (int)(u.UpstreamResponseValidity == UpstreamResponseValidity.Unknown
@@ -345,7 +349,7 @@ public class UsageDatabase : IUsageDatabase
                 ? validityEval.Note
                 : u.UpstreamResponseNote;
 
-            var dedupKey = $"{u.ProviderId!}::{u.CardId ?? string.Empty}";
+            var dedupKey = $"{u.ProviderId!}::{w?.CardId ?? m?.CardId ?? string.Empty}";
             if (lastRows.TryGetValue(dedupKey, out var last)
                 && IsHistoryUnchanged(u, last, nextResetTime, statusMessage))
             {
@@ -355,9 +359,9 @@ public class UsageDatabase : IUsageDatabase
             {
                 toInsert.Add(new HistoryInsertParams(
                     u.ProviderId!,
-                    u.RequestsUsed,
-                    u.RequestsAvailable,
-                    u.UsedPercent,
+                    q?.RequestsUsed ?? 0,
+                    q?.RequestsAvailable ?? 0,
+                    q?.UsedPercent ?? 0,
                     u.IsAvailable ? 1 : 0,
                     statusMessage,
                     nextResetTime,
@@ -366,15 +370,24 @@ public class UsageDatabase : IUsageDatabase
                     u.HttpStatus,
                     validityInt,
                     validityNote,
-                    u.ParentProviderId,
-                    u.CardId,
-                    u.GroupId,
-                    (int)u.WindowKind,
-                    u.ModelName,
-                    u.Name));
+                    w?.ParentProviderId,
+                    w?.CardId ?? m?.CardId,
+                    w?.GroupId ?? m?.GroupId,
+                    (int)(w?.WindowKind ?? m?.WindowKind ?? WindowKind.None),
+                    m?.ModelName,
+                    w?.Name ?? m?.Name,
+                    GetCardType(u)));
             }
         }
     }
+
+    private static string GetCardType(ProviderUsage u) => u switch
+    {
+        WindowedProviderUsage => "windowed",
+        ModelScopedProviderUsage => "model",
+        QuotaProviderUsage => "quota",
+        _ => "status",
+    };
 
     private static async Task<Dictionary<string, LastHistoryRow>> LoadLastHistoryRowsAsync(
         SqliteConnection connection,
@@ -440,7 +453,8 @@ public class UsageDatabase : IUsageDatabase
         string? GroupId,
         int WindowKind,
         string? ModelName,
-        string? Name);
+        string? Name,
+        string CardType);
 
     private sealed record HistoryTouchParams(long Id, long FetchedAt);
 
@@ -641,7 +655,7 @@ public class UsageDatabase : IUsageDatabase
                 ORDER BY h.provider_id, h.card_id";
 
         object? param = providerIds != null ? new { providerIds = providerIds.ToArray() } : null;
-        var results = (await connection.QueryAsync<ProviderUsage>(sql, param).ConfigureAwait(false)).ToList();
+        var results = (await connection.QueryAsync<WindowedProviderUsage>(sql, param).ConfigureAwait(false)).ToList();
 
         await StampUsageRatesAsync(connection, results).ConfigureAwait(false);
 
@@ -685,7 +699,7 @@ public class UsageDatabase : IUsageDatabase
     /// Uses the row closest to one hour ago (within a 30–120 min window) as the baseline.
     /// Returns null for a provider when there is insufficient history or the counter reset.
     /// </summary>
-    private static async Task StampUsageRatesAsync(SqliteConnection connection, IReadOnlyList<ProviderUsage> results)
+    private static async Task StampUsageRatesAsync(SqliteConnection connection, IReadOnlyList<QuotaProviderUsage> results)
     {
         if (results.Count == 0)
         {
@@ -812,7 +826,7 @@ public class UsageDatabase : IUsageDatabase
                 ORDER BY h.fetched_at DESC
                 LIMIT {limit}";
 
-        var results = (await connection.QueryAsync<ProviderUsage>(sql).ConfigureAwait(false)).ToList();
+        var results = (await connection.QueryAsync<WindowedProviderUsage>(sql).ConfigureAwait(false)).ToList();
 
         foreach (var usage in results)
         {
@@ -845,7 +859,7 @@ public class UsageDatabase : IUsageDatabase
                 ORDER BY h.fetched_at DESC
                 LIMIT {limit}";
 
-        var results = (await connection.QueryAsync<ProviderUsage>(sql, new { ProviderId = providerId }).ConfigureAwait(false)).ToList();
+        var results = (await connection.QueryAsync<WindowedProviderUsage>(sql, new { ProviderId = providerId }).ConfigureAwait(false)).ToList();
 
         foreach (var usage in results)
         {
@@ -884,7 +898,7 @@ public class UsageDatabase : IUsageDatabase
                 WHERE pos <= @Count
                 ORDER BY ProviderId, FetchedAt DESC";
 
-        var results = (await connection.QueryAsync<ProviderUsage>(sql, new { Count = countPerProvider }).ConfigureAwait(false)).ToList();
+        var results = (await connection.QueryAsync<WindowedProviderUsage>(sql, new { Count = countPerProvider }).ConfigureAwait(false)).ToList();
 
         foreach (var usage in results)
         {

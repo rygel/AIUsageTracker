@@ -81,7 +81,7 @@ public class ProviderResponseDeserializationTests
         };
 
         // Act
-        var usages = (await provider.GetUsageAsync(config)).ToList();
+        var usages = (await provider.GetUsageAsync(config)).Cast<ModelScopedProviderUsage>().ToList();
 
         // Assert — flat cards: burst, weekly, spark.burst, spark.weekly
         Assert.True(usages.Count >= 4, $"Expected at least 4 flat cards (burst, weekly, spark.burst, spark.weekly), got {usages.Count}");
@@ -135,7 +135,7 @@ public class ProviderResponseDeserializationTests
         var provider = new CodexProvider(httpClient, NullLogger<CodexProvider>.Instance, authFilePath: "C:\\nonexistent\\auth.json");
         var config = new ProviderConfig { ProviderId = "codex", ApiKey = TestApiKey2 };
 
-        var usages = (await provider.GetUsageAsync(config)).ToList();
+        var usages = (await provider.GetUsageAsync(config)).Cast<ModelScopedProviderUsage>().ToList();
 
         // Only burst card expected — no secondary window means no weekly or spark cards
         Assert.Single(usages);
@@ -182,7 +182,7 @@ public class ProviderResponseDeserializationTests
         var provider = new CodexProvider(httpClient, NullLogger<CodexProvider>.Instance, authFilePath: "C:\\nonexistent\\auth.json");
         var config = new ProviderConfig { ProviderId = "codex", ApiKey = TestApiKey3 };
 
-        var usages = (await provider.GetUsageAsync(config)).ToList();
+        var usages = (await provider.GetUsageAsync(config)).Cast<ModelScopedProviderUsage>().ToList();
 
         // Main window cards must use only their own reset_after_seconds — no cross-window fallback.
         var burstCard = usages.First(u => string.Equals(u.CardId, "burst", StringComparison.Ordinal));
@@ -241,7 +241,7 @@ public class ProviderResponseDeserializationTests
 
         // Assert — flat cards: current-session, sonnet, opus, all-models
         Assert.NotNull(results);
-        var cards = results!.ToList();
+        var cards = results!.Cast<WindowedProviderUsage>().ToList();
         Assert.True(cards.Count >= 4, $"Expected at least 4 flat cards, got {cards.Count}");
         Assert.All(cards, c => Assert.Equal("claude-code", c.ProviderId));
         Assert.All(cards, c => Assert.True(c.IsAvailable));
@@ -292,7 +292,7 @@ public class ProviderResponseDeserializationTests
         var results = await provider.GetUsageFromOAuthAsync("test-token", "Claude Code");
 
         Assert.NotNull(results);
-        var cards = results!.ToList();
+        var cards = results!.Cast<WindowedProviderUsage>().ToList();
 
         // Only the current-session card should be present (no seven_day data)
         Assert.Single(cards);

@@ -5,8 +5,8 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
-using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Core.Runtime;
 using Microsoft.Extensions.Logging;
 
@@ -451,7 +451,6 @@ public class MonitorLauncher
             this._logger?.LogDebug(ex, "Access denied reading monitor metadata: {Message}", ex.Message);
             return (null, path);
         }
-
     }
 
     private async Task<MonitorMetadataState> ReadValidatedAgentInfoAsync()

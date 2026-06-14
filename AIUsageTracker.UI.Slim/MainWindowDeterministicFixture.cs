@@ -65,7 +65,7 @@ internal static class MainWindowDeterministicFixture
         var sparkDisplayName = CodexProvider.SparkDefinition.DisplayName;
 
         // provider-id-guardrail-allow: deterministic fixture uses provider metadata constants
-        yield return new ProviderUsage
+        yield return new WindowedProviderUsage
         {
             ProviderId = codexProviderId,
             ProviderName = codexDisplayName,
@@ -86,7 +86,7 @@ internal static class MainWindowDeterministicFixture
             PeriodDuration = TimeSpan.FromHours(5),
         };
 
-        yield return new ProviderUsage
+        yield return new WindowedProviderUsage
         {
             ProviderId = codexProviderId,
             ProviderName = codexDisplayName,
@@ -108,7 +108,7 @@ internal static class MainWindowDeterministicFixture
         };
 
         // Spark also emits burst + rolling so its card is dual-bar capable.
-        yield return new ProviderUsage
+        yield return new WindowedProviderUsage
         {
             ProviderId = sparkProviderId,
             ProviderName = sparkDisplayName,
@@ -129,7 +129,7 @@ internal static class MainWindowDeterministicFixture
             PeriodDuration = TimeSpan.FromHours(5),
         };
 
-        yield return new ProviderUsage
+        yield return new WindowedProviderUsage
         {
             ProviderId = sparkProviderId,
             ProviderName = sparkDisplayName,
@@ -162,7 +162,7 @@ internal static class MainWindowDeterministicFixture
         var planType = def.PlanType;
         var isQuotaBased = def.IsQuotaBased;
 
-        return new ProviderUsage
+        return new QuotaProviderUsage
         {
             ProviderId = scenario.ProviderId,
             ProviderName = ProviderMetadataCatalog.GetConfiguredDisplayName(scenario.ProviderId),

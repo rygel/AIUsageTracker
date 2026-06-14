@@ -10,7 +10,7 @@ namespace AIUsageTracker.UI.Slim;
 
 internal static class FlatWindowCardBuilder
 {
-    internal static IReadOnlyList<ProviderUsage> BuildFlatWindowCards(AgentGroupedProviderUsage provider)
+    internal static IReadOnlyList<QuotaProviderUsage> BuildFlatWindowCards(AgentGroupedProviderUsage provider)
     {
         ProviderMetadataCatalog.TryGet(provider.ProviderId, out var definition);
         var showPrefix = definition?.FlatCardShowProviderPrefix == true;
@@ -18,17 +18,18 @@ internal static class FlatWindowCardBuilder
         var isQuotaBased = definition?.IsQuotaBased ?? provider.IsQuotaBased;
         var planType = definition?.PlanType ?? provider.PlanType;
 
-        var cards = new List<ProviderUsage>(provider.Models.Count);
+        var cards = new List<QuotaProviderUsage>(provider.Models.Count);
         foreach (var model in provider.Models)
         {
             var modelState = AgentGroupedUsageValueResolver.ResolveModelEffectiveState(model, provider.IsQuotaBased);
             var cardName = showPrefix ? $"{parentDisplayName} ({model.ModelName})" : model.ModelName;
             var description = ResolveCardDescription(provider, modelState.Description);
 
-            cards.Add(new ProviderUsage
+            cards.Add(new ModelScopedProviderUsage
             {
                 ProviderId = provider.ProviderId,
                 CardId = model.ModelId,
+                ModelName = model.ModelName,
                 ProviderName = cardName,
                 AccountName = provider.AccountName,
                 IsAvailable = provider.IsAvailable,

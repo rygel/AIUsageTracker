@@ -7,36 +7,15 @@ using System.Text.Json.Serialization;
 
 namespace AIUsageTracker.Core.Models;
 
-public class ProviderUsage
+[JsonDerivedType(typeof(QuotaProviderUsage), typeDiscriminator: "quota")]
+[JsonDerivedType(typeof(WindowedProviderUsage), typeDiscriminator: "windowed")]
+[JsonDerivedType(typeof(ModelScopedProviderUsage), typeDiscriminator: "model")]
+[JsonDerivedType(typeof(StatusProviderUsage), typeDiscriminator: "status")]
+public abstract class ProviderUsage
 {
     public string ProviderId { get; set; } = string.Empty;
 
     public string ProviderName { get; set; } = string.Empty;
-
-    public double RequestsUsed { get; set; }
-
-    public double RequestsAvailable { get; set; }
-
-    /// <summary>
-    /// Gets or sets the percentage of quota/budget consumed (0–100), regardless of whether the provider is quota-based.
-    /// </summary>
-    [JsonPropertyName("used_percent")]
-    public double UsedPercent { get; set; }
-
-    /// <summary>
-    /// Gets the percentage of quota/budget remaining (0–100), regardless of whether the provider is quota-based.
-    /// </summary>
-    [JsonIgnore]
-    public double RemainingPercent => Math.Max(0, 100.0 - this.UsedPercent);
-
-    public PlanType PlanType { get; set; } = PlanType.Usage;
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-    public bool IsCurrencyUsage { get; set; }
-
-    public bool IsQuotaBased { get; set; }
-
-    public bool DisplayAsFraction { get; set; } // Explicitly request "X / Y" display format
 
     public bool IsAvailable { get; set; } = true;
 
@@ -46,64 +25,14 @@ public class ProviderUsage
     [JsonConverter(typeof(JsonStringEnumConverter<ProviderUsageState>))]
     public ProviderUsageState State { get; set; } = ProviderUsageState.Available;
 
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-    public bool IsStatusOnly { get; set; }
+    public string AuthSource { get; set; } = string.Empty;
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool IsTooltipOnly { get; set; }
 
-    public string AuthSource { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets for child/derived provider rows, the provider_id of the parent.
-    /// Null for top-level (non-derived) providers.
-    /// </summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? ParentProviderId { get; set; }
-
-    /// <summary>
-    /// Gets or sets the display name for this specific card (e.g. "Current Session", "Sonnet").
-    /// </summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Name { get; set; }
-
-    /// <summary>
-    /// Gets or sets the stable identifier for this specific card within a provider.
-    /// Used as the database composite key alongside ProviderId.
-    /// Independent of the display Name — renaming Name does not break history.
-    /// Examples: "current-session", "all-models", "sonnet", "spark".
-    /// Null for single-card providers (treated as the default card for that provider).
-    /// </summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? CardId { get; set; }
-
-    /// <summary>
-    /// Gets or sets the rendering-only grouping tag. Cards sharing the same GroupId are rendered together
-    /// as a visual group. Collapse/expand operates on the group, not on a parent card.
-    /// Null means the card is standalone.
-    /// </summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? GroupId { get; set; }
-
-    /// <summary>
-    /// Gets or sets the kind of quota window this card represents (burst vs rolling).
-    /// Only meaningful for quota-window cards. None means not a quota window.
-    /// </summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-    public WindowKind WindowKind { get; set; } = WindowKind.None;
-
-    /// <summary>
-    /// Gets or sets the model name this card is scoped to (e.g. "gemini-2.5-pro").
-    /// Used when a single provider emits per-model quota cards.
-    /// </summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? ModelName { get; set; }
-
     public string AccountName { get; set; } = string.Empty;
 
     public string ConfigKey { get; set; } = string.Empty;
-
-    public DateTime? NextResetTime { get; set; }
 
     public DateTime FetchedAt { get; set; } = DateTime.UtcNow;
 
@@ -137,33 +66,6 @@ public class ProviderUsage
     /// </summary>
     [JsonIgnore]
     public HttpFailureContext? FailureContext { get; set; }
-
-    /// <summary>
-    /// Gets or sets companion quota-window flat cards for dual-bar rendering.
-    /// Populated by the display adapter when the provider emits separate Burst/Rolling
-    /// window cards alongside the root card. Not stored in the database — set in-memory
-    /// during the snapshot-to-display-list conversion and never serialised.
-    /// </summary>
-    [JsonIgnore]
-    public IReadOnlyList<ProviderUsage>? WindowCards { get; set; }
-
-    /// <summary>
-    /// Gets or sets derived burn rate: requests consumed per hour, computed from the delta between the
-    /// latest row and the row closest to one hour ago. Null when there is insufficient
-    /// history or when the counter was reset (delta would be negative).
-    /// Not stored in the database — computed on read and never serialised.
-    /// </summary>
-    [JsonIgnore]
-    public double? UsagePerHour { get; set; }
-
-    /// <summary>
-    /// Gets or sets duration of the primary rolling quota window (e.g. 7 days for a weekly quota).
-    /// Set by the display layer when synthesising child provider rows from aggregate details,
-    /// or directly by the provider when the usage row represents a single rolling window.
-    /// Null when no rolling-window period duration is known.
-    /// </summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public TimeSpan? PeriodDuration { get; set; }
 
     public (UpstreamResponseValidity Validity, string Note) EvaluateUpstreamResponseValidity()
     {

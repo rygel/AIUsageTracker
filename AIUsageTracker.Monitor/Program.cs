@@ -5,9 +5,9 @@
 using System.Runtime.InteropServices;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.MonitorClient;
-using AIUsageTracker.Infrastructure.MonitorClient;
 using AIUsageTracker.Infrastructure.Extensions;
 using AIUsageTracker.Infrastructure.Helpers;
+using AIUsageTracker.Infrastructure.MonitorClient;
 using AIUsageTracker.Infrastructure.Services;
 using AIUsageTracker.Monitor.Endpoints;
 using AIUsageTracker.Monitor.Hubs;
@@ -32,8 +32,8 @@ public partial class Program
         {
             Console.Title = "AI Usage Tracker - Monitor";
         }
-        catch (PlatformNotSupportedException) { }
-        catch (System.IO.IOException) { }
+        catch (PlatformNotSupportedException) { /* Console.Title not supported */ }
+        catch (System.IO.IOException) { /* Console.Title I/O failure */ }
 
         IAppPathProvider pathProvider = new DefaultAppPathProvider();
         var holdsStartupMutex = false;
@@ -340,14 +340,10 @@ public partial class Program
         builder.Services.AddSingleton<MonitorJobScheduler>();
         builder.Services.AddSingleton<IMonitorJobScheduler>(sp => sp.GetRequiredService<MonitorJobScheduler>());
         builder.Services.AddHostedService(sp => sp.GetRequiredService<MonitorJobScheduler>());
-        builder.Services.AddSingleton<ProviderRefreshConfigLoadingService>();
         builder.Services.AddSingleton<ProviderUsagePersistenceService>();
         builder.Services.AddSingleton<ProviderConnectivityCheckService>();
-        builder.Services.AddSingleton<ProviderRefreshJobScheduler>();
         builder.Services.AddSingleton<ProviderManagerLifecycleService>();
         builder.Services.AddSingleton<ProviderRefreshNotificationService>();
-        builder.Services.AddSingleton<StartupSequenceService>();
-        builder.Services.AddSingleton<ProviderRefreshDependencies>();
         builder.Services.AddSingleton<ProviderRefreshService>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<ProviderRefreshService>());
 

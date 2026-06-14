@@ -12,7 +12,6 @@ using System.Windows.Media;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Helpers;
 using AIUsageTracker.Infrastructure.Providers;
-using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.UI.Slim;
 
@@ -202,7 +201,7 @@ public partial class SettingsWindow
         var settingsMode = settingsDef?.SettingsMode ?? ProviderSettingsMode.StandardApiKey;
         if (settingsMode == ProviderSettingsMode.SessionAuthStatus &&
             (settingsDef?.UseSessionAuthStatusWhenQuotaBasedOrSessionToken ?? false) &&
-            usage?.IsQuotaBased != true &&
+            (usage is not QuotaProviderUsage qu || !qu.IsQuotaBased) &&
             !hasSessionToken)
         {
             settingsMode = ProviderSettingsMode.StandardApiKey;
@@ -315,7 +314,7 @@ public partial class SettingsWindow
             primaryResourceKey = ResourceKeyTertiaryText;
         }
 
-        if (usage?.NextResetTime is DateTime derivedReset)
+        if (usage is QuotaProviderUsage derivedQ && derivedQ.NextResetTime is DateTime derivedReset)
         {
             secondaryLines.Add(new StatusSecondaryLine(BuildSettingsResetText(usage, derivedReset)));
         }
@@ -413,7 +412,7 @@ public partial class SettingsWindow
             isPrivacyMode);
 
         var secondaryLines = new List<StatusSecondaryLine>();
-        var resolvedReset = usage?.NextResetTime;
+        var resolvedReset = (usage as QuotaProviderUsage)?.NextResetTime;
         if (resolvedReset is DateTime nextReset)
         {
             secondaryLines.Add(BuildSettingsResetStatusLine(usage!, nextReset));

@@ -59,7 +59,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
 
         // Assert — flat cards returned
         Assert.NotNull(results);
-        var cards = results!.ToList();
+        var cards = results!.OfType<WindowedProviderUsage>().ToList();
         Assert.Equal(4, cards.Count); // current-session, sonnet, opus, all-models
 
         foreach (var card in cards)
@@ -121,7 +121,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
 
         // Assert
         Assert.NotNull(results);
-        var cards = results!.ToList();
+        var cards = results!.OfType<WindowedProviderUsage>().ToList();
         Assert.Equal(4, cards.Count);
 
         var currentSession = cards.First(c => string.Equals(c.CardId, "current-session", StringComparison.Ordinal));
@@ -166,7 +166,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
 
         // Assert
         Assert.NotNull(results);
-        var cards = results!.ToList();
+        var cards = results!.OfType<WindowedProviderUsage>().ToList();
 
         var sonnet = cards.First(c => string.Equals(c.CardId, "sonnet", StringComparison.Ordinal));
         Assert.Equal(95, sonnet.UsedPercent);
@@ -212,7 +212,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
 
         // Assert
         Assert.NotNull(results);
-        var cards = results!.ToList();
+        var cards = results!.OfType<WindowedProviderUsage>().ToList();
         Assert.True(cards.All(c => c.IsAvailable));
 
         var allModels = cards.First(c => string.Equals(c.CardId, "all-models", StringComparison.Ordinal));
@@ -256,7 +256,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
 
         // Assert
         Assert.NotNull(results);
-        var cards = results!.ToList();
+        var cards = results!.OfType<WindowedProviderUsage>().ToList();
         Assert.True(cards.All(c => c.UsedPercent == 100));
         Assert.Contains("Extra usage enabled", cards.First(c => string.Equals(c.CardId, "all-models", StringComparison.Ordinal)).Description, StringComparison.Ordinal);
     }
@@ -295,7 +295,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
 
         // Assert
         Assert.NotNull(results);
-        var cards = results!.ToList();
+        var cards = results!.OfType<WindowedProviderUsage>().ToList();
 
         var currentSession = cards.First(c => string.Equals(c.CardId, "current-session", StringComparison.Ordinal));
         Assert.NotNull(currentSession.NextResetTime);
@@ -330,7 +330,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
 
         // Assert
         Assert.NotNull(results);
-        var cards = results!.ToList();
+        var cards = results!.OfType<WindowedProviderUsage>().ToList();
         Assert.Single(cards);
         Assert.Equal("current-session", cards[0].CardId);
         Assert.Equal(25, cards[0].UsedPercent);
@@ -427,7 +427,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         this.SetupOAuthResponse(HttpStatusCode.OK, oauthResponse);
 
         // Act
-        var result = (await this._provider.GetUsageAsync(this.Config)).ToList();
+        var result = (await this._provider.GetUsageAsync(this.Config)).OfType<WindowedProviderUsage>().ToList();
 
         // Assert — two flat cards: current-session and all-models
         Assert.Equal(2, result.Count);

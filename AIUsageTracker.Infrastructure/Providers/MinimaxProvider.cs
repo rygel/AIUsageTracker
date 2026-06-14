@@ -74,7 +74,7 @@ public class MinimaxProvider : ProviderBase
         {
             return new[]
             {
-                new ProviderUsage
+                new QuotaProviderUsage
                 {
                     ProviderId = config.ProviderId,
                     ProviderName = providerLabel,
@@ -150,7 +150,7 @@ public class MinimaxProvider : ProviderBase
         {
             return new[]
             {
-                new ProviderUsage
+                new QuotaProviderUsage
                 {
                     ProviderId = config.ProviderId,
                     ProviderName = providerLabel,
@@ -174,7 +174,7 @@ public class MinimaxProvider : ProviderBase
                     : "Invalid MiniMax response";
                 return new[]
                 {
-                    new ProviderUsage
+                    new QuotaProviderUsage
                     {
                         ProviderId = config.ProviderId,
                         ProviderName = providerLabel,
@@ -193,7 +193,7 @@ public class MinimaxProvider : ProviderBase
             {
                 return new[]
                 {
-                    new ProviderUsage
+                    new QuotaProviderUsage
                     {
                         ProviderId = config.ProviderId,
                         ProviderName = providerLabel,
@@ -214,7 +214,7 @@ public class MinimaxProvider : ProviderBase
             this._logger.LogWarning(ex, "Failed to parse MiniMax remains response");
             return new[]
             {
-                new ProviderUsage
+                new QuotaProviderUsage
                 {
                     ProviderId = config.ProviderId,
                     ProviderName = providerLabel,
@@ -326,7 +326,7 @@ public class MinimaxProvider : ProviderBase
             ? DateTimeOffset.FromUnixTimeMilliseconds(spec.ResetMs).UtcDateTime
             : (DateTime?)null;
 
-        return new ProviderUsage
+        return new WindowedProviderUsage
         {
             ProviderId = spec.ProviderId,
             ProviderName = spec.ProviderLabel,

@@ -257,7 +257,7 @@ public partial class MainWindow : Window
         while (i < usages.Count)
         {
             var usage = usages[i];
-            var groupId = usage.GroupId;
+            var groupId = usage is WindowedProviderUsage w ? w.GroupId : (usage as ModelScopedProviderUsage)?.GroupId;
 
             if (string.IsNullOrEmpty(groupId))
             {
@@ -267,8 +267,14 @@ public partial class MainWindow : Window
             }
 
             var groupCards = new List<ProviderUsage>();
-            while (i < usages.Count && string.Equals(usages[i].GroupId, groupId, StringComparison.OrdinalIgnoreCase))
+            while (i < usages.Count)
             {
+                var nextGroupId = usages[i] is WindowedProviderUsage w2 ? w2.GroupId : (usages[i] as ModelScopedProviderUsage)?.GroupId;
+                if (!string.Equals(nextGroupId, groupId, StringComparison.OrdinalIgnoreCase))
+                {
+                    break;
+                }
+
                 groupCards.Add(usages[i]);
                 i++;
             }

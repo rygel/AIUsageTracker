@@ -267,6 +267,7 @@ public class AppStartupTests : IDisposable
     /// entering its catch block and creating a second set of defaults that overwrites
     /// the real settings on the next save.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task LoadAsync_WhenFileCorrupt_ReturnsDefaultsWithoutThrowingAsync()
     {
@@ -284,10 +285,12 @@ public class AppStartupTests : IDisposable
     /// and no .bak existed. App.xaml.cs caught the throw, created defaults, and those
     /// defaults overwrote real user settings on the next save. LoadAsync must NEVER throw.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task LoadAsync_WhenFileLocked_NeverThrowsAsync()
     {
-        await File.WriteAllTextAsync(this._testPreferencesPath,
+        await File.WriteAllTextAsync(
+            this._testPreferencesPath,
             JsonSerializer.Serialize(new AppPreferences { Theme = AppTheme.Nord }));
 
         await using var lockStream = new FileStream(
@@ -301,6 +304,7 @@ public class AppStartupTests : IDisposable
     /// <summary>
     /// LoadAsync must be read-only — it must never modify the existing file.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task LoadAsync_DoesNotModifyExistingFileAsync()
     {
@@ -321,6 +325,7 @@ public class AppStartupTests : IDisposable
     /// SaveAsync must not create backup (.bak) files — the backup mechanism was
     /// removed because it caused the reset bug (defaults were backed up and restored).
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task SaveAsync_DoesNotCreateBackupFileAsync()
     {
@@ -334,6 +339,7 @@ public class AppStartupTests : IDisposable
     /// Comprehensive round-trip: every user-facing preference must survive
     /// a save-load cycle. This catches serialization regressions.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task SaveAsync_LoadAsync_RoundTripsAllUserPreferencesAsync()
     {

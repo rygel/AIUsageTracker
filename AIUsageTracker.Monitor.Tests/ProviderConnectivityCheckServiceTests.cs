@@ -26,7 +26,7 @@ public class ProviderConnectivityCheckServiceTests
             {
                 Usages =
                 [
-                    new ProviderUsage
+                    new StatusProviderUsage
                     {
                         ProviderId = "openai",
                         HttpStatus = 400,
@@ -53,7 +53,7 @@ public class ProviderConnectivityCheckServiceTests
             {
                 Usages =
                 [
-                    new ProviderUsage
+                    new StatusProviderUsage
                     {
                         ProviderId = "openai",
                         HttpStatus = 429,
@@ -102,7 +102,7 @@ public class ProviderConnectivityCheckServiceTests
             {
                 Usages =
                 [
-                    new ProviderUsage
+                    new StatusProviderUsage
                     {
                         ProviderId = "openai",
                         IsAvailable = true,

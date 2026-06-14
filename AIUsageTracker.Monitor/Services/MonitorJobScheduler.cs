@@ -27,7 +27,7 @@ public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobSchedule
     private readonly SemaphoreSlim _queuedItemsSignal = new(0);
     private readonly SemaphoreSlim _pauseGate = new(1, 1);
     private volatile bool _paused;
-    private readonly object _recurringLock = new();
+    private readonly Lock _recurringLock = new();
     private readonly List<RecurringJobRegistration> _recurringRegistrations = new();
     private readonly List<Task> _recurringTasks = new();
     private long _executedJobs;
@@ -150,6 +150,51 @@ public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobSchedule
             jobName,
             interval,
             priority);
+    }
+
+    public void RegisterRecurringRefresh(
+        TimeSpan interval,
+        Func<CancellationToken, Task> refreshTask)
+    {
+        this.RegisterRecurringJob(
+            "scheduled-provider-refresh",
+            interval,
+            refreshTask,
+            MonitorJobPriority.Low,
+            initialDelay: interval,
+            coalesceKey: "scheduled-provider-refresh");
+    }
+
+    public bool QueueManualRefresh(
+        Func<CancellationToken, Task> refreshTask,
+        string? coalesceKey = null)
+    {
+        var effectiveCoalesceKey = string.IsNullOrWhiteSpace(coalesceKey)
+            ? "manual-provider-refresh"
+            : coalesceKey;
+        return this.Enqueue(
+            "manual-provider-refresh",
+            refreshTask,
+            MonitorJobPriority.High,
+            coalesceKey: effectiveCoalesceKey);
+    }
+
+    public bool QueueInitialDataSeeding(Func<CancellationToken, Task> seedingTask)
+    {
+        return this.Enqueue(
+            "startup-provider-seeding",
+            seedingTask,
+            MonitorJobPriority.High,
+            coalesceKey: "startup-provider-seeding");
+    }
+
+    public bool QueueStartupTargetedRefresh(Func<CancellationToken, Task> refreshTask)
+    {
+        return this.Enqueue(
+            "startup-targeted-provider-refresh",
+            refreshTask,
+            MonitorJobPriority.Low,
+            coalesceKey: "startup-targeted-provider-refresh");
     }
 
     public MonitorJobSchedulerSnapshot GetSnapshot()

@@ -77,20 +77,9 @@ public class GitHubCopilotProvider : ProviderBase
         if (string.IsNullOrEmpty(token))
         {
             var username = NormalizeUsername(await this._authService.GetUsernameAsync().ConfigureAwait(false));
-            return new[]
-            {
-                new ProviderUsage
-                {
-                    ProviderId = this.ProviderId,
-                    ProviderName = providerLabel,
-                    AccountName = username,
-                    IsAvailable = false,
-                    State = ProviderUsageState.Missing,
-                    Description = "Not authenticated. Please login in Settings.",
-                    PlanType = this.Definition.PlanType,
-                    IsQuotaBased = this.Definition.IsQuotaBased,
-                },
-            };
+            var usage = this.CreateUnavailableUsage("Not authenticated. Please login in Settings.", state: ProviderUsageState.Missing);
+            usage.AccountName = username;
+            return new[] { usage };
         }
 
         // Keep auth-service state in sync with the token source so username resolution
@@ -145,7 +134,7 @@ public class GitHubCopilotProvider : ProviderBase
             state.State = ProviderUsageState.Error;
         }
 
-        return this.BuildUsageResults(state, providerLabel);
+        return this.BuildUsageResults(state, providerLabel, config);
     }
 
     private static HttpRequestMessage CreateBearerRequest(string url, string token)
@@ -460,63 +449,54 @@ public class GitHubCopilotProvider : ProviderBase
         }
     }
 
-    private ProviderUsage[] BuildUsageResults(CopilotUsageState state, string providerLabel)
+    private ProviderUsage[] BuildUsageResults(CopilotUsageState state, string providerLabel, ProviderConfig config)
     {
         var accountName = HasMeaningfulUsername(state.Username) ? state.Username : string.Empty;
         var authSource = string.IsNullOrEmpty(state.PlanName) ? AuthSource.Unknown : state.PlanName;
 
-        var baseUsage = new ProviderUsage
-        {
-            ProviderId = this.ProviderId,
-            ProviderName = providerLabel,
-            AccountName = accountName,
-            IsAvailable = state.IsAvailable,
-            State = state.State,
-            Description = BuildFinalDescription(state),
-            UsedPercent = 100.0 - state.Percentage,
-            RequestsAvailable = state.CostLimit,
-            RequestsUsed = state.CostUsed,
-            PlanType = this.Definition.PlanType,
-            IsQuotaBased = this.Definition.IsQuotaBased,
-            AuthSource = authSource,
-            NextResetTime = state.ResetTime,
-            RawJson = state.RawJson,
-            HttpStatus = state.HttpStatus,
-        };
-
         var hasMonthly = state.MonthlyDescription != null;
 
-        if (!hasMonthly)
+        if (hasMonthly)
         {
-            return new[] { baseUsage };
+            var monthly = CreateWindowedUsage(config);
+            monthly.ProviderName = providerLabel;
+            monthly.CardId = "monthly";
+            monthly.GroupId = this.ProviderId;
+            monthly.Name = "Monthly Quota";
+            monthly.AccountName = accountName;
+            monthly.IsAvailable = state.IsAvailable;
+            monthly.State = state.State;
+            monthly.Description = state.MonthlyDescription!;
+            monthly.UsedPercent = state.MonthlyUsedPercent;
+            monthly.RequestsAvailable = state.MonthlyEntitlement;
+            monthly.RequestsUsed = state.MonthlyUsed;
+            monthly.IsQuotaBased = this.Definition.IsQuotaBased;
+            monthly.AuthSource = authSource;
+            monthly.NextResetTime = state.ResetTime;
+            monthly.PeriodDuration = TimeSpan.FromDays(30);
+            monthly.WindowKind = WindowKind.Rolling;
+            monthly.RawJson = state.RawJson;
+            monthly.HttpStatus = state.HttpStatus;
+
+            return new[] { monthly };
         }
 
-        return new[]
-        {
-            new ProviderUsage
-            {
-                ProviderId = this.ProviderId,
-                ProviderName = providerLabel,
-                CardId = "monthly",
-                GroupId = this.ProviderId,
-                Name = "Monthly Quota",
-                AccountName = accountName,
-                IsAvailable = state.IsAvailable,
-                State = state.State,
-                Description = state.MonthlyDescription!,
-                UsedPercent = state.MonthlyUsedPercent,
-                RequestsAvailable = state.MonthlyEntitlement,
-                RequestsUsed = state.MonthlyUsed,
-                PlanType = this.Definition.PlanType,
-                IsQuotaBased = this.Definition.IsQuotaBased,
-                AuthSource = authSource,
-                NextResetTime = state.ResetTime,
-                PeriodDuration = TimeSpan.FromDays(30),
-                WindowKind = WindowKind.Rolling,
-                RawJson = state.RawJson,
-                HttpStatus = state.HttpStatus,
-            },
-        };
+        var baseUsage = CreateWindowedUsage(config);
+        baseUsage.ProviderName = providerLabel;
+        baseUsage.AccountName = accountName;
+        baseUsage.IsAvailable = state.IsAvailable;
+        baseUsage.State = state.State;
+        baseUsage.Description = BuildFinalDescription(state);
+        baseUsage.UsedPercent = 100.0 - state.Percentage;
+        baseUsage.RequestsAvailable = state.CostLimit;
+        baseUsage.RequestsUsed = state.CostUsed;
+        baseUsage.IsQuotaBased = this.Definition.IsQuotaBased;
+        baseUsage.AuthSource = authSource;
+        baseUsage.NextResetTime = state.ResetTime;
+        baseUsage.RawJson = state.RawJson;
+        baseUsage.HttpStatus = state.HttpStatus;
+
+        return new[] { baseUsage };
     }
 
     private sealed class CopilotUsageState

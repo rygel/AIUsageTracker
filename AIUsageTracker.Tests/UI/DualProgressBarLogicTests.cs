@@ -37,8 +37,8 @@ public class DualProgressBarLogicTests
     [Fact]
     public void GetEffectiveUsedPercent_CalculatesCorrectly()
     {
-        var quotaUsage = new ProviderUsage { UsedPercent = 80, IsQuotaBased = true };
-        var paygUsage = new ProviderUsage { UsedPercent = 20, IsQuotaBased = false };
+        var quotaUsage = new QuotaProviderUsage { UsedPercent = 80, IsQuotaBased = true };
+        var paygUsage = new QuotaProviderUsage { UsedPercent = 20, IsQuotaBased = false };
 
         Assert.Equal(80.0, UsageMath.GetEffectiveUsedPercent(quotaUsage)); // UsedPercent is the used ratio
         Assert.Equal(20.0, UsageMath.GetEffectiveUsedPercent(paygUsage));
@@ -49,7 +49,7 @@ public class DualProgressBarLogicTests
     {
         // Dual-window data comes from flat ProviderUsage cards, not from Details.
         // A plain provider usage without declared quota windows returns false.
-        var usage = new ProviderUsage
+        var usage = new QuotaProviderUsage
         {
             ProviderId = "openai",
             IsQuotaBased = true,
@@ -63,7 +63,7 @@ public class DualProgressBarLogicTests
     [Fact]
     public void TryGetPresentation_ReturnsFalse_WhenProviderHasNoDeclaredQuotaWindows()
     {
-        var usage = new ProviderUsage
+        var usage = new QuotaProviderUsage
         {
             IsQuotaBased = true,
         };

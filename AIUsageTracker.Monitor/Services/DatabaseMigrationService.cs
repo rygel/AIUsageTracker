@@ -208,6 +208,7 @@ public class DatabaseMigrationService
                 fetched_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 details_json TEXT,
                 parent_provider_id TEXT REFERENCES providers(provider_id) ON DELETE SET NULL,
+                card_type TEXT,
                 FOREIGN KEY (provider_id) REFERENCES providers(provider_id) ON DELETE CASCADE
             );
 

@@ -60,7 +60,7 @@ public partial class App
                     return configDefinition?.HandlesProviderId(usageProviderId) ??
                            string.Equals(usageProviderId, config.ProviderId, StringComparison.OrdinalIgnoreCase);
                 })
-                .OrderByDescending(u => u.UsedPercent)
+                .OrderByDescending(u => u is QuotaProviderUsage q ? q.UsedPercent : 0)
                 .FirstOrDefault();
             if (usage == null)
             {
@@ -71,7 +71,8 @@ public partial class App
                 usage.IsAvailable &&
                 !usage.Description.Contains("unknown", StringComparison.OrdinalIgnoreCase))
             {
-                var isQuota = usage.IsQuotaBased || usage.PlanType == PlanType.Coding;
+                var qu = usage as QuotaProviderUsage;
+                var isQuota = qu?.IsQuotaBased == true || qu?.PlanType == PlanType.Coding;
                 var presentation = MainWindowRuntimeLogic.Create(usage, showUsed, enablePaceAdjustment);
                 var statusText = presentation.StatusText;
                 if (presentation.HasDualBuckets && !showDualQuotaBars)
@@ -83,12 +84,18 @@ public partial class App
                 }
 
                 var providerLabel = usage.ProviderName ?? ProviderMetadataCatalog.GetConfiguredDisplayName(usage.ProviderId ?? string.Empty);
+                var periodDuration = usage switch
+                {
+                    WindowedProviderUsage w => w.PeriodDuration,
+                    ModelScopedProviderUsage m => m.PeriodDuration,
+                    _ => null,
+                };
                 var paceColor = UsageMath.ComputePaceColor(
-                    usage.UsedPercent,
-                    usage.NextResetTime,
-                    usage.PeriodDuration,
+                    qu?.UsedPercent ?? 0,
+                    qu?.NextResetTime,
+                    periodDuration,
                     enablePaceAdjustment);
-                desiredIcons[config.ProviderId] = ($"{providerLabel}: {statusText}", usage.RemainingPercent, paceColor, isQuota);
+                desiredIcons[config.ProviderId] = ($"{providerLabel}: {statusText}", qu?.RemainingPercent ?? 0, paceColor, isQuota);
             }
         }
 

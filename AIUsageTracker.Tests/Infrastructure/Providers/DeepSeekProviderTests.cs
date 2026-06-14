@@ -54,7 +54,7 @@ public class DeepSeekProviderTests : HttpProviderTestBase<DeepSeekProvider>
 
         // Act
         var result = await this._provider.GetUsageAsync(this.Config);
-        var usages = result.ToList();
+        var usages = result.OfType<WindowedProviderUsage>().ToList();
 
         // Assert — DeepSeek now emits one flat card per currency
         Assert.Equal(2, usages.Count);

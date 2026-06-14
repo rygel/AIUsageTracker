@@ -39,7 +39,10 @@
                 .Where(u => Model.ShowInactiveProviders || u.IsAvailable)
                 .ToList();
 
-            var currencyProviders = visibleUsage.Where(u => u.IsCurrencyUsage && u.IsAvailable).ToList();
+            var currencyProviders = visibleUsage
+                .OfType<QuotaProviderUsage>()
+                .Where(u => u.IsCurrencyUsage && u.IsAvailable)
+                .ToList();
             var totalSpent = currencyProviders.Sum(u => u.RequestsUsed);
             var totalBudget = currencyProviders.Sum(u => u.RequestsAvailable);
             var spentPercent = totalBudget > 0 ? (totalSpent / totalBudget) * 100.0 : 0;
@@ -153,7 +156,9 @@
             <div class="provider-grid">
                 @foreach (var usage in visibleUsage)
                 {
-                    var isStatusOnly = usage.IsStatusOnly;
+                    var qUsage = usage as QuotaProviderUsage;
+                    var wUsage = usage as WindowedProviderUsage;
+                    var isStatusOnly = qUsage?.IsStatusOnly ?? false;
                     var hasUsableMetrics = usage.IsAvailable && !isStatusOnly;
                     var hasForecast = Model.ForecastsByProvider.TryGetValue(usage.ProviderId, out var forecast);
                     var hasAnomaly = Model.AnomaliesByProvider.TryGetValue(usage.ProviderId, out var anomalySnapshot);
@@ -162,11 +167,11 @@
                         : AIUsageTracker.Core.Models.UsageAnomalySnapshot.Unavailable("Insufficient history");
 
                     var displayPercentage = Model.ShowUsedPercentage
-                        ? usage.UsedPercent
-                        : usage.RemainingPercent;
+                        ? qUsage?.UsedPercent ?? 0
+                        : qUsage?.RemainingPercent ?? 0;
 
                     // Calculate used percentage for color (always based on used, regardless of toggle)
-                    var usedPercentage = usage.UsedPercent;
+                    var usedPercentage = qUsage?.UsedPercent ?? 0;
 
                     if (!hasUsableMetrics)
                     {
@@ -176,16 +181,16 @@
                     displayPercentage = Math.Clamp(displayPercentage, 0, 100);
                     
                     var usageText = "";
-                    if (usage.DisplayAsFraction)
+                    if (qUsage?.DisplayAsFraction ?? false)
                     {
                         if (Model.ShowUsedPercentage)
                         {
-                            usageText = $"{usage.RequestsUsed:N0} / {usage.RequestsAvailable:N0} used";
+                            usageText = $"{(qUsage?.RequestsUsed ?? 0):N0} / {(qUsage?.RequestsAvailable ?? 0):N0} used";
                         }
                         else
                         {
-                            var remaining = usage.RequestsAvailable - usage.RequestsUsed;
-                            usageText = $"{remaining:N0} / {usage.RequestsAvailable:N0} remaining";
+                            var remaining = (qUsage?.RequestsAvailable ?? 0) - (qUsage?.RequestsUsed ?? 0);
+                            usageText = $"{remaining:N0} / {(qUsage?.RequestsAvailable ?? 0):N0} remaining";
                         }
                     }
                     else
@@ -253,10 +258,10 @@
                                     <span>@usage.Description</span>
                                 }
                             </div>
-                            @if (!hasDual && usage.NextResetTime.HasValue)
+                            @if (!hasDual && qUsage?.NextResetTime is DateTime nextResetTime)
                             {
                                 <div class="reset-time">
-                                    Resets: @usage.NextResetTime.Value.ToString("MMM d, HH:mm") (@GetRelativeTimeString(usage.NextResetTime.Value))
+                                    Resets: @nextResetTime.ToString("MMM d, HH:mm") (@GetRelativeTimeString(nextResetTime))
                                 </div>
                             }
                             @if (hasUsableMetrics && hasForecast && forecast != null)
@@ -286,34 +291,39 @@
                         
                         @{
                             // For flat-card providers, show sibling cards in the same group as sub-rows.
-                            var siblingCards = !string.IsNullOrEmpty(usage.GroupId) && usage.CardId != null
+                            var siblingCards = !string.IsNullOrEmpty(wUsage?.GroupId) && wUsage?.CardId != null
                                 ? (Model.LatestUsage ?? new List<AIUsageTracker.Core.Models.ProviderUsage>())
-                                    .Where(u => string.Equals(u.GroupId, usage.GroupId, StringComparison.OrdinalIgnoreCase)
-                                                && !string.Equals(u.CardId, usage.CardId, StringComparison.OrdinalIgnoreCase))
+                                    .Where(u => u is WindowedProviderUsage w2
+                                        && string.Equals(w2.GroupId, wUsage.GroupId, StringComparison.OrdinalIgnoreCase)
+                                        && !string.Equals(w2.CardId, wUsage.CardId, StringComparison.OrdinalIgnoreCase))
                                     .ToList()
                                 : new List<AIUsageTracker.Core.Models.ProviderUsage>();
                         }
                         @if (siblingCards.Count > 0)
                         {
                             <div class="sub-providers-container">
-                                <button class="sub-providers-toggle" onclick="toggleSubProviders('@usage.GroupId')">
-                                    <span id="toggle-icon-@usage.GroupId">▼</span>
-                                    <span id="toggle-text-@usage.GroupId">Hide @(siblingCards.Count) cards</span>
+                                <button class="sub-providers-toggle" onclick="toggleSubProviders('@wUsage?.GroupId')">
+                                    <span id="toggle-icon-@(wUsage?.GroupId)">▼</span>
+                                    <span id="toggle-text-@(wUsage?.GroupId)">Hide @(siblingCards.Count) cards</span>
                                 </button>
-                                <div id="sub-providers-@usage.GroupId" class="sub-providers">
+                                <div id="sub-providers-@(wUsage?.GroupId)" class="sub-providers">
                                     @foreach (var sibling in siblingCards)
                                     {
+                                        var sibQuota = sibling as QuotaProviderUsage;
+                                        var sibWindow = sibling as WindowedProviderUsage;
                                         var showUsed = Model.ShowUsedPercentage;
+                                        var sibUsedPct = sibQuota?.UsedPercent ?? 0;
+                                        var sibRemPct = sibQuota?.RemainingPercent ?? 0;
                                         var displayVal = showUsed
-                                            ? sibling.UsedPercent.ToString("F0") + "% used"
-                                            : sibling.RemainingPercent.ToString("F0") + "% remaining";
+                                            ? sibUsedPct.ToString("F0") + "% used"
+                                            : sibRemPct.ToString("F0") + "% remaining";
 
                                         <div class="sub-provider-row">
-                                            <span class="sub-provider-name">@(sibling.Name ?? sibling.CardId)</span>
+                                            <span class="sub-provider-name">@(sibWindow?.Name ?? sibWindow?.CardId)</span>
                                             <span class="sub-provider-value">@displayVal</span>
-                                            @if (sibling.NextResetTime.HasValue)
+                                            @if (sibQuota?.NextResetTime is DateTime sibNextReset)
                                             {
-                                                <span class="sub-provider-reset">(@GetRelativeTimeString(sibling.NextResetTime.Value))</span>
+                                                <span class="sub-provider-reset">(@GetRelativeTimeString(sibNextReset))</span>
                                             }
                                         </div>
                                     }

@@ -9,14 +9,14 @@ namespace AIUsageTracker.UI.Slim;
 
 internal static class GroupedUsageDisplayAdapter
 {
-    public static IReadOnlyList<ProviderUsage> Expand(AgentGroupedUsageSnapshot? snapshot)
+    public static IReadOnlyList<QuotaProviderUsage> Expand(AgentGroupedUsageSnapshot? snapshot)
     {
         if (snapshot?.Providers == null || snapshot.Providers.Count == 0)
         {
-            return Array.Empty<ProviderUsage>();
+            return Array.Empty<QuotaProviderUsage>();
         }
 
-        var usages = new List<ProviderUsage>(snapshot.Providers.Count * 2);
+        var usages = new List<QuotaProviderUsage>(snapshot.Providers.Count * 2);
         foreach (var provider in snapshot.Providers
                      .Where(provider => !string.IsNullOrWhiteSpace(provider.ProviderId))
                      .OrderBy(provider => provider.ProviderId, StringComparer.OrdinalIgnoreCase))

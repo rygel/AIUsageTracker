@@ -69,7 +69,7 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
         var result = await this._provider.GetUsageAsync(this.Config);
 
         // Assert
-        var usage = result.Single();
+        var usage = result.OfType<WindowedProviderUsage>().Single();
         Assert.True(usage.IsAvailable);
         Assert.Equal("user123", usage.AccountName);
         Assert.Equal(30.0, usage.UsedPercent); // 70 remaining out of 100 = 30% used
@@ -123,7 +123,7 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
         var result = await this._provider.GetUsageAsync(this.Config);
 
         // Assert — provider emits monthly card from premium_interactions
-        var usage = Assert.Single(result);
+        var usage = Assert.Single(result.OfType<WindowedProviderUsage>());
         Assert.True(usage.IsAvailable);
         Assert.Equal(80.0, usage.UsedPercent); // 20 remaining out of 100 = 80% used
         Assert.Equal(80.0, usage.RequestsUsed);
@@ -175,7 +175,7 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
         var result = await this._provider.GetUsageAsync(this.Config);
 
         // Assert — provider emits monthly card
-        var usage = Assert.Single(result);
+        var usage = Assert.Single(result.OfType<WindowedProviderUsage>());
         Assert.Equal(25.0, usage.UsedPercent); // 150 remaining out of 200 = 25% used
         Assert.Equal(50.0, usage.RequestsUsed);
         Assert.Equal(200.0, usage.RequestsAvailable);
@@ -287,7 +287,7 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
         var result = await this._provider.GetUsageAsync(this.Config);
 
         // Assert
-        var usage = Assert.Single(result);
+        var usage = Assert.Single(result.OfType<WindowedProviderUsage>());
         Assert.True(usage.IsAvailable);
         Assert.Equal("snapshot-user", usage.AccountName);
         Assert.Equal(49.4, usage.UsedPercent, 1); // percent_remaining=50.6, so UsedPercent = 100 - 50.6 = 49.4

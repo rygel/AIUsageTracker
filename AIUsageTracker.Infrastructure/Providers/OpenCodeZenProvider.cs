@@ -145,15 +145,13 @@ public class OpenCodeZenProvider : ProviderBase
         ProviderUsageState state,
         string? providerLabel = null)
     {
-        return new ProviderUsage
+        return new StatusProviderUsage
         {
             ProviderId = providerId,
             ProviderName = providerLabel ?? ProviderDisplayName,
             IsAvailable = false,
             Description = description,
             State = state,
-            IsQuotaBased = false,
-            PlanType = PlanType.Usage,
             AuthSource = authSource ?? string.Empty,
             RawJson = rawJson,
             HttpStatus = httpStatus,
@@ -571,7 +569,7 @@ public class OpenCodeZenProvider : ProviderBase
             inputTokens, outputTokens, avgCostPerDay,
             models, tools);
 
-        return new ProviderUsage
+        return new QuotaProviderUsage
         {
             ProviderId = this.ProviderId,
             ProviderName = providerLabel ?? ProviderDisplayName,

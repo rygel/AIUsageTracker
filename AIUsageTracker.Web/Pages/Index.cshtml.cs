@@ -2,7 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Configuration;
 using AIUsageTracker.Infrastructure.Services;
@@ -198,8 +197,8 @@ public class IndexModel : PageModel
             .ToDictionary(
                 g => g.Key,
                 g => g.OrderBy(s => s.FetchedAt)
-                      .Select(s => s.RequestsAvailable > 0
-                          ? Math.Clamp((s.RequestsUsed / s.RequestsAvailable) * 100.0, 0, 100)
+                      .Select(s => s is QuotaProviderUsage q && q.RequestsAvailable > 0
+                          ? Math.Clamp((q.RequestsUsed / q.RequestsAvailable) * 100.0, 0, 100)
                           : 0)
                       .ToList(),
                 StringComparer.OrdinalIgnoreCase);

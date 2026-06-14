@@ -138,7 +138,7 @@ public class OpenCodeProvider : ProviderBase
 
             return new[]
             {
-                new ProviderUsage
+                new QuotaProviderUsage
                 {
                     ProviderId = this.ProviderId,
                     ProviderName = "OpenCode Go",
