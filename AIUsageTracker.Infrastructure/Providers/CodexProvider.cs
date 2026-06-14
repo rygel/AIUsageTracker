@@ -169,7 +169,7 @@ public class CodexProvider : ProviderBase
             try
             {
                 var httpStatus = (int)response.StatusCode;
-                return this.BuildUsages(jsonDoc.RootElement, email, jwtPlanType, authIdentity, accountId, content, httpStatus);
+                return this.BuildUsages(config, jsonDoc.RootElement, email, jwtPlanType, authIdentity, accountId, content, httpStatus);
             }
             catch (Exception ex) when (ex is JsonException or InvalidOperationException or KeyNotFoundException)
             {
@@ -452,6 +452,7 @@ public class CodexProvider : ProviderBase
     }
 
     private List<ProviderUsage> BuildUsages(
+        ProviderConfig config,
         JsonElement root,
         string? jwtEmail,
         string? jwtPlanType,
@@ -475,28 +476,25 @@ public class CodexProvider : ProviderBase
 
         // Primary card: 5-hour burst
         var burstResetTime = ResolveResetTimeFromSeconds(primaryResetSeconds);
-        var burstCard = new ProviderUsage
-        {
-            ProviderId = this.ProviderId,
-            ProviderName = providerLabel,
-            CardId = "burst",
-            GroupId = this.ProviderId,
-            Name = "5h",
-            WindowKind = WindowKind.Burst,
-            UsedPercent = primaryUsedPercent,
-            RequestsUsed = primaryUsedPercent,
-            RequestsAvailable = 100.0,
-            IsQuotaBased = this.Definition.IsQuotaBased,
-            PlanType = this.Definition.PlanType,
-            IsAvailable = true,
-            Description = $"{Math.Clamp(100.0 - primaryUsedPercent, 0.0, 100.0).ToString("F0", CultureInfo.InvariantCulture)}% remaining | Plan: {planType}",
-            AccountName = accountIdentity ?? string.Empty,
-            AuthSource = AuthSource.CodexNative(planType),
-            NextResetTime = burstResetTime,
-            PeriodDuration = TimeSpan.FromHours(5),
-            RawJson = rawJson,
-            HttpStatus = httpStatus,
-        };
+        var burstCard = CreateModelScopedUsage(config);
+        burstCard.ProviderName = providerLabel;
+        burstCard.CardId = "burst";
+        burstCard.GroupId = config.ProviderId;
+        burstCard.Name = "5h";
+        burstCard.WindowKind = WindowKind.Burst;
+        burstCard.UsedPercent = primaryUsedPercent;
+        burstCard.RequestsUsed = primaryUsedPercent;
+        burstCard.RequestsAvailable = 100.0;
+        burstCard.IsQuotaBased = this.Definition.IsQuotaBased;
+        burstCard.PlanType = this.Definition.PlanType;
+        burstCard.IsAvailable = true;
+        burstCard.Description = $"{Math.Clamp(100.0 - primaryUsedPercent, 0.0, 100.0).ToString("F0", CultureInfo.InvariantCulture)}% remaining | Plan: {planType}";
+        burstCard.AccountName = accountIdentity ?? string.Empty;
+        burstCard.AuthSource = AuthSource.CodexNative(planType);
+        burstCard.NextResetTime = burstResetTime;
+        burstCard.PeriodDuration = TimeSpan.FromHours(5);
+        burstCard.RawJson = rawJson;
+        burstCard.HttpStatus = httpStatus;
 
         var usages = new List<ProviderUsage> { burstCard };
 
@@ -508,28 +506,26 @@ public class CodexProvider : ProviderBase
             var weeklyDesc = sparkWindow.HasWindowData && effectiveSparkPercent.HasValue
                 ? $"{weeklyRemaining.ToString("F0", CultureInfo.InvariantCulture)}% remaining | Plan: {planType} | Spark: {effectiveSparkPercent.Value.ToString("F0", CultureInfo.InvariantCulture)}% used"
                 : $"{weeklyRemaining.ToString("F0", CultureInfo.InvariantCulture)}% remaining | Plan: {planType}";
-            usages.Add(new ProviderUsage
-            {
-                ProviderId = this.ProviderId,
-                ProviderName = providerLabel,
-                CardId = "weekly",
-                GroupId = this.ProviderId,
-                Name = WeeklyWindowLabel,
-                WindowKind = WindowKind.Rolling,
-                UsedPercent = secondaryUsedPercent.Value,
-                RequestsUsed = secondaryUsedPercent.Value,
-                RequestsAvailable = 100.0,
-                IsQuotaBased = this.Definition.IsQuotaBased,
-                PlanType = this.Definition.PlanType,
-                IsAvailable = true,
-                Description = weeklyDesc,
-                AccountName = accountIdentity ?? string.Empty,
-                AuthSource = AuthSource.CodexNative(planType),
-                NextResetTime = weeklyResetTime,
-                PeriodDuration = TimeSpan.FromDays(7),
-                RawJson = rawJson,
-                HttpStatus = httpStatus,
-            });
+            var weeklyCard = CreateModelScopedUsage(config);
+            weeklyCard.ProviderName = providerLabel;
+            weeklyCard.CardId = "weekly";
+            weeklyCard.GroupId = config.ProviderId;
+            weeklyCard.Name = WeeklyWindowLabel;
+            weeklyCard.WindowKind = WindowKind.Rolling;
+            weeklyCard.UsedPercent = secondaryUsedPercent.Value;
+            weeklyCard.RequestsUsed = secondaryUsedPercent.Value;
+            weeklyCard.RequestsAvailable = 100.0;
+            weeklyCard.IsQuotaBased = this.Definition.IsQuotaBased;
+            weeklyCard.PlanType = this.Definition.PlanType;
+            weeklyCard.IsAvailable = true;
+            weeklyCard.Description = weeklyDesc;
+            weeklyCard.AccountName = accountIdentity ?? string.Empty;
+            weeklyCard.AuthSource = AuthSource.CodexNative(planType);
+            weeklyCard.NextResetTime = weeklyResetTime;
+            weeklyCard.PeriodDuration = TimeSpan.FromDays(7);
+            weeklyCard.RawJson = rawJson;
+            weeklyCard.HttpStatus = httpStatus;
+            usages.Add(weeklyCard);
         }
 
         // Spark burst + rolling cards — same pattern as the main Codex cards so
@@ -540,54 +536,52 @@ public class CodexProvider : ProviderBase
             var sparkBurstUsed = sparkWindow.PrimaryUsedPercent ?? 0.0;
             var sparkBurstResetTime = ResolveResetTimeFromSeconds(sparkWindow.PrimaryResetAfterSeconds);
 
-            usages.Add(new ProviderUsage
-            {
-                ProviderId = CodexSparkProviderId,
-                ProviderName = sparkDisplayName,
-                CardId = "spark.burst",
-                GroupId = this.ProviderId,
-                Name = "5h",
-                WindowKind = WindowKind.Burst,
-                UsedPercent = sparkBurstUsed,
-                RequestsUsed = sparkBurstUsed,
-                RequestsAvailable = 100.0,
-                IsQuotaBased = this.Definition.IsQuotaBased,
-                PlanType = this.Definition.PlanType,
-                IsAvailable = true,
-                Description = $"{Math.Clamp(100.0 - sparkBurstUsed, 0.0, 100.0).ToString("F0", CultureInfo.InvariantCulture)}% remaining | Plan: {planType}",
-                AccountName = accountIdentity ?? string.Empty,
-                AuthSource = AuthSource.CodexNative(planType),
-                NextResetTime = sparkBurstResetTime,
-                PeriodDuration = TimeSpan.FromHours(5),
-                RawJson = rawJson,
-                HttpStatus = httpStatus,
-            });
+            var sparkBurstCard = CreateModelScopedUsage(config);
+            sparkBurstCard.ProviderId = CodexSparkProviderId;
+            sparkBurstCard.ProviderName = sparkDisplayName;
+            sparkBurstCard.CardId = "spark.burst";
+            sparkBurstCard.GroupId = this.ProviderId;
+            sparkBurstCard.Name = "5h";
+            sparkBurstCard.WindowKind = WindowKind.Burst;
+            sparkBurstCard.UsedPercent = sparkBurstUsed;
+            sparkBurstCard.RequestsUsed = sparkBurstUsed;
+            sparkBurstCard.RequestsAvailable = 100.0;
+            sparkBurstCard.IsQuotaBased = this.Definition.IsQuotaBased;
+            sparkBurstCard.PlanType = this.Definition.PlanType;
+            sparkBurstCard.IsAvailable = true;
+            sparkBurstCard.Description = $"{Math.Clamp(100.0 - sparkBurstUsed, 0.0, 100.0).ToString("F0", CultureInfo.InvariantCulture)}% remaining | Plan: {planType}";
+            sparkBurstCard.AccountName = accountIdentity ?? string.Empty;
+            sparkBurstCard.AuthSource = AuthSource.CodexNative(planType);
+            sparkBurstCard.NextResetTime = sparkBurstResetTime;
+            sparkBurstCard.PeriodDuration = TimeSpan.FromHours(5);
+            sparkBurstCard.RawJson = rawJson;
+            sparkBurstCard.HttpStatus = httpStatus;
+            usages.Add(sparkBurstCard);
 
             var sparkWeeklyUsed = sparkWindow.SecondaryUsedPercent ?? 0.0;
             var sparkWeeklyResetTime = ResolveResetTimeFromSeconds(sparkWindow.SecondaryResetAfterSeconds);
 
-            usages.Add(new ProviderUsage
-            {
-                ProviderId = CodexSparkProviderId,
-                ProviderName = sparkDisplayName,
-                CardId = "spark.weekly",
-                GroupId = this.ProviderId,
-                Name = WeeklyWindowLabel,
-                WindowKind = WindowKind.Rolling,
-                UsedPercent = sparkWeeklyUsed,
-                RequestsUsed = sparkWeeklyUsed,
-                RequestsAvailable = 100.0,
-                IsQuotaBased = this.Definition.IsQuotaBased,
-                PlanType = this.Definition.PlanType,
-                IsAvailable = true,
-                Description = $"{Math.Clamp(100.0 - sparkWeeklyUsed, 0.0, 100.0).ToString("F0", CultureInfo.InvariantCulture)}% remaining | Plan: {planType}",
-                AccountName = accountIdentity ?? string.Empty,
-                AuthSource = AuthSource.CodexNative(planType),
-                NextResetTime = sparkWeeklyResetTime,
-                PeriodDuration = TimeSpan.FromDays(7),
-                RawJson = rawJson,
-                HttpStatus = httpStatus,
-            });
+            var sparkWeeklyCard = CreateModelScopedUsage(config);
+            sparkWeeklyCard.ProviderId = CodexSparkProviderId;
+            sparkWeeklyCard.ProviderName = sparkDisplayName;
+            sparkWeeklyCard.CardId = "spark.weekly";
+            sparkWeeklyCard.GroupId = this.ProviderId;
+            sparkWeeklyCard.Name = WeeklyWindowLabel;
+            sparkWeeklyCard.WindowKind = WindowKind.Rolling;
+            sparkWeeklyCard.UsedPercent = sparkWeeklyUsed;
+            sparkWeeklyCard.RequestsUsed = sparkWeeklyUsed;
+            sparkWeeklyCard.RequestsAvailable = 100.0;
+            sparkWeeklyCard.IsQuotaBased = this.Definition.IsQuotaBased;
+            sparkWeeklyCard.PlanType = this.Definition.PlanType;
+            sparkWeeklyCard.IsAvailable = true;
+            sparkWeeklyCard.Description = $"{Math.Clamp(100.0 - sparkWeeklyUsed, 0.0, 100.0).ToString("F0", CultureInfo.InvariantCulture)}% remaining | Plan: {planType}";
+            sparkWeeklyCard.AccountName = accountIdentity ?? string.Empty;
+            sparkWeeklyCard.AuthSource = AuthSource.CodexNative(planType);
+            sparkWeeklyCard.NextResetTime = sparkWeeklyResetTime;
+            sparkWeeklyCard.PeriodDuration = TimeSpan.FromDays(7);
+            sparkWeeklyCard.RawJson = rawJson;
+            sparkWeeklyCard.HttpStatus = httpStatus;
+            usages.Add(sparkWeeklyCard);
         }
 
         return usages;
