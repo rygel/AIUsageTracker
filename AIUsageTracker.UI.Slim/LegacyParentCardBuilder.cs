@@ -14,10 +14,11 @@ internal static class LegacyParentCardBuilder
     {
         var definition = ProviderMetadataCatalog.Find(provider.ProviderId);
         var windowCards = provider.ProviderDetails
+            .OfType<WindowedProviderUsage>()
             .Where(d => d.WindowKind != WindowKind.None)
             .ToList();
 
-        return new ProviderUsage
+        return new WindowedProviderUsage
         {
             ProviderId = provider.ProviderId,
             ProviderName = ProviderMetadataCatalog.GetConfiguredDisplayName(provider.ProviderId),

@@ -65,7 +65,7 @@ internal static class SettingsWindowDeterministicFixture
         var planType = def.PlanType;
         var isQuotaBased = def.IsQuotaBased;
 
-        return new ProviderUsage
+        return new QuotaProviderUsage
         {
             ProviderId = scenario.ProviderId,
             ProviderName = ProviderMetadataCatalog.GetConfiguredDisplayName(scenario.ProviderId),

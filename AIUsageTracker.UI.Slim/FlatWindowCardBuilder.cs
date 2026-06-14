@@ -25,10 +25,11 @@ internal static class FlatWindowCardBuilder
             var cardName = showPrefix ? $"{parentDisplayName} ({model.ModelName})" : model.ModelName;
             var description = ResolveCardDescription(provider, modelState.Description);
 
-            cards.Add(new ProviderUsage
+            cards.Add(new ModelScopedProviderUsage
             {
                 ProviderId = provider.ProviderId,
                 CardId = model.ModelId,
+                ModelName = model.ModelName,
                 ProviderName = cardName,
                 AccountName = provider.AccountName,
                 IsAvailable = provider.IsAvailable,
