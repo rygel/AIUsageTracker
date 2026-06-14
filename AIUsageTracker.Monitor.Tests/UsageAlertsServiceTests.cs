@@ -45,7 +45,7 @@ public class UsageAlertsServiceTests
         };
         var usages = new List<ProviderUsage>
         {
-            new ProviderUsage
+            new QuotaProviderUsage
             {
                 ProviderId = "test",
                 ProviderName = "Test Provider",
@@ -69,7 +69,7 @@ public class UsageAlertsServiceTests
         };
         var usages = new List<ProviderUsage>
         {
-            new ProviderUsage
+            new QuotaProviderUsage
             {
                 ProviderId = "test",
                 ProviderName = "Test Provider",
@@ -95,7 +95,7 @@ public class UsageAlertsServiceTests
         };
         var usages = new List<ProviderUsage>
         {
-            new ProviderUsage
+            new QuotaProviderUsage
             {
                 ProviderId = "test",
                 ProviderName = "Test Provider",
@@ -121,7 +121,7 @@ public class UsageAlertsServiceTests
         };
         var usages = new List<ProviderUsage>
         {
-            new ProviderUsage
+            new QuotaProviderUsage
             {
                 ProviderId = "test",
                 ProviderName = "Test Provider",
@@ -145,7 +145,7 @@ public class UsageAlertsServiceTests
         };
         var usages = new List<ProviderUsage>
         {
-            new ProviderUsage
+            new QuotaProviderUsage
             {
                 ProviderId = "test",
                 ProviderName = "Test Provider",
@@ -174,7 +174,7 @@ public class UsageAlertsServiceTests
         };
         var usages = new List<ProviderUsage>
         {
-            new ProviderUsage
+            new QuotaProviderUsage
             {
                 ProviderId = "test",
                 ProviderName = "Test Provider",
@@ -198,7 +198,7 @@ public class UsageAlertsServiceTests
         };
         var usages = new List<ProviderUsage>
         {
-            new ProviderUsage
+            new QuotaProviderUsage
             {
                 ProviderId = "synthetic",
                 ProviderName = "Synthetic.new",
@@ -223,7 +223,7 @@ public class UsageAlertsServiceTests
         };
         var usages = new List<ProviderUsage>
         {
-            new ProviderUsage
+            new QuotaProviderUsage
             {
                 ProviderId = "synthetic",
                 ProviderName = "Synthetic.new",
@@ -255,7 +255,7 @@ public class UsageAlertsServiceTests
         };
         var usages = new List<ProviderUsage>
         {
-            new ProviderUsage
+            new QuotaProviderUsage
             {
                 ProviderId = "test",
                 ProviderName = "Test Provider",

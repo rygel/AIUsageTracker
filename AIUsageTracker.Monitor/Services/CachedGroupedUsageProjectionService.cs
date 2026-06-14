@@ -89,23 +89,29 @@ public sealed class CachedGroupedUsageProjectionService
 
     private static string CreateUsageETag(IReadOnlyList<ProviderUsage> usages)
     {
-        var payload = usages.Select(usage => new
+        var payload = usages.Select(usage =>
         {
-            usage.ProviderId,
-            usage.CardId,
-            usage.GroupId,
-            usage.ParentProviderId,
-            usage.WindowKind,
-            usage.ModelName,
-            usage.Name,
-            usage.IsAvailable,
-            usage.RequestsUsed,
-            usage.RequestsAvailable,
-            usage.UsedPercent,
-            usage.HttpStatus,
-            usage.Description,
-            usage.FetchedAt,
-            usage.NextResetTime,
+            var q = usage as QuotaProviderUsage;
+            var w = q as WindowedProviderUsage;
+            var m = q as ModelScopedProviderUsage;
+            return new
+            {
+                usage.ProviderId,
+                CardId = w?.CardId ?? m?.CardId,
+                GroupId = w?.GroupId ?? m?.GroupId,
+                ParentProviderId = w?.ParentProviderId,
+                WindowKind = w?.WindowKind ?? m?.WindowKind ?? WindowKind.None,
+                ModelName = m?.ModelName,
+                Name = w?.Name ?? m?.Name,
+                usage.IsAvailable,
+                RequestsUsed = q?.RequestsUsed ?? 0,
+                RequestsAvailable = q?.RequestsAvailable ?? 0,
+                UsedPercent = q?.UsedPercent ?? 0,
+                usage.HttpStatus,
+                usage.Description,
+                usage.FetchedAt,
+                NextResetTime = q?.NextResetTime,
+            };
         });
 
         var json = JsonSerializer.Serialize(payload);

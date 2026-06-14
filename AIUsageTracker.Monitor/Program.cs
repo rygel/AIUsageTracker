@@ -32,8 +32,14 @@ public partial class Program
         {
             Console.Title = "AI Usage Tracker - Monitor";
         }
-        catch (PlatformNotSupportedException) { }
-        catch (System.IO.IOException) { }
+        catch (PlatformNotSupportedException)
+        {
+            // Console.Title is not supported on this platform
+        }
+        catch (System.IO.IOException)
+        {
+            // Console.Title failed due to an I/O error
+        }
 
         IAppPathProvider pathProvider = new DefaultAppPathProvider();
         var holdsStartupMutex = false;
@@ -340,14 +346,10 @@ public partial class Program
         builder.Services.AddSingleton<MonitorJobScheduler>();
         builder.Services.AddSingleton<IMonitorJobScheduler>(sp => sp.GetRequiredService<MonitorJobScheduler>());
         builder.Services.AddHostedService(sp => sp.GetRequiredService<MonitorJobScheduler>());
-        builder.Services.AddSingleton<ProviderRefreshConfigLoadingService>();
         builder.Services.AddSingleton<ProviderUsagePersistenceService>();
         builder.Services.AddSingleton<ProviderConnectivityCheckService>();
-        builder.Services.AddSingleton<ProviderRefreshJobScheduler>();
         builder.Services.AddSingleton<ProviderManagerLifecycleService>();
         builder.Services.AddSingleton<ProviderRefreshNotificationService>();
-        builder.Services.AddSingleton<StartupSequenceService>();
-        builder.Services.AddSingleton<ProviderRefreshDependencies>();
         builder.Services.AddSingleton<ProviderRefreshService>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<ProviderRefreshService>());
 

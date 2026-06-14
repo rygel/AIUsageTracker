@@ -73,10 +73,6 @@ public class ProviderRefreshServiceTests
         var circuitBreakerLogger = new Mock<ILogger<ProviderRefreshCircuitBreakerService>>();
         this._providerRefreshCircuitBreakerService = new ProviderRefreshCircuitBreakerService(circuitBreakerLogger.Object);
 
-        var configLoadingService = new ProviderRefreshConfigLoadingService(
-            this._mockConfigService.Object,
-            this._mockDatabase.Object,
-            NullLogger<ProviderRefreshConfigLoadingService>.Instance);
         var usagePersistenceService = new ProviderUsagePersistenceService(
             this._mockDatabase.Object,
             NullLogger<ProviderUsagePersistenceService>.Instance);
@@ -85,9 +81,6 @@ public class ProviderRefreshServiceTests
         var connectivityCheckService = new ProviderConnectivityCheckService(
             this._mockConfigService.Object,
             processingPipeline);
-        var refreshJobScheduler = new ProviderRefreshJobScheduler(
-            this._mockJobScheduler.Object,
-            NullLogger<ProviderRefreshJobScheduler>.Instance);
         var providerManagerLifecycle = new ProviderManagerLifecycleService(
             NullLogger<ProviderManagerLifecycleService>.Instance,
             this._mockLoggerFactory.Object,
@@ -97,22 +90,6 @@ public class ProviderRefreshServiceTests
         var refreshNotificationService = new ProviderRefreshNotificationService(
             this._usageAlertsService,
             this._mockHubContext.Object);
-        var startupSequenceService = new StartupSequenceService(
-            refreshJobScheduler,
-            this._mockConfigService.Object,
-            this._mockPathProvider.Object,
-            NullLogger<StartupSequenceService>.Instance);
-
-        var refreshDeps = new ProviderRefreshDependencies(
-            this._providerRefreshCircuitBreakerService,
-            configLoadingService,
-            usagePersistenceService,
-            connectivityCheckService,
-            refreshJobScheduler,
-            providerManagerLifecycle,
-            refreshNotificationService,
-            startupSequenceService,
-            processingPipeline);
 
         this._service = new ProviderRefreshService(
             this._mockLogger.Object,
@@ -120,7 +97,13 @@ public class ProviderRefreshServiceTests
             this._mockNotificationService.Object,
             this._mockConfigService.Object,
             this._mockPathProvider.Object,
-            refreshDeps);
+            this._mockJobScheduler.Object,
+            this._providerRefreshCircuitBreakerService,
+            usagePersistenceService,
+            connectivityCheckService,
+            providerManagerLifecycle,
+            refreshNotificationService,
+            processingPipeline);
     }
 
     [Fact]
@@ -464,7 +447,7 @@ public class ProviderRefreshServiceTests
 
         scenario.Database.Verify(
             d => d.StoreHistoryAsync(It.Is<IEnumerable<ProviderUsage>>(items =>
-                items.Any(u => u.ProviderId == "codex" && Math.Abs(u.UsedPercent - 50) < 0.001))),
+                items.Any(u => u.ProviderId == "codex" && Math.Abs(((QuotaProviderUsage)u).UsedPercent - 50) < 0.001))),
             Times.Once);
     }
 
@@ -506,7 +489,7 @@ public class ProviderRefreshServiceTests
             {
                 Usages = new[]
                 {
-                    new ProviderUsage
+                    new StatusProviderUsage
                     {
                         ProviderId = "codex",
                         ProviderName = "OpenAI (Codex)",
@@ -589,7 +572,7 @@ public class ProviderRefreshServiceTests
         {
             new() { ProviderId = "codex", ApiKey = TestApiKey },
         };
-        var processedOutput = new ProviderUsage
+        var processedOutput = new QuotaProviderUsage
         {
             ProviderId = "codex",
             ProviderName = "OpenAI (Codex)",
@@ -634,7 +617,7 @@ public class ProviderRefreshServiceTests
         provider.Setup(p => p.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[]
             {
-                new ProviderUsage
+                new QuotaProviderUsage
                 {
                     ProviderId = "codex",
                     ProviderName = "OpenAI (Codex)",
@@ -670,19 +653,12 @@ public class ProviderRefreshServiceTests
             .Returns(value: true);
 
         var providers = new[] { provider };
-        var configLoadingService = new ProviderRefreshConfigLoadingService(
-            configService,
-            database,
-            NullLogger<ProviderRefreshConfigLoadingService>.Instance);
         var usagePersistenceService = new ProviderUsagePersistenceService(
             database,
             NullLogger<ProviderUsagePersistenceService>.Instance);
         var connectivityCheckService = new ProviderConnectivityCheckService(
             configService,
             pipeline);
-        var refreshJobScheduler = new ProviderRefreshJobScheduler(
-            mockJobScheduler.Object,
-            NullLogger<ProviderRefreshJobScheduler>.Instance);
         var providerManagerLifecycle = new ProviderManagerLifecycleService(
             NullLogger<ProviderManagerLifecycleService>.Instance,
             loggerFactory,
@@ -690,22 +666,6 @@ public class ProviderRefreshServiceTests
             pathProvider,
             providers);
         var refreshNotificationService = new ProviderRefreshNotificationService(usageAlertsService);
-        var startupSequenceService = new StartupSequenceService(
-            refreshJobScheduler,
-            configService,
-            pathProvider,
-            NullLogger<StartupSequenceService>.Instance);
-
-        var refreshDeps = new ProviderRefreshDependencies(
-            circuitBreakerService,
-            configLoadingService,
-            usagePersistenceService,
-            connectivityCheckService,
-            refreshJobScheduler,
-            providerManagerLifecycle,
-            refreshNotificationService,
-            startupSequenceService,
-            pipeline);
 
         return new ProviderRefreshService(
             logger,
@@ -713,7 +673,13 @@ public class ProviderRefreshServiceTests
             notificationService,
             configService,
             pathProvider,
-            refreshDeps);
+            mockJobScheduler.Object,
+            circuitBreakerService,
+            usagePersistenceService,
+            connectivityCheckService,
+            providerManagerLifecycle,
+            refreshNotificationService,
+            pipeline);
     }
 
     private static PipelineTestFiles CreatePipelineTestFiles()
@@ -747,13 +713,13 @@ public class ProviderRefreshServiceTests
 
     private static int GetProviderManagerConcurrency(ProviderRefreshService service)
     {
-        var refreshDepsField = typeof(ProviderRefreshService).GetField(
-            "_refreshDeps",
+        var lifecycleField = typeof(ProviderRefreshService).GetField(
+            "_providerManagerLifecycle",
             BindingFlags.Instance | BindingFlags.NonPublic);
-        Assert.NotNull(refreshDepsField);
+        Assert.NotNull(lifecycleField);
 
-        var refreshDeps = Assert.IsType<ProviderRefreshDependencies>(refreshDepsField!.GetValue(service));
-        return refreshDeps.ProviderManagerLifecycle.CurrentMaxConcurrency;
+        var lifecycle = Assert.IsType<ProviderManagerLifecycleService>(lifecycleField!.GetValue(service));
+        return lifecycle.CurrentMaxConcurrency;
     }
 
     [Fact]

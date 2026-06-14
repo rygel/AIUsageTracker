@@ -28,7 +28,7 @@ public class ExportServiceTests
         // Arrange
         var history = new List<ProviderUsage>
         {
-            new ProviderUsage
+            new QuotaProviderUsage
             {
                 ProviderId = "test-p",
                 ProviderName = "Test Provider",
@@ -59,7 +59,7 @@ public class ExportServiceTests
         // Arrange
         var history = new List<ProviderUsage>
         {
-            new ProviderUsage
+            new QuotaProviderUsage
             {
                 ProviderId = "test-p",
                 ProviderName = "Test Provider",
@@ -93,7 +93,7 @@ public class ExportServiceTests
         // Arrange — flat cards replace Details; each card row appears as a separate CSV entry
         var history = new List<ProviderUsage>
         {
-            new ProviderUsage
+            new QuotaProviderUsage
             {
                 ProviderId = "test-p",
                 ProviderName = "Test Provider",

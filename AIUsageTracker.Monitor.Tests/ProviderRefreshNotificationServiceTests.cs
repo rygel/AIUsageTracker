@@ -122,7 +122,7 @@ public class ProviderRefreshNotificationServiceTests
     {
         return
         [
-            new()
+            new QuotaProviderUsage()
             {
                 ProviderId = "openai",
                 ProviderName = "OpenAI",
@@ -130,7 +130,7 @@ public class ProviderRefreshNotificationServiceTests
                 RequestsAvailable = 100,
                 IsAvailable = true,
             },
-            new()
+            new QuotaProviderUsage()
             {
                 ProviderId = "openai",
                 ProviderName = "OpenAI",
@@ -145,7 +145,7 @@ public class ProviderRefreshNotificationServiceTests
     {
         return
         [
-            new()
+            new QuotaProviderUsage()
             {
                 ProviderId = "openai",
                 ProviderName = "OpenAI",

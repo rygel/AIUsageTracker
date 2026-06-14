@@ -177,15 +177,13 @@ public class ProviderRefreshCircuitBreakerService
                     : $"Temporarily paused — next check at {retryLocal:HH:mm} (last error: {state.LastError})";
 
                 var displayName = ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId);
-                result.Add(new ProviderUsage
+                result.Add(new QuotaProviderUsage
                 {
                     ProviderId = config.ProviderId,
                     ProviderName = displayName,
                     IsAvailable = false,
                     State = ProviderUsageState.Unavailable,
                     Description = description,
-                    RequestsUsed = 0,
-                    RequestsAvailable = 0,
                     FetchedAt = now,
                     AuthSource = config.AuthSource ?? string.Empty,
                 });
