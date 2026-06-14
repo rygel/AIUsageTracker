@@ -266,8 +266,12 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         }
 
         // Create the appropriate concrete type preserving subtype-specific properties
-        QuotaProviderUsage normalizedUsageCandidate;
-        if (srcWindowed != null)
+        ProviderUsage normalizedUsageCandidate;
+        if (usage is StatusProviderUsage)
+        {
+            normalizedUsageCandidate = new StatusProviderUsage();
+        }
+        else if (srcWindowed != null)
         {
             normalizedUsageCandidate = new WindowedProviderUsage
             {
@@ -297,25 +301,16 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             normalizedUsageCandidate = new QuotaProviderUsage();
         }
 
-        // Set common base + quota properties
+        // Set common base properties (all subtypes)
         normalizedUsageCandidate.ProviderId = providerId;
         normalizedUsageCandidate.ProviderName = providerName;
-        normalizedUsageCandidate.RequestsUsed = requestsUsed;
-        normalizedUsageCandidate.RequestsAvailable = requestsAvailable;
-        normalizedUsageCandidate.UsedPercent = requestsPercentage;
-        normalizedUsageCandidate.PlanType = definition?.PlanType ?? (srcQuota?.PlanType ?? PlanType.Usage);
-        normalizedUsageCandidate.IsQuotaBased = definition?.IsQuotaBased ?? (srcQuota?.IsQuotaBased ?? false);
-        normalizedUsageCandidate.DisplayAsFraction = (srcQuota?.DisplayAsFraction ?? false) || (definition?.DisplayAsFraction ?? false);
         normalizedUsageCandidate.IsAvailable = usage.IsAvailable;
         normalizedUsageCandidate.State = usage.State;
-        normalizedUsageCandidate.IsStatusOnly = (srcQuota?.IsStatusOnly ?? false) || (definition?.IsStatusOnly ?? false);
         normalizedUsageCandidate.IsTooltipOnly = usage.IsTooltipOnly || (definition?.IsTooltipOnly ?? false);
-        normalizedUsageCandidate.IsCurrencyUsage = (srcQuota?.IsCurrencyUsage ?? false) || (definition?.IsCurrencyUsage ?? false);
         normalizedUsageCandidate.Description = description;
         normalizedUsageCandidate.AuthSource = usage.AuthSource;
         normalizedUsageCandidate.AccountName = accountName ?? string.Empty;
         normalizedUsageCandidate.ConfigKey = configKey ?? string.Empty;
-        normalizedUsageCandidate.NextResetTime = normalizedNextResetTimeUtc;
         normalizedUsageCandidate.FetchedAt = fetchedAt;
         normalizedUsageCandidate.ResponseLatencyMs = responseLatencyMs;
         normalizedUsageCandidate.RawJson = rawJson;
@@ -323,6 +318,20 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         normalizedUsageCandidate.UpstreamResponseValidity = upstreamResponseValidity;
         normalizedUsageCandidate.UpstreamResponseNote = upstreamResponseNote ?? string.Empty;
         normalizedUsageCandidate.IsStale = usage.IsStale;
+
+        // Set quota properties only for quota-bearing subtypes
+        if (normalizedUsageCandidate is QuotaProviderUsage quotaCandidate)
+        {
+            quotaCandidate.RequestsUsed = requestsUsed;
+            quotaCandidate.RequestsAvailable = requestsAvailable;
+            quotaCandidate.UsedPercent = requestsPercentage;
+            quotaCandidate.PlanType = definition?.PlanType ?? (srcQuota?.PlanType ?? PlanType.Usage);
+            quotaCandidate.IsQuotaBased = definition?.IsQuotaBased ?? (srcQuota?.IsQuotaBased ?? false);
+            quotaCandidate.DisplayAsFraction = (srcQuota?.DisplayAsFraction ?? false) || (definition?.DisplayAsFraction ?? false);
+            quotaCandidate.IsStatusOnly = (srcQuota?.IsStatusOnly ?? false) || (definition?.IsStatusOnly ?? false);
+            quotaCandidate.IsCurrencyUsage = (srcQuota?.IsCurrencyUsage ?? false) || (definition?.IsCurrencyUsage ?? false);
+            quotaCandidate.NextResetTime = normalizedNextResetTimeUtc;
+        }
 
         var upstreamEvaluation = normalizedUsageCandidate.EvaluateUpstreamResponseValidity();
         upstreamResponseValidity = upstreamEvaluation.Validity;
