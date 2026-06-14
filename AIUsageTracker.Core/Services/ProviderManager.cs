@@ -197,7 +197,7 @@ public class ProviderManager : IDisposable
         (bool IsQuotaBased, PlanType PlanType, string DisplayName) defaults,
         Stopwatch stopwatch)
     {
-        return new ProviderUsage
+        return new QuotaProviderUsage
         {
             ProviderId = config.ProviderId,
             ProviderName = defaults.DisplayName,
@@ -218,7 +218,7 @@ public class ProviderManager : IDisposable
         string message,
         Stopwatch stopwatch)
     {
-        return new ProviderUsage
+        return new QuotaProviderUsage
         {
             ProviderId = config.ProviderId,
             ProviderName = defaults.DisplayName,
@@ -237,7 +237,7 @@ public class ProviderManager : IDisposable
         string message,
         Stopwatch stopwatch)
     {
-        return new ProviderUsage
+        return new QuotaProviderUsage
         {
             ProviderId = config.ProviderId,
             ProviderName = defaults.DisplayName,
@@ -256,7 +256,7 @@ public class ProviderManager : IDisposable
         ProviderConfig config,
         (bool IsQuotaBased, PlanType PlanType, string DisplayName) defaults)
     {
-        return new ProviderUsage
+        return new QuotaProviderUsage
         {
             ProviderId = config.ProviderId,
             ProviderName = defaults.DisplayName,

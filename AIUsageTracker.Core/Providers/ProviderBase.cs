@@ -76,7 +76,7 @@ public abstract class ProviderBase : IProviderService
         string? rawJson = null,
         int httpStatus = 0)
     {
-        return new ProviderUsage
+        return new QuotaProviderUsage
         {
             ProviderId = this.ProviderId,
             ProviderName = providerLabel,
@@ -95,7 +95,7 @@ public abstract class ProviderBase : IProviderService
         ProviderUsageState state = ProviderUsageState.Error,
         HttpFailureContext? failureContext = null)
     {
-        return new ProviderUsage
+        return new QuotaProviderUsage
         {
             ProviderId = this.ProviderId,
             ProviderName = this.Definition.DisplayName ?? this.ProviderId,
