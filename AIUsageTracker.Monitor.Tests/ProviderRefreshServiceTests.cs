@@ -228,10 +228,8 @@ public class ProviderRefreshServiceTests
     public void QueueManualRefresh_UsesHighPriorityScheduler()
     {
         this._mockJobScheduler
-            .Setup(s => s.Enqueue(
-                It.IsAny<string>(),
+            .Setup(s => s.QueueManualRefresh(
                 It.IsAny<Func<CancellationToken, Task>>(),
-                It.IsAny<MonitorJobPriority>(),
                 It.IsAny<string?>()))
             .Returns(value: true);
 
@@ -239,11 +237,9 @@ public class ProviderRefreshServiceTests
 
         Assert.True(queued);
         this._mockJobScheduler.Verify(
-            s => s.Enqueue(
-                "manual-provider-refresh",
+            s => s.QueueManualRefresh(
                 It.IsAny<Func<CancellationToken, Task>>(),
-                MonitorJobPriority.High,
-                "manual-provider-refresh"),
+                null),
             Times.Once);
     }
 
@@ -251,10 +247,8 @@ public class ProviderRefreshServiceTests
     public void QueueManualRefresh_WithScopedRequest_UsesRequestAwareCoalesceKey()
     {
         this._mockJobScheduler
-            .Setup(s => s.Enqueue(
-                It.IsAny<string>(),
+            .Setup(s => s.QueueManualRefresh(
                 It.IsAny<Func<CancellationToken, Task>>(),
-                It.IsAny<MonitorJobPriority>(),
                 It.IsAny<string?>()))
             .Returns(value: true);
 
@@ -264,10 +258,8 @@ public class ProviderRefreshServiceTests
 
         Assert.True(queued);
         this._mockJobScheduler.Verify(
-            s => s.Enqueue(
-                "manual-provider-refresh",
+            s => s.QueueManualRefresh(
                 It.IsAny<Func<CancellationToken, Task>>(),
-                MonitorJobPriority.High,
                 "manual-provider-refresh|forceAll=False|bypass=True|include=openai,zai"),
             Times.Once);
     }
@@ -304,12 +296,10 @@ public class ProviderRefreshServiceTests
     {
         Func<CancellationToken, Task>? queuedWork = null;
         this._mockJobScheduler
-            .Setup(s => s.Enqueue(
-                It.IsAny<string>(),
+            .Setup(s => s.QueueManualRefresh(
                 It.IsAny<Func<CancellationToken, Task>>(),
-                It.IsAny<MonitorJobPriority>(),
                 It.IsAny<string?>()))
-            .Callback<string, Func<CancellationToken, Task>, MonitorJobPriority, string?>((_, work, _, _) => queuedWork = work)
+            .Callback<Func<CancellationToken, Task>, string?>((work, _) => queuedWork = work)
             .Returns(value: true);
 
         var stoppedActivities = new List<Activity>();
@@ -339,35 +329,28 @@ public class ProviderRefreshServiceTests
     public async Task StartAsync_WhenHistoryEmpty_QueuesStartupSeedingAndRecurringRefreshAsync()
     {
         this._mockDatabase.Setup(d => d.IsHistoryEmptyAsync()).ReturnsAsync(value: true);
+        this._mockJobScheduler
+            .Setup(s => s.QueueInitialDataSeeding(It.IsAny<Func<CancellationToken, Task>>()))
+            .Returns(value: true);
 
         await this._service.StartAsync(CancellationToken.None);
         await Task.Delay(100);
         await this._service.StopAsync(CancellationToken.None);
 
         this._mockJobScheduler.Verify(
-            s => s.RegisterRecurringJob(
-                "scheduled-provider-refresh",
+            s => s.RegisterRecurringRefresh(
                 It.IsAny<TimeSpan>(),
-                It.IsAny<Func<CancellationToken, Task>>(),
-                MonitorJobPriority.Low,
-                It.IsAny<TimeSpan?>(),
-                "scheduled-provider-refresh"),
+                It.IsAny<Func<CancellationToken, Task>>()),
             Times.Once);
 
         this._mockJobScheduler.Verify(
-            s => s.Enqueue(
-                "startup-provider-seeding",
-                It.IsAny<Func<CancellationToken, Task>>(),
-                MonitorJobPriority.High,
-                "startup-provider-seeding"),
+            s => s.QueueInitialDataSeeding(
+                It.IsAny<Func<CancellationToken, Task>>()),
             Times.Once);
 
         this._mockJobScheduler.Verify(
-            s => s.Enqueue(
-                "startup-targeted-provider-refresh",
-                It.IsAny<Func<CancellationToken, Task>>(),
-                It.IsAny<MonitorJobPriority>(),
-                It.IsAny<string?>()),
+            s => s.QueueStartupTargetedRefresh(
+                It.IsAny<Func<CancellationToken, Task>>()),
             Times.Never);
     }
 
@@ -375,35 +358,28 @@ public class ProviderRefreshServiceTests
     public async Task StartAsync_WhenHistoryExists_QueuesTargetedRefreshAndRecurringRefreshAsync()
     {
         this._mockDatabase.Setup(d => d.IsHistoryEmptyAsync()).ReturnsAsync(value: false);
+        this._mockJobScheduler
+            .Setup(s => s.QueueStartupTargetedRefresh(It.IsAny<Func<CancellationToken, Task>>()))
+            .Returns(value: true);
 
         await this._service.StartAsync(CancellationToken.None);
         await Task.Delay(100);
         await this._service.StopAsync(CancellationToken.None);
 
         this._mockJobScheduler.Verify(
-            s => s.RegisterRecurringJob(
-                "scheduled-provider-refresh",
+            s => s.RegisterRecurringRefresh(
                 It.IsAny<TimeSpan>(),
-                It.IsAny<Func<CancellationToken, Task>>(),
-                MonitorJobPriority.Low,
-                It.IsAny<TimeSpan?>(),
-                "scheduled-provider-refresh"),
+                It.IsAny<Func<CancellationToken, Task>>()),
             Times.Once);
 
         this._mockJobScheduler.Verify(
-            s => s.Enqueue(
-                "startup-targeted-provider-refresh",
-                It.IsAny<Func<CancellationToken, Task>>(),
-                MonitorJobPriority.Low,
-                "startup-targeted-provider-refresh"),
+            s => s.QueueStartupTargetedRefresh(
+                It.IsAny<Func<CancellationToken, Task>>()),
             Times.Once);
 
         this._mockJobScheduler.Verify(
-            s => s.Enqueue(
-                "startup-provider-seeding",
-                It.IsAny<Func<CancellationToken, Task>>(),
-                It.IsAny<MonitorJobPriority>(),
-                It.IsAny<string?>()),
+            s => s.QueueInitialDataSeeding(
+                It.IsAny<Func<CancellationToken, Task>>()),
             Times.Never);
     }
 
