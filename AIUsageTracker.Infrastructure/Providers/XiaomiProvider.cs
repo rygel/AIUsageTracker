@@ -82,7 +82,13 @@ public class XiaomiProvider : ProviderBase
         var used = quota > 0 ? Math.Max(0, quota - balance) : 0;
         var usedPercent = quota > 0 ? UsageMath.CalculateUsedPercent(used, quota) : 0;
 
-        var usage = this.CreateBaseUsage(providerLabel, content, httpStatus);
+        var usage = CreateQuotaUsage(config);
+        usage.ProviderName = providerLabel;
+        usage.IsAvailable = true;
+        usage.IsQuotaBased = this.Definition.IsQuotaBased;
+        usage.PlanType = this.Definition.PlanType;
+        usage.RawJson = content;
+        usage.HttpStatus = httpStatus;
         usage.UsedPercent = usedPercent;
         usage.RequestsUsed = used;
         usage.RequestsAvailable = quota > 0 ? quota : balance;

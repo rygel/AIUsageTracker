@@ -131,7 +131,7 @@ public class ZaiProvider : ProviderBase
         this._logger.LogDebug("[ZAI] No limits found in response");
         return new[]
         {
-            new ProviderUsage
+            new QuotaProviderUsage
             {
                 ProviderId = this.ProviderId,
                 ProviderName = providerLabel,
@@ -189,7 +189,7 @@ public class ZaiProvider : ProviderBase
     {
         return new[]
         {
-            new ProviderUsage
+            new QuotaProviderUsage
             {
                 ProviderId = this.ProviderId,
                 ProviderName = providerLabel,
@@ -235,7 +235,7 @@ public class ZaiProvider : ProviderBase
             finalDescription,
             true);
 
-        return new ProviderUsage
+        return new QuotaProviderUsage
         {
             ProviderId = this.ProviderId,
             ProviderName = providerLabel,

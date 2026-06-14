@@ -73,7 +73,13 @@ public class MistralProvider : ProviderBase
 
             if (response.IsSuccessStatusCode)
             {
-                var usage = this.CreateBaseUsage(providerLabel, content, (int)response.StatusCode);
+                var usage = CreateQuotaUsage(config);
+                usage.ProviderName = providerLabel;
+                usage.IsAvailable = true;
+                usage.IsQuotaBased = this.Definition.IsQuotaBased;
+                usage.PlanType = this.Definition.PlanType;
+                usage.RawJson = content;
+                usage.HttpStatus = (int)response.StatusCode;
                 usage.UsedPercent = 0;
                 usage.Description = "Connected (Check Dashboard)";
                 return new[] { usage };

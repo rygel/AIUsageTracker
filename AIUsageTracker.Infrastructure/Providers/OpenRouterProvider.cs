@@ -246,7 +246,7 @@ public class OpenRouterProvider : ProviderBase
 
         var results = new List<ProviderUsage>();
 
-        results.Add(new ProviderUsage
+        results.Add(new WindowedProviderUsage
         {
             ProviderId = config.ProviderId,
             ProviderName = keyInfo.Label,
@@ -268,7 +268,7 @@ public class OpenRouterProvider : ProviderBase
 
         if (keyInfo.SpendingLimit.HasValue)
         {
-            results.Add(new ProviderUsage
+            results.Add(new WindowedProviderUsage
             {
                 ProviderId = config.ProviderId,
                 ProviderName = keyInfo.Label,
@@ -287,7 +287,7 @@ public class OpenRouterProvider : ProviderBase
 
         if (keyInfo.IsFreeTier.HasValue)
         {
-            results.Add(new ProviderUsage
+            results.Add(new WindowedProviderUsage
             {
                 ProviderId = config.ProviderId,
                 ProviderName = keyInfo.Label,
