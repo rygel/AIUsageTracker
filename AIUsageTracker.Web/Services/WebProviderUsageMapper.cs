@@ -11,7 +11,7 @@ internal static class WebProviderUsageMapper
 {
     public static ProviderUsage Map(dynamic row)
     {
-        var usage = new ProviderUsage
+        var usage = new QuotaProviderUsage
         {
             ProviderId = row.provider_id ?? row.ProviderId,
             ProviderName = row.ProviderName,

@@ -320,9 +320,11 @@ public static class Program
 
         foreach (var item in history)
         {
-            var used = item.IsCurrencyUsage
-                ? $"${item.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture)}"
-                : item.RequestsUsed.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var used = item is QuotaProviderUsage qUsage
+                ? (qUsage.IsCurrencyUsage
+                    ? $"${qUsage.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture)}"
+                    : qUsage.RequestsUsed.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                : "-";
             var providerDisplayName = item.ProviderName ?? ProviderMetadataCatalog.GetConfiguredDisplayName(item.ProviderId ?? string.Empty);
             Console.WriteLine($"{item.FetchedAt.ToShortDateString(),-12} | {providerDisplayName,-20} | {"(Total)",-25} | {used,-15}");
         }
@@ -551,10 +553,21 @@ public static class Program
 
     private static void WriteProviderStatusLine(ProviderUsage u)
     {
-        var usedPct = u.UsedPercent;
-        var pct = u.IsAvailable ? $"{usedPct.ToString("F0", CultureInfo.InvariantCulture)}%" : "-";
+        string pct;
+        string type;
 
-        var type = u.IsQuotaBased ? "Quota" : "Pay-As-You-Go";
+        if (u is QuotaProviderUsage q)
+        {
+            var usedPct = q.UsedPercent;
+            pct = u.IsAvailable ? $"{usedPct.ToString("F0", CultureInfo.InvariantCulture)}%" : "-";
+            type = q.IsQuotaBased ? "Quota" : "Pay-As-You-Go";
+        }
+        else
+        {
+            pct = u.IsAvailable ? "Active" : "-";
+            type = "Status";
+        }
+
         var accountInfo = !string.IsNullOrWhiteSpace(u.AccountName) ? $" [{u.AccountName}]" : string.Empty;
         var providerDisplayName = u.ProviderName ?? ProviderMetadataCatalog.GetConfiguredDisplayName(u.ProviderId ?? string.Empty);
 
