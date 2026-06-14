@@ -21,20 +21,20 @@ public sealed class DualQuotaSerializationRoundTripTests
     [Fact]
     public void ProviderUsage_WindowCard_SurvivesJsonRoundTrip()
     {
-        var card = new ProviderUsage
-        {
+        var card = new WindowedProviderUsage{
             ProviderId = "codex",
             Name = "5h",
             WindowKind = WindowKind.Burst,
             UsedPercent = 4.0,
         };
 
-        var json = JsonSerializer.Serialize(card, MonitorOptions);
+        var json = JsonSerializer.Serialize<ProviderUsage>(card, MonitorOptions);
         var roundTripped = JsonSerializer.Deserialize<ProviderUsage>(json, ClientOptions)!;
 
-        Assert.Equal(WindowKind.Burst, roundTripped.WindowKind);
-        Assert.Equal("5h", roundTripped.Name);
-        Assert.Equal(4.0, roundTripped.UsedPercent, precision: 1);
+        var windowed = (WindowedProviderUsage)roundTripped;
+        Assert.Equal(WindowKind.Burst, windowed.WindowKind);
+        Assert.Equal("5h", windowed.Name);
+        Assert.Equal(4.0, windowed.UsedPercent, precision: 1);
     }
 
     [Fact]
@@ -91,15 +91,13 @@ public sealed class DualQuotaSerializationRoundTripTests
                     UsedPercent = 4,
                     ProviderDetails = new[]
                     {
-                        new ProviderUsage
-                        {
+                        new WindowedProviderUsage{
                             ProviderId = "codex",
                             Name = "5h",
                             WindowKind = WindowKind.Burst,
                             UsedPercent = 4,
                         },
-                        new ProviderUsage
-                        {
+                        new WindowedProviderUsage{
                             ProviderId = "codex",
                             Name = "Weekly",
                             WindowKind = WindowKind.Rolling,
@@ -116,7 +114,7 @@ public sealed class DualQuotaSerializationRoundTripTests
 
         // UI builds ProviderUsage from snapshot
         var usages = GroupedUsageDisplayAdapter.Expand(deserialized);
-        var usage = Assert.Single(usages);
+        var usage = (WindowedProviderUsage)Assert.Single(usages);
         Assert.NotNull(usage.WindowCards);
         Assert.Equal(2, usage.WindowCards!.Count);
     }
@@ -137,15 +135,13 @@ public sealed class DualQuotaSerializationRoundTripTests
                     UsedPercent = 51,
                     ProviderDetails = new[]
                     {
-                        new ProviderUsage
-                        {
+                        new WindowedProviderUsage{
                             ProviderId = "claude-code",
                             Name = "Current Session",
                             WindowKind = WindowKind.Burst,
                             UsedPercent = 51,
                         },
-                        new ProviderUsage
-                        {
+                        new WindowedProviderUsage{
                             ProviderId = "claude-code",
                             Name = "All Models",
                             WindowKind = WindowKind.Rolling,
@@ -160,7 +156,7 @@ public sealed class DualQuotaSerializationRoundTripTests
         var deserialized = JsonSerializer.Deserialize<AgentGroupedUsageSnapshot>(json, ClientOptions)!;
 
         var usages = GroupedUsageDisplayAdapter.Expand(deserialized);
-        var usage = Assert.Single(usages);
+        var usage = (WindowedProviderUsage)Assert.Single(usages);
         Assert.NotNull(usage.WindowCards);
         Assert.Equal(2, usage.WindowCards!.Count);
     }

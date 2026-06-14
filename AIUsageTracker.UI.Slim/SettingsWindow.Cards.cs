@@ -12,7 +12,7 @@ namespace AIUsageTracker.UI.Slim;
 public partial class SettingsWindow
 {
     private readonly List<UserPreset> _userPresets = new();
-    private List<ProviderUsage> _cardPreviewUsages = new();
+    private List<QuotaProviderUsage> _cardPreviewUsages = new();
 
     private enum CardPreset
     {

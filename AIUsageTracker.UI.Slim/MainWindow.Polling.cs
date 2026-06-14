@@ -63,13 +63,13 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task<IReadOnlyList<ProviderUsage>> GetUsageForDisplayAsync()
+    private async Task<IReadOnlyList<QuotaProviderUsage>> GetUsageForDisplayAsync()
     {
         var groupedSnapshot = await this._monitorService.GetGroupedUsageAsync().ConfigureAwait(true);
         if (groupedSnapshot == null)
         {
             this._logger.LogWarning("Grouped usage snapshot is unavailable.");
-            return Array.Empty<ProviderUsage>();
+            return Array.Empty<QuotaProviderUsage>();
         }
 
         return GroupedUsageDisplayAdapter.Expand(groupedSnapshot);

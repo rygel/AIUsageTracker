@@ -8,7 +8,7 @@ public class ModelTests
     public void ProviderUsage_Initialization_SetsDefaultValues()
     {
         // Arrange & Act
-        var usage = new ProviderUsage();
+        var usage = new QuotaProviderUsage();
 
         // Assert
         Assert.Equal(PlanType.Usage, usage.PlanType);

@@ -19,7 +19,7 @@ public sealed class ProviderSettingsDisplayCatalogTests
 
         var usages = new List<ProviderUsage>
         {
-            new() { ProviderId = "codex.spark", IsQuotaBased = true, PlanType = PlanType.Coding },
+            new QuotaProviderUsage { ProviderId = "codex.spark", IsQuotaBased = true, PlanType = PlanType.Coding },
         };
 
         var items = SettingsWindow.CreateProviderDisplayItems(configs, usages);
@@ -38,7 +38,7 @@ public sealed class ProviderSettingsDisplayCatalogTests
 
         var usages = new List<ProviderUsage>
         {
-            new() { ProviderId = "codex.spark", IsQuotaBased = true },
+            new QuotaProviderUsage { ProviderId = "codex.spark", IsQuotaBased = true, PlanType = PlanType.Coding },
         };
 
         var items = SettingsWindow.CreateProviderDisplayItems(configs, usages);
@@ -135,7 +135,7 @@ public sealed class ProviderSettingsDisplayCatalogTests
 
         var usages = new List<ProviderUsage>
         {
-            new() { ProviderId = "codex.spark", IsQuotaBased = true, PlanType = PlanType.Coding },
+            new QuotaProviderUsage { ProviderId = "codex.spark", IsQuotaBased = true, PlanType = PlanType.Coding },
         };
 
         var items = SettingsWindow.CreateProviderDisplayItems(configs, usages);

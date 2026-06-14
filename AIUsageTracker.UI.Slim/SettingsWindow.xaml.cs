@@ -40,7 +40,7 @@ public partial class SettingsWindow : Window
     private readonly EventHandler<PrivacyChangedEventArgs> _privacyChangedHandler;
 
     private List<ProviderConfig> _configs = new();
-    private List<ProviderUsage> _usages = new();
+    private List<QuotaProviderUsage> _usages = new();
     private AppPreferences _preferences = new();
     private bool _isPrivacyMode = App.IsPrivacyMode;
     private bool _isDeterministicScreenshotMode;
@@ -230,13 +230,13 @@ public partial class SettingsWindow : Window
     }
 #pragma warning restore VSTHRD001
 
-    private async Task<IReadOnlyList<ProviderUsage>> GetUsageForDisplayAsync()
+    private async Task<IReadOnlyList<QuotaProviderUsage>> GetUsageForDisplayAsync()
     {
         var groupedSnapshot = await this._monitorService.GetGroupedUsageAsync().ConfigureAwait(true);
         if (groupedSnapshot == null)
         {
             this._logger.LogWarning("Grouped usage snapshot is unavailable.");
-            return Array.Empty<ProviderUsage>();
+            return Array.Empty<QuotaProviderUsage>();
         }
 
         return GroupedUsageDisplayAdapter.Expand(groupedSnapshot);

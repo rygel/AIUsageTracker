@@ -10,7 +10,7 @@ namespace AIUsageTracker.UI.Slim;
 
 internal static class LegacyParentCardBuilder
 {
-    internal static ProviderUsage Build(AgentGroupedProviderUsage provider)
+    internal static QuotaProviderUsage Build(AgentGroupedProviderUsage provider)
     {
         var definition = ProviderMetadataCatalog.Find(provider.ProviderId);
         var windowCards = provider.ProviderDetails

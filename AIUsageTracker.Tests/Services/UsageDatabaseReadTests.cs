@@ -231,9 +231,9 @@ public sealed class UsageDatabaseReadTests : IDisposable
 
         var results = await db.GetHistoryAsync();
 
-        Assert.Equal(30.0, results[0].RequestsUsed); // newest first
-        Assert.Equal(20.0, results[1].RequestsUsed);
-        Assert.Equal(10.0, results[2].RequestsUsed);
+        Assert.Equal(30.0, ((QuotaProviderUsage)results[0]).RequestsUsed); // newest first
+        Assert.Equal(20.0, ((QuotaProviderUsage)results[1]).RequestsUsed);
+        Assert.Equal(10.0, ((QuotaProviderUsage)results[2]).RequestsUsed);
     }
 
     [Fact]
@@ -390,8 +390,8 @@ public sealed class UsageDatabaseReadTests : IDisposable
 
         var codexRows = results.Where(r => string.Equals(r.ProviderId, "codex", StringComparison.Ordinal)).OrderByDescending(r => r.FetchedAt).ToList();
         Assert.Equal(2, codexRows.Count);
-        Assert.Equal(25.0, codexRows[0].RequestsUsed); // newest
-        Assert.Equal(15.0, codexRows[1].RequestsUsed); // second newest
+        Assert.Equal(25.0, ((QuotaProviderUsage)codexRows[0]).RequestsUsed); // newest
+        Assert.Equal(15.0, ((QuotaProviderUsage)codexRows[1]).RequestsUsed); // second newest
     }
 
     // -------------------------------------------------------------------------
@@ -415,8 +415,7 @@ public sealed class UsageDatabaseReadTests : IDisposable
         int httpStatus = 200,
         DateTime fetchedAt = default)
     {
-        return new ProviderUsage
-        {
+        return new WindowedProviderUsage{ 
             ProviderId = providerId,
             ProviderName = providerId,
             RequestsUsed = requestsUsed,

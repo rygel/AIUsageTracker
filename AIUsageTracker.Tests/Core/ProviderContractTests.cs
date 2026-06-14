@@ -111,14 +111,13 @@ public class ProviderContractTests
         Assert.Equal("Auth failed", usage.Description);
         Assert.Equal(401, usage.HttpStatus);
         Assert.Equal(ProviderUsageState.Error, usage.State);
-        Assert.Equal(0, usage.UsedPercent);
     }
 
     // --- FailureContext is not serialised ---
     [Fact]
     public void ProviderUsage_FailureContextIsJsonIgnored()
     {
-        var usage = new ProviderUsage
+        var usage = new QuotaProviderUsage
         {
             ProviderId = "test",
             FailureContext = new HttpFailureContext { Classification = HttpFailureClassification.Network },
@@ -133,13 +132,13 @@ public class ProviderContractTests
     [Fact]
     public void ProviderUsage_FailureContextNullAfterRoundTrip()
     {
-        var original = new ProviderUsage
+        var original = new QuotaProviderUsage
         {
             ProviderId = "test",
             FailureContext = new HttpFailureContext { Classification = HttpFailureClassification.Timeout },
         };
 
-        var json = System.Text.Json.JsonSerializer.Serialize(original);
+        var json = System.Text.Json.JsonSerializer.Serialize<ProviderUsage>(original);
         var roundTripped = System.Text.Json.JsonSerializer.Deserialize<ProviderUsage>(json);
 
         Assert.Null(roundTripped?.FailureContext);

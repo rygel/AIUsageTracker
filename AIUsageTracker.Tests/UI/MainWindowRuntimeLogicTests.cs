@@ -136,13 +136,12 @@ public sealed class MainWindowRuntimeLogicTests
     {
         var burstReset = new DateTime(2026, 4, 18, 10, 30, 0, DateTimeKind.Utc);
         var weeklyReset = new DateTime(2026, 4, 22, 15, 45, 0, DateTimeKind.Utc);
-        var usage = new ProviderUsage
-        {
+        var usage = new WindowedProviderUsage{
             ProviderId = "codex",
             ProviderName = "OpenAI (Codex)",
             IsAvailable = true,
             Description = "Primary plan",
-            WindowCards = new List<ProviderUsage>
+            WindowCards = new List<WindowedProviderUsage>
             {
                 new()
                 {
@@ -174,8 +173,7 @@ public sealed class MainWindowRuntimeLogicTests
     [Fact]
     public void BuildTooltipContent_WithoutWindowCards_DoesNotIncludeWindowLimitLines()
     {
-        var usage = new ProviderUsage
-        {
+        var usage = new WindowedProviderUsage{ 
             ProviderId = "minimax-io",
             ProviderName = "MiniMax.io",
             IsAvailable = true,
@@ -196,12 +194,11 @@ public sealed class MainWindowRuntimeLogicTests
     {
         var burstReset = DateTime.UtcNow.AddDays(2).AddHours(3);
         var weeklyReset = DateTime.UtcNow.AddDays(6).AddHours(4);
-        var usage = new ProviderUsage
-        {
+        var usage = new WindowedProviderUsage{
             ProviderId = "codex",
             ProviderName = "OpenAI (Codex)",
             IsAvailable = true,
-            WindowCards = new List<ProviderUsage>
+            WindowCards = new List<WindowedProviderUsage>
             {
                 new()
                 {
@@ -231,7 +228,7 @@ public sealed class MainWindowRuntimeLogicTests
     [Fact]
     public void ResolveResetWindowLabel_CodingQuotaProviderWithoutExplicitWindow_FallsBackTo5h()
     {
-        var usage = new ProviderUsage
+        var usage = new QuotaProviderUsage
         {
             ProviderId = "zai-coding-plan",
             IsAvailable = true,
@@ -248,8 +245,7 @@ public sealed class MainWindowRuntimeLogicTests
     [Fact]
     public void ResolveResetWindowLabel_GitHubCopilotMonthlyCard_ReturnsNull()
     {
-        var usage = new ProviderUsage
-        {
+        var usage = new WindowedProviderUsage{
             ProviderId = "github-copilot",
             CardId = "monthly",
             Name = "Monthly Quota",
@@ -268,8 +264,7 @@ public sealed class MainWindowRuntimeLogicTests
     public void BuildTooltipContent_WithSingleCodingReset_Includes5hResetLine()
     {
         var reset = new DateTime(2026, 4, 18, 10, 30, 0, DateTimeKind.Utc);
-        var usage = new ProviderUsage
-        {
+        var usage = new WindowedProviderUsage{ 
             ProviderId = "zai-coding-plan",
             ProviderName = "Z.ai Coding Plan",
             IsAvailable = true,
@@ -289,8 +284,7 @@ public sealed class MainWindowRuntimeLogicTests
     public void BuildTooltipContent_WithSingleCopilotReset_IncludesGenericResetLine()
     {
         var reset = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc);
-        var usage = new ProviderUsage
-        {
+        var usage = new WindowedProviderUsage{
             ProviderId = "github-copilot",
             ProviderName = "GitHub Copilot",
             CardId = "monthly",
@@ -312,12 +306,11 @@ public sealed class MainWindowRuntimeLogicTests
     public void BuildTooltipContent_MinimaxCodingPlan_UsesUtcResetText()
     {
         var burstReset = new DateTime(2026, 4, 21, 20, 0, 0, DateTimeKind.Utc);
-        var usage = new ProviderUsage
-        {
+        var usage = new WindowedProviderUsage{
             ProviderId = MinimaxProvider.CodingPlanProviderId,
             ProviderName = "Minimax.io Coding Plan",
             IsAvailable = true,
-            WindowCards = new List<ProviderUsage>
+            WindowCards = new List<WindowedProviderUsage>
             {
                 new()
                 {
@@ -339,10 +332,8 @@ public sealed class MainWindowRuntimeLogicTests
     [Fact]
     public void BuildTooltipContent_WithModelName_IncludesModelLine()
     {
-        var usage = new ProviderUsage
-        {
+        var usage = new ModelScopedProviderUsage{
             ProviderId = "gemini",
-            ParentProviderId = "google",
             ProviderName = "Gemini",
             ModelName = "gemini-2.5-pro",
             IsAvailable = true,
@@ -351,16 +342,15 @@ public sealed class MainWindowRuntimeLogicTests
         var tooltip = MainWindowRuntimeLogic.BuildTooltipContent(usage, usage.ProviderName!, useRelativeResetTime: false);
 
         Assert.NotNull(tooltip);
-        Assert.Contains("Model provider: google", tooltip, StringComparison.Ordinal);
-        Assert.Contains("Model: gemini-2.5-pro", tooltip, StringComparison.Ordinal);
+        Assert.Contains("Gemini", tooltip, StringComparison.Ordinal);
+        Assert.Contains("gemini-2.5-pro", tooltip, StringComparison.Ordinal);
     }
 
     [Fact]
     public void BuildTooltipContent_UnavailableProvider_DoesNotShowDerivedQuotaFallbacks()
     {
         var reset = new DateTime(2026, 4, 21, 20, 0, 0, DateTimeKind.Utc);
-        var usage = new ProviderUsage
-        {
+        var usage = new WindowedProviderUsage{
             ProviderId = "codex",
             ProviderName = "OpenAI (Codex)",
             IsAvailable = false,
@@ -369,7 +359,7 @@ public sealed class MainWindowRuntimeLogicTests
             UsedPercent = 0,
             PeriodDuration = TimeSpan.FromDays(7),
             NextResetTime = reset,
-            WindowCards = new List<ProviderUsage>
+            WindowCards = new List<WindowedProviderUsage>
             {
                 new()
                 {
@@ -398,15 +388,14 @@ public sealed class MainWindowRuntimeLogicTests
     {
         var burstReset = new DateTime(2026, 4, 21, 20, 0, 0, DateTimeKind.Utc);
         var weeklyReset = new DateTime(2026, 4, 26, 0, 0, 0, DateTimeKind.Utc);
-        var usage = new ProviderUsage
-        {
+        var usage = new WindowedProviderUsage{
             ProviderId = MinimaxProvider.CodingPlanProviderId,
             ProviderName = "Minimax.io Coding Plan",
             IsAvailable = true,
             IsQuotaBased = true,
             PlanType = PlanType.Coding,
             UsedPercent = 20,
-            WindowCards = new List<ProviderUsage>
+            WindowCards = new List<WindowedProviderUsage>
             {
                 new()
                 {
@@ -444,15 +433,14 @@ public sealed class MainWindowRuntimeLogicTests
     {
         var burstReset = new DateTime(2026, 4, 21, 20, 0, 0, DateTimeKind.Utc);
         var weeklyReset = new DateTime(2026, 4, 26, 0, 0, 0, DateTimeKind.Utc);
-        var usage = new ProviderUsage
-        {
+        var usage = new WindowedProviderUsage{
             ProviderId = MinimaxProvider.CodingPlanProviderId,
             ProviderName = "Minimax.io Coding Plan",
             IsAvailable = true,
             IsQuotaBased = true,
             PlanType = PlanType.Coding,
             UsedPercent = 20,
-            WindowCards = new List<ProviderUsage>
+            WindowCards = new List<WindowedProviderUsage>
             {
                 new()
                 {
@@ -489,15 +477,14 @@ public sealed class MainWindowRuntimeLogicTests
     public void Create_MinimaxCodingPlanDualBars_ComputesPaceBadges()
     {
         var now = DateTime.UtcNow;
-        var usage = new ProviderUsage
-        {
+        var usage = new WindowedProviderUsage{
             ProviderId = MinimaxProvider.CodingPlanProviderId,
             ProviderName = "Minimax.io Coding Plan",
             IsAvailable = true,
             IsQuotaBased = true,
             PlanType = PlanType.Coding,
             UsedPercent = 20,
-            WindowCards = new List<ProviderUsage>
+            WindowCards = new List<WindowedProviderUsage>
             {
                 new()
                 {

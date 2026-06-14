@@ -10,19 +10,4 @@ public sealed class ModelScopedProviderUsage : QuotaProviderUsage
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ModelName { get; set; }
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-    public WindowKind WindowKind { get; set; } = WindowKind.None;
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Name { get; set; }
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? CardId { get; set; }
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? GroupId { get; set; }
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public TimeSpan? PeriodDuration { get; set; }
 }

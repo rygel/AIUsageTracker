@@ -14,7 +14,7 @@ public sealed class ProviderUsageDisplayCatalogTests
     [Fact]
     public void PrepareForMainWindow_KeepsUnavailableParentsAndDeduplicatesProviders()
     {
-        var usages = new List<ProviderUsage>
+        var usages = new List<WindowedProviderUsage>
         {
             new() { ProviderId = "codex", IsAvailable = true },
             new() { ProviderId = "codex", IsAvailable = false },
@@ -31,7 +31,7 @@ public sealed class ProviderUsageDisplayCatalogTests
     [Fact]
     public void PrepareForMainWindow_HidesLegacyOpenAiProvider()
     {
-        var usages = new List<ProviderUsage>
+        var usages = new List<WindowedProviderUsage>
         {
             new() { ProviderId = "openai", IsAvailable = true },
             new() { ProviderId = "codex", IsAvailable = true },
@@ -46,7 +46,7 @@ public sealed class ProviderUsageDisplayCatalogTests
     [Fact]
     public void PrepareForMainWindow_KeepsAntigravityChildren_WhenParentExists()
     {
-        var usages = new List<ProviderUsage>
+        var usages = new List<WindowedProviderUsage>
         {
             new() { ProviderId = "antigravity", IsAvailable = true },
             new() { ProviderId = "antigravity.gemini-pro", IsAvailable = true },
@@ -62,7 +62,7 @@ public sealed class ProviderUsageDisplayCatalogTests
     [Fact]
     public void PrepareForMainWindow_KeptsCodexChildren_WhenParentExists()
     {
-        var usages = new List<ProviderUsage>
+        var usages = new List<WindowedProviderUsage>
         {
             new() { ProviderId = "codex", IsAvailable = true },
             new() { ProviderId = "codex.spark", IsAvailable = true },
@@ -78,7 +78,7 @@ public sealed class ProviderUsageDisplayCatalogTests
     [Fact]
     public void PrepareForMainWindow_HidesUnknownProviders_ButKeepsKnownProviders()
     {
-        var usages = new List<ProviderUsage>
+        var usages = new List<WindowedProviderUsage>
         {
             new() { ProviderId = "codex", IsAvailable = true },
             new() { ProviderId = "legacy-unknown-provider", IsAvailable = true },
@@ -93,7 +93,7 @@ public sealed class ProviderUsageDisplayCatalogTests
     [Fact]
     public void PrepareForMainWindow_UsesProviderMetadata_ForCodexFamilyBehavior()
     {
-        var usages = new List<ProviderUsage>
+        var usages = new List<WindowedProviderUsage>
         {
             new() { ProviderId = "codex", IsAvailable = true },
             new() { ProviderId = "codex.spark", IsAvailable = true },
@@ -111,7 +111,7 @@ public sealed class ProviderUsageDisplayCatalogTests
     {
         // Gemini CLI has window cards but PrepareForMainWindow does not expand them —
         // child rows come from flat ProviderUsage cards in the snapshot, not from window cards.
-        var usages = new List<ProviderUsage>
+        var usages = new List<WindowedProviderUsage>
         {
             new()
             {
@@ -122,8 +122,8 @@ public sealed class ProviderUsageDisplayCatalogTests
                 PlanType = PlanType.Coding,
                 WindowCards = new[]
                 {
-                    new ProviderUsage { ProviderId = "gemini-cli", Name = "Requests / Minute", WindowKind = WindowKind.Burst,   UsedPercent = 67.9 },
-                    new ProviderUsage { ProviderId = "gemini-cli", Name = "Requests / Day",    WindowKind = WindowKind.Rolling, UsedPercent = 97.5 },
+                    new WindowedProviderUsage{ ProviderId = "gemini-cli", Name = "Requests / Minute", WindowKind = WindowKind.Burst,   UsedPercent = 67.9 },
+                    new WindowedProviderUsage{ ProviderId = "gemini-cli", Name = "Requests / Day",    WindowKind = WindowKind.Rolling, UsedPercent = 97.5 },
                 },
             },
         };
@@ -140,7 +140,7 @@ public sealed class ProviderUsageDisplayCatalogTests
     {
         // Explicit flat child cards (gemini-cli.minute, gemini-cli.hourly) are kept as top-level items.
         // PrepareForMainWindow does not suppress them — they are independent flat cards in the snapshot.
-        var usages = new List<ProviderUsage>
+        var usages = new List<WindowedProviderUsage>
         {
             new()
             {
@@ -181,8 +181,7 @@ public sealed class ProviderUsageDisplayCatalogTests
     {
         // When two entries share the same ProviderId, the one with a later FetchedAt
         // and a NextResetTime (higher selection score) is preferred.
-        var older = new ProviderUsage
-        {
+        var older = new WindowedProviderUsage{ 
             ProviderId = "gemini-cli",
             ProviderName = "Gemini CLI",
             IsAvailable = true,
@@ -192,8 +191,7 @@ public sealed class ProviderUsageDisplayCatalogTests
             NextResetTime = null,
         };
 
-        var newer = new ProviderUsage
-        {
+        var newer = new WindowedProviderUsage{ 
             ProviderId = "gemini-cli",
             ProviderName = "Gemini CLI",
             IsAvailable = true,
@@ -205,7 +203,7 @@ public sealed class ProviderUsageDisplayCatalogTests
 
         var preparation = MainWindowRuntimeLogic.PrepareForMainWindow(new[] { older, newer });
 
-        var gemini = Assert.Single(preparation);
+        var gemini = (QuotaProviderUsage)Assert.Single(preparation);
         Assert.Equal("gemini-cli", gemini.ProviderId);
 
         // The preferred entry has NextResetTime set

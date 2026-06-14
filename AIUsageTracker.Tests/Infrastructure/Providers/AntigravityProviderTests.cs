@@ -28,11 +28,10 @@ public class AntigravityProviderTests : HttpProviderTestBase<AntigravityProvider
         var result = await this._provider.GetUsageAsync(this.Config);
 
         // Assert
-        var usage = result.First();
+        var usage = result.OfType<StatusProviderUsage>().First();
         Assert.Equal("antigravity", usage.ProviderId);
         Assert.Equal("Google Antigravity", usage.ProviderName);
-        Assert.True(usage.IsQuotaBased);
-        Assert.Equal(PlanType.Coding, usage.PlanType);
+        Assert.Contains("not running", usage.Description, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -130,7 +129,7 @@ public class AntigravityProviderTests : HttpProviderTestBase<AntigravityProvider
         var usages = await InvokeFetchUsageAsync(this._provider, 5109, "csrf-token", this.Config);
         var summary = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "antigravity", StringComparison.Ordinal));
         var geminiFlashChild = Assert.Single(
-            usages,
+            usages.OfType<QuotaProviderUsage>(),
             usage => string.Equals(usage.ProviderId, "antigravity.gemini-3-flash", StringComparison.Ordinal));
 
         Assert.Equal("Google Antigravity", summary.ProviderName);

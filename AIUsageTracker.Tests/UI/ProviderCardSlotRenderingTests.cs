@@ -151,7 +151,7 @@ public sealed class ProviderCardSlotRenderingTests
     [Fact]
     public void ProgressDerivedSlots_AreSuppressed_WhenPresentationHasNoProgress()
     {
-        var usage = new ProviderUsage
+        var usage = new QuotaProviderUsage
         {
             ProviderId = "openrouter",
             IsAvailable = false,
@@ -174,8 +174,7 @@ public sealed class ProviderCardSlotRenderingTests
     [Fact]
     public void ResolveStatusSlotText_DoesNotFallbackToDualQuotaText_WhenProgressIsSuppressed()
     {
-        var usage = new ProviderUsage
-        {
+        var usage = new WindowedProviderUsage{
             ProviderId = "codex",
             IsAvailable = false,
             State = ProviderUsageState.Available,
@@ -183,15 +182,13 @@ public sealed class ProviderCardSlotRenderingTests
             Description = "Monitor paused",
             WindowCards = new[]
             {
-                new ProviderUsage
-                {
+                new WindowedProviderUsage{
                     ProviderId = "codex",
                     Name = "5h",
                     WindowKind = WindowKind.Burst,
                     UsedPercent = 40,
                 },
-                new ProviderUsage
-                {
+                new WindowedProviderUsage{
                     ProviderId = "codex",
                     Name = "Weekly",
                     WindowKind = WindowKind.Rolling,

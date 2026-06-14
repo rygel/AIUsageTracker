@@ -627,16 +627,14 @@ public sealed class MonitorStartupPathTests : IDisposable
                     min_client_api_contract_version = MonitorService.ExpectedApiContractVersion,
                     agent_version = "test-endpoint",
                 }),
-                "/api/usage" => JsonSerializer.Serialize(
-                    new[]
-                    {
-                        new ProviderUsage
-                        {
+                "/api/usage" => JsonSerializer.Serialize<ProviderUsage[]>(
+                    [
+                        new WindowedProviderUsage{ 
                             ProviderId = this._providerId,
                             ProviderName = this._providerId,
                             IsAvailable = true,
                         },
-                    },
+                    ],
                     this._jsonOptions),
                 _ => JsonSerializer.Serialize(new { message = "not found" }),
             };

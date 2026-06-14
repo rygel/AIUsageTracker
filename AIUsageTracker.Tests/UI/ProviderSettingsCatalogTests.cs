@@ -67,7 +67,7 @@ public sealed class ProviderSettingsCatalogTests
     public void Resolve_ReturnsOpenAiSessionBehavior_ForQuotaBasedOpenAi()
     {
         var config = new ProviderConfig { ProviderId = "openai", ApiKey = string.Empty };
-        var usage = new ProviderUsage { ProviderId = "openai", IsQuotaBased = true, IsAvailable = true };
+        var usage = new QuotaProviderUsage { ProviderId = "openai", IsQuotaBased = true, IsAvailable = true };
 
         var behavior = SettingsWindow.ResolveProviderSettingsBehavior(config, usage, isDerived: false);
 
@@ -80,8 +80,7 @@ public sealed class ProviderSettingsCatalogTests
     public void BuildSettingsResetStatusLine_OpenAiBurstQuota_UsesWarningColorAnd5hLabel()
     {
         var nextReset = new DateTime(2026, 4, 21, 18, 30, 0);
-        var usage = new ProviderUsage
-        {
+        var usage = new WindowedProviderUsage{
             ProviderId = "openai",
             Name = "5-hour quota",
             IsQuotaBased = true,
@@ -100,8 +99,7 @@ public sealed class ProviderSettingsCatalogTests
     public void BuildSettingsResetStatusLine_MinimaxCodingPlan_UsesUtcTimestamp()
     {
         var nextReset = new DateTime(2026, 4, 21, 20, 0, 0, DateTimeKind.Utc);
-        var usage = new ProviderUsage
-        {
+        var usage = new WindowedProviderUsage{
             ProviderId = "minimax-coding-plan",
             ProviderName = "Minimax.io Coding Plan",
             Name = "5h",

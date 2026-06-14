@@ -4,6 +4,7 @@
 
 using System.Net;
 using System.Text.Json;
+using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 
 namespace AIUsageTracker.Tests.Infrastructure.Providers;
@@ -57,7 +58,7 @@ public class OpenRouterProviderTests : HttpProviderTestBase<OpenRouterProvider>
         var result = await this._provider.GetUsageAsync(this.Config);
 
         // Provider now emits flat cards: credits + spending-limit + free-tier
-        var usages = result.ToList();
+        var usages = result.OfType<WindowedProviderUsage>().ToList();
 
         var creditsCard = Assert.Single(usages, u => string.Equals(u.CardId, "credits", StringComparison.Ordinal));
         Assert.True(creditsCard.IsAvailable);

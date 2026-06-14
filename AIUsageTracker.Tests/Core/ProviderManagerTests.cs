@@ -46,12 +46,12 @@ public class ProviderManagerTests
         Assert.True(result.Count(usage => usage.IsAvailable) >= 2);
         Assert.Contains(
             result,
-            usage => usage.PlanType == PlanType.Usage &&
-                string.Equals(usage.ProviderId, "openai", StringComparison.Ordinal));
+            usage => usage is QuotaProviderUsage q && q.PlanType == PlanType.Usage &&
+                string.Equals(q.ProviderId, "openai", StringComparison.Ordinal));
         Assert.Contains(
             result,
-            usage => usage.PlanType == PlanType.Coding &&
-                string.Equals(usage.ProviderId, "gemini", StringComparison.Ordinal));
+            usage => usage is QuotaProviderUsage q && q.PlanType == PlanType.Coding &&
+                string.Equals(q.ProviderId, "gemini", StringComparison.Ordinal));
     }
 
     [Fact]

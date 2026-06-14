@@ -4,6 +4,7 @@
 
 using System.Net;
 using System.Text.Json;
+using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 
 namespace AIUsageTracker.Tests.Infrastructure.Providers;
@@ -51,7 +52,7 @@ public class ZaiProviderTests : HttpProviderTestBase<ZaiProvider>
         var result = await this._provider.GetUsageAsync(this.Config);
 
         // Assert
-        var usage = result.Single();
+        var usage = result.OfType<QuotaProviderUsage>().Single();
         Assert.Equal("Z.ai Coding Plan", usage.ProviderName);
         Assert.Contains("20", usage.UsedPercent.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal); // 20% used (80% remaining)
         Assert.Contains("80", usage.Description, StringComparison.Ordinal);
@@ -89,7 +90,7 @@ public class ZaiProviderTests : HttpProviderTestBase<ZaiProvider>
         var result = await this._provider.GetUsageAsync(this.Config);
 
         // Assert
-        var usage = result.Single();
+        var usage = result.OfType<QuotaProviderUsage>().Single();
         Assert.False(usage.IsAvailable);
         Assert.Contains("Usage unknown", usage.Description, StringComparison.Ordinal);
     }
@@ -134,7 +135,7 @@ public class ZaiProviderTests : HttpProviderTestBase<ZaiProvider>
         var result = await this._provider.GetUsageAsync(this.Config);
 
         // Assert
-        var usage = result.Single();
+        var usage = result.OfType<QuotaProviderUsage>().Single();
 
         // Active limit has 100M remaining = 0% used; description should show 100% remaining
         Assert.Equal(0, usage.UsedPercent, 1); // 0% used (100% remaining)
@@ -175,7 +176,7 @@ public class ZaiProviderTests : HttpProviderTestBase<ZaiProvider>
 
         var result = await this._provider.GetUsageAsync(this.Config);
 
-        var usage = result.Single();
+        var usage = result.OfType<QuotaProviderUsage>().Single();
         Assert.True(usage.IsAvailable);
         Assert.Contains("5h window", usage.Description, StringComparison.Ordinal);
 
@@ -219,7 +220,7 @@ public class ZaiProviderTests : HttpProviderTestBase<ZaiProvider>
 
         var result = await this._provider.GetUsageAsync(this.Config);
 
-        var usage = result.Single();
+        var usage = result.OfType<QuotaProviderUsage>().Single();
         Assert.True(usage.IsAvailable);
         Assert.Contains("Resets:", usage.Description, StringComparison.Ordinal);
         Assert.NotNull(usage.NextResetTime);

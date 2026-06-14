@@ -98,7 +98,7 @@ public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
         var result = await this._provider.GetUsageAsync(this.Config);
 
         // Assert — provider now emits flat cards: burst + weekly
-        var usages = result.ToList();
+        var usages = result.OfType<WindowedProviderUsage>().ToList();
         Assert.Equal(2, usages.Count);
 
         var burstCard = Assert.Single(usages, u => u.WindowKind == WindowKind.Burst);
@@ -236,14 +236,14 @@ public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
         var result = await this._provider.GetUsageAsync(this.Config);
 
         // Burst flat card must be present even though used_percent was absent in API response
-        var burstCard = Assert.Single(result, u => u.WindowKind == WindowKind.Burst);
+        var burstCard = Assert.Single(result.OfType<WindowedProviderUsage>(), u => u.WindowKind == WindowKind.Burst);
         Assert.True(burstCard.IsAvailable);
         Assert.Equal("5-hour quota", burstCard.Name);
         Assert.Equal(0.0, burstCard.UsedPercent); // burst just reset → 0% used
         Assert.Equal(100.0, burstCard.RemainingPercent); // 100% remaining
 
         // Rolling flat card must still be present
-        var rollingCard = Assert.Single(result, u => u.WindowKind == WindowKind.Rolling);
+        var rollingCard = Assert.Single(result.OfType<WindowedProviderUsage>(), u => u.WindowKind == WindowKind.Rolling);
         Assert.Equal(30.0, rollingCard.UsedPercent); // 30% used
         Assert.Equal(70.0, rollingCard.RemainingPercent); // 70% remaining
     }

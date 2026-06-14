@@ -137,15 +137,13 @@ public class GroupedUsageDisplayAdapterTests
                     UsedPercent = 73,
                     ProviderDetails = new[]
                     {
-                        new ProviderUsage
-                        {
+                        new WindowedProviderUsage{
                             ProviderId = "claude-code",
                             Name = "Current Session",
                             WindowKind = WindowKind.Burst,
                             UsedPercent = 73,
                         },
-                        new ProviderUsage
-                        {
+                        new WindowedProviderUsage{
                             ProviderId = "claude-code",
                             Name = "All Models",
                             WindowKind = WindowKind.Rolling,
@@ -158,7 +156,7 @@ public class GroupedUsageDisplayAdapterTests
 
         var usages = GroupedUsageDisplayAdapter.Expand(snapshot);
 
-        var parent = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "claude-code", StringComparison.Ordinal));
+        var parent = (WindowedProviderUsage)Assert.Single(usages, usage => string.Equals(usage.ProviderId, "claude-code", StringComparison.Ordinal));
         Assert.Equal(TimeSpan.FromDays(7), parent.PeriodDuration);
         Assert.NotNull(parent.WindowCards);
         Assert.Equal(2, parent.WindowCards!.Count);
@@ -669,15 +667,13 @@ public class GroupedUsageDisplayAdapterTests
                     UsedPercent = 25,
                     ProviderDetails = new[]
                     {
-                        new ProviderUsage
-                        {
+                        new WindowedProviderUsage{
                             ProviderId = "kimi-for-coding",
                             Name = "Weekly Limit",
                             WindowKind = WindowKind.Rolling,
                             UsedPercent = 25,
                         },
-                        new ProviderUsage
-                        {
+                        new WindowedProviderUsage{
                             ProviderId = "kimi-for-coding",
                             Name = "5h Limit",
                             WindowKind = WindowKind.Burst,
@@ -690,7 +686,7 @@ public class GroupedUsageDisplayAdapterTests
 
         var usages = GroupedUsageDisplayAdapter.Expand(snapshot);
 
-        var parent = Assert.Single(usages, u => string.Equals(u.ProviderId, "kimi-for-coding", StringComparison.Ordinal));
+        var parent = (WindowedProviderUsage)Assert.Single(usages, u => string.Equals(u.ProviderId, "kimi-for-coding", StringComparison.Ordinal));
         Assert.NotNull(parent.WindowCards);
         Assert.Equal(2, parent.WindowCards!.Count);
 
@@ -754,7 +750,7 @@ public class GroupedUsageDisplayAdapterTests
         var usages = GroupedUsageDisplayAdapter.Expand(snapshot);
 
         var spark = Assert.Single(usages, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal) && string.Equals(u.CardId, "spark", StringComparison.Ordinal));
-        Assert.Null(spark.WindowCards); // Flat cards have no window cards
+        Assert.IsNotType<WindowedProviderUsage>(spark); // Flat cards have no window cards
         Assert.Equal(98, spark.UsedPercent, 1); // EffectiveUsedPercentage = 98 wins
     }
 
@@ -792,7 +788,7 @@ public class GroupedUsageDisplayAdapterTests
         var spark = usages[0];
         Assert.Equal("codex", spark.ProviderId);
         Assert.Equal("spark", spark.CardId);
-        Assert.Null(spark.WindowCards);
+        Assert.IsNotType<WindowedProviderUsage>(spark);
         Assert.DoesNotContain(usages, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal) && u.CardId == null);
     }
 

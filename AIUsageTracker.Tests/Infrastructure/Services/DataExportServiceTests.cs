@@ -28,7 +28,7 @@ public class DataExportServiceTests
     {
         var history = new List<ProviderUsage>
         {
-            new()
+            new QuotaProviderUsage
             {
                 ProviderId = "test-provider",
                 ProviderName = "Test Provider",
@@ -68,7 +68,7 @@ public class DataExportServiceTests
     {
         var history = new List<ProviderUsage>
         {
-            new()
+            new QuotaProviderUsage
             {
                 ProviderId = "test",
                 ProviderName = "Provider \"quoted\" name",
@@ -95,7 +95,7 @@ public class DataExportServiceTests
     {
         var history = new List<ProviderUsage>
         {
-            new()
+            new QuotaProviderUsage
             {
                 ProviderId = "test-provider",
                 ProviderName = "Test",

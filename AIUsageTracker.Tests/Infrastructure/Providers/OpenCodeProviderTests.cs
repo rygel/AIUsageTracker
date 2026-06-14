@@ -45,7 +45,7 @@ public class OpenCodeProviderTests : HttpProviderTestBase<OpenCodeProvider>
         });
 
         var result = await this._provider.GetUsageAsync(this.Config);
-        var usage = result.Single();
+        var usage = result.OfType<QuotaProviderUsage>().Single();
 
         Assert.True(usage.IsAvailable);
         Assert.Equal(200, usage.HttpStatus);
@@ -75,7 +75,7 @@ public class OpenCodeProviderTests : HttpProviderTestBase<OpenCodeProvider>
         });
 
         var result = await this._provider.GetUsageAsync(this.Config);
-        var usage = result.Single();
+        var usage = result.OfType<QuotaProviderUsage>().Single();
 
         Assert.True(usage.IsAvailable);
         Assert.Equal(100.0, usage.UsedPercent);
@@ -100,7 +100,7 @@ public class OpenCodeProviderTests : HttpProviderTestBase<OpenCodeProvider>
         });
 
         var result = await this._provider.GetUsageAsync(this.Config);
-        var usage = result.Single();
+        var usage = result.OfType<QuotaProviderUsage>().Single();
 
         Assert.True(usage.IsAvailable);
         Assert.Equal(0.0, usage.UsedPercent);
@@ -194,7 +194,7 @@ public class OpenCodeProviderTests : HttpProviderTestBase<OpenCodeProvider>
         });
 
         var result = await this._provider.GetUsageAsync(this.Config);
-        var usage = result.Single();
+        var usage = result.OfType<QuotaProviderUsage>().Single();
 
         Assert.True(usage.IsAvailable);
         Assert.Contains("125.00 credits remaining", usage.Description, StringComparison.Ordinal);
