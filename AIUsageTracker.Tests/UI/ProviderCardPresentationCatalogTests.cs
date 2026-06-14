@@ -167,7 +167,8 @@ public sealed class ProviderCardPresentationCatalogTests
     public void Create_FormatsDualQuotaBucketStatus_AndSuppressesSingleResetTime()
     {
         // Dual-bar data comes from WindowCards (flat ProviderUsage companion cards).
-        var usage = new WindowedProviderUsage{
+        var usage = new WindowedProviderUsage
+        {
             ProviderId = "codex",
             IsAvailable = true,
             IsQuotaBased = true,
@@ -175,8 +176,8 @@ public sealed class ProviderCardPresentationCatalogTests
             NextResetTime = new DateTime(2026, 3, 7, 1, 0, 0),
             WindowCards = new[]
             {
-                new WindowedProviderUsage{ ProviderId = "codex", Name = "5h",     WindowKind = WindowKind.Burst,   UsedPercent = 4.0 },
-                new WindowedProviderUsage{ ProviderId = "codex", Name = "Weekly", WindowKind = WindowKind.Rolling, UsedPercent = 51.0 },
+                new WindowedProviderUsage { ProviderId = "codex", Name = "5h",     WindowKind = WindowKind.Burst,   UsedPercent = 4.0 },
+                new WindowedProviderUsage { ProviderId = "codex", Name = "Weekly", WindowKind = WindowKind.Rolling, UsedPercent = 51.0 },
             },
         };
 
@@ -190,15 +191,16 @@ public sealed class ProviderCardPresentationCatalogTests
     public void Create_UsesDeclaredWindowLabels_ForKimiStyleLimitNames()
     {
         // Labels are driven by the window card's Name property.
-        var usage = new WindowedProviderUsage{
+        var usage = new WindowedProviderUsage
+        {
             ProviderId = "kimi-for-coding",
             IsAvailable = true,
             IsQuotaBased = true,
             UsedPercent = 25,
             WindowCards = new[]
             {
-                new WindowedProviderUsage{ ProviderId = "kimi-for-coding", Name = "5h Limit",     WindowKind = WindowKind.Burst,   UsedPercent = 0.0 },
-                new WindowedProviderUsage{ ProviderId = "kimi-for-coding", Name = "Weekly Limit", WindowKind = WindowKind.Rolling, UsedPercent = 25.0 },
+                new WindowedProviderUsage { ProviderId = "kimi-for-coding", Name = "5h Limit",     WindowKind = WindowKind.Burst,   UsedPercent = 0.0 },
+                new WindowedProviderUsage { ProviderId = "kimi-for-coding", Name = "Weekly Limit", WindowKind = WindowKind.Rolling, UsedPercent = 25.0 },
             },
         };
 
@@ -228,13 +230,15 @@ public sealed class ProviderCardPresentationCatalogTests
                     Models = Array.Empty<AgentGroupedModelUsage>(),
                     ProviderDetails = new[]
                     {
-                        new WindowedProviderUsage{
+                        new WindowedProviderUsage
+                        {
                             ProviderId = "kimi-for-coding",
                             Name = "5h Limit",
                             WindowKind = WindowKind.Burst,
                             UsedPercent = 0,
                         },
-                        new WindowedProviderUsage{
+                        new WindowedProviderUsage
+                        {
                             ProviderId = "kimi-for-coding",
                             Name = "Weekly Limit",
                             WindowKind = WindowKind.Rolling,
@@ -267,13 +271,15 @@ public sealed class ProviderCardPresentationCatalogTests
                     Models = Array.Empty<AgentGroupedModelUsage>(),
                     ProviderDetails = new[]
                     {
-                        new WindowedProviderUsage{
+                        new WindowedProviderUsage
+                        {
                             ProviderId = "claude-code",
                             Name = "Current Session",
                             WindowKind = WindowKind.Burst,
                             UsedPercent = 51,
                         },
-                        new WindowedProviderUsage{
+                        new WindowedProviderUsage
+                        {
                             ProviderId = "claude-code",
                             Name = "All Models",
                             WindowKind = WindowKind.Rolling,
@@ -306,13 +312,15 @@ public sealed class ProviderCardPresentationCatalogTests
                     Models = Array.Empty<AgentGroupedModelUsage>(),
                     ProviderDetails = new[]
                     {
-                        new WindowedProviderUsage{
+                        new WindowedProviderUsage
+                        {
                             ProviderId = "claude-code",
                             Name = "Current Session",
                             WindowKind = WindowKind.Burst,
                             UsedPercent = 84,
                         },
-                        new WindowedProviderUsage{
+                        new WindowedProviderUsage
+                        {
                             ProviderId = "claude-code",
                             Name = "All Models",
                             WindowKind = WindowKind.Rolling,

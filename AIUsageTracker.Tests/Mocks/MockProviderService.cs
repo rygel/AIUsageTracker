@@ -146,7 +146,8 @@ public class MockProviderService : IProviderService
             UsageHandler = _ => Task.FromResult<IEnumerable<ProviderUsage>>(
                 new[]
                 {
-                    new WindowedProviderUsage{ 
+                    new WindowedProviderUsage
+                    {
                         ProviderId = providerId,
                         ProviderName = providerName,
                         UsedPercent = requestsPercentage,

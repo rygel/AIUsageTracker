@@ -2,7 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.MonitorClient;
 
 namespace AIUsageTracker.Tests.Core;

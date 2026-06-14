@@ -27,7 +27,7 @@ public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobSchedule
     private readonly SemaphoreSlim _queuedItemsSignal = new(0);
     private readonly SemaphoreSlim _pauseGate = new(1, 1);
     private volatile bool _paused;
-    private readonly object _recurringLock = new();
+    private readonly Lock _recurringLock = new();
     private readonly List<RecurringJobRegistration> _recurringRegistrations = new();
     private readonly List<Task> _recurringTasks = new();
     private long _executedJobs;

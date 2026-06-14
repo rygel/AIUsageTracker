@@ -238,10 +238,10 @@ public class OpenAIProvider : ProviderBase
     {
         if (apiKey.StartsWith("sk-proj", StringComparison.OrdinalIgnoreCase))
         {
-                return new[]
-                {
+            return new[]
+            {
                     this.CreateUnavailableUsage("Project keys (sk-proj-...) not supported yet. Use a standard user API key.", state: ProviderUsageState.Missing),
-                };
+            };
         }
 
         try
@@ -252,8 +252,8 @@ public class OpenAIProvider : ProviderBase
 
             if (response.IsSuccessStatusCode)
             {
-                    return new[]
-                    {
+                return new[]
+                {
                         new QuotaProviderUsage
                         {
                             ProviderId = this.ProviderId,
@@ -265,21 +265,21 @@ public class OpenAIProvider : ProviderBase
                             Description = "Connected (API Key)",
                             IsStatusOnly = true,
                         },
-                    };
+                };
             }
 
-                return new[]
-                {
+            return new[]
+            {
                     this.CreateUnavailableUsage($"Invalid Key ({response.StatusCode})", (int)response.StatusCode),
-                };
+            };
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             this._logger.LogError(ex, "OpenAI API key validation failed");
-                return new[]
-                {
+            return new[]
+            {
                     this.CreateUnavailableUsage("Connection Failed"),
-                };
+            };
         }
     }
 

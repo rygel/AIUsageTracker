@@ -9,7 +9,7 @@ namespace AIUsageTracker.UI.Slim.Services;
 /// </summary>
 public static class PrivacyChangedWeakEventManager
 {
-    private static readonly object Sync = new();
+    private static readonly Lock Sync = new();
     private static readonly List<WeakReference<EventHandler<PrivacyChangedEventArgs>>> Handlers = [];
     private static bool _isListening;
 

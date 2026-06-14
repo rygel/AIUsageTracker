@@ -134,7 +134,7 @@ public class GitHubCopilotProvider : ProviderBase
             state.State = ProviderUsageState.Error;
         }
 
-            return this.BuildUsageResults(state, providerLabel, config);
+        return this.BuildUsageResults(state, providerLabel, config);
     }
 
     private static HttpRequestMessage CreateBearerRequest(string url, string token)

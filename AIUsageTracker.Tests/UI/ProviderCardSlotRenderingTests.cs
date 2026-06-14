@@ -174,7 +174,8 @@ public sealed class ProviderCardSlotRenderingTests
     [Fact]
     public void ResolveStatusSlotText_DoesNotFallbackToDualQuotaText_WhenProgressIsSuppressed()
     {
-        var usage = new WindowedProviderUsage{
+        var usage = new WindowedProviderUsage
+        {
             ProviderId = "codex",
             IsAvailable = false,
             State = ProviderUsageState.Available,
@@ -182,13 +183,15 @@ public sealed class ProviderCardSlotRenderingTests
             Description = "Monitor paused",
             WindowCards = new[]
             {
-                new WindowedProviderUsage{
+                new WindowedProviderUsage
+                {
                     ProviderId = "codex",
                     Name = "5h",
                     WindowKind = WindowKind.Burst,
                     UsedPercent = 40,
                 },
-                new WindowedProviderUsage{
+                new WindowedProviderUsage
+                {
                     ProviderId = "codex",
                     Name = "Weekly",
                     WindowKind = WindowKind.Rolling,

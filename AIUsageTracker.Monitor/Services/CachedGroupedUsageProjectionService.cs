@@ -17,7 +17,7 @@ public sealed class CachedGroupedUsageProjectionService
 
     private readonly IUsageDatabase _database;
     private readonly IConfigService _configService;
-    private readonly object _lock = new();
+    private readonly Lock _lock = new();
     private AgentGroupedUsageSnapshot? _cachedSnapshot;
     private string? _cachedETag;
     private DateTime _cacheTimestamp = DateTime.MinValue;

@@ -137,13 +137,15 @@ public class GroupedUsageDisplayAdapterTests
                     UsedPercent = 73,
                     ProviderDetails = new[]
                     {
-                        new WindowedProviderUsage{
+                        new WindowedProviderUsage
+                        {
                             ProviderId = "claude-code",
                             Name = "Current Session",
                             WindowKind = WindowKind.Burst,
                             UsedPercent = 73,
                         },
-                        new WindowedProviderUsage{
+                        new WindowedProviderUsage
+                        {
                             ProviderId = "claude-code",
                             Name = "All Models",
                             WindowKind = WindowKind.Rolling,
@@ -667,13 +669,15 @@ public class GroupedUsageDisplayAdapterTests
                     UsedPercent = 25,
                     ProviderDetails = new[]
                     {
-                        new WindowedProviderUsage{
+                        new WindowedProviderUsage
+                        {
                             ProviderId = "kimi-for-coding",
                             Name = "Weekly Limit",
                             WindowKind = WindowKind.Rolling,
                             UsedPercent = 25,
                         },
-                        new WindowedProviderUsage{
+                        new WindowedProviderUsage
+                        {
                             ProviderId = "kimi-for-coding",
                             Name = "5h Limit",
                             WindowKind = WindowKind.Burst,

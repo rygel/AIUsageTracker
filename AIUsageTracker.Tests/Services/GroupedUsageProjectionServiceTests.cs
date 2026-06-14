@@ -15,7 +15,8 @@ public sealed class GroupedUsageProjectionServiceTests
         // Antigravity emits flat cards with CardId set; BuildModelsFromFlatCards picks them up.
         var usages = new[]
         {
-            new WindowedProviderUsage{
+            new WindowedProviderUsage
+            {
                 ProviderId = "antigravity",
                 CardId = "gemini-3-flash",
                 Name = "Gemini 3 Flash",
@@ -86,7 +87,8 @@ public sealed class GroupedUsageProjectionServiceTests
         // WindowKind != None rows are not projected as grouped models.
         var usages = new[]
         {
-            new WindowedProviderUsage{
+            new WindowedProviderUsage
+            {
                 ProviderId = "kimi-for-coding",
                 CardId = "weekly",
                 Name = "Weekly Limit",
@@ -100,7 +102,8 @@ public sealed class GroupedUsageProjectionServiceTests
                 NextResetTime = DateTime.UtcNow.AddDays(5),
                 PeriodDuration = TimeSpan.FromDays(7),
             },
-            new WindowedProviderUsage{
+            new WindowedProviderUsage
+            {
                 ProviderId = "kimi-for-coding",
                 CardId = "5-hour-limit",
                 Name = "5 Hour Limit",
@@ -128,7 +131,8 @@ public sealed class GroupedUsageProjectionServiceTests
         // Claude Code cards all have WindowKind.None — each gets its own flat card in the UI.
         var usages = new[]
         {
-            new WindowedProviderUsage{
+            new WindowedProviderUsage
+            {
                 ProviderId = "claude-code",
                 CardId = "current-session",
                 Name = "Current Session",
@@ -138,7 +142,8 @@ public sealed class GroupedUsageProjectionServiceTests
                 PlanType = PlanType.Usage,
                 UsedPercent = 14,
             },
-            new WindowedProviderUsage{
+            new WindowedProviderUsage
+            {
                 ProviderId = "claude-code",
                 CardId = "sonnet",
                 Name = "Sonnet",
@@ -148,7 +153,8 @@ public sealed class GroupedUsageProjectionServiceTests
                 PlanType = PlanType.Usage,
                 UsedPercent = 73,
             },
-            new WindowedProviderUsage{
+            new WindowedProviderUsage
+            {
                 ProviderId = "claude-code",
                 CardId = "all-models",
                 Name = "All Models",
@@ -176,7 +182,8 @@ public sealed class GroupedUsageProjectionServiceTests
         // Each emits a Burst + Rolling pair, resulting in two separate groups with no grouped models.
         var usages = new[]
         {
-            new WindowedProviderUsage{
+            new WindowedProviderUsage
+            {
                 ProviderId = "codex",
                 CardId = "burst",
                 GroupId = "codex",
@@ -188,7 +195,8 @@ public sealed class GroupedUsageProjectionServiceTests
                 UsedPercent = 40,
                 PeriodDuration = TimeSpan.FromHours(5),
             },
-            new WindowedProviderUsage{
+            new WindowedProviderUsage
+            {
                 ProviderId = "codex",
                 CardId = "weekly",
                 GroupId = "codex",
@@ -200,7 +208,8 @@ public sealed class GroupedUsageProjectionServiceTests
                 UsedPercent = 72,
                 PeriodDuration = TimeSpan.FromDays(7),
             },
-            new WindowedProviderUsage{
+            new WindowedProviderUsage
+            {
                 ProviderId = "codex.spark",
                 CardId = "spark.burst",
                 GroupId = "codex.spark",
@@ -212,7 +221,8 @@ public sealed class GroupedUsageProjectionServiceTests
                 UsedPercent = 12,
                 PeriodDuration = TimeSpan.FromHours(5),
             },
-            new WindowedProviderUsage{
+            new WindowedProviderUsage
+            {
                 ProviderId = "codex.spark",
                 CardId = "spark.weekly",
                 GroupId = "codex.spark",
@@ -243,7 +253,8 @@ public sealed class GroupedUsageProjectionServiceTests
     {
         var usages = new[]
         {
-            new WindowedProviderUsage{ 
+            new WindowedProviderUsage
+            {
                 ProviderId = "minimax-io",
                 ProviderName = "MiniMax.io",
                 IsAvailable = true,
@@ -251,7 +262,8 @@ public sealed class GroupedUsageProjectionServiceTests
                 RequestsUsed = 250,
                 RequestsAvailable = 1000,
             },
-            new WindowedProviderUsage{
+            new WindowedProviderUsage
+            {
                 ProviderId = "minimax-coding-plan",
                 ProviderName = "Minimax.io Coding Plan",
                 CardId = "burst",
@@ -265,7 +277,8 @@ public sealed class GroupedUsageProjectionServiceTests
                 RequestsAvailable = 100,
                 PeriodDuration = TimeSpan.FromHours(5),
             },
-            new WindowedProviderUsage{
+            new WindowedProviderUsage
+            {
                 ProviderId = "minimax-coding-plan",
                 ProviderName = "Minimax.io Coding Plan",
                 CardId = "weekly",

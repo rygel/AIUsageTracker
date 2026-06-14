@@ -11,7 +11,7 @@ namespace AIUsageTracker.UI.Slim.Services;
 
 internal static class UiDiagnosticFileLog
 {
-    private static readonly object Sync = new();
+    private static readonly Lock Sync = new();
     private static readonly TimeSpan RetentionPeriod = TimeSpan.FromDays(14);
     private static DateTime _lastPruneUtc = DateTime.MinValue;
     private static readonly JsonSerializerOptions JsonOptions = new()

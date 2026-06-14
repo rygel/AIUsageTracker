@@ -17,7 +17,7 @@ public class ProviderRefreshCircuitBreakerService
     // have passed without a successful refresh. If you change this value, update StaleDataThreshold too.
     private static readonly TimeSpan CircuitBreakerMaxBackoff = TimeSpan.FromMinutes(30);
     private readonly ILogger<ProviderRefreshCircuitBreakerService> _logger;
-    private readonly object _providerFailureLock = new();
+    private readonly Lock _providerFailureLock = new();
     private readonly Dictionary<string, ProviderFailureState> _providerFailureStates = new(StringComparer.OrdinalIgnoreCase);
 
     public ProviderRefreshCircuitBreakerService(ILogger<ProviderRefreshCircuitBreakerService> logger)

@@ -26,4 +26,3 @@ public sealed class UIHelperTests
         Assert.Contains("missing-brush-key", ex.Message, StringComparison.Ordinal);
     }
 }
-

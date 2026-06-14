@@ -38,7 +38,7 @@ public class MonitorService : IMonitorService
     private long _refreshErrorCount;
     private long _refreshTotalLatencyMs;
     private long _refreshLastLatencyMs;
-    private readonly object _groupedUsageCacheLock = new();
+    private readonly Lock _groupedUsageCacheLock = new();
     private AgentGroupedUsageSnapshot? _cachedGroupedUsageSnapshot;
     private string? _cachedGroupedUsageETag;
 

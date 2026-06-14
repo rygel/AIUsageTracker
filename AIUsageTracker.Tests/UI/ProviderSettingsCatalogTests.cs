@@ -80,7 +80,8 @@ public sealed class ProviderSettingsCatalogTests
     public void BuildSettingsResetStatusLine_OpenAiBurstQuota_UsesWarningColorAnd5hLabel()
     {
         var nextReset = new DateTime(2026, 4, 21, 18, 30, 0);
-        var usage = new WindowedProviderUsage{
+        var usage = new WindowedProviderUsage
+        {
             ProviderId = "openai",
             Name = "5-hour quota",
             IsQuotaBased = true,
@@ -99,7 +100,8 @@ public sealed class ProviderSettingsCatalogTests
     public void BuildSettingsResetStatusLine_MinimaxCodingPlan_UsesUtcTimestamp()
     {
         var nextReset = new DateTime(2026, 4, 21, 20, 0, 0, DateTimeKind.Utc);
-        var usage = new WindowedProviderUsage{
+        var usage = new WindowedProviderUsage
+        {
             ProviderId = "minimax-coding-plan",
             ProviderName = "Minimax.io Coding Plan",
             Name = "5h",

@@ -122,8 +122,8 @@ public sealed class ProviderUsageDisplayCatalogTests
                 PlanType = PlanType.Coding,
                 WindowCards = new[]
                 {
-                    new WindowedProviderUsage{ ProviderId = "gemini-cli", Name = "Requests / Minute", WindowKind = WindowKind.Burst,   UsedPercent = 67.9 },
-                    new WindowedProviderUsage{ ProviderId = "gemini-cli", Name = "Requests / Day",    WindowKind = WindowKind.Rolling, UsedPercent = 97.5 },
+                    new WindowedProviderUsage { ProviderId = "gemini-cli", Name = "Requests / Minute", WindowKind = WindowKind.Burst,   UsedPercent = 67.9 },
+                    new WindowedProviderUsage { ProviderId = "gemini-cli", Name = "Requests / Day",    WindowKind = WindowKind.Rolling, UsedPercent = 97.5 },
                 },
             },
         };
@@ -181,7 +181,8 @@ public sealed class ProviderUsageDisplayCatalogTests
     {
         // When two entries share the same ProviderId, the one with a later FetchedAt
         // and a NextResetTime (higher selection score) is preferred.
-        var older = new WindowedProviderUsage{ 
+        var older = new WindowedProviderUsage
+        {
             ProviderId = "gemini-cli",
             ProviderName = "Gemini CLI",
             IsAvailable = true,
@@ -191,7 +192,8 @@ public sealed class ProviderUsageDisplayCatalogTests
             NextResetTime = null,
         };
 
-        var newer = new WindowedProviderUsage{ 
+        var newer = new WindowedProviderUsage
+        {
             ProviderId = "gemini-cli",
             ProviderName = "Gemini CLI",
             IsAvailable = true,

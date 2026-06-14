@@ -12,7 +12,6 @@ using System.Windows.Media;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Helpers;
 using AIUsageTracker.Infrastructure.Providers;
-using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.UI.Slim;
 

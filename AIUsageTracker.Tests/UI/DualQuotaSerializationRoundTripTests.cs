@@ -21,7 +21,8 @@ public sealed class DualQuotaSerializationRoundTripTests
     [Fact]
     public void ProviderUsage_WindowCard_SurvivesJsonRoundTrip()
     {
-        var card = new WindowedProviderUsage{
+        var card = new WindowedProviderUsage
+        {
             ProviderId = "codex",
             Name = "5h",
             WindowKind = WindowKind.Burst,
@@ -91,13 +92,15 @@ public sealed class DualQuotaSerializationRoundTripTests
                     UsedPercent = 4,
                     ProviderDetails = new[]
                     {
-                        new WindowedProviderUsage{
+                        new WindowedProviderUsage
+                        {
                             ProviderId = "codex",
                             Name = "5h",
                             WindowKind = WindowKind.Burst,
                             UsedPercent = 4,
                         },
-                        new WindowedProviderUsage{
+                        new WindowedProviderUsage
+                        {
                             ProviderId = "codex",
                             Name = "Weekly",
                             WindowKind = WindowKind.Rolling,
@@ -135,13 +138,15 @@ public sealed class DualQuotaSerializationRoundTripTests
                     UsedPercent = 51,
                     ProviderDetails = new[]
                     {
-                        new WindowedProviderUsage{
+                        new WindowedProviderUsage
+                        {
                             ProviderId = "claude-code",
                             Name = "Current Session",
                             WindowKind = WindowKind.Burst,
                             UsedPercent = 51,
                         },
-                        new WindowedProviderUsage{
+                        new WindowedProviderUsage
+                        {
                             ProviderId = "claude-code",
                             Name = "All Models",
                             WindowKind = WindowKind.Rolling,

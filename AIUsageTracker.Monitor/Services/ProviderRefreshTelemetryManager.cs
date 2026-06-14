@@ -6,7 +6,7 @@ namespace AIUsageTracker.Monitor.Services;
 
 internal sealed class ProviderRefreshTelemetryManager
 {
-    private readonly object _syncLock = new();
+    private readonly Lock _syncLock = new();
     private long _refreshCount;
     private long _refreshFailureCount;
     private long _refreshTotalLatencyMs;

@@ -261,7 +261,8 @@ public sealed class ProviderKeyDeletionEndToEndTests
         ProviderUsageState state = ProviderUsageState.Available,
         string description = "")
     {
-        return new WindowedProviderUsage{ 
+        return new WindowedProviderUsage
+        {
             ProviderId = providerId,
             ProviderName = providerId,
             IsAvailable = isAvailable,

@@ -22,7 +22,7 @@ public sealed class ProviderUsageShapeContractGuardrailTests
         var props = typeof(ProviderUsage)
             .GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
             .Select(p => p.Name)
-            .ToHashSet();
+            .ToHashSet(StringComparer.Ordinal);
 
         Assert.Contains("ProviderId", props);
         Assert.Contains("IsAvailable", props);

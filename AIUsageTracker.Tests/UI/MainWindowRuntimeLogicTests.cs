@@ -136,7 +136,8 @@ public sealed class MainWindowRuntimeLogicTests
     {
         var burstReset = new DateTime(2026, 4, 18, 10, 30, 0, DateTimeKind.Utc);
         var weeklyReset = new DateTime(2026, 4, 22, 15, 45, 0, DateTimeKind.Utc);
-        var usage = new WindowedProviderUsage{
+        var usage = new WindowedProviderUsage
+        {
             ProviderId = "codex",
             ProviderName = "OpenAI (Codex)",
             IsAvailable = true,
@@ -173,7 +174,8 @@ public sealed class MainWindowRuntimeLogicTests
     [Fact]
     public void BuildTooltipContent_WithoutWindowCards_DoesNotIncludeWindowLimitLines()
     {
-        var usage = new WindowedProviderUsage{ 
+        var usage = new WindowedProviderUsage
+        {
             ProviderId = "minimax-io",
             ProviderName = "MiniMax.io",
             IsAvailable = true,
@@ -194,7 +196,8 @@ public sealed class MainWindowRuntimeLogicTests
     {
         var burstReset = DateTime.UtcNow.AddDays(2).AddHours(3);
         var weeklyReset = DateTime.UtcNow.AddDays(6).AddHours(4);
-        var usage = new WindowedProviderUsage{
+        var usage = new WindowedProviderUsage
+        {
             ProviderId = "codex",
             ProviderName = "OpenAI (Codex)",
             IsAvailable = true,
@@ -245,7 +248,8 @@ public sealed class MainWindowRuntimeLogicTests
     [Fact]
     public void ResolveResetWindowLabel_GitHubCopilotMonthlyCard_ReturnsNull()
     {
-        var usage = new WindowedProviderUsage{
+        var usage = new WindowedProviderUsage
+        {
             ProviderId = "github-copilot",
             CardId = "monthly",
             Name = "Monthly Quota",
@@ -264,7 +268,8 @@ public sealed class MainWindowRuntimeLogicTests
     public void BuildTooltipContent_WithSingleCodingReset_Includes5hResetLine()
     {
         var reset = new DateTime(2026, 4, 18, 10, 30, 0, DateTimeKind.Utc);
-        var usage = new WindowedProviderUsage{ 
+        var usage = new WindowedProviderUsage
+        {
             ProviderId = "zai-coding-plan",
             ProviderName = "Z.ai Coding Plan",
             IsAvailable = true,
@@ -284,7 +289,8 @@ public sealed class MainWindowRuntimeLogicTests
     public void BuildTooltipContent_WithSingleCopilotReset_IncludesGenericResetLine()
     {
         var reset = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc);
-        var usage = new WindowedProviderUsage{
+        var usage = new WindowedProviderUsage
+        {
             ProviderId = "github-copilot",
             ProviderName = "GitHub Copilot",
             CardId = "monthly",
@@ -306,7 +312,8 @@ public sealed class MainWindowRuntimeLogicTests
     public void BuildTooltipContent_MinimaxCodingPlan_UsesUtcResetText()
     {
         var burstReset = new DateTime(2026, 4, 21, 20, 0, 0, DateTimeKind.Utc);
-        var usage = new WindowedProviderUsage{
+        var usage = new WindowedProviderUsage
+        {
             ProviderId = MinimaxProvider.CodingPlanProviderId,
             ProviderName = "Minimax.io Coding Plan",
             IsAvailable = true,
@@ -332,7 +339,8 @@ public sealed class MainWindowRuntimeLogicTests
     [Fact]
     public void BuildTooltipContent_WithModelName_IncludesModelLine()
     {
-        var usage = new ModelScopedProviderUsage{
+        var usage = new ModelScopedProviderUsage
+        {
             ProviderId = "gemini",
             ProviderName = "Gemini",
             ModelName = "gemini-2.5-pro",
@@ -350,7 +358,8 @@ public sealed class MainWindowRuntimeLogicTests
     public void BuildTooltipContent_UnavailableProvider_DoesNotShowDerivedQuotaFallbacks()
     {
         var reset = new DateTime(2026, 4, 21, 20, 0, 0, DateTimeKind.Utc);
-        var usage = new WindowedProviderUsage{
+        var usage = new WindowedProviderUsage
+        {
             ProviderId = "codex",
             ProviderName = "OpenAI (Codex)",
             IsAvailable = false,
@@ -388,7 +397,8 @@ public sealed class MainWindowRuntimeLogicTests
     {
         var burstReset = new DateTime(2026, 4, 21, 20, 0, 0, DateTimeKind.Utc);
         var weeklyReset = new DateTime(2026, 4, 26, 0, 0, 0, DateTimeKind.Utc);
-        var usage = new WindowedProviderUsage{
+        var usage = new WindowedProviderUsage
+        {
             ProviderId = MinimaxProvider.CodingPlanProviderId,
             ProviderName = "Minimax.io Coding Plan",
             IsAvailable = true,
@@ -433,7 +443,8 @@ public sealed class MainWindowRuntimeLogicTests
     {
         var burstReset = new DateTime(2026, 4, 21, 20, 0, 0, DateTimeKind.Utc);
         var weeklyReset = new DateTime(2026, 4, 26, 0, 0, 0, DateTimeKind.Utc);
-        var usage = new WindowedProviderUsage{
+        var usage = new WindowedProviderUsage
+        {
             ProviderId = MinimaxProvider.CodingPlanProviderId,
             ProviderName = "Minimax.io Coding Plan",
             IsAvailable = true,
@@ -477,7 +488,8 @@ public sealed class MainWindowRuntimeLogicTests
     public void Create_MinimaxCodingPlanDualBars_ComputesPaceBadges()
     {
         var now = DateTime.UtcNow;
-        var usage = new WindowedProviderUsage{
+        var usage = new WindowedProviderUsage
+        {
             ProviderId = MinimaxProvider.CodingPlanProviderId,
             ProviderName = "Minimax.io Coding Plan",
             IsAvailable = true,

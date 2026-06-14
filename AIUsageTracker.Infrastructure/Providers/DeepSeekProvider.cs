@@ -3,11 +3,9 @@
 // </copyright>
 
 using System.Globalization;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Providers;
-using AIUsageTracker.Infrastructure.Mappers;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Providers;
@@ -72,6 +70,7 @@ public class DeepSeekProvider : ProviderBase
         if (!fetchResult.IsSuccess)
         {
             var errorUsage = fetchResult.FailureUsage!;
+
             // DeepSeek: HTTP error means key exists but request failed — show as available with error
             // Network/timeout exceptions should remain unavailable
             if (errorUsage.HttpStatus > 0)

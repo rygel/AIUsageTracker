@@ -56,8 +56,8 @@ public class MainViewModelTests
         // Arrange
         var testUsages = new List<ProviderUsage>
         {
-            new WindowedProviderUsage{  ProviderId = "p1", ProviderName = "P1" },
-            new WindowedProviderUsage{  ProviderId = "p2", ProviderName = "P2" },
+            new WindowedProviderUsage { ProviderId = "p1", ProviderName = "P1" },
+            new WindowedProviderUsage { ProviderId = "p2", ProviderName = "P2" },
         };
         this._monitorServiceMock.Setup(m => m.GetUsageAsync()).ReturnsAsync(testUsages);
 

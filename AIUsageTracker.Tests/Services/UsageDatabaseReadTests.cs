@@ -415,7 +415,8 @@ public sealed class UsageDatabaseReadTests : IDisposable
         int httpStatus = 200,
         DateTime fetchedAt = default)
     {
-        return new WindowedProviderUsage{ 
+        return new WindowedProviderUsage
+        {
             ProviderId = providerId,
             ProviderName = providerId,
             RequestsUsed = requestsUsed,

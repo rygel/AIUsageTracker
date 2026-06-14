@@ -39,7 +39,8 @@ public sealed class UsageDatabasePipelineTests : IDisposable
         var db = await this.CreateDatabaseAsync();
         var fetchedAt = DateTime.UtcNow.AddMinutes(-5);
 
-        var originalUsage = new WindowedProviderUsage{ 
+        var originalUsage = new WindowedProviderUsage
+        {
             ProviderId = "codex",
             ProviderName = "OpenAI Codex",
             RequestsUsed = 123.5,
@@ -68,7 +69,8 @@ public sealed class UsageDatabasePipelineTests : IDisposable
     {
         var db = await this.CreateDatabaseAsync();
 
-        var unavailable = new WindowedProviderUsage{ 
+        var unavailable = new WindowedProviderUsage
+        {
             ProviderId = "codex",
             ProviderName = "OpenAI Codex",
             RequestsUsed = 0,
@@ -95,7 +97,8 @@ public sealed class UsageDatabasePipelineTests : IDisposable
     {
         var db = await this.CreateDatabaseAsync();
 
-        var usage = new WindowedProviderUsage{ 
+        var usage = new WindowedProviderUsage
+        {
             ProviderId = "inactive-provider",
             ProviderName = "Inactive",
             RequestsUsed = 50,
@@ -126,8 +129,8 @@ public sealed class UsageDatabasePipelineTests : IDisposable
 
         var usages = new[]
         {
-            new WindowedProviderUsage{  ProviderId = "codex", ProviderName = "Codex", RequestsUsed = 50, RequestsAvailable = 950, IsAvailable = true, Description = "ok", HttpStatus = 200, FetchedAt = fetchedAt },
-            new WindowedProviderUsage{  ProviderId = "suspended-provider", ProviderName = "Suspended", RequestsUsed = 10, RequestsAvailable = 90, IsAvailable = true, Description = "ok", HttpStatus = 200, FetchedAt = fetchedAt },
+            new WindowedProviderUsage { ProviderId = "codex", ProviderName = "Codex", RequestsUsed = 50, RequestsAvailable = 950, IsAvailable = true, Description = "ok", HttpStatus = 200, FetchedAt = fetchedAt },
+            new WindowedProviderUsage { ProviderId = "suspended-provider", ProviderName = "Suspended", RequestsUsed = 10, RequestsAvailable = 90, IsAvailable = true, Description = "ok", HttpStatus = 200, FetchedAt = fetchedAt },
         };
 
         var result = this._pipeline.Process(usages, activeProviderIds: ["codex"], isPrivacyMode: false);
@@ -144,7 +147,8 @@ public sealed class UsageDatabasePipelineTests : IDisposable
         var db = await this.CreateDatabaseAsync();
 
         // Flat burst card — replaces the old Details round-trip test
-        var usage = new WindowedProviderUsage{
+        var usage = new WindowedProviderUsage
+        {
             ProviderId = "codex",
             ProviderName = "OpenAI Codex",
             CardId = "burst",
@@ -179,8 +183,8 @@ public sealed class UsageDatabasePipelineTests : IDisposable
         var t1 = DateTime.UtcNow.AddMinutes(-5);
         var t2 = t1.AddMinutes(3);
 
-        var usageT1 = new WindowedProviderUsage{  ProviderId = "codex", ProviderName = "Codex", RequestsUsed = 50, RequestsAvailable = 950, IsAvailable = true, Description = "ok", HttpStatus = 200, FetchedAt = t1 };
-        var usageT2 = new WindowedProviderUsage{  ProviderId = "codex", ProviderName = "Codex", RequestsUsed = 50, RequestsAvailable = 950, IsAvailable = true, Description = "ok", HttpStatus = 200, FetchedAt = t2 };
+        var usageT1 = new WindowedProviderUsage { ProviderId = "codex", ProviderName = "Codex", RequestsUsed = 50, RequestsAvailable = 950, IsAvailable = true, Description = "ok", HttpStatus = 200, FetchedAt = t1 };
+        var usageT2 = new WindowedProviderUsage { ProviderId = "codex", ProviderName = "Codex", RequestsUsed = 50, RequestsAvailable = 950, IsAvailable = true, Description = "ok", HttpStatus = 200, FetchedAt = t2 };
 
         var r1 = this._pipeline.Process([usageT1], activeProviderIds: ["codex"], isPrivacyMode: false);
         await db.StoreHistoryAsync(r1.Usages);

@@ -213,7 +213,8 @@ public class ThemeApplicationTests
     public void ResolveSystemTheme_ReturnsDarkOrLight()
     {
         var result = App.ResolveSystemTheme();
-        Assert.True(result == AppTheme.Dark || result == AppTheme.Light,
+        Assert.True(
+            result == AppTheme.Dark || result == AppTheme.Light,
             $"ResolveSystemTheme returned {result}, expected Dark or Light");
     }
 

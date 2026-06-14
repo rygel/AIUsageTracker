@@ -262,6 +262,7 @@ public abstract class ProviderBase : IProviderService
     /// and handles common HTTP errors. Returns a result that is either the parsed response
     /// or a failure with an unavailable <see cref="ProviderUsage"/>.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     protected async Task<ProviderFetchResult<TResponse>> FetchJsonAsync<TResponse>(
         string endpoint,
         ProviderConfig config,

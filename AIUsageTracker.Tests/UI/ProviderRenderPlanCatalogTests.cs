@@ -27,7 +27,7 @@ public sealed class ProviderRenderPlanCatalogTests
     {
         var usages = new[]
         {
-            new WindowedProviderUsage{  ProviderId = "unknown-provider", ProviderName = "Unknown" },
+            new WindowedProviderUsage { ProviderId = "unknown-provider", ProviderName = "Unknown" },
         };
 
         var plan = MainWindowRuntimeLogic.BuildProviderRenderPlan(usages, hiddenProviderItemIds: Array.Empty<string>());
@@ -43,8 +43,8 @@ public sealed class ProviderRenderPlanCatalogTests
     {
         var usages = new[]
         {
-            new WindowedProviderUsage{  ProviderId = "gemini-cli", ProviderName = "Gemini CLI", IsQuotaBased = true },
-            new WindowedProviderUsage{  ProviderId = "github-copilot", ProviderName = "GitHub Copilot", IsQuotaBased = false },
+            new WindowedProviderUsage { ProviderId = "gemini-cli", ProviderName = "Gemini CLI", IsQuotaBased = true },
+            new WindowedProviderUsage { ProviderId = "github-copilot", ProviderName = "GitHub Copilot", IsQuotaBased = false },
         };
 
         var plan = MainWindowRuntimeLogic.BuildProviderRenderPlan(usages, hiddenProviderItemIds: Array.Empty<string>());
@@ -63,13 +63,15 @@ public sealed class ProviderRenderPlanCatalogTests
     {
         var usages = new[]
         {
-            new WindowedProviderUsage{ 
+            new WindowedProviderUsage
+            {
                 ProviderId = "openrouter",
                 ProviderName = "Openrouter",
                 IsQuotaBased = false,
                 PlanType = PlanType.Usage,
             },
-            new WindowedProviderUsage{ 
+            new WindowedProviderUsage
+            {
                 ProviderId = "gemini-cli",
                 ProviderName = "Gemini CLI",
                 IsQuotaBased = true,

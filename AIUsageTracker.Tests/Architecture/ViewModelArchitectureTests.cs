@@ -49,5 +49,4 @@ public class ViewModelArchitectureTests
             $"This ensures ViewModels remain testable without WPF dependencies.{Environment.NewLine}" +
             string.Join(Environment.NewLine, violations));
     }
-
 }

@@ -629,7 +629,8 @@ public sealed class MonitorStartupPathTests : IDisposable
                 }),
                 "/api/usage" => JsonSerializer.Serialize<ProviderUsage[]>(
                     [
-                        new WindowedProviderUsage{ 
+                        new WindowedProviderUsage
+                        {
                             ProviderId = this._providerId,
                             ProviderName = this._providerId,
                             IsAvailable = true,

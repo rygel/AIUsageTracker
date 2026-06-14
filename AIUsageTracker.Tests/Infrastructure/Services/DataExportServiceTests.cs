@@ -18,9 +18,9 @@ public class DataExportServiceTests
 
     public DataExportServiceTests()
     {
-        _repository = new Mock<IWebDatabaseRepository>();
-        _logger = new Mock<ILogger<DataExportService>>();
-        _service = new DataExportService(_repository.Object, _logger.Object, "nonexistent.db");
+        this._repository = new Mock<IWebDatabaseRepository>();
+        this._logger = new Mock<ILogger<DataExportService>>();
+        this._service = new DataExportService(this._repository.Object, this._logger.Object, "nonexistent.db");
     }
 
     [Fact]
@@ -41,10 +41,10 @@ public class DataExportServiceTests
             },
         };
 
-        _repository.Setup(r => r.GetAllHistoryForExportAsync(It.IsAny<int>()))
+        this._repository.Setup(r => r.GetAllHistoryForExportAsync(It.IsAny<int>()))
             .ReturnsAsync(history.AsReadOnly());
 
-        var csv = await _service.ExportHistoryToCsvAsync();
+        var csv = await this._service.ExportHistoryToCsvAsync();
 
         Assert.Contains("provider_id", csv, StringComparison.Ordinal);
         Assert.Contains("test-provider", csv, StringComparison.Ordinal);
@@ -54,10 +54,10 @@ public class DataExportServiceTests
     [Fact]
     public async Task ExportHistoryToCsvAsync_EmptyData_ReturnsHeadersOnly()
     {
-        _repository.Setup(r => r.GetAllHistoryForExportAsync(It.IsAny<int>()))
+        this._repository.Setup(r => r.GetAllHistoryForExportAsync(It.IsAny<int>()))
             .ReturnsAsync(new List<ProviderUsage>().AsReadOnly());
 
-        var csv = await _service.ExportHistoryToCsvAsync();
+        var csv = await this._service.ExportHistoryToCsvAsync();
 
         Assert.Contains("provider_id", csv, StringComparison.Ordinal);
         Assert.DoesNotContain("test-provider", csv, StringComparison.Ordinal);
@@ -81,10 +81,10 @@ public class DataExportServiceTests
             },
         };
 
-        _repository.Setup(r => r.GetAllHistoryForExportAsync(It.IsAny<int>()))
+        this._repository.Setup(r => r.GetAllHistoryForExportAsync(It.IsAny<int>()))
             .ReturnsAsync(history.AsReadOnly());
 
-        var csv = await _service.ExportHistoryToCsvAsync();
+        var csv = await this._service.ExportHistoryToCsvAsync();
 
         var escaped = "\"\"" + "with" + "\"\"";
         Assert.Contains(escaped, csv, StringComparison.Ordinal);
@@ -107,10 +107,10 @@ public class DataExportServiceTests
             },
         };
 
-        _repository.Setup(r => r.GetAllHistoryForExportAsync(It.IsAny<int>()))
+        this._repository.Setup(r => r.GetAllHistoryForExportAsync(It.IsAny<int>()))
             .ReturnsAsync(history.AsReadOnly());
 
-        var json = await _service.ExportHistoryToJsonAsync();
+        var json = await this._service.ExportHistoryToJsonAsync();
 
         Assert.Contains("test-provider", json, StringComparison.Ordinal);
         Assert.StartsWith("[", json, StringComparison.Ordinal);
@@ -119,10 +119,10 @@ public class DataExportServiceTests
     [Fact]
     public async Task ExportHistoryToJsonAsync_RepositoryThrows_ReturnsEmptyArray()
     {
-        _repository.Setup(r => r.GetAllHistoryForExportAsync(It.IsAny<int>()))
+        this._repository.Setup(r => r.GetAllHistoryForExportAsync(It.IsAny<int>()))
             .ThrowsAsync(new IOException("db error"));
 
-        var json = await _service.ExportHistoryToJsonAsync();
+        var json = await this._service.ExportHistoryToJsonAsync();
 
         Assert.Equal("[]", json);
     }
@@ -130,7 +130,7 @@ public class DataExportServiceTests
     [Fact]
     public async Task CreateDatabaseBackupAsync_NonexistentFile_ReturnsNull()
     {
-        var result = await _service.CreateDatabaseBackupAsync();
+        var result = await this._service.CreateDatabaseBackupAsync();
 
         Assert.Null(result);
     }

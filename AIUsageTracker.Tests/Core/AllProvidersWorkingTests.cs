@@ -49,7 +49,8 @@ public class AllProvidersWorkingTests
         mockMinimax.Setup(p => p.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProviderConfig c, Action<ProviderUsage>? callback, CancellationToken _) => new[]
             {
-                new WindowedProviderUsage{ 
+                new WindowedProviderUsage
+                {
                     ProviderId = c.ProviderId,
                     ProviderName = "Minimax",
                     IsAvailable = true,

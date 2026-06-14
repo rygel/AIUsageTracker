@@ -2,9 +2,8 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using AIUsageTracker.Core.Interfaces;
-using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Monitor.Services;
 using Microsoft.AspNetCore.Mvc;
 

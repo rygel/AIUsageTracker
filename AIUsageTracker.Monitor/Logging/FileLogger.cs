@@ -9,7 +9,7 @@ namespace AIUsageTracker.Monitor.Logging;
 
 public class FileLogger : ILogger
 {
-    private static readonly object _lock = new();
+    private static readonly Lock _lock = new();
     private readonly string _logFile;
     private readonly string _categoryName;
 

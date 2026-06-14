@@ -180,7 +180,8 @@ public sealed class UsageDatabaseCircuitBreakerTests : IDisposable
         double requestsUsed = 50,
         DateTime fetchedAt = default)
     {
-        return new WindowedProviderUsage{ 
+        return new WindowedProviderUsage
+        {
             ProviderId = providerId,
             ProviderName = providerId,
             RequestsUsed = requestsUsed,

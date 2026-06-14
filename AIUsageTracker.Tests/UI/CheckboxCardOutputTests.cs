@@ -27,7 +27,8 @@ public sealed class CheckboxCardOutputTests
         double rollingUsedPercent = 60.0,
         string accountEmail = "user@example.com")
     {
-        return new WindowedProviderUsage{
+        return new WindowedProviderUsage
+        {
             ProviderId = "codex",
             ProviderName = "Codex",
             AccountName = accountEmail,
@@ -37,8 +38,8 @@ public sealed class CheckboxCardOutputTests
             NextResetTime = DateTime.UtcNow.AddDays(5),
             WindowCards = new[]
             {
-                new WindowedProviderUsage{ ProviderId = "codex", Name = "5h",     WindowKind = WindowKind.Burst,   UsedPercent = burstUsedPercent,   NextResetTime = DateTime.UtcNow.AddHours(2) },
-                new WindowedProviderUsage{ ProviderId = "codex", Name = "Weekly", WindowKind = WindowKind.Rolling, UsedPercent = rollingUsedPercent, NextResetTime = DateTime.UtcNow.AddDays(5) },
+                new WindowedProviderUsage { ProviderId = "codex", Name = "5h",     WindowKind = WindowKind.Burst,   UsedPercent = burstUsedPercent,   NextResetTime = DateTime.UtcNow.AddHours(2) },
+                new WindowedProviderUsage { ProviderId = "codex", Name = "Weekly", WindowKind = WindowKind.Rolling, UsedPercent = rollingUsedPercent, NextResetTime = DateTime.UtcNow.AddDays(5) },
             },
         };
     }

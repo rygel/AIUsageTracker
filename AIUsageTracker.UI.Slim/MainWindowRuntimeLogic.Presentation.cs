@@ -366,7 +366,11 @@ internal static partial class MainWindowRuntimeLogic
 
     internal static DualBarData? TryBuildDualBarData(ProviderUsage usage, bool enablePaceAdjustment)
     {
-        if (usage is not WindowedProviderUsage wu) return null;
+        if (usage is not WindowedProviderUsage wu)
+        {
+            return null;
+        }
+
         var windowCards = wu.WindowCards;
         if (windowCards == null || windowCards.Count == 0)
         {
@@ -462,6 +466,7 @@ internal static partial class MainWindowRuntimeLogic
             _ => string.IsNullOrWhiteSpace(description) ? "Provider unavailable" : description,
         };
     }
+
     private static string NormalizeIdentity(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
