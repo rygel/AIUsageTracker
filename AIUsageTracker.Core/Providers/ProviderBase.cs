@@ -71,7 +71,7 @@ public abstract class ProviderBase : IProviderService
         return JsonSerializer.Deserialize<T>(content, JsonOptions);
     }
 
-    protected ProviderUsage CreateBaseUsage(
+    protected QuotaProviderUsage CreateBaseUsage(
         string providerLabel,
         string? rawJson = null,
         int httpStatus = 0)
@@ -88,32 +88,73 @@ public abstract class ProviderBase : IProviderService
         };
     }
 
-    protected ProviderUsage CreateUnavailableUsage(
+    protected static QuotaProviderUsage CreateQuotaUsage(ProviderConfig config)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+
+        return new QuotaProviderUsage
+        {
+            ProviderId = config.ProviderId,
+            PlanType = PlanType.Usage,
+        };
+    }
+
+    protected static WindowedProviderUsage CreateWindowedUsage(ProviderConfig config)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+
+        return new WindowedProviderUsage
+        {
+            ProviderId = config.ProviderId,
+            PlanType = PlanType.Coding,
+        };
+    }
+
+    protected static ModelScopedProviderUsage CreateModelScopedUsage(ProviderConfig config)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+
+        return new ModelScopedProviderUsage
+        {
+            ProviderId = config.ProviderId,
+        };
+    }
+
+    protected static StatusProviderUsage CreateStatusUsage(ProviderConfig config, ProviderUsageState state, string description)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+
+        return new StatusProviderUsage
+        {
+            ProviderId = config.ProviderId,
+            ProviderName = config.ProviderId,
+            IsAvailable = false,
+            State = state,
+            Description = description,
+        };
+    }
+
+    protected StatusProviderUsage CreateUnavailableUsage(
         string description,
         int httpStatus = 0,
         string? authSource = null,
         ProviderUsageState state = ProviderUsageState.Error,
         HttpFailureContext? failureContext = null)
     {
-        return new QuotaProviderUsage
+        return new StatusProviderUsage
         {
             ProviderId = this.ProviderId,
             ProviderName = this.Definition.DisplayName ?? this.ProviderId,
             IsAvailable = false,
             Description = description,
             State = state,
-            PlanType = this.Definition.PlanType,
-            IsQuotaBased = this.Definition.IsQuotaBased,
             AuthSource = authSource ?? string.Empty,
             HttpStatus = httpStatus,
-            UsedPercent = 0,
-            RequestsUsed = 0,
-            RequestsAvailable = 0,
             FailureContext = failureContext,
         };
     }
 
-    protected ProviderUsage CreateUnavailableUsageWithIdentity(
+    protected StatusProviderUsage CreateUnavailableUsageWithIdentity(
         string description,
         string? accountName,
         int httpStatus = 0,
@@ -126,7 +167,7 @@ public abstract class ProviderBase : IProviderService
         return usage;
     }
 
-    protected ProviderUsage CreateUnavailableUsageFromStatus(
+    protected StatusProviderUsage CreateUnavailableUsageFromStatus(
         HttpResponseMessage response,
         string? authSource = null)
     {
@@ -138,7 +179,7 @@ public abstract class ProviderBase : IProviderService
         return this.CreateUnavailableUsage(description, statusCode, authSource, failureContext: failureContext);
     }
 
-    protected ProviderUsage CreateUnavailableUsageFromException(
+    protected StatusProviderUsage CreateUnavailableUsageFromException(
         Exception ex,
         string context = "Provider check failed",
         string? authSource = null)
@@ -154,7 +195,7 @@ public abstract class ProviderBase : IProviderService
         return this.CreateUnavailableUsage(message, 0, authSource, failureContext: failureContext);
     }
 
-    protected ProviderUsage CreateUnavailableUsageFromProviderException(
+    protected StatusProviderUsage CreateUnavailableUsageFromProviderException(
         ProviderException ex,
         string? authSource = null)
     {
