@@ -278,12 +278,12 @@
                             }
                         </div>
                         
-                        @if (hasUsableMetrics && Model.SparklineData.TryGetValue(usage.ProviderId, out var sparkPointsOut) && sparkPointsOut.Count > 1)
+                        @if (hasUsableMetrics && Model.SparklineData.TryGetValue(usage.ProviderId, out var sparkPoints) && sparkPoints.Count > 1)
                         {
                             var w = 100.0;
                             var h = 24.0;
-                            var step = w / (sparkPointsOut.Count - 1);
-                            var pts = sparkPointsOut.Select((v, i) => $"{(i * step).ToString("F1", System.Globalization.CultureInfo.InvariantCulture)},{(h - (v / 100.0 * h)).ToString("F1", System.Globalization.CultureInfo.InvariantCulture)}");
+                            var step = w / (sparkPoints.Count - 1);
+                            var pts = sparkPoints.Select((v, i) => $"{(i * step).ToString("F1", System.Globalization.CultureInfo.InvariantCulture)},{(h - (v / 100.0 * h)).ToString("F1", System.Globalization.CultureInfo.InvariantCulture)}");
                             <svg class="sparkline" viewBox="0 0 @w.ToString("F0") @h.ToString("F0")" preserveAspectRatio="none" width="100%" height="@h.ToString("F0")">
                                 <polyline points="@string.Join(" ", pts)" fill="none" stroke="currentColor" stroke-width="1.5" />
                             </svg>

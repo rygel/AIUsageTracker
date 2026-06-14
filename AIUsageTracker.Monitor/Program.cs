@@ -32,14 +32,8 @@ public partial class Program
         {
             Console.Title = "AI Usage Tracker - Monitor";
         }
-        catch (PlatformNotSupportedException)
-        {
-            // Console.Title is not supported on this platform
-        }
-        catch (System.IO.IOException)
-        {
-            // Console.Title failed due to an I/O error
-        }
+        catch (PlatformNotSupportedException) { /* Console.Title not supported */ }
+        catch (System.IO.IOException) { /* Console.Title I/O failure */ }
 
         IAppPathProvider pathProvider = new DefaultAppPathProvider();
         var holdsStartupMutex = false;
