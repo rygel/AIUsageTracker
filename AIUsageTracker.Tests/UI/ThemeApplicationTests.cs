@@ -107,7 +107,7 @@ public class ThemeApplicationTests
                     continue;
                 }
 
-                if (line.Contains("new Window", StringComparison.Ordinal) && !line.Contains("WindowInteropHelper", StringComparison.Ordinal))
+                if (line.Contains("new Window", StringComparison.Ordinal) && !line.Contains("WindowInteropHelper", StringComparison.Ordinal) && !line.Contains("WindowedProviderUsage", StringComparison.Ordinal))
                 {
                     // Check if Background is set from resources within ~10 lines
                     var contextEnd = Math.Min(i + 15, lines.Length);
