@@ -29,6 +29,7 @@ This document provides essential information for agentic coding assistants worki
 - **Never duplicate provider metadata into DB tables.** The database stores raw values only; provider definitions (ProviderDefinition class) are the authority for interpretation.
 - Provider definitions are immutable per provider ID. If semantics change, a new provider class with a new ID is created.
 - When encountering data integrity concerns, do NOT suggest adding columns. Keep the schema minimal.
+- **When adding a column to `EnsureSchemaCompatibility`**: you MUST add a corresponding `Assert.Contains` in `DatabaseMigrationServiceTests.RunMigrations_LegacyDatabaseWithoutEvolveMetadata_AddsMissingProviderColumns`. Every column in the compatibility bootstrap must have a test assertion — no exceptions. This is how we prevent beta-9-style breakage where `card_type` was added to the code but missing from the test, shipping a release that crashed every API call on pre-Evolve databases.
 
 ### Take Full Ownership
 - Do not give hedged answers like "this will work IF the API returns X." Investigate the actual data (database, logs, live endpoints) and report what IS happening.

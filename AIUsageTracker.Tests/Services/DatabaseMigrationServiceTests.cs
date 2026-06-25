@@ -43,6 +43,13 @@ public sealed class DatabaseMigrationServiceTests : IDisposable
         Assert.Contains("http_status", historyColumns, StringComparer.OrdinalIgnoreCase);
         Assert.Contains("upstream_response_validity", historyColumns, StringComparer.OrdinalIgnoreCase);
         Assert.Contains("upstream_response_note", historyColumns, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("parent_provider_id", historyColumns, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("card_id", historyColumns, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("group_id", historyColumns, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("window_kind", historyColumns, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("model_name", historyColumns, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("name", historyColumns, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("card_type", historyColumns, StringComparer.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -72,6 +79,23 @@ public sealed class DatabaseMigrationServiceTests : IDisposable
         var name = (string?)await command.ExecuteScalarAsync();
 
         Assert.Equal("Google Antigravity", name);
+    }
+
+    [Fact]
+    public void RunMigrations_LegacyDatabase_CardTypeQueryWorksAfterMigration()
+    {
+        this.CreateLegacySchemaWithoutEvolveMetadata();
+
+        var service = new DatabaseMigrationService(this._dbPath, NullLogger<DatabaseMigrationService>.Instance);
+        service.RunMigrations();
+
+        // Verify that queries referencing card_type don't crash — this is the exact
+        // query pattern that broke beta 9 on pre-Evolve databases.
+        using var connection = new SqliteConnection($"Data Source={this._dbPath}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COALESCE(card_type, 'quota') FROM provider_history LIMIT 1";
+        command.ExecuteNonQuery();
     }
 
     public void Dispose()
