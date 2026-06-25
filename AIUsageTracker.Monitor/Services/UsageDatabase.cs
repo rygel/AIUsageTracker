@@ -769,6 +769,7 @@ public class UsageDatabase : IUsageDatabase
         return target;
     }
 
+
     private static async Task StampUsageRatesAsync(SqliteConnection connection, IReadOnlyList<QuotaProviderUsage> results)
     {
         if (results.Count == 0)

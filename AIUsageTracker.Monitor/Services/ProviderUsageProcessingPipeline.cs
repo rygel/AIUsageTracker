@@ -333,6 +333,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             quotaCandidate.NextResetTime = normalizedNextResetTimeUtc;
         }
 
+
         var upstreamEvaluation = normalizedUsageCandidate.EvaluateUpstreamResponseValidity();
         upstreamResponseValidity = upstreamEvaluation.Validity;
         upstreamResponseNote = upstreamEvaluation.Note;
