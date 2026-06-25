@@ -225,7 +225,7 @@ public class AppStartupTests : IDisposable
     }
 
     [Fact]
-    public async Task SavePreferencesAsync_WritesNumericUpdateChannelValueAsync()
+    public async Task SavePreferencesAsync_WritesUpdateChannelValueAsync()
     {
         var preferences = new AppPreferences { UpdateChannel = UpdateChannel.Beta };
 
@@ -233,7 +233,7 @@ public class AppStartupTests : IDisposable
         var json = await File.ReadAllTextAsync(this._testPreferencesPath);
 
         Assert.True(saved);
-        Assert.Contains("\"UpdateChannel\": 1", json, StringComparison.Ordinal);
+        Assert.Contains("\"UpdateChannel\": \"Beta\"", json, StringComparison.Ordinal);
     }
 
     [Fact]
