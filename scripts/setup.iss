@@ -35,17 +35,17 @@ begin
 
   if NeedsDesktopRuntime then
   begin
-    Dependency_AddDotNet80Desktop;
+    Dependency_AddDotNet100Desktop;
   end;
 
   if NeedsAspNetRuntime then
   begin
-    Dependency_AddDotNet80Asp;
+    Dependency_AddDotNet100Asp;
   end;
 
   if NeedsNetRuntime then
   begin
-    Dependency_AddDotNet80;
+    Dependency_AddDotNet100;
   end;
 end;
 
