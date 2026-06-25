@@ -36,7 +36,7 @@ If a new violation appears, fix it before pushing. Do not:
 
 ## Architecture
 
-- **AIUsageTracker.UI.Slim** — WPF main window + settings dialog (net8.0-windows)
+- **AIUsageTracker.UI.Slim** — WPF main window + settings dialog (net10.0-windows)
 - **AIUsageTracker.Monitor** — Background agent that polls providers and serves usage data over HTTP
 - **AIUsageTracker.Core** — Shared models, interfaces, monitor client
 - **AIUsageTracker.Infrastructure** — Provider implementations (Synthetic, Codex, OpenAI, etc.)

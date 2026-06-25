@@ -34,7 +34,7 @@ The **Implementation Layer**. It contains:
 - **Data Access**: SQLite implementation using Dapper for usage history.
 - **Services**: Concrete implementations of Core interfaces (e.g., `WindowsNotificationService`).
 - **Configuration**: Logic for loading/saving `auth.json` and `providers.json`.
-- **Philosophy**: This is where the "heavy lifting" happens. It Target's `net8.0-windows` because it uses Windows-specific APIs.
+- **Philosophy**: This is where the "heavy lifting" happens. It targets `net10.0-windows` because it uses Windows-specific APIs.
 
 ### [AIUsageTracker.Monitor](file:///c:/Develop/Claude/opencode-tracker/AIUsageTracker.Monitor)
 The **Background Engine**.
