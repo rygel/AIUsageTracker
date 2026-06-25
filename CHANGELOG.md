@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2.3.6-beta.11] - 2026-06-25
+
+### Fixed
+- **Timestamp conversion dropping newer columns**: `ConvertTimestampsToEpochIfNeeded` recreated `provider_history` but only preserved a subset of columns, silently wiping `card_id`, `group_id`, `window_kind`, `model_name`, `name`, and `card_type` on databases with TEXT `fetched_at`. Fixed by reordering: conversion runs first, then all `EnsureColumn` calls add columns the conversion doesn't preserve.
+- **Migration test coverage**: Added assertions for all `provider_history` columns plus a direct `card_type` query test. Added project rule to AGENTS.md requiring test assertions for every `EnsureColumn` addition.
+
 ### Fixed
 - **Timestamp conversion dropping newer columns**: `ConvertTimestampsToEpochIfNeeded` recreated `provider_history` but only preserved a subset of columns, silently wiping `card_id`, `group_id`, `window_kind`, `model_name`, `name`, and `card_type` on databases with TEXT `fetched_at`. Fixed by reordering: conversion runs first, then all `EnsureColumn` calls add columns the conversion doesn't preserve.
 - **Migration test coverage**: Added assertions for all `provider_history` columns plus a direct `card_type` query test. Added project rule to AGENTS.md requiring test assertions for every `EnsureColumn` addition.
