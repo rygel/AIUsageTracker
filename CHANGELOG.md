@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+## [2.3.6-beta.9] - 2026-06-25
+
+### Added
+- **ProviderUsage subtype hierarchy**: Sealed subtypes (`QuotaProviderUsage`, `WindowedProviderUsage`, `ModelScopedProviderUsage`, `StatusProviderUsage`) with compile-time safety and polymorphic JSON serialization via `[JsonDerivedType]` discriminators.
+- **Database migration V14**: Added `card_type` discriminator column to `provider_history` for subtype reconstruction on read.
+- **Web UI**: Spending summary, sparklines, and terminal title.
+- **Architecture guardrail tests**: 8 tests enforcing ProviderUsage hierarchy invariants.
+
+### Fixed
+- **Issue #647**: Installer installed .NET 8 runtimes instead of .NET 10 — Monitor crashed silently on machines without ASP.NET Core Runtime.
+- **DB read path**: ProviderUsage subtypes now correctly reconstructed from `card_type` discriminator on every `QueryAsync` call.
+- **Processing pipeline**: `StatusProviderUsage` no longer converted to `QuotaProviderUsage` with zeros during normalization.
+- **Monitor launcher**: Detects immediate process exit (missing runtime) and logs a diagnostic message.
+- **Update notification**: Preserved after hibernation network failure.
+
+### Changed
+- **16 providers migrated** to emit concrete `ProviderUsage` subtypes instead of setting `CardType` on the base class.
+- **Stale `net8.0` paths** updated to `net10.0` in MonitorLauncher and BrowserService.
+
 ## [2.3.6-beta.8] - 2026-06-12
 
 ### Tests
