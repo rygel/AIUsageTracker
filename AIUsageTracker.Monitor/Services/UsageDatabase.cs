@@ -643,7 +643,8 @@ public class UsageDatabase : IUsageDatabase
                        h.group_id AS GroupId,
                        COALESCE(h.window_kind, 0) AS WindowKind,
                        h.model_name AS ModelName,
-                       h.name AS Name
+                       h.name AS Name,
+                       COALESCE(h.card_type, 'quota') AS CardType
                 FROM provider_history h
                 LEFT JOIN providers p ON h.provider_id = p.provider_id
                 WHERE h.id IN (
@@ -655,34 +656,39 @@ public class UsageDatabase : IUsageDatabase
                 ORDER BY h.provider_id, h.card_id";
 
         object? param = providerIds != null ? new { providerIds = providerIds.ToArray() } : null;
-        var results = (await connection.QueryAsync<WindowedProviderUsage>(sql, param).ConfigureAwait(false)).ToList();
+        var dtoRows = (await connection.QueryAsync<HistoryRowDto>(sql, param).ConfigureAwait(false)).ToList();
+        var results = dtoRows.Select(ToTypedUsage).ToList();
 
-        await StampUsageRatesAsync(connection, results).ConfigureAwait(false);
+        var quotaResults = results.OfType<QuotaProviderUsage>().ToList();
+        await StampUsageRatesAsync(connection, quotaResults).ConfigureAwait(false);
 
         var now = DateTime.UtcNow;
         foreach (var usage in results)
         {
-            var usageDef = ProviderMetadataCatalog.Find(usage.ProviderId ?? string.Empty);
-            if (usageDef != null)
+            if (usage is QuotaProviderUsage quota)
             {
-                usage.PlanType = usageDef.PlanType;
-                usage.IsQuotaBased = usageDef.IsQuotaBased;
-
-                // provider-id-guardrail-allow: this comment explains matching against runtime provider ids
-                // Re-derive WindowKind from the provider's QuotaWindowDefinition so stale DB
-                // entries are corrected without a DB migration.
-                var childId = string.Equals(usage.ProviderId, usageDef.ProviderId, StringComparison.OrdinalIgnoreCase)
-                    && !string.IsNullOrWhiteSpace(usage.CardId)
-                        ? $"{usageDef.ProviderId}.{usage.CardId}"
-                        : usage.ProviderId;
-
-                var windowMatch = usageDef.QuotaWindows.FirstOrDefault(w =>
-                    !string.IsNullOrWhiteSpace(w.ChildProviderId) &&
-                    string.Equals(w.ChildProviderId, childId, StringComparison.OrdinalIgnoreCase));
-
-                if (windowMatch != null)
+                var usageDef = ProviderMetadataCatalog.Find(usage.ProviderId ?? string.Empty);
+                if (usageDef != null)
                 {
-                    usage.WindowKind = windowMatch.Kind;
+                    quota.PlanType = usageDef.PlanType;
+                    quota.IsQuotaBased = usageDef.IsQuotaBased;
+
+                    // provider-id-guardrail-allow: this comment explains matching against runtime provider ids
+                    // Re-derive WindowKind from the provider's QuotaWindowDefinition so stale DB
+                    // entries are corrected without a DB migration.
+                    var childId = string.Equals(usage.ProviderId, usageDef.ProviderId, StringComparison.OrdinalIgnoreCase)
+                        && !string.IsNullOrWhiteSpace(quota.CardId)
+                            ? $"{usageDef.ProviderId}.{quota.CardId}"
+                            : usage.ProviderId;
+
+                    var windowMatch = usageDef.QuotaWindows.FirstOrDefault(w =>
+                        !string.IsNullOrWhiteSpace(w.ChildProviderId) &&
+                        string.Equals(w.ChildProviderId, childId, StringComparison.OrdinalIgnoreCase));
+
+                    if (windowMatch != null)
+                    {
+                        quota.WindowKind = windowMatch.Kind;
+                    }
                 }
             }
 
@@ -699,6 +705,71 @@ public class UsageDatabase : IUsageDatabase
     /// Uses the row closest to one hour ago (within a 30–120 min window) as the baseline.
     /// Returns null for a provider when there is insufficient history or the counter reset.
     /// </summary>
+    /// <summary>
+    /// Dapper-mapped DTO that captures every column from <c>provider_history</c>,
+    /// including the subtype discriminator (<c>card_type</c>) and fields that
+    /// belong to specific subtypes (<c>parent_provider_id</c>, <c>model_name</c>).
+    /// Inherits all quota fields from <see cref="QuotaProviderUsage"/>.
+    /// </summary>
+    private sealed class HistoryRowDto : QuotaProviderUsage
+    {
+        public string? ParentProviderId { get; set; }
+
+        public string? ModelName { get; set; }
+
+        public string? CardType { get; set; }
+    }
+
+    private static ProviderUsage ToTypedUsage(HistoryRowDto row) => row.CardType switch
+    {
+        "status" => CopyTo(new StatusProviderUsage(), row),
+        "model" => CopyTo(new ModelScopedProviderUsage { ModelName = row.ModelName }, row),
+        "windowed" => CopyTo(new WindowedProviderUsage { ParentProviderId = row.ParentProviderId }, row),
+        _ => CopyTo(new QuotaProviderUsage(), row),
+    };
+
+    private static T CopyTo<T>(T target, HistoryRowDto source) where T : ProviderUsage
+    {
+        target.ProviderId = source.ProviderId;
+        target.ProviderName = source.ProviderName;
+        target.IsAvailable = source.IsAvailable;
+        target.Description = source.Description;
+        target.State = source.State;
+        target.AuthSource = source.AuthSource;
+        target.IsTooltipOnly = source.IsTooltipOnly;
+        target.AccountName = source.AccountName;
+        target.ConfigKey = source.ConfigKey;
+        target.FetchedAt = source.FetchedAt;
+        target.ResponseLatencyMs = source.ResponseLatencyMs;
+        target.RawJson = source.RawJson;
+        target.HttpStatus = source.HttpStatus;
+        target.UpstreamResponseValidity = source.UpstreamResponseValidity;
+        target.UpstreamResponseNote = source.UpstreamResponseNote;
+        target.IsStale = source.IsStale;
+
+        if (target is QuotaProviderUsage quota)
+        {
+            quota.RequestsUsed = source.RequestsUsed;
+            quota.RequestsAvailable = source.RequestsAvailable;
+            quota.UsedPercent = source.UsedPercent;
+            quota.PlanType = source.PlanType;
+            quota.IsCurrencyUsage = source.IsCurrencyUsage;
+            quota.IsQuotaBased = source.IsQuotaBased;
+            quota.DisplayAsFraction = source.DisplayAsFraction;
+            quota.IsStatusOnly = source.IsStatusOnly;
+            quota.NextResetTime = source.NextResetTime;
+            quota.UsagePerHour = source.UsagePerHour;
+            quota.WindowKind = source.WindowKind;
+            quota.Name = source.Name;
+            quota.CardId = source.CardId;
+            quota.GroupId = source.GroupId;
+            quota.PeriodDuration = source.PeriodDuration;
+        }
+
+        return target;
+    }
+
+
     private static async Task StampUsageRatesAsync(SqliteConnection connection, IReadOnlyList<QuotaProviderUsage> results)
     {
         if (results.Count == 0)
@@ -820,13 +891,15 @@ public class UsageDatabase : IUsageDatabase
                        h.response_latency_ms AS ResponseLatencyMs,
                        h.http_status AS HttpStatus,
                        COALESCE(h.upstream_response_validity, 0) AS UpstreamResponseValidity,
-                       COALESCE(h.upstream_response_note, '') AS UpstreamResponseNote
+                       COALESCE(h.upstream_response_note, '') AS UpstreamResponseNote,
+                       COALESCE(h.card_type, 'quota') AS CardType
                 FROM provider_history h
                 JOIN providers p ON h.provider_id = p.provider_id
                 ORDER BY h.fetched_at DESC
                 LIMIT {limit}";
 
-        var results = (await connection.QueryAsync<WindowedProviderUsage>(sql).ConfigureAwait(false)).ToList();
+        var dtoRows = (await connection.QueryAsync<HistoryRowDto>(sql).ConfigureAwait(false)).ToList();
+        var results = dtoRows.Select(ToTypedUsage).ToList();
 
         foreach (var usage in results)
         {
@@ -852,14 +925,16 @@ public class UsageDatabase : IUsageDatabase
                        h.response_latency_ms AS ResponseLatencyMs,
                        h.http_status AS HttpStatus,
                        COALESCE(h.upstream_response_validity, 0) AS UpstreamResponseValidity,
-                       COALESCE(h.upstream_response_note, '') AS UpstreamResponseNote
+                       COALESCE(h.upstream_response_note, '') AS UpstreamResponseNote,
+                       COALESCE(h.card_type, 'quota') AS CardType
                 FROM provider_history h
                 JOIN providers p ON h.provider_id = p.provider_id
                 WHERE h.provider_id = @ProviderId
                 ORDER BY h.fetched_at DESC
                 LIMIT {limit}";
 
-        var results = (await connection.QueryAsync<WindowedProviderUsage>(sql, new { ProviderId = providerId }).ConfigureAwait(false)).ToList();
+        var dtoRows = (await connection.QueryAsync<HistoryRowDto>(sql, new { ProviderId = providerId }).ConfigureAwait(false)).ToList();
+        var results = dtoRows.Select(ToTypedUsage).ToList();
 
         foreach (var usage in results)
         {
@@ -887,18 +962,20 @@ public class UsageDatabase : IUsageDatabase
                            h.http_status AS HttpStatus,
                            COALESCE(h.upstream_response_validity, 0) AS UpstreamResponseValidity,
                            COALESCE(h.upstream_response_note, '') AS UpstreamResponseNote,
+                           COALESCE(h.card_type, 'quota') AS CardType,
                            ROW_NUMBER() OVER (PARTITION BY h.provider_id ORDER BY h.fetched_at DESC) as pos
                     FROM provider_history h
                     JOIN providers p ON h.provider_id = p.provider_id
                 )
                 SELECT ProviderId, ProviderName, RequestsUsed, RequestsAvailable,
                        UsedPercent, IsAvailable, Description, FetchedAt, NextResetTime,
-                       ResponseLatencyMs, HttpStatus, UpstreamResponseValidity, UpstreamResponseNote
+                       ResponseLatencyMs, HttpStatus, UpstreamResponseValidity, UpstreamResponseNote, CardType
                 FROM RankedHistory
                 WHERE pos <= @Count
                 ORDER BY ProviderId, FetchedAt DESC";
 
-        var results = (await connection.QueryAsync<WindowedProviderUsage>(sql, new { Count = countPerProvider }).ConfigureAwait(false)).ToList();
+        var dtoRows = (await connection.QueryAsync<HistoryRowDto>(sql, new { Count = countPerProvider }).ConfigureAwait(false)).ToList();
+        var results = dtoRows.Select(ToTypedUsage).ToList();
 
         foreach (var usage in results)
         {
