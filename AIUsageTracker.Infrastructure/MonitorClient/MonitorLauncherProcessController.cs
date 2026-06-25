@@ -54,8 +54,10 @@ internal static class MonitorLauncherProcessController
                 return false;
             }
 
-            // Wait briefly to detect immediate crash (e.g. missing ASP.NET Core runtime)
-            process.WaitForExit(milliseconds: 3000);
+            // Wait briefly to detect immediate crash (e.g. missing ASP.NET Core runtime).
+            // Runtime-missing crashes happen within ~100ms; 500ms catches those without
+            // penalizing normal startup.
+            process.WaitForExit(milliseconds: 500);
             if (process.HasExited)
             {
                 var exitCode = process.ExitCode;
