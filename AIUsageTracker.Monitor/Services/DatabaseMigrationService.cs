@@ -240,23 +240,27 @@ public class DatabaseMigrationService
         EnsureColumn(connection, TableProviders, "config_json", "TEXT");
         EnsureColumn(connection, TableProviders, "auth_source", "TEXT DEFAULT 'manual'");
         EnsureColumn(connection, TableProviders, "plan_type", "TEXT DEFAULT 'usage'");
+        // Add columns that ConvertTimestampsToEpochIfNeeded SELECTs, so the
+        // INSERT INTO provider_history_new doesn't fail on missing columns.
         EnsureColumn(connection, TableProviderHistory, "next_reset_time", "TEXT");
         EnsureColumn(connection, TableProviderHistory, "details_json", "TEXT");
-        EnsureColumn(connection, TableProviderHistory, "next_reset_time", "TEXT");
         EnsureColumn(connection, TableProviderHistory, "response_latency_ms", "REAL NOT NULL DEFAULT 0");
         EnsureColumn(connection, TableProviderHistory, "http_status", "INTEGER NOT NULL DEFAULT 0");
         EnsureColumn(connection, TableProviderHistory, "upstream_response_validity", "INTEGER NOT NULL DEFAULT 0");
         EnsureColumn(connection, TableProviderHistory, "upstream_response_note", "TEXT NOT NULL DEFAULT ''");
         EnsureColumn(connection, TableProviderHistory, "parent_provider_id", "TEXT");
+
+        // Convert fetched_at TEXT → INTEGER epoch. This recreates provider_history,
+        // so run it BEFORE adding columns it doesn't preserve.
+        ConvertTimestampsToEpochIfNeeded(connection);
+
+        // Add columns that the timestamp conversion's new table doesn't include.
         EnsureColumn(connection, TableProviderHistory, "card_id", "TEXT");
         EnsureColumn(connection, TableProviderHistory, "group_id", "TEXT");
         EnsureColumn(connection, TableProviderHistory, "window_kind", "INTEGER NOT NULL DEFAULT 0");
         EnsureColumn(connection, TableProviderHistory, "model_name", "TEXT");
         EnsureColumn(connection, TableProviderHistory, "name", "TEXT");
         EnsureColumn(connection, TableProviderHistory, "card_type", "TEXT");
-
-        // Convert fetched_at TEXT → INTEGER epoch for databases that pre-date V11.
-        ConvertTimestampsToEpochIfNeeded(connection);
 
         ExecuteNonQuery(
             connection,
