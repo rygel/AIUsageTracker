@@ -253,6 +253,7 @@ public class DatabaseMigrationService
         EnsureColumn(connection, TableProviderHistory, "window_kind", "INTEGER NOT NULL DEFAULT 0");
         EnsureColumn(connection, TableProviderHistory, "model_name", "TEXT");
         EnsureColumn(connection, TableProviderHistory, "name", "TEXT");
+        EnsureColumn(connection, TableProviderHistory, "card_type", "TEXT");
 
         // Convert fetched_at TEXT → INTEGER epoch for databases that pre-date V11.
         ConvertTimestampsToEpochIfNeeded(connection);
