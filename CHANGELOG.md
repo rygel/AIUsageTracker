@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2.3.6-beta.10] - 2026-06-25
+
+### Fixed
+- **card_type column missing on pre-Evolve databases**: The V14 migration only ran through Evolve, which is skipped for databases that predate the migration system. Added `EnsureColumn` call to the compatibility bootstrap so existing databases get the column. This fixes the HTTP 500 crash on every `/api/usage/grouped` request.
+- **Startup delay**: Reduced Monitor crash-detection wait from 3s to 500ms.
+
 ## [2.3.6-beta.9] - 2026-06-25
 
 ### Added
