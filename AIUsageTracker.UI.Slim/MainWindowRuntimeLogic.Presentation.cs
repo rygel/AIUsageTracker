@@ -2,6 +2,13 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+// ARCHITECTURE RULE: Card labels, durations, and rendering decisions come from
+// ProviderDefinition → QuotaWindowDefinition (DualBarLabel, PeriodDuration, Kind).
+// The Monitor sends raw usage values only — it does NOT control how cards are
+// rendered. Never use card.Name ?? "Burst" or any hardcoded fallback. Always
+// read from the definition. No filtering by type (.OfType<WindowedProviderUsage>).
+// All QuotaProviderUsage subtypes are valid window cards.
+
 using System.Globalization;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Helpers;
