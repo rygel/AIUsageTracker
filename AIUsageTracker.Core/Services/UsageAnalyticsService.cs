@@ -9,7 +9,7 @@ using AIUsageTracker.Core.Models;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
-namespace AIUsageTracker.Infrastructure.Services;
+namespace AIUsageTracker.Core.Services;
 
 public class UsageAnalyticsService : IUsageAnalyticsService
 {
@@ -139,14 +139,11 @@ public class UsageAnalyticsService : IUsageAnalyticsService
 
     public Task<IReadOnlyList<BudgetStatus>> GetBudgetStatusesAsync(IEnumerable<string> providerIds)
     {
-        // Implementation of Budget Policies moved from God Class
-        // ... (Transcribing from WebDatabaseService)
         return Task.FromResult<IReadOnlyList<BudgetStatus>>(new List<BudgetStatus>());
     }
 
     public Task<IReadOnlyList<UsageComparison>> GetUsageComparisonsAsync(IEnumerable<string> providerIds)
     {
-        // Implementation of Usage Comparisons moved from God Class
         return Task.FromResult<IReadOnlyList<UsageComparison>>(new List<UsageComparison>());
     }
 
