@@ -39,6 +39,25 @@ public partial class App
             enablePaceAdjustment);
 
         this.SyncProviderTrayIcons(desiredIcons, yellowThreshold, redThreshold, showUsed);
+        this.UpdateMainTrayTooltip(usages);
+    }
+
+    private void UpdateMainTrayTooltip(IReadOnlyList<ProviderUsage> usages)
+    {
+        if (this._trayIcon == null)
+        {
+            return;
+        }
+
+        var active = usages.Where(u => u.IsAvailable).ToList();
+        if (active.Count == 0)
+        {
+            this._trayIcon.ToolTipText = "AI Usage Tracker";
+            return;
+        }
+
+        var avgRemaining = active.Average(u => u.RemainingPercent);
+        this._trayIcon.ToolTipText = $"AI Usage Tracker — {active.Count} active, {avgRemaining:F0}% avg remaining";
     }
 
     private static Dictionary<string, (string ToolTip, double FillPercent, PaceColorResult PaceColor, bool IsQuota)> BuildDesiredIcons(
