@@ -509,3 +509,5 @@ fix_resources.*
 ci_screenshots/
 .claude/worktrees/
 .sonarqube/
+build-task107.err
+test-task107.err
