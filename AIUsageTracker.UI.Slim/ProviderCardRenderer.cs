@@ -319,20 +319,17 @@ internal sealed class ProviderCardRenderer
 
     private Brush GetProgressBarColor(double usedPercentage)
     {
-        var yellowThreshold = this._preferences.ColorThresholdYellow;
-        var redThreshold = this._preferences.ColorThresholdRed;
+        var tier = UsageMath.GetThresholdTier(
+            usedPercentage,
+            this._preferences.ColorThresholdYellow,
+            this._preferences.ColorThresholdRed);
 
-        if (usedPercentage >= redThreshold)
+        return tier switch
         {
-            return this._getResourceBrush(ResourceKeyProgressBarRed, Brushes.Crimson);
-        }
-
-        if (usedPercentage >= yellowThreshold)
-        {
-            return this._getResourceBrush("ProgressBarYellow", Brushes.Gold);
-        }
-
-        return this._getResourceBrush(ResourceKeyProgressBarGreen, Brushes.MediumSeaGreen);
+            ThresholdTier.Red => this._getResourceBrush(ResourceKeyProgressBarRed, Brushes.Crimson),
+            ThresholdTier.Yellow => this._getResourceBrush("ProgressBarYellow", Brushes.Gold),
+            _ => this._getResourceBrush(ResourceKeyProgressBarGreen, Brushes.MediumSeaGreen),
+        };
     }
 
     private string? BuildResetBadgeText(ProviderUsage usage, ProviderCardPresentation presentation)
@@ -530,26 +527,15 @@ internal sealed class ProviderCardRenderer
             : $"({resetLabel}: {formattedReset})";
     }
 
-    private static string GetUsedSlotText(ProviderUsage usage)
-    {
-        if (usage.IsCurrencyUsage)
-        {
-            return $"${usage.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture)} used";
-        }
+    private static string GetUsedSlotText(ProviderUsage usage) =>
+        usage.IsCurrencyUsage
+            ? UsageMath.FormatUsedCurrency(usage.RequestsUsed)
+            : UsageMath.FormatUsedPercent(usage.UsedPercent);
 
-        return $"{usage.UsedPercent.ToString("F0", CultureInfo.InvariantCulture)}% used";
-    }
-
-    private static string GetRemainingSlotText(ProviderUsage usage)
-    {
-        if (usage.IsCurrencyUsage)
-        {
-            var remaining = Math.Max(0, usage.RequestsAvailable - usage.RequestsUsed);
-            return $"${remaining.ToString("F2", CultureInfo.InvariantCulture)} remaining";
-        }
-
-        return $"{Math.Max(0, 100 - usage.UsedPercent).ToString("F0", CultureInfo.InvariantCulture)}% remaining";
-    }
+    private static string GetRemainingSlotText(ProviderUsage usage) =>
+        usage.IsCurrencyUsage
+            ? UsageMath.FormatRemainingCurrency(usage.RequestsAvailable - usage.RequestsUsed)
+            : UsageMath.FormatRemainingPercent(100 - usage.UsedPercent);
 
     internal static bool ShouldRenderSlot(CardSlotContent slot, ProviderCardPresentation presentation)
     {

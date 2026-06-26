@@ -399,11 +399,9 @@ internal static partial class MainWindowRuntimeLogic
 
     private static string FormatDualQuotaBucketSegment(string label, double usedPercent, bool showUsed)
     {
-        var clampedUsed = UsageMath.ClampPercent(usedPercent);
-        var clampedRemaining = UsageMath.ClampPercent(100.0 - clampedUsed);
         return showUsed
-            ? $"{label} {clampedUsed:F0}% used"
-            : $"{label} {clampedRemaining:F0}% remaining";
+            ? $"{label} {UsageMath.FormatUsedPercent(usedPercent)}"
+            : $"{label} {UsageMath.FormatRemainingPercent(100.0 - usedPercent)}";
     }
 
     private static string GetQuotaFractionStatusText(ProviderUsage usage, bool showUsed)
@@ -420,8 +418,8 @@ internal static partial class MainWindowRuntimeLogic
     private static string GetQuotaPercentStatusText(ProviderUsage usage, bool showUsed)
     {
         return showUsed
-            ? $"{UsageMath.ClampPercent(usage.UsedPercent):F0}% used"
-            : $"{UsageMath.ClampPercent(usage.RemainingPercent):F0}% remaining";
+            ? UsageMath.FormatUsedPercent(usage.UsedPercent)
+            : UsageMath.FormatRemainingPercent(usage.RemainingPercent);
     }
 
     public static bool GetIsCollapsed(AppPreferences preferences, string providerId)

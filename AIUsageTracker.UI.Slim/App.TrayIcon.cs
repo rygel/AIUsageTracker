@@ -174,18 +174,13 @@ public partial class App
             else
             {
                 var colorPercent = paceColor.ColorPercent;
-                if (colorPercent >= redThreshold)
+                var tier = UsageMath.GetThresholdTier(colorPercent, yellowThreshold, redThreshold);
+                fillBrush = tier switch
                 {
-                    fillBrush = Brushes.Crimson;
-                }
-                else if (colorPercent >= yellowThreshold)
-                {
-                    fillBrush = Brushes.Gold;
-                }
-                else
-                {
-                    fillBrush = Brushes.MediumSeaGreen;
-                }
+                    ThresholdTier.Red => Brushes.Crimson,
+                    ThresholdTier.Yellow => Brushes.Gold,
+                    _ => Brushes.MediumSeaGreen,
+                };
             }
 
             var barWidth = size - 6;

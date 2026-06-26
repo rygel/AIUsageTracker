@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
+using AIUsageTracker.Core.Models;
 
 namespace AIUsageTracker.UI.Slim.Converters;
 
@@ -43,17 +44,14 @@ public class PercentageToColorConverter : IMultiValueConverter
         // The percentage passed in is always the "used" percentage (pace-adjusted where applicable).
         // Thresholds are defined as "used % triggers warning" regardless of quota vs pay-as-you-go.
         // The progress bar direction (inverted/non-inverted) is handled separately by ProgressPercentage.
-        if (percentage >= redThreshold)
-        {
-            return GetResourceBrush("ProgressBarRed");
-        }
+        var tier = UsageMath.GetThresholdTier(percentage, yellowThreshold, redThreshold);
 
-        if (percentage >= yellowThreshold)
+        return tier switch
         {
-            return GetResourceBrush("ProgressBarYellow");
-        }
-
-        return GetResourceBrush("ProgressBarGreen");
+            ThresholdTier.Red => GetResourceBrush("ProgressBarRed"),
+            ThresholdTier.Yellow => GetResourceBrush("ProgressBarYellow"),
+            _ => GetResourceBrush("ProgressBarGreen"),
+        };
     }
 
     public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
