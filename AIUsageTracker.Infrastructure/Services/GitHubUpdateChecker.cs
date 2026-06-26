@@ -235,10 +235,10 @@ public class GitHubUpdateChecker
         if (betaIndex >= 0)
         {
             coreVersion = version[..betaIndex];
-            var betaNumStr = version[(betaIndex + 6)..]; // skip "-beta."
-            var dashIdx = betaNumStr.IndexOf('-', StringComparison.Ordinal);
-            var numericPart = dashIdx >= 0 ? betaNumStr[..dashIdx] : betaNumStr;
-            preRelease = int.TryParse(numericPart, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : 0;
+            var afterBeta = version[(betaIndex + 6)..]; // skip "-beta."
+            var dashIndex = afterBeta.IndexOf('-', StringComparison.Ordinal);
+            var betaNumStr = dashIndex >= 0 ? afterBeta[..dashIndex] : afterBeta;
+            preRelease = int.TryParse(betaNumStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : 0;
         }
         else
         {
@@ -368,6 +368,14 @@ public class GitHubUpdateChecker
         return Path.Combine(updatesDir, $"AIUsageTracker_Setup_{version}.exe");
     }
 
+    private static void DeleteIfExists(string path)
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+    }
+
     private static string GetCurrentArchitectureName()
     {
         return System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture switch
@@ -381,7 +389,23 @@ public class GitHubUpdateChecker
 
     private string GetAppcastUrlForCurrentArchitecture()
     {
-        var targetArch = GetCurrentArchitectureName();
+        var currentArch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLower(System.Globalization.CultureInfo.InvariantCulture);
+
+        var archMapping = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [ArchX64] = ArchX64,
+            [ArchX86] = ArchX86,
+            [ArchArm64] = ArchArm64,
+            [ArchArm] = ArchArm64,
+        };
+
+        var targetArch = archMapping.GetValueOrDefault(currentArch, ArchX64);
+
+        if (!archMapping.ContainsKey(currentArch))
+        {
+            this._logger.LogWarning("Unknown architecture {Architecture}, falling back to x64", currentArch);
+        }
+
         var url = GetAppcastUrl(targetArch, this._channel == UpdateChannel.Beta);
         this._logger.LogDebug("Using appcast for architecture {Architecture} ({Channel}): {Url}", targetArch, this._channel, url);
         return url;
@@ -391,8 +415,8 @@ public class GitHubUpdateChecker
     {
         var partialDownloadPath = $"{downloadPath}.partial";
         this._logger.LogInformation("Downloading from {Url} to {Path}", downloadUrl, downloadPath);
-        File.Delete(downloadPath);
-        File.Delete(partialDownloadPath);
+        DeleteIfExists(downloadPath);
+        DeleteIfExists(partialDownloadPath);
 
         using var response = await this._httpClient.GetAsync(downloadUrl, System.Net.Http.HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
