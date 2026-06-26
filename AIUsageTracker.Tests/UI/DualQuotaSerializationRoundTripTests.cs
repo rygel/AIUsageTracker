@@ -79,7 +79,8 @@ public sealed class DualQuotaSerializationRoundTripTests
     [Fact]
     public void FullPipeline_AfterJsonRoundTrip_WithoutModels_ProducesParentCard()
     {
-        // Simulate the full path: provider data → JSON (Monitor) → UI client → Create()
+        // Simulate the full path: Codex provider data → JSON (Monitor) → UI client → Create()
+        // Codex returns ModelScopedProviderUsage cards (not WindowedProviderUsage).
         var snapshot = new AgentGroupedUsageSnapshot
         {
             Providers = new[]
@@ -92,19 +93,21 @@ public sealed class DualQuotaSerializationRoundTripTests
                     UsedPercent = 4,
                     ProviderDetails = new[]
                     {
-                        new WindowedProviderUsage
+                        new ModelScopedProviderUsage
                         {
                             ProviderId = "codex",
                             Name = "5h",
                             WindowKind = WindowKind.Burst,
                             UsedPercent = 4,
+                            ModelName = "gpt-4",
                         },
-                        new WindowedProviderUsage
+                        new ModelScopedProviderUsage
                         {
                             ProviderId = "codex",
                             Name = "Weekly",
                             WindowKind = WindowKind.Rolling,
                             UsedPercent = 51,
+                            ModelName = "gpt-4",
                         },
                     },
                 },
@@ -120,6 +123,12 @@ public sealed class DualQuotaSerializationRoundTripTests
         var usage = (WindowedProviderUsage)Assert.Single(usages);
         Assert.NotNull(usage.WindowCards);
         Assert.Equal(2, usage.WindowCards!.Count);
+
+        // Verify dual bar data can be built from ModelScopedProviderUsage cards
+        var dualBar = MainWindowRuntimeLogic.TryBuildDualBarData(usage, enablePaceAdjustment: false);
+        Assert.NotNull(dualBar);
+        Assert.Equal(4, dualBar!.Primary.UsedPercent);
+        Assert.Equal(51, dualBar.Secondary.UsedPercent);
     }
 
     [Fact]

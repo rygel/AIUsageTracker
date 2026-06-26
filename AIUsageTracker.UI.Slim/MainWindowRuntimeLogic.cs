@@ -412,8 +412,8 @@ internal static partial class MainWindowRuntimeLogic
             return;
         }
 
-        var burstCard = wu.WindowCards.OfType<WindowedProviderUsage>().FirstOrDefault(card => card.WindowKind == WindowKind.Burst);
-        var rollingCard = wu.WindowCards.OfType<WindowedProviderUsage>().FirstOrDefault(card => card.WindowKind == WindowKind.Rolling);
+        var burstCard = wu.WindowCards.FirstOrDefault(card => card.WindowKind == WindowKind.Burst);
+        var rollingCard = wu.WindowCards.FirstOrDefault(card => card.WindowKind == WindowKind.Rolling);
         if (burstCard == null && rollingCard == null)
         {
             return;

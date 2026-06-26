@@ -377,8 +377,8 @@ internal static partial class MainWindowRuntimeLogic
             return null;
         }
 
-        var burstCard = windowCards.OfType<WindowedProviderUsage>().FirstOrDefault(c => c.WindowKind == WindowKind.Burst);
-        var rollingCard = windowCards.OfType<WindowedProviderUsage>().FirstOrDefault(c => c.WindowKind == WindowKind.Rolling);
+        var burstCard = windowCards.FirstOrDefault(c => c.WindowKind == WindowKind.Burst);
+        var rollingCard = windowCards.FirstOrDefault(c => c.WindowKind == WindowKind.Rolling);
 
         if (burstCard == null || rollingCard == null)
         {
@@ -393,29 +393,31 @@ internal static partial class MainWindowRuntimeLogic
         var burstWindow = definition.QuotaWindows.FirstOrDefault(w => w.Kind == WindowKind.Burst);
         var rollingWindow = definition.QuotaWindows.FirstOrDefault(w => w.Kind == WindowKind.Rolling);
 
-        var burstLabel = burstCard.Name ?? burstWindow?.DetailName ?? "Burst";
-        var rollingLabel = rollingCard.Name ?? rollingWindow?.DetailName ?? "Rolling";
+        if (burstWindow == null || rollingWindow == null)
+        {
+            return null;
+        }
 
         // Burst window is Primary (top bar), Rolling window is Secondary (bottom bar).
         var primaryPace = UsageMath.ComputePaceColor(
-            burstCard.UsedPercent, burstCard.NextResetTime, burstWindow?.PeriodDuration,
+            burstCard.UsedPercent, burstCard.NextResetTime, burstWindow.PeriodDuration,
             enablePaceAdjustment);
         var secondaryPace = UsageMath.ComputePaceColor(
-            rollingCard.UsedPercent, rollingCard.NextResetTime, rollingWindow?.PeriodDuration,
+            rollingCard.UsedPercent, rollingCard.NextResetTime, rollingWindow.PeriodDuration,
             enablePaceAdjustment);
 
         return new DualBarData(
             Primary: new BarData(
-                Label: burstLabel,
+                Label: burstWindow.DualBarLabel,
                 UsedPercent: burstCard.UsedPercent,
                 ResetTime: burstCard.NextResetTime,
-                PeriodDuration: burstWindow?.PeriodDuration,
+                PeriodDuration: burstWindow.PeriodDuration,
                 PaceColor: primaryPace),
             Secondary: new BarData(
-                Label: rollingLabel,
+                Label: rollingWindow.DualBarLabel,
                 UsedPercent: rollingCard.UsedPercent,
                 ResetTime: rollingCard.NextResetTime,
-                PeriodDuration: rollingWindow?.PeriodDuration,
+                PeriodDuration: rollingWindow.PeriodDuration,
                 PaceColor: secondaryPace));
     }
 

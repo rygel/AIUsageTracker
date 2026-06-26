@@ -4,6 +4,7 @@
 
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Infrastructure.Providers;
 
 namespace AIUsageTracker.UI.Slim;
 
@@ -27,7 +28,36 @@ internal static class GroupedUsageDisplayAdapter
             }
             else
             {
-                usages.Add(LegacyParentCardBuilder.Build(provider));
+                var definition = ProviderMetadataCatalog.Find(provider.ProviderId);
+                if (definition == null)
+                {
+                    continue;
+                }
+
+                var windowCards = provider.ProviderDetails
+                    .OfType<QuotaProviderUsage>()
+                    .Where(d => d.WindowKind != WindowKind.None)
+                    .ToList();
+
+                usages.Add(new WindowedProviderUsage
+                {
+                    ProviderId = provider.ProviderId,
+                    ProviderName = ProviderMetadataCatalog.GetConfiguredDisplayName(provider.ProviderId),
+                    AccountName = provider.AccountName,
+                    IsAvailable = provider.IsAvailable,
+                    State = provider.State,
+                    PlanType = definition.PlanType,
+                    IsQuotaBased = definition.IsQuotaBased,
+                    IsCurrencyUsage = definition.IsCurrencyUsage,
+                    RequestsUsed = provider.RequestsUsed,
+                    RequestsAvailable = provider.RequestsAvailable,
+                    UsedPercent = provider.UsedPercent,
+                    Description = provider.Description,
+                    FetchedAt = provider.FetchedAt,
+                    NextResetTime = provider.NextResetTime,
+                    PeriodDuration = FlatWindowCardBuilder.ResolvePeriodDuration(provider.ProviderId),
+                    WindowCards = windowCards.Count > 0 ? windowCards : null,
+                });
             }
         }
 

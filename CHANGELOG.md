@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2.3.6-beta.14] - 2026-06-26
+
+### Fixed
+- **OpenAI (Codex) dual bars missing (CRITICAL)**: Codex provider returns `ModelScopedProviderUsage` cards for its burst and rolling windows, but the rendering code filtered `.OfType<WindowedProviderUsage>()` in three places — silently discarding the cards because the two types are siblings under `QuotaProviderUsage`, not parent-child. Fixed by filtering on `QuotaProviderUsage` (the common base) so both card types are included.
+- Updated test to use `ModelScopedProviderUsage` (matching what Codex actually returns) and assert dual bar data is built correctly.
+
 ## [2.3.6-beta.13] - 2026-06-26
 
 ### Fixed
