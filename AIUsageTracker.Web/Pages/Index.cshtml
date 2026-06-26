@@ -70,53 +70,6 @@
             </div>
         }
 
-        @{
-            var currencyProviders = visibleUsage.Where(u => u.IsCurrencyUsage).ToList();
-        }
-
-        @if (currencyProviders.Count > 0)
-        {
-            var totalSpent = currencyProviders.Sum(u => u.RequestsUsed);
-            var totalBudget = currencyProviders.Sum(u => u.RequestsAvailable);
-            var budgetRemaining = Math.Max(0, totalBudget - totalSpent);
-            var budgetUsedPct = totalBudget > 0 ? (totalSpent / totalBudget) * 100.0 : 0;
-            var budgetClass = budgetUsedPct >= 90 ? "danger" : budgetUsedPct >= 50 ? "warning" : "success";
-
-            <div class="section-header">
-                <h2 class="mb-2">Spending Summary</h2>
-            </div>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <h3>Total Spent</h3>
-                    <div class="stat-value">@totalSpent.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-US"))</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Budget Remaining</h3>
-                    <div class="stat-value @budgetClass">@budgetRemaining.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-US"))</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Budget Used</h3>
-                    <div class="stat-value @budgetClass">@budgetUsedPct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%</div>
-                </div>
-            </div>
-            <div class="stats-grid">
-                @foreach (var provider in currencyProviders)
-                {
-                    var providerPct = provider.RequestsAvailable > 0
-                        ? (provider.RequestsUsed / provider.RequestsAvailable) * 100.0
-                        : 0;
-                    var providerClass = providerPct >= 90 ? "danger" : providerPct >= 50 ? "warning" : "success";
-                    <div class="stat-card">
-                        <h3>@provider.ProviderName</h3>
-                        <div class="stat-value">@provider.RequestsUsed.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-US"))</div>
-                        <div class="stat-value @providerClass" style="font-size: 0.85rem; font-weight: 400;">
-                            @providerPct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)% of @provider.RequestsAvailable.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-US"))
-                        </div>
-                    </div>
-                }
-            </div>
-        }
-
         @if (visibleUsage.Count > 0)
         {
             <div class="section-header">
