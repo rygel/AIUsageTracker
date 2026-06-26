@@ -4,6 +4,7 @@
 
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Core.Providers;
 
 namespace AIUsageTracker.Infrastructure.Providers;
 

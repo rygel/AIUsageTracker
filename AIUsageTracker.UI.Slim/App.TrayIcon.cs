@@ -9,6 +9,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Core.Providers;
 using CommunityToolkit.Mvvm.Input;
 using Hardcodet.Wpf.TaskbarNotification;
 using Microsoft.Extensions.Logging;

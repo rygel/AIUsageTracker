@@ -4,6 +4,7 @@
 
 using System.Text.RegularExpressions;
 using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Core.Providers;
 
 namespace AIUsageTracker.Tests.Architecture;
 

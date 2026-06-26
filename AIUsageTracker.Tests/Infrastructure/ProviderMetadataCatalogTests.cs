@@ -6,6 +6,7 @@ using System.Reflection;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Core.Providers;
 
 namespace AIUsageTracker.Tests.Infrastructure;
 
@@ -14,7 +15,7 @@ public class ProviderMetadataCatalogTests
     [Fact]
     public void Definitions_AreDiscoveredFromProviderClasses()
     {
-        var expectedProviderIds = typeof(ProviderMetadataCatalog).Assembly
+        var expectedProviderIds = typeof(AIUsageTracker.Infrastructure.Providers.GroqProvider).Assembly
             .GetTypes()
             .Where(type =>
                 type.IsClass &&
