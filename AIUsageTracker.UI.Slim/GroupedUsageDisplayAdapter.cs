@@ -2,6 +2,14 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+// ARCHITECTURE RULE: The Monitor sends RAW data. It does NOT control rendering.
+// The ProviderDefinition class is the single source of truth for all rendering
+// decisions (card labels, window kinds, plan type, dual bars, flat vs parent).
+// This adapter must NEVER filter, cast, or branch on Monitor data shape to
+// decide what to render. No .OfType<T>(), no .Where(WindowKind != ...), no
+// hardcoded fallbacks (?? "Burst", ?? false). The definition declares what
+// cards exist; this code passes the Monitor's raw values through to them.
+
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.Providers;
@@ -19,26 +27,21 @@ internal static class GroupedUsageDisplayAdapter
 
         var usages = new List<QuotaProviderUsage>(snapshot.Providers.Count * 2);
         foreach (var provider in snapshot.Providers
-                     .Where(provider => !string.IsNullOrWhiteSpace(provider.ProviderId))
-                     .OrderBy(provider => provider.ProviderId, StringComparer.OrdinalIgnoreCase))
+                     .Where(p => !string.IsNullOrWhiteSpace(p.ProviderId))
+                     .OrderBy(p => p.ProviderId, StringComparer.OrdinalIgnoreCase))
         {
+            var definition = ProviderMetadataCatalog.Find(provider.ProviderId);
+            if (definition == null)
+            {
+                continue;
+            }
+
             if (provider.Models.Count > 0)
             {
                 usages.AddRange(FlatWindowCardBuilder.BuildFlatWindowCards(provider));
             }
             else
             {
-                var definition = ProviderMetadataCatalog.Find(provider.ProviderId);
-                if (definition == null)
-                {
-                    continue;
-                }
-
-                var windowCards = provider.ProviderDetails
-                    .OfType<QuotaProviderUsage>()
-                    .Where(d => d.WindowKind != WindowKind.None)
-                    .ToList();
-
                 usages.Add(new WindowedProviderUsage
                 {
                     ProviderId = provider.ProviderId,
@@ -56,7 +59,7 @@ internal static class GroupedUsageDisplayAdapter
                     FetchedAt = provider.FetchedAt,
                     NextResetTime = provider.NextResetTime,
                     PeriodDuration = FlatWindowCardBuilder.ResolvePeriodDuration(provider.ProviderId),
-                    WindowCards = windowCards.Count > 0 ? windowCards : null,
+                    WindowCards = provider.ProviderDetails.Cast<QuotaProviderUsage>().ToList(),
                 });
             }
         }
