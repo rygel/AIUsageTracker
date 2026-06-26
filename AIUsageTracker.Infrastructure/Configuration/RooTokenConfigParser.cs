@@ -5,6 +5,7 @@
 using System.Text.Json;
 
 using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Core.Providers;
 
 namespace AIUsageTracker.Infrastructure.Configuration;
 

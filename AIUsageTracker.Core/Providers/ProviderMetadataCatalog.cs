@@ -6,8 +6,9 @@ using System.Reflection;
 
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Providers;
 
-namespace AIUsageTracker.Infrastructure.Providers;
+namespace AIUsageTracker.Core.Providers;
 
 public static class ProviderMetadataCatalog
 {

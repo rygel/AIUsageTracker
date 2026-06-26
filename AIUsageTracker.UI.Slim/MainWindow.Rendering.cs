@@ -9,6 +9,7 @@ using System.Windows.Media;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Core.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 

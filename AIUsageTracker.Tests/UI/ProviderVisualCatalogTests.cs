@@ -3,6 +3,7 @@
 // </copyright>
 
 using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Core.Providers;
 
 namespace AIUsageTracker.Tests.UI;
 

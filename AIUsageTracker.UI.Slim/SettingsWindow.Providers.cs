@@ -12,6 +12,7 @@ using System.Windows.Media;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Helpers;
 using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Core.Providers;
 
 namespace AIUsageTracker.UI.Slim;
 

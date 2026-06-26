@@ -10,6 +10,7 @@ using AIUsageTracker.Infrastructure.Configuration;
 using AIUsageTracker.Infrastructure.Extensions;
 using AIUsageTracker.Infrastructure.MonitorClient;
 using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Core.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 

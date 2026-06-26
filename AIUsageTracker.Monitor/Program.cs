@@ -13,6 +13,7 @@ using AIUsageTracker.Monitor.Endpoints;
 using AIUsageTracker.Monitor.Hubs;
 using AIUsageTracker.Monitor.Logging;
 using AIUsageTracker.Monitor.Services;
+using AIUsageTracker.Core.Providers;
 
 namespace AIUsageTracker.Monitor;
 
@@ -333,8 +334,8 @@ public partial class Program
         builder.Services.AddSingleton<IConfigService, ConfigService>();
         builder.Services.AddSingleton<IGitHubAuthService, GitHubAuthService>();
         builder.Services.AddSingleton<IProviderDiscoveryService, ProviderDiscoveryService>();
-        AIUsageTracker.Infrastructure.Providers.ProviderMetadataCatalog.Initialize(
-            typeof(AIUsageTracker.Infrastructure.Providers.ProviderMetadataCatalog).Assembly);
+        AIUsageTracker.Core.Providers.ProviderMetadataCatalog.Initialize(
+            typeof(AIUsageTracker.Infrastructure.Extensions.ProviderRegistrationExtensions).Assembly);
         builder.Services.AddProvidersFromAssembly();
         builder.Services.AddSingleton<UsageAlertsService>();
         builder.Services.AddSingleton<ProviderRefreshCircuitBreakerService>();

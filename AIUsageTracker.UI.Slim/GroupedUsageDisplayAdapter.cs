@@ -13,6 +13,7 @@
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Core.Providers;
 
 namespace AIUsageTracker.UI.Slim;
 

@@ -6,6 +6,7 @@ using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Monitor.Services;
 using AIUsageTracker.Tests.Infrastructure;
+using AIUsageTracker.Core.Providers;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 

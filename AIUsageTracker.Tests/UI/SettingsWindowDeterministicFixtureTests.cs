@@ -5,6 +5,7 @@
 using System.Reflection;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Core.Providers;
 
 namespace AIUsageTracker.Tests.UI;
 
