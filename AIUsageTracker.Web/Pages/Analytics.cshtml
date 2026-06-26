@@ -1,0 +1,131 @@
+@page "/analytics"
+@model AnalyticsModel
+@{
+    ViewData["Title"] = "Spending Trends";
+}
+
+<h1 class="page-title">Spending Trends</h1>
+
+@if (!Model.IsDatabaseAvailable)
+{
+    <div class="alert alert-warning">
+        Database not found. The Monitor must run first.
+    </div>
+}
+else if (!Model.HasCurrencyProviders)
+{
+    <div class="alert alert-info">
+        No currency-based providers are configured. Spending trends are available for providers that track dollar-based usage (e.g., OpenRouter, DeepSeek).
+    </div>
+}
+else
+{
+    <div class="chart-controls mb-2">
+        <a class="btn btn-secondary btn-sm" href="/analytics?days=7">7 Days</a>
+        <a class="btn btn-secondary btn-sm" href="/analytics?days=14">14 Days</a>
+        <a class="btn btn-secondary btn-sm" href="/analytics?days=30">30 Days</a>
+        <a class="btn btn-secondary btn-sm" href="/analytics?days=90">90 Days</a>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="spendingChart"></canvas>
+    </div>
+
+    @if (Model.SpendingData?.Any() != true)
+    {
+        <div class="alert alert-info">
+            No spending data available yet. The Monitor needs to collect data over time.
+        </div>
+    }
+}
+
+@section Scripts {
+    @if (Model.SpendingData?.Any() == true)
+    {
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script>
+            const spendingData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.SpendingData));
+            const providerColors = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ProviderColors ?? new Dictionary<string, string>()));
+
+            const defaultColors = ['#06b6d4', '#8b5cf6', '#f97316', '#10b981', '#f43f5e', '#eab308'];
+
+            function getColor(name, index) {
+                if (providerColors[name]) return providerColors[name];
+                return defaultColors[index % defaultColors.length];
+            }
+
+            function buildChart() {
+                if (!spendingData || spendingData.length === 0) return null;
+
+                const providers = [...new Set(spendingData.map(d => d.ProviderName))].sort();
+                const allDates = [...new Set(spendingData.map(d => d.Date))].sort();
+
+                const labels = allDates.map(d => {
+                    const date = new Date(d + 'T00:00:00');
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                });
+
+                const datasets = providers.map((name, i) => {
+                    const providerData = spendingData.filter(d => d.ProviderName === name);
+                    const color = getColor(name, i);
+                    const data = allDates.map(date => {
+                        const point = providerData.find(d => d.Date === date);
+                        return point ? point.Amount : null;
+                    });
+
+                    return {
+                        label: name,
+                        data: data,
+                        borderColor: color,
+                        backgroundColor: color + '20',
+                        fill: false,
+                        tension: 0.2,
+                        pointRadius: 2,
+                        pointHoverRadius: 6,
+                        spanGaps: true
+                    };
+                });
+
+                return { labels, datasets };
+            }
+
+            const chartState = buildChart();
+            if (chartState) {
+                const ctx = document.getElementById('spendingChart');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: { labels: chartState.labels, datasets: chartState.datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { intersect: false, mode: 'index' },
+                        animation: false,
+                        scales: {
+                            x: {
+                                title: { display: false },
+                                ticks: { maxRotation: 45, minRotation: 45, maxTicksLimit: 20 }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                title: { display: true, text: 'Cumulative Spend ($)' },
+                                ticks: {
+                                    callback: function(value) { return '$' + value.toFixed(2); }
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: { position: 'bottom', labels: { boxWidth: 12, padding: 15 } },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(c) {
+                                        return c.dataset.label + ': $' + (c.parsed.y?.toFixed(2) ?? '-');
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        </script>
+    }
+}

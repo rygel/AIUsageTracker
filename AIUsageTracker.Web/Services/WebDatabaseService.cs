@@ -87,6 +87,29 @@ public class WebDatabaseService : IWebDatabaseRepository
             GROUP BY h.provider_id, (strftime('%s', h.fetched_at) / @BucketSeconds)
             ORDER BY Timestamp ASC";
 
+    private const string SpendingTrendSql = @"
+            WITH normalized AS (
+                SELECT h.provider_id AS ProviderId,
+                       MIN(p.provider_name) AS ProviderName,
+                       h.requests_used AS Amount,
+                       CASE
+                           WHEN typeof(h.fetched_at) IN ('integer', 'real')
+                               THEN date(CAST(h.fetched_at AS INTEGER), 'unixepoch')
+                           ELSE date(h.fetched_at)
+                       END AS Day
+                FROM provider_history h
+                JOIN providers p ON h.provider_id = p.provider_id
+                WHERE h.provider_id IN @ProviderIds
+                  AND h.fetched_at >= @CutoffUtc
+            )
+            SELECT ProviderId,
+                   ProviderName,
+                   Day AS Date,
+                   MAX(Amount) AS Amount
+            FROM normalized
+            GROUP BY ProviderId, Day
+            ORDER BY Day ASC";
+
     private const string RecentResetEventsSql = @"
             SELECT 
                 id AS Id, 
@@ -263,6 +286,35 @@ public class WebDatabaseService : IWebDatabaseRepository
             "WebDB GetChartDataAsync hours={Hours} bucketMinutes={BucketMinutes} rows={Count} elapsedMs={ElapsedMs}",
             hours,
             bucketMinutes,
+            list.Count,
+            sw.ElapsedMilliseconds);
+        return list;
+    }
+
+    public async Task<IReadOnlyList<SpendingTrendPoint>> GetSpendingTrendAsync(IEnumerable<string> providerIds, int days = 30)
+    {
+        var sw = Stopwatch.StartNew();
+
+        var ids = providerIds as IReadOnlyCollection<string> ?? providerIds.ToList();
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        var cutoffUtc = DateTime.UtcNow.AddDays(-days).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+
+        var list = await this.QueryDisplayNamedListIfDatabaseAvailableAsync(
+            connection => connection.QueryAsync<SpendingTrendPoint>(SpendingTrendSql, new
+            {
+                ProviderIds = ids,
+                CutoffUtc = cutoffUtc,
+            }),
+            []).ConfigureAwait(false);
+
+        this._logger.LogInformation(
+            "WebDB GetSpendingTrendAsync days={Days} providers={ProviderCount} rows={Count} elapsedMs={ElapsedMs}",
+            days,
+            ids.Count,
             list.Count,
             sw.ElapsedMilliseconds);
         return list;
