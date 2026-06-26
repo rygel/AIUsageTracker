@@ -2,6 +2,8 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Reflection;
+
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 
@@ -10,6 +12,19 @@ namespace AIUsageTracker.Infrastructure.Providers;
 public static class ProviderMetadataCatalog
 {
     private static readonly Lazy<IReadOnlyList<ProviderDefinition>> DefinitionsValue = new(LoadDefinitions);
+
+    private static Assembly? _discoveryAssembly;
+
+    /// <summary>
+    /// Sets the assembly to scan for IProviderService implementations.
+    /// Call from the composition root (Monitor/Web/CLI startup) before first access to Definitions.
+    /// If not called, defaults to the assembly containing this class (backward compatibility).
+    /// </summary>
+    public static void Initialize(Assembly assembly)
+    {
+        ArgumentNullException.ThrowIfNull(assembly);
+        _discoveryAssembly = assembly;
+    }
 
     public static IReadOnlyList<ProviderDefinition> Definitions => DefinitionsValue.Value;
 
@@ -230,7 +245,8 @@ public static class ProviderMetadataCatalog
     {
         var definitions = new List<ProviderDefinition>();
 
-        var providerTypes = typeof(ProviderMetadataCatalog).Assembly
+        var scanAssembly = _discoveryAssembly ?? typeof(ProviderMetadataCatalog).Assembly;
+        var providerTypes = scanAssembly
             .GetTypes()
             .Where(t => t.IsClass && !t.IsAbstract && typeof(IProviderService).IsAssignableFrom(t));
 
@@ -256,6 +272,13 @@ public static class ProviderMetadataCatalog
                     definitions.Add(additionalDef);
                 }
             }
+        }
+
+        if (definitions.Count == 0)
+        {
+            throw new InvalidOperationException(
+                $"ProviderMetadataCatalog discovered zero provider definitions scanning '{scanAssembly.GetName().Name}'. " +
+                "Ensure the correct assembly was passed to ProviderMetadataCatalog.Initialize().");
         }
 
         definitions.Sort((a, b) => string.Compare(a.ProviderId, b.ProviderId, StringComparison.OrdinalIgnoreCase));

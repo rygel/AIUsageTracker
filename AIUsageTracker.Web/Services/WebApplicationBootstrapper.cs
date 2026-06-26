@@ -17,6 +17,8 @@ internal static class WebApplicationBootstrapper
 
         var builder = WebApplication.CreateBuilder(args);
         builder.Host.UseSerilog();
+        AIUsageTracker.Infrastructure.Providers.ProviderMetadataCatalog.Initialize(
+            typeof(AIUsageTracker.Infrastructure.Providers.ProviderMetadataCatalog).Assembly);
         builder.Services.AddWebUiDataProtection(builder.Environment, runtimePaths.DataProtectionKeyDirectory);
         builder.Services.AddWebUiInfrastructure();
         builder.Services.AddAIUsageTrackerWebServices(runtimePaths.DatabasePath);
