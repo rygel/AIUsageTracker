@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [2.3.6-beta.15] - 2026-06-26
+
+### Changed
+- **Removed card filtering from rendering pipeline**: `GroupedUsageDisplayAdapter` no longer filters `ProviderDetails` by type (`.OfType<T>()`) or `WindowKind`. All cards pass straight through as WindowCards.
+- **Labels from canonical definition**: Dual bar labels now come exclusively from `QuotaWindowDefinition.DualBarLabel`. Removed all hardcoded fallbacks (`?? "Burst"`, `?? "Rolling"`, `?? false`).
+- **Deleted `LegacyParentCardBuilder`**: Inlined into `GroupedUsageDisplayAdapter`. No adapter class with fallback logic.
+- **Architecture rules**: Added "Rendering Architecture: Definition Controls Everything" rule to AGENTS.md and source file comments. The Monitor sends raw data; `ProviderDefinition` is the single source of truth for all rendering decisions.
+
 ## [2.3.6-beta.14] - 2026-06-26
 
 ### Fixed
