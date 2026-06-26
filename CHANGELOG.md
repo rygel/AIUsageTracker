@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [2.3.7-beta.1] - 2026-06-26
+
+### Added
+- **Groq provider**: New provider tracking rate-limit headers (daily requests + per-minute tokens) via `GROQ_API_KEY`. Falls back to status-only card when headers absent.
+- **CSV export**: Export button on History page downloads 90 days of usage data in RFC 4180 CSV format.
+- **Tray tooltip**: System tray now shows active provider count and average remaining percentage.
+- **Analytics page**: Web dashboard `/analytics` page with per-model breakdown, latency trends, HTTP status history, and provider details JSON panel (Chart.js).
+- **Provider API research**: Findings doc documenting Gemini (already implemented), Anthropic (admin key barrier), and Groq (implemented) API capabilities.
+
+### Changed
+- **ProviderMetadataCatalog inversion**: Added `Initialize(Assembly)` static method with zero-providers guard. Prerequisite for Core migration. Backward-compatible fallback.
+- **IUsageAnalyticsService collapsed**: Interface removed; concrete `UsageAnalyticsService` used directly (redundant with Core.Services move on develop).
+
 ## [2.3.6-beta.15] - 2026-06-26
 
 ### Changed
