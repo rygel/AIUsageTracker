@@ -48,6 +48,22 @@ public abstract class ProviderBase : IProviderService
         return $"Resets in {((int)resetAfterSeconds.Value).ToString(CultureInfo.InvariantCulture)}s";
     }
 
+    protected static double? TryGetHeaderDouble(System.Net.Http.Headers.HttpResponseHeaders headers, string name)
+    {
+        ArgumentNullException.ThrowIfNull(headers);
+
+        if (headers.TryGetValues(name, out var values))
+        {
+            var raw = values.FirstOrDefault();
+            if (raw != null && double.TryParse(raw, CultureInfo.InvariantCulture, out var result))
+            {
+                return result;
+            }
+        }
+
+        return null;
+    }
+
     protected static DateTime? ResolveResetTimeFromSeconds(double? resetAfterSeconds)
     {
         if (!resetAfterSeconds.HasValue || resetAfterSeconds.Value <= 0)

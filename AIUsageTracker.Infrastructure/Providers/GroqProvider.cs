@@ -75,12 +75,12 @@ public class GroqProvider : ProviderBase
                 return new[] { errorUsage };
             }
 
-            var limitRequests = TryParseHeaderDouble(response.Headers, "x-ratelimit-limit-requests");
-            var remainingRequests = TryParseHeaderDouble(response.Headers, "x-ratelimit-remaining-requests");
-            var resetRequestsSeconds = TryParseHeaderDouble(response.Headers, "x-ratelimit-reset-requests");
-            var limitTokens = TryParseHeaderDouble(response.Headers, "x-ratelimit-limit-tokens");
-            var remainingTokens = TryParseHeaderDouble(response.Headers, "x-ratelimit-remaining-tokens");
-            var resetTokensSeconds = TryParseHeaderDouble(response.Headers, "x-ratelimit-reset-tokens");
+            var limitRequests = TryGetHeaderDouble(response.Headers, "x-ratelimit-limit-requests");
+            var remainingRequests = TryGetHeaderDouble(response.Headers, "x-ratelimit-remaining-requests");
+            var resetRequestsSeconds = TryGetHeaderDouble(response.Headers, "x-ratelimit-reset-requests");
+            var limitTokens = TryGetHeaderDouble(response.Headers, "x-ratelimit-limit-tokens");
+            var remainingTokens = TryGetHeaderDouble(response.Headers, "x-ratelimit-remaining-tokens");
+            var resetTokensSeconds = TryGetHeaderDouble(response.Headers, "x-ratelimit-reset-tokens");
 
             var cards = new List<ProviderUsage>();
 
@@ -181,19 +181,5 @@ public class GroqProvider : ProviderBase
                     failureContext: HttpFailureContext.FromException(ex, HttpFailureClassification.Timeout)),
             };
         }
-    }
-
-    private static double? TryParseHeaderDouble(HttpResponseHeaders headers, string name)
-    {
-        if (headers.TryGetValues(name, out var values))
-        {
-            var raw = values.FirstOrDefault();
-            if (raw != null && double.TryParse(raw, CultureInfo.InvariantCulture, out var result))
-            {
-                return result;
-            }
-        }
-
-        return null;
     }
 }

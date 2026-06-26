@@ -434,33 +434,13 @@ public class ClaudeCodeProvider : ProviderBase
 
     private static RateLimitInfo ExtractRateLimitInfo(System.Net.Http.Headers.HttpResponseHeaders headers)
     {
-        var info = new RateLimitInfo();
-
-        if (headers.TryGetValues("anthropic-ratelimit-requests-limit", out var requestLimitValues) &&
-            int.TryParse(requestLimitValues.FirstOrDefault(), CultureInfo.InvariantCulture, out var limit))
+        return new RateLimitInfo
         {
-            info.RequestsLimit = limit;
-        }
-
-        if (headers.TryGetValues("anthropic-ratelimit-requests-remaining", out var requestRemainingValues) &&
-            int.TryParse(requestRemainingValues.FirstOrDefault(), CultureInfo.InvariantCulture, out var remaining))
-        {
-            info.RequestsRemaining = remaining;
-        }
-
-        if (headers.TryGetValues("anthropic-ratelimit-input-tokens-limit", out var inputLimitValues) &&
-            int.TryParse(inputLimitValues.FirstOrDefault(), CultureInfo.InvariantCulture, out var inputLimit))
-        {
-            info.InputTokensLimit = inputLimit;
-        }
-
-        if (headers.TryGetValues("anthropic-ratelimit-input-tokens-remaining", out var inputRemainingValues) &&
-            int.TryParse(inputRemainingValues.FirstOrDefault(), CultureInfo.InvariantCulture, out var inputRemaining))
-        {
-            info.InputTokensRemaining = inputRemaining;
-        }
-
-        return info;
+            RequestsLimit = (int)(TryGetHeaderDouble(headers, "anthropic-ratelimit-requests-limit") ?? 0),
+            RequestsRemaining = (int)(TryGetHeaderDouble(headers, "anthropic-ratelimit-requests-remaining") ?? 0),
+            InputTokensLimit = (int)(TryGetHeaderDouble(headers, "anthropic-ratelimit-input-tokens-limit") ?? 0),
+            InputTokensRemaining = (int)(TryGetHeaderDouble(headers, "anthropic-ratelimit-input-tokens-remaining") ?? 0),
+        };
     }
 
     private async Task<IEnumerable<ProviderUsage>> GetUsageFromCliAsync(string providerLabel)
