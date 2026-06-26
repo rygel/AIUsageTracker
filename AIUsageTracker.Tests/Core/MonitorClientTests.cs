@@ -3,7 +3,7 @@
 // </copyright>
 
 using System.Reflection;
-using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Infrastructure.MonitorClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Moq.Protected;

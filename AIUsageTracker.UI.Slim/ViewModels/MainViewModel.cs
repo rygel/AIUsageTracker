@@ -15,7 +15,7 @@ namespace AIUsageTracker.UI.Slim.ViewModels;
 /// <summary>
 /// ViewModel for the main window, managing usage data display and refresh operations.
 /// </summary>
-public partial class MainViewModel : BaseViewModel
+public partial class MainViewModel : ObservableObject
 {
     private readonly IMonitorService _monitorService;
     private readonly ILogger<MainViewModel> _logger;

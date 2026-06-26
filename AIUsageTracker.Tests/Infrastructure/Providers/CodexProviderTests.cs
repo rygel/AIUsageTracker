@@ -101,7 +101,7 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
         try
         {
             // Act
-            var allUsages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
+            var allUsages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).OfType<ModelScopedProviderUsage>().ToList();
 
             // Assert: flat cards — burst card and weekly card emitted separately
             var burstUsage = Assert.Single(allUsages, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal) && string.Equals(u.CardId, "burst", StringComparison.Ordinal));
@@ -216,7 +216,7 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
 
         try
         {
-            var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
+            var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).OfType<ModelScopedProviderUsage>().ToList();
 
             // In the flat-card model, a codex.spark card is emitted when spark window data exists.
             var sparkCard = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex.spark", StringComparison.Ordinal) && usage.WindowKind == WindowKind.Burst);
@@ -278,7 +278,7 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
 
         try
         {
-            var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
+            var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).OfType<ModelScopedProviderUsage>().ToList();
 
             var sparkBurst = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex.spark", StringComparison.Ordinal) && usage.WindowKind == WindowKind.Burst);
             Assert.Equal(0, sparkBurst.UsedPercent, precision: 0);
@@ -338,7 +338,7 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
 
         try
         {
-            var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
+            var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).OfType<ModelScopedProviderUsage>().ToList();
 
             // Codex: burst (20%), weekly (10%). Spark: burst (40%), weekly (75%).
             Assert.Contains(usages, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal) && string.Equals(u.CardId, "burst", StringComparison.Ordinal) && u.WindowKind == WindowKind.Burst);
@@ -405,7 +405,7 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
 
         try
         {
-            var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
+            var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).OfType<ModelScopedProviderUsage>().ToList();
 
             // Spark burst = 40%, Spark weekly = 75% (from spark's own secondary_window).
             var sparkBurst = Assert.Single(usages, u => string.Equals(u.ProviderId, "codex.spark", StringComparison.Ordinal) && u.WindowKind == WindowKind.Burst);
@@ -480,7 +480,7 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
 
         try
         {
-            var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
+            var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).OfType<ModelScopedProviderUsage>().ToList();
 
             // Spark burst: 0% (just reset, API omitted used_percent). Spark weekly: 19%.
             var sparkBurst = Assert.Single(usages, u => string.Equals(u.ProviderId, "codex.spark", StringComparison.Ordinal) && u.WindowKind == WindowKind.Burst);
@@ -552,7 +552,7 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
 
         try
         {
-            var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
+            var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).OfType<ModelScopedProviderUsage>().ToList();
 
             // The codex.spark flat card must exist so the DerivedModelSelector for codex.spark can match it.
             Assert.Contains(usages, u => string.Equals(u.ProviderId, "codex.spark", StringComparison.Ordinal));
@@ -615,7 +615,7 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
 
         try
         {
-            var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
+            var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).OfType<ModelScopedProviderUsage>().ToList();
 
             // Burst card: 0% used (just reset)
             var burstCard = Assert.Single(usages, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal) && string.Equals(u.CardId, "burst", StringComparison.Ordinal));
@@ -682,7 +682,7 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
 
         try
         {
-            var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
+            var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).OfType<ModelScopedProviderUsage>().ToList();
 
             // Weekly card: driven by main secondary → 98% used
             var weeklyCard = Assert.Single(usages, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal) && string.Equals(u.CardId, "weekly", StringComparison.Ordinal));

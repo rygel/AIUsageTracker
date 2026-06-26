@@ -143,34 +143,16 @@ public class UsageDatabase : IUsageDatabase
 
         public void Dispose()
         {
-            this.Dispose(disposing: true);
-            GC.SuppressFinalize(this);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
         }
     }
 
-    private static async Task EnableForeignKeysAsync(SqliteConnection connection)
-    {
-        await connection.ExecuteAsync("PRAGMA foreign_keys = ON").ConfigureAwait(false);
-    }
-
-    private async Task<SqliteConnection> OpenReadConnectionAsync()
-    {
-        var connection = new SqliteConnection(this._connectionString);
-        await connection.OpenAsync().ConfigureAwait(false);
-        return connection;
-    }
-
-    private async Task<SqliteConnection> OpenWriteConnectionAsync(bool enableForeignKeys = false)
+    private async Task<SqliteConnection> OpenConnectionAsync(bool enableForeignKeys = false)
     {
         var connection = new SqliteConnection(this._connectionString);
         await connection.OpenAsync().ConfigureAwait(false);
         if (enableForeignKeys)
         {
-            await EnableForeignKeysAsync(connection).ConfigureAwait(false);
+            await connection.ExecuteAsync("PRAGMA foreign_keys = ON").ConfigureAwait(false);
         }
 
         return connection;
@@ -183,7 +165,7 @@ public class UsageDatabase : IUsageDatabase
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = await this.OpenWriteConnectionAsync(enableForeignKeys: true).ConfigureAwait(false);
+            using var connection = await this.OpenConnectionAsync(enableForeignKeys: true).ConfigureAwait(false);
 
             const string sql = @"
                 INSERT INTO providers (
@@ -237,7 +219,7 @@ public class UsageDatabase : IUsageDatabase
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = await this.OpenWriteConnectionAsync(enableForeignKeys: true).ConfigureAwait(false);
+            using var connection = await this.OpenConnectionAsync(enableForeignKeys: true).ConfigureAwait(false);
 
             const string providerUpsertSql = @"
                 INSERT INTO providers (
@@ -294,7 +276,7 @@ public class UsageDatabase : IUsageDatabase
                         response_latency_ms, http_status,
                         upstream_response_validity, upstream_response_note,
                         parent_provider_id, card_id, group_id,
-                        window_kind, model_name, name
+                        window_kind, model_name, name, card_type
                     ) VALUES (
                         @ProviderId,
                         @RequestsUsed, @RequestsAvailable, @RequestsPercentage,
@@ -302,7 +284,7 @@ public class UsageDatabase : IUsageDatabase
                         @ResponseLatencyMs, @HttpStatus,
                         @UpstreamResponseValidity, @UpstreamResponseNote,
                         @ParentProviderId, @CardId, @GroupId,
-                        @WindowKind, @ModelName, @Name
+                        @WindowKind, @ModelName, @Name, @CardType
                     )";
 
                 await connection.ExecuteAsync(insertSql, toInsert).ConfigureAwait(false);
@@ -335,13 +317,14 @@ public class UsageDatabase : IUsageDatabase
         string? newNextResetTime,
         string newStatusMessage)
     {
-        return Math.Abs(usage.RequestsUsed - last.RequestsUsed) < 0.001
-            && Math.Abs(usage.RequestsAvailable - last.RequestsAvailable) < 0.001
+        var q = usage as QuotaProviderUsage;
+        return Math.Abs((q?.RequestsUsed ?? 0) - last.RequestsUsed) < 0.001
+            && Math.Abs((q?.RequestsAvailable ?? 0) - last.RequestsAvailable) < 0.001
             && (usage.IsAvailable ? 1L : 0L) == last.IsAvailable
             && (long)usage.HttpStatus == last.HttpStatus
             && string.Equals(newStatusMessage, last.StatusMessage ?? string.Empty, StringComparison.Ordinal)
             && string.Equals(newNextResetTime, last.NextResetTime, StringComparison.Ordinal)
-            && string.Equals(usage.Name, last.Name, StringComparison.Ordinal);
+            && string.Equals((usage as WindowedProviderUsage)?.Name ?? (usage as ModelScopedProviderUsage)?.Name, last.Name, StringComparison.Ordinal);
     }
 
     private static void ClassifyHistoryEntries(
@@ -353,7 +336,10 @@ public class UsageDatabase : IUsageDatabase
         foreach (var u in validUsages)
         {
             var fetchedAt = ToUnixEpoch(u.FetchedAt == default ? DateTime.UtcNow : u.FetchedAt);
-            var nextResetTime = u.NextResetTime?.ToString("O");
+            var q = u as QuotaProviderUsage;
+            var w = u as WindowedProviderUsage;
+            var m = u as ModelScopedProviderUsage;
+            var nextResetTime = q?.NextResetTime?.ToString("O");
             var statusMessage = u.Description ?? string.Empty;
             var validityEval = u.EvaluateUpstreamResponseValidity();
             var validityInt = (int)(u.UpstreamResponseValidity == UpstreamResponseValidity.Unknown
@@ -363,7 +349,7 @@ public class UsageDatabase : IUsageDatabase
                 ? validityEval.Note
                 : u.UpstreamResponseNote;
 
-            var dedupKey = $"{u.ProviderId!}::{u.CardId ?? string.Empty}";
+            var dedupKey = $"{u.ProviderId!}::{w?.CardId ?? m?.CardId ?? string.Empty}";
             if (lastRows.TryGetValue(dedupKey, out var last)
                 && IsHistoryUnchanged(u, last, nextResetTime, statusMessage))
             {
@@ -373,9 +359,9 @@ public class UsageDatabase : IUsageDatabase
             {
                 toInsert.Add(new HistoryInsertParams(
                     u.ProviderId!,
-                    u.RequestsUsed,
-                    u.RequestsAvailable,
-                    u.UsedPercent,
+                    q?.RequestsUsed ?? 0,
+                    q?.RequestsAvailable ?? 0,
+                    q?.UsedPercent ?? 0,
                     u.IsAvailable ? 1 : 0,
                     statusMessage,
                     nextResetTime,
@@ -384,15 +370,24 @@ public class UsageDatabase : IUsageDatabase
                     u.HttpStatus,
                     validityInt,
                     validityNote,
-                    u.ParentProviderId,
-                    u.CardId,
-                    u.GroupId,
-                    (int)u.WindowKind,
-                    u.ModelName,
-                    u.Name));
+                    w?.ParentProviderId,
+                    w?.CardId ?? m?.CardId,
+                    w?.GroupId ?? m?.GroupId,
+                    (int)(w?.WindowKind ?? m?.WindowKind ?? WindowKind.None),
+                    m?.ModelName,
+                    w?.Name ?? m?.Name,
+                    GetCardType(u)));
             }
         }
     }
+
+    private static string GetCardType(ProviderUsage u) => u switch
+    {
+        WindowedProviderUsage => "windowed",
+        ModelScopedProviderUsage => "model",
+        QuotaProviderUsage => "quota",
+        _ => "status",
+    };
 
     private static async Task<Dictionary<string, LastHistoryRow>> LoadLastHistoryRowsAsync(
         SqliteConnection connection,
@@ -458,7 +453,8 @@ public class UsageDatabase : IUsageDatabase
         string? GroupId,
         int WindowKind,
         string? ModelName,
-        string? Name);
+        string? Name,
+        string CardType);
 
     private sealed record HistoryTouchParams(long Id, long FetchedAt);
 
@@ -470,7 +466,7 @@ public class UsageDatabase : IUsageDatabase
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = await this.OpenWriteConnectionAsync(enableForeignKeys: true).ConfigureAwait(false);
+            using var connection = await this.OpenConnectionAsync(enableForeignKeys: true).ConfigureAwait(false);
 
             const string sql = @"
                 INSERT INTO raw_snapshots (provider_id, raw_json, http_status, fetched_at)
@@ -489,7 +485,7 @@ public class UsageDatabase : IUsageDatabase
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = await this.OpenWriteConnectionAsync().ConfigureAwait(false);
+            using var connection = await this.OpenConnectionAsync().ConfigureAwait(false);
 
             const string sql = "DELETE FROM raw_snapshots WHERE fetched_at < (strftime('%s', 'now') - 604800)";
             await connection.ExecuteAsync(sql).ConfigureAwait(false);
@@ -511,7 +507,7 @@ public class UsageDatabase : IUsageDatabase
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = await this.OpenWriteConnectionAsync().ConfigureAwait(false);
+            using var connection = await this.OpenConnectionAsync().ConfigureAwait(false);
 
             // Phase 1: rows in the 7–90 day window → keep last row per (provider, hour)
             const string downsampleHourly = @"
@@ -551,7 +547,7 @@ public class UsageDatabase : IUsageDatabase
 
                 // VACUUM must run outside a transaction and requires a separate connection.
                 await connection.CloseAsync().ConfigureAwait(false);
-                using var vacuumConnection = await this.OpenWriteConnectionAsync().ConfigureAwait(false);
+                using var vacuumConnection = await this.OpenConnectionAsync().ConfigureAwait(false);
                 await vacuumConnection.ExecuteAsync("VACUUM").ConfigureAwait(false);
             }
             else
@@ -572,7 +568,7 @@ public class UsageDatabase : IUsageDatabase
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = await this.OpenWriteConnectionAsync().ConfigureAwait(false);
+            using var connection = await this.OpenConnectionAsync().ConfigureAwait(false);
             await connection.ExecuteAsync("PRAGMA optimize").ConfigureAwait(false);
         }
         finally
@@ -591,7 +587,7 @@ public class UsageDatabase : IUsageDatabase
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = await this.OpenWriteConnectionAsync(enableForeignKeys: true).ConfigureAwait(false);
+            using var connection = await this.OpenConnectionAsync(enableForeignKeys: true).ConfigureAwait(false);
 
             const string sql = @"
                 INSERT INTO reset_events (
@@ -622,7 +618,7 @@ public class UsageDatabase : IUsageDatabase
             return Array.Empty<ProviderUsage>();
         }
 
-        using var connection = await this.OpenReadConnectionAsync().ConfigureAwait(false);
+        using var connection = await this.OpenConnectionAsync().ConfigureAwait(false);
 
         // When a provider-ID set is supplied, restrict the subquery to those IDs so that
         // stale history rows for removed/unconfigured providers are excluded at the SQL level
@@ -647,7 +643,8 @@ public class UsageDatabase : IUsageDatabase
                        h.group_id AS GroupId,
                        COALESCE(h.window_kind, 0) AS WindowKind,
                        h.model_name AS ModelName,
-                       h.name AS Name
+                       h.name AS Name,
+                       COALESCE(h.card_type, 'quota') AS CardType
                 FROM provider_history h
                 LEFT JOIN providers p ON h.provider_id = p.provider_id
                 WHERE h.id IN (
@@ -659,34 +656,39 @@ public class UsageDatabase : IUsageDatabase
                 ORDER BY h.provider_id, h.card_id";
 
         object? param = providerIds != null ? new { providerIds = providerIds.ToArray() } : null;
-        var results = (await connection.QueryAsync<ProviderUsage>(sql, param).ConfigureAwait(false)).ToList();
+        var dtoRows = (await connection.QueryAsync<HistoryRowDto>(sql, param).ConfigureAwait(false)).ToList();
+        var results = dtoRows.Select(ToTypedUsage).ToList();
 
-        await StampUsageRatesAsync(connection, results).ConfigureAwait(false);
+        var quotaResults = results.OfType<QuotaProviderUsage>().ToList();
+        await StampUsageRatesAsync(connection, quotaResults).ConfigureAwait(false);
 
         var now = DateTime.UtcNow;
         foreach (var usage in results)
         {
-            var usageDef = ProviderMetadataCatalog.Find(usage.ProviderId ?? string.Empty);
-            if (usageDef != null)
+            if (usage is QuotaProviderUsage quota)
             {
-                usage.PlanType = usageDef.PlanType;
-                usage.IsQuotaBased = usageDef.IsQuotaBased;
-
-                // provider-id-guardrail-allow: this comment explains matching against runtime provider ids
-                // Re-derive WindowKind from the provider's QuotaWindowDefinition so stale DB
-                // entries are corrected without a DB migration.
-                var childId = string.Equals(usage.ProviderId, usageDef.ProviderId, StringComparison.OrdinalIgnoreCase)
-                    && !string.IsNullOrWhiteSpace(usage.CardId)
-                        ? $"{usageDef.ProviderId}.{usage.CardId}"
-                        : usage.ProviderId;
-
-                var windowMatch = usageDef.QuotaWindows.FirstOrDefault(w =>
-                    !string.IsNullOrWhiteSpace(w.ChildProviderId) &&
-                    string.Equals(w.ChildProviderId, childId, StringComparison.OrdinalIgnoreCase));
-
-                if (windowMatch != null)
+                var usageDef = ProviderMetadataCatalog.Find(usage.ProviderId ?? string.Empty);
+                if (usageDef != null)
                 {
-                    usage.WindowKind = windowMatch.Kind;
+                    quota.PlanType = usageDef.PlanType;
+                    quota.IsQuotaBased = usageDef.IsQuotaBased;
+
+                    // provider-id-guardrail-allow: this comment explains matching against runtime provider ids
+                    // Re-derive WindowKind from the provider's QuotaWindowDefinition so stale DB
+                    // entries are corrected without a DB migration.
+                    var childId = string.Equals(usage.ProviderId, usageDef.ProviderId, StringComparison.OrdinalIgnoreCase)
+                        && !string.IsNullOrWhiteSpace(quota.CardId)
+                            ? $"{usageDef.ProviderId}.{quota.CardId}"
+                            : usage.ProviderId;
+
+                    var windowMatch = usageDef.QuotaWindows.FirstOrDefault(w =>
+                        !string.IsNullOrWhiteSpace(w.ChildProviderId) &&
+                        string.Equals(w.ChildProviderId, childId, StringComparison.OrdinalIgnoreCase));
+
+                    if (windowMatch != null)
+                    {
+                        quota.WindowKind = windowMatch.Kind;
+                    }
                 }
             }
 
@@ -703,7 +705,72 @@ public class UsageDatabase : IUsageDatabase
     /// Uses the row closest to one hour ago (within a 30–120 min window) as the baseline.
     /// Returns null for a provider when there is insufficient history or the counter reset.
     /// </summary>
-    private static async Task StampUsageRatesAsync(SqliteConnection connection, IReadOnlyList<ProviderUsage> results)
+    /// <summary>
+    /// Dapper-mapped DTO that captures every column from <c>provider_history</c>,
+    /// including the subtype discriminator (<c>card_type</c>) and fields that
+    /// belong to specific subtypes (<c>parent_provider_id</c>, <c>model_name</c>).
+    /// Inherits all quota fields from <see cref="QuotaProviderUsage"/>.
+    /// </summary>
+    private sealed class HistoryRowDto : QuotaProviderUsage
+    {
+        public string? ParentProviderId { get; set; }
+
+        public string? ModelName { get; set; }
+
+        public string? CardType { get; set; }
+    }
+
+    private static ProviderUsage ToTypedUsage(HistoryRowDto row) => row.CardType switch
+    {
+        "status" => CopyTo(new StatusProviderUsage(), row),
+        "model" => CopyTo(new ModelScopedProviderUsage { ModelName = row.ModelName }, row),
+        "windowed" => CopyTo(new WindowedProviderUsage { ParentProviderId = row.ParentProviderId }, row),
+        _ => CopyTo(new QuotaProviderUsage(), row),
+    };
+
+    private static T CopyTo<T>(T target, HistoryRowDto source) where T : ProviderUsage
+    {
+        target.ProviderId = source.ProviderId;
+        target.ProviderName = source.ProviderName;
+        target.IsAvailable = source.IsAvailable;
+        target.Description = source.Description;
+        target.State = source.State;
+        target.AuthSource = source.AuthSource;
+        target.IsTooltipOnly = source.IsTooltipOnly;
+        target.AccountName = source.AccountName;
+        target.ConfigKey = source.ConfigKey;
+        target.FetchedAt = source.FetchedAt;
+        target.ResponseLatencyMs = source.ResponseLatencyMs;
+        target.RawJson = source.RawJson;
+        target.HttpStatus = source.HttpStatus;
+        target.UpstreamResponseValidity = source.UpstreamResponseValidity;
+        target.UpstreamResponseNote = source.UpstreamResponseNote;
+        target.IsStale = source.IsStale;
+
+        if (target is QuotaProviderUsage quota)
+        {
+            quota.RequestsUsed = source.RequestsUsed;
+            quota.RequestsAvailable = source.RequestsAvailable;
+            quota.UsedPercent = source.UsedPercent;
+            quota.PlanType = source.PlanType;
+            quota.IsCurrencyUsage = source.IsCurrencyUsage;
+            quota.IsQuotaBased = source.IsQuotaBased;
+            quota.DisplayAsFraction = source.DisplayAsFraction;
+            quota.IsStatusOnly = source.IsStatusOnly;
+            quota.NextResetTime = source.NextResetTime;
+            quota.UsagePerHour = source.UsagePerHour;
+            quota.WindowKind = source.WindowKind;
+            quota.Name = source.Name;
+            quota.CardId = source.CardId;
+            quota.GroupId = source.GroupId;
+            quota.PeriodDuration = source.PeriodDuration;
+        }
+
+        return target;
+    }
+
+
+    private static async Task StampUsageRatesAsync(SqliteConnection connection, IReadOnlyList<QuotaProviderUsage> results)
     {
         if (results.Count == 0)
         {
@@ -813,7 +880,7 @@ public class UsageDatabase : IUsageDatabase
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(limit, 10_000);
 
-        using var connection = await this.OpenReadConnectionAsync().ConfigureAwait(false);
+        using var connection = await this.OpenConnectionAsync().ConfigureAwait(false);
 
         var sql = $@"
                 SELECT h.provider_id AS ProviderId, p.provider_name AS ProviderName,
@@ -824,13 +891,15 @@ public class UsageDatabase : IUsageDatabase
                        h.response_latency_ms AS ResponseLatencyMs,
                        h.http_status AS HttpStatus,
                        COALESCE(h.upstream_response_validity, 0) AS UpstreamResponseValidity,
-                       COALESCE(h.upstream_response_note, '') AS UpstreamResponseNote
+                       COALESCE(h.upstream_response_note, '') AS UpstreamResponseNote,
+                       COALESCE(h.card_type, 'quota') AS CardType
                 FROM provider_history h
                 JOIN providers p ON h.provider_id = p.provider_id
                 ORDER BY h.fetched_at DESC
                 LIMIT {limit}";
 
-        var results = (await connection.QueryAsync<ProviderUsage>(sql).ConfigureAwait(false)).ToList();
+        var dtoRows = (await connection.QueryAsync<HistoryRowDto>(sql).ConfigureAwait(false)).ToList();
+        var results = dtoRows.Select(ToTypedUsage).ToList();
 
         foreach (var usage in results)
         {
@@ -845,7 +914,7 @@ public class UsageDatabase : IUsageDatabase
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(limit, 10_000);
 
-        using var connection = await this.OpenReadConnectionAsync().ConfigureAwait(false);
+        using var connection = await this.OpenConnectionAsync().ConfigureAwait(false);
 
         var sql = $@"
                 SELECT h.provider_id AS ProviderId, p.provider_name AS ProviderName,
@@ -856,14 +925,16 @@ public class UsageDatabase : IUsageDatabase
                        h.response_latency_ms AS ResponseLatencyMs,
                        h.http_status AS HttpStatus,
                        COALESCE(h.upstream_response_validity, 0) AS UpstreamResponseValidity,
-                       COALESCE(h.upstream_response_note, '') AS UpstreamResponseNote
+                       COALESCE(h.upstream_response_note, '') AS UpstreamResponseNote,
+                       COALESCE(h.card_type, 'quota') AS CardType
                 FROM provider_history h
                 JOIN providers p ON h.provider_id = p.provider_id
                 WHERE h.provider_id = @ProviderId
                 ORDER BY h.fetched_at DESC
                 LIMIT {limit}";
 
-        var results = (await connection.QueryAsync<ProviderUsage>(sql, new { ProviderId = providerId }).ConfigureAwait(false)).ToList();
+        var dtoRows = (await connection.QueryAsync<HistoryRowDto>(sql, new { ProviderId = providerId }).ConfigureAwait(false)).ToList();
+        var results = dtoRows.Select(ToTypedUsage).ToList();
 
         foreach (var usage in results)
         {
@@ -878,7 +949,7 @@ public class UsageDatabase : IUsageDatabase
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(countPerProvider);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(countPerProvider, 10_000);
 
-        using var connection = await this.OpenReadConnectionAsync().ConfigureAwait(false);
+        using var connection = await this.OpenConnectionAsync().ConfigureAwait(false);
 
         var sql = $@"
                 WITH RankedHistory AS (
@@ -891,18 +962,20 @@ public class UsageDatabase : IUsageDatabase
                            h.http_status AS HttpStatus,
                            COALESCE(h.upstream_response_validity, 0) AS UpstreamResponseValidity,
                            COALESCE(h.upstream_response_note, '') AS UpstreamResponseNote,
+                           COALESCE(h.card_type, 'quota') AS CardType,
                            ROW_NUMBER() OVER (PARTITION BY h.provider_id ORDER BY h.fetched_at DESC) as pos
                     FROM provider_history h
                     JOIN providers p ON h.provider_id = p.provider_id
                 )
                 SELECT ProviderId, ProviderName, RequestsUsed, RequestsAvailable,
                        UsedPercent, IsAvailable, Description, FetchedAt, NextResetTime,
-                       ResponseLatencyMs, HttpStatus, UpstreamResponseValidity, UpstreamResponseNote
+                       ResponseLatencyMs, HttpStatus, UpstreamResponseValidity, UpstreamResponseNote, CardType
                 FROM RankedHistory
                 WHERE pos <= @Count
                 ORDER BY ProviderId, FetchedAt DESC";
 
-        var results = (await connection.QueryAsync<ProviderUsage>(sql, new { Count = countPerProvider }).ConfigureAwait(false)).ToList();
+        var dtoRows = (await connection.QueryAsync<HistoryRowDto>(sql, new { Count = countPerProvider }).ConfigureAwait(false)).ToList();
+        var results = dtoRows.Select(ToTypedUsage).ToList();
 
         foreach (var usage in results)
         {
@@ -914,7 +987,7 @@ public class UsageDatabase : IUsageDatabase
 
     public async Task<IReadOnlyList<ResetEvent>> GetResetEventsAsync(string providerId, int limit = 50)
     {
-        using var connection = await this.OpenReadConnectionAsync().ConfigureAwait(false);
+        using var connection = await this.OpenConnectionAsync().ConfigureAwait(false);
 
         var sql = $@"
                 SELECT id AS Id, provider_id AS ProviderId, provider_name AS ProviderName,
@@ -931,7 +1004,7 @@ public class UsageDatabase : IUsageDatabase
 
     public async Task<bool> IsHistoryEmptyAsync()
     {
-        using var connection = await this.OpenReadConnectionAsync().ConfigureAwait(false);
+        using var connection = await this.OpenConnectionAsync().ConfigureAwait(false);
         var count = await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM provider_history").ConfigureAwait(false);
         return count == 0;
     }
@@ -941,7 +1014,7 @@ public class UsageDatabase : IUsageDatabase
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = await this.OpenWriteConnectionAsync().ConfigureAwait(false);
+            using var connection = await this.OpenConnectionAsync().ConfigureAwait(false);
 
             await connection.ExecuteAsync(
                 "UPDATE providers SET is_active = @IsActive, updated_at = CURRENT_TIMESTAMP WHERE provider_id = @ProviderId",

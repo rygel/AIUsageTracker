@@ -3,7 +3,6 @@
 // </copyright>
 
 using System.Globalization;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Providers;
@@ -82,25 +81,20 @@ public class XiaomiProvider : ProviderBase
         var used = quota > 0 ? Math.Max(0, quota - balance) : 0;
         var usedPercent = quota > 0 ? UsageMath.CalculateUsedPercent(used, quota) : 0;
 
-        return new[]
-        {
-            new ProviderUsage
-            {
-                ProviderId = config.ProviderId,
-                ProviderName = providerLabel,
-                UsedPercent = usedPercent,
-                RequestsUsed = used,
-                RequestsAvailable = quota > 0 ? quota : balance,
-                IsQuotaBased = this.Definition.IsQuotaBased,
-                PlanType = this.Definition.PlanType,
-                IsAvailable = true,
-                Description = quota > 0
-                    ? $"{balance.ToString(CultureInfo.InvariantCulture)} remaining / {quota.ToString(CultureInfo.InvariantCulture)} total"
-                    : $"Balance: {balance.ToString(CultureInfo.InvariantCulture)}",
-                RawJson = content,
-                HttpStatus = httpStatus,
-            },
-        };
+        var usage = CreateQuotaUsage(config);
+        usage.ProviderName = providerLabel;
+        usage.IsAvailable = true;
+        usage.IsQuotaBased = this.Definition.IsQuotaBased;
+        usage.PlanType = this.Definition.PlanType;
+        usage.RawJson = content;
+        usage.HttpStatus = httpStatus;
+        usage.UsedPercent = usedPercent;
+        usage.RequestsUsed = used;
+        usage.RequestsAvailable = quota > 0 ? quota : balance;
+        usage.Description = quota > 0
+            ? $"{balance.ToString(CultureInfo.InvariantCulture)} remaining / {quota.ToString(CultureInfo.InvariantCulture)} total"
+            : $"Balance: {balance.ToString(CultureInfo.InvariantCulture)}";
+        return new[] { usage };
     }
 
     private sealed class XiaomiResponse

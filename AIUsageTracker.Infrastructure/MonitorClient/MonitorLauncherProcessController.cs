@@ -8,7 +8,7 @@ using System.Globalization;
 using AIUsageTracker.Core.Models;
 using Microsoft.Extensions.Logging;
 
-namespace AIUsageTracker.Core.MonitorClient;
+namespace AIUsageTracker.Infrastructure.MonitorClient;
 
 internal static class MonitorLauncherProcessController
 {
@@ -47,10 +47,25 @@ internal static class MonitorLauncherProcessController
     {
         try
         {
-            using var process = Process.Start(startInfo);
+            var process = Process.Start(startInfo);
             if (process == null)
             {
                 MonitorService.LogDiagnostic($"Monitor launch returned no process for target '{launchTarget}'.");
+                return false;
+            }
+
+            // Wait briefly to detect immediate crash (e.g. missing ASP.NET Core runtime).
+            // Runtime-missing crashes happen within ~100ms; 500ms catches those without
+            // penalizing normal startup.
+            process.WaitForExit(milliseconds: 500);
+            if (process.HasExited)
+            {
+                var exitCode = process.ExitCode;
+                MonitorService.LogDiagnostic(
+                    $"Monitor process exited immediately (exit code {exitCode}). " +
+                    "This typically indicates a missing .NET runtime. " +
+                    "Ensure the .NET 10.0 ASP.NET Core Runtime is installed.");
+                process.Dispose();
                 return false;
             }
 
@@ -182,8 +197,8 @@ internal static class MonitorLauncherProcessController
     {
         return new[]
         {
-            Path.Combine(baseDirectory, "..", "..", "..", "..", "AIUsageTracker.Monitor", "bin", "Debug", "net8.0", monitorExecutableName),
-            Path.Combine(baseDirectory, "..", "..", "..", "..", "AIUsageTracker.Monitor", "bin", "Release", "net8.0", monitorExecutableName),
+            Path.Combine(baseDirectory, "..", "..", "..", "..", "AIUsageTracker.Monitor", "bin", "Debug", "net10.0", monitorExecutableName),
+            Path.Combine(baseDirectory, "..", "..", "..", "..", "AIUsageTracker.Monitor", "bin", "Release", "net10.0", monitorExecutableName),
             Path.Combine(baseDirectory, monitorExecutableName),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "AIUsageTracker", monitorExecutableName),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AIUsageTracker", monitorExecutableName),

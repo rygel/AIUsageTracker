@@ -45,7 +45,7 @@ public class SyntheticProviderTests : HttpProviderTestBase<SyntheticProvider>
         var result = await this._provider.GetUsageAsync(this.Config);
 
         // Assert
-        var usage = result.Single();
+        var usage = result.OfType<QuotaProviderUsage>().Single();
         Assert.True(usage.IsAvailable);
         Assert.Equal("Synthetic.new", usage.ProviderName);
         Assert.Equal(25.0, usage.UsedPercent); // 250/1000 * 100 = 25% used
@@ -74,7 +74,7 @@ public class SyntheticProviderTests : HttpProviderTestBase<SyntheticProvider>
         var result = await this._provider.GetUsageAsync(this.Config);
 
         // Assert
-        var usage = result.Single();
+        var usage = result.OfType<QuotaProviderUsage>().Single();
         Assert.True(usage.IsAvailable);
         Assert.Equal(20.0, usage.UsedPercent); // 100/500 * 100 = 20% used
         Assert.Equal(100.0, usage.RequestsUsed);

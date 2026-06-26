@@ -16,7 +16,7 @@ public sealed class GroupedUsageProjectionServiceTests
         // Each flat card has ModelName set and CardId = "model-<modelId>".
         var usages = new[]
         {
-            new ProviderUsage
+            new ModelScopedProviderUsage
             {
                 ProviderId = "gemini-cli",
                 ProviderName = "Gemini CLI",
@@ -31,7 +31,7 @@ public sealed class GroupedUsageProjectionServiceTests
                 RequestsAvailable = 100,
                 FetchedAt = DateTime.UtcNow,
             },
-            new ProviderUsage
+            new ModelScopedProviderUsage
             {
                 ProviderId = "gemini-cli",
                 ProviderName = "Gemini CLI",
@@ -65,7 +65,7 @@ public sealed class GroupedUsageProjectionServiceTests
         var now = DateTime.UtcNow;
         var usages = new[]
         {
-            new ProviderUsage
+            new WindowedProviderUsage
             {
                 ProviderId = "codex",
                 ProviderName = "OpenAI (Codex)",
@@ -76,7 +76,7 @@ public sealed class GroupedUsageProjectionServiceTests
                 UsedPercent = 50,
                 FetchedAt = now,
             },
-            new ProviderUsage
+            new WindowedProviderUsage
             {
                 ProviderId = "codex.spark",
                 ProviderName = "OpenAI (GPT-5.3-Codex-Spark)",
@@ -102,7 +102,7 @@ public sealed class GroupedUsageProjectionServiceTests
         // A usage with no CardId and no window cards → empty models, included in snapshot.
         var usages = new[]
         {
-            new ProviderUsage
+            new WindowedProviderUsage
             {
                 ProviderId = "github-copilot",
                 ProviderName = "GitHub Copilot",
@@ -131,7 +131,7 @@ public sealed class GroupedUsageProjectionServiceTests
         // The projection collects cards with WindowKind != None as ProviderDetails.
         var usages = new[]
         {
-            new ProviderUsage
+            new WindowedProviderUsage
             {
                 ProviderId = "kimi-for-coding",
                 CardId = "weekly",
@@ -145,7 +145,7 @@ public sealed class GroupedUsageProjectionServiceTests
                 RequestsAvailable = 100,
                 FetchedAt = DateTime.UtcNow,
             },
-            new ProviderUsage
+            new WindowedProviderUsage
             {
                 ProviderId = "kimi-for-coding",
                 CardId = "5h-limit",
@@ -165,8 +165,8 @@ public sealed class GroupedUsageProjectionServiceTests
 
         var provider = Assert.Single(snapshot.Providers);
         Assert.Equal(2, provider.ProviderDetails.Count);
-        Assert.Contains(provider.ProviderDetails, d => d.WindowKind == WindowKind.Rolling && string.Equals(d.Name, "Weekly Limit", StringComparison.Ordinal));
-        Assert.Contains(provider.ProviderDetails, d => d.WindowKind == WindowKind.Burst && string.Equals(d.Name, "5h Limit", StringComparison.Ordinal));
+        Assert.Contains(provider.ProviderDetails, d => d is WindowedProviderUsage w && w.WindowKind == WindowKind.Rolling && string.Equals(w.Name, "Weekly Limit", StringComparison.Ordinal));
+        Assert.Contains(provider.ProviderDetails, d => d is WindowedProviderUsage w && w.WindowKind == WindowKind.Burst && string.Equals(w.Name, "5h Limit", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -176,7 +176,7 @@ public sealed class GroupedUsageProjectionServiceTests
         // Each emits a Burst + Rolling pair, resulting in two separate dual-bar parent cards.
         var usages = new[]
         {
-            new ProviderUsage
+            new WindowedProviderUsage
             {
                 ProviderId = "codex",
                 CardId = "burst",
@@ -188,7 +188,7 @@ public sealed class GroupedUsageProjectionServiceTests
                 UsedPercent = 0,
                 FetchedAt = DateTime.UtcNow,
             },
-            new ProviderUsage
+            new WindowedProviderUsage
             {
                 ProviderId = "codex",
                 CardId = "weekly",
@@ -200,7 +200,7 @@ public sealed class GroupedUsageProjectionServiceTests
                 UsedPercent = 98,
                 FetchedAt = DateTime.UtcNow,
             },
-            new ProviderUsage
+            new WindowedProviderUsage
             {
                 ProviderId = "codex.spark",
                 CardId = "spark.burst",
@@ -212,7 +212,7 @@ public sealed class GroupedUsageProjectionServiceTests
                 UsedPercent = 19,
                 FetchedAt = DateTime.UtcNow,
             },
-            new ProviderUsage
+            new WindowedProviderUsage
             {
                 ProviderId = "codex.spark",
                 CardId = "spark.weekly",
@@ -235,14 +235,14 @@ public sealed class GroupedUsageProjectionServiceTests
         var codex = Assert.Single(snapshot.Providers, p => string.Equals(p.ProviderId, "codex", StringComparison.Ordinal));
         Assert.Equal(0, codex.Models.Count);
         Assert.Equal(2, codex.ProviderDetails.Count);
-        Assert.Contains(codex.ProviderDetails, d => string.Equals(d.CardId, "burst", StringComparison.Ordinal) && d.WindowKind == WindowKind.Burst);
-        Assert.Contains(codex.ProviderDetails, d => string.Equals(d.CardId, "weekly", StringComparison.Ordinal) && d.WindowKind == WindowKind.Rolling);
+        Assert.Contains(codex.ProviderDetails, d => d is WindowedProviderUsage w && string.Equals(w.CardId, "burst", StringComparison.Ordinal) && w.WindowKind == WindowKind.Burst);
+        Assert.Contains(codex.ProviderDetails, d => d is WindowedProviderUsage w && string.Equals(w.CardId, "weekly", StringComparison.Ordinal) && w.WindowKind == WindowKind.Rolling);
 
         var spark = Assert.Single(snapshot.Providers, p => string.Equals(p.ProviderId, "codex.spark", StringComparison.Ordinal));
         Assert.Equal(0, spark.Models.Count);
         Assert.Equal(2, spark.ProviderDetails.Count);
-        Assert.Contains(spark.ProviderDetails, d => string.Equals(d.CardId, "spark.burst", StringComparison.Ordinal) && d.WindowKind == WindowKind.Burst);
-        Assert.Contains(spark.ProviderDetails, d => string.Equals(d.CardId, "spark.weekly", StringComparison.Ordinal) && d.WindowKind == WindowKind.Rolling);
+        Assert.Contains(spark.ProviderDetails, d => d is WindowedProviderUsage w && string.Equals(w.CardId, "spark.burst", StringComparison.Ordinal) && w.WindowKind == WindowKind.Burst);
+        Assert.Contains(spark.ProviderDetails, d => d is WindowedProviderUsage w && string.Equals(w.CardId, "spark.weekly", StringComparison.Ordinal) && w.WindowKind == WindowKind.Rolling);
     }
 
     [Fact]
@@ -252,7 +252,7 @@ public sealed class GroupedUsageProjectionServiceTests
         // These must NOT be projected as model rows — they are balance display cards, not quota windows.
         var usages = new[]
         {
-            new ProviderUsage
+            new WindowedProviderUsage
             {
                 ProviderId = "deepseek",
                 CardId = "balance-usd",
@@ -265,7 +265,7 @@ public sealed class GroupedUsageProjectionServiceTests
                 Description = "$12.34 (10.00 topped-up + 2.34 granted)",
                 FetchedAt = DateTime.UtcNow,
             },
-            new ProviderUsage
+            new WindowedProviderUsage
             {
                 ProviderId = "deepseek",
                 CardId = "balance-cny",
@@ -294,7 +294,7 @@ public sealed class GroupedUsageProjectionServiceTests
         // Only WindowKind != None passes through.
         var usages = new[]
         {
-            new ProviderUsage
+            new WindowedProviderUsage
             {
                 ProviderId = "kimi-for-coding",
                 CardId = "credits",
@@ -306,7 +306,7 @@ public sealed class GroupedUsageProjectionServiceTests
                 UsedPercent = 10,
                 FetchedAt = DateTime.UtcNow,
             },
-            new ProviderUsage
+            new WindowedProviderUsage
             {
                 ProviderId = "kimi-for-coding",
                 CardId = "weekly",
@@ -333,7 +333,7 @@ public sealed class GroupedUsageProjectionServiceTests
         var newer = DateTime.UtcNow;
         var usages = new[]
         {
-            new ProviderUsage
+            new WindowedProviderUsage
             {
                 ProviderId = "claude-code.sonnet",
                 ProviderName = "Claude Code (Sonnet)",
@@ -347,7 +347,7 @@ public sealed class GroupedUsageProjectionServiceTests
                 Description = "older row",
                 FetchedAt = older,
             },
-            new ProviderUsage
+            new WindowedProviderUsage
             {
                 ProviderId = "claude-code.sonnet",
                 ProviderName = "Claude Code (Sonnet)",

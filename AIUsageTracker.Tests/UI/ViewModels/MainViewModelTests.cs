@@ -91,8 +91,8 @@ public class MainViewModelTests
         // Arrange
         var usages = new List<ProviderUsage>
         {
-            new() { ProviderId = "provider1" },
-            new() { ProviderId = "provider2" },
+            new QuotaProviderUsage { ProviderId = "provider1" },
+            new QuotaProviderUsage { ProviderId = "provider2" },
         };
         this._mockMonitorService
             .Setup(m => m.GetUsageAsync())
@@ -113,7 +113,7 @@ public class MainViewModelTests
         // Arrange
         var usages = new List<ProviderUsage>
         {
-            new() { ProviderId = "provider1" },
+            new QuotaProviderUsage { ProviderId = "provider1" },
         };
         this._mockMonitorService
             .Setup(m => m.GetUsageAsync())

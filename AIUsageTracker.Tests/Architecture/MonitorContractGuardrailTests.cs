@@ -9,7 +9,7 @@ public class MonitorContractGuardrailTests
     [Fact]
     public void MonitorService_DoesNotDeclareNestedResponseDtos()
     {
-        var monitorServicePath = GetRepoPath("AIUsageTracker.Core", "MonitorClient", "MonitorService.cs");
+        var monitorServicePath = GetRepoPath("AIUsageTracker.Infrastructure", "MonitorClient", "MonitorService.cs");
         var source = File.ReadAllText(monitorServicePath);
 
         Assert.DoesNotContain("private class ScanKeysResponse", source, StringComparison.Ordinal);
@@ -19,7 +19,7 @@ public class MonitorContractGuardrailTests
     [Fact]
     public void MonitorService_DoesNotUseHardcodedApiRouteLiterals()
     {
-        var monitorServicePath = GetRepoPath("AIUsageTracker.Core", "MonitorClient", "MonitorService.cs");
+        var monitorServicePath = GetRepoPath("AIUsageTracker.Infrastructure", "MonitorClient", "MonitorService.cs");
         var source = File.ReadAllText(monitorServicePath);
 
         Assert.DoesNotContain("\"/api/", source, StringComparison.Ordinal);

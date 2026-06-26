@@ -84,16 +84,13 @@ public class ClaudeCodeProvider : ProviderBase
         {
             return new[]
             {
-                new ProviderUsage
+                new StatusProviderUsage
             {
                 ProviderId = this.ProviderId,
                 ProviderName = providerLabel,
                 IsAvailable = false,
                 Description = "No API key configured",
                 State = ProviderUsageState.Missing,
-                IsStatusOnly = true,
-                IsQuotaBased = true,
-                PlanType = this.Definition.PlanType,
                 RawJson = "{\"source\":\"claude-code\",\"status\":\"api_key_missing\"}",
                 HttpStatus = 401,
             },
@@ -259,7 +256,7 @@ public class ClaudeCodeProvider : ProviderBase
 
         if (response.FiveHour != null)
         {
-            results.Add(new ProviderUsage
+            results.Add(new WindowedProviderUsage
             {
                 ProviderId = this.ProviderId,
                 ProviderName = providerLabel,
@@ -280,7 +277,7 @@ public class ClaudeCodeProvider : ProviderBase
 
         if (response.SevenDaySonnet != null)
         {
-            results.Add(new ProviderUsage
+            results.Add(new WindowedProviderUsage
             {
                 ProviderId = this.ProviderId,
                 ProviderName = providerLabel,
@@ -301,7 +298,7 @@ public class ClaudeCodeProvider : ProviderBase
 
         if (response.SevenDayOpus != null)
         {
-            results.Add(new ProviderUsage
+            results.Add(new WindowedProviderUsage
             {
                 ProviderId = this.ProviderId,
                 ProviderName = providerLabel,
@@ -329,7 +326,7 @@ public class ClaudeCodeProvider : ProviderBase
                 desc += " | Extra usage enabled";
             }
 
-            results.Add(new ProviderUsage
+            results.Add(new WindowedProviderUsage
             {
                 ProviderId = this.ProviderId,
                 ProviderName = providerLabel,
@@ -350,12 +347,10 @@ public class ClaudeCodeProvider : ProviderBase
 
         if (results.Count == 0)
         {
-            results.Add(new ProviderUsage
+            results.Add(new StatusProviderUsage
             {
                 ProviderId = this.ProviderId,
                 ProviderName = providerLabel,
-                IsQuotaBased = true,
-                PlanType = this.Definition.PlanType,
                 IsAvailable = true,
                 RawJson = rawJson,
                 HttpStatus = httpStatus,
@@ -410,7 +405,7 @@ public class ClaudeCodeProvider : ProviderBase
                 // Build description with rate limit info
                 var description = $"Tier: {rateLimitHeaders.GetTierName()} | RPM: {rateLimitHeaders.RequestsRemaining.ToString(CultureInfo.InvariantCulture)}/{rateLimitHeaders.RequestsLimit.ToString(CultureInfo.InvariantCulture)} | Tokens/min: {rateLimitHeaders.InputTokensRemaining.ToString(CultureInfo.InvariantCulture)}/{rateLimitHeaders.InputTokensLimit.ToString(CultureInfo.InvariantCulture)}";
 
-                return new ProviderUsage
+                return new QuotaProviderUsage
                 {
                     ProviderId = this.ProviderId,
                     ProviderName = providerLabel,
@@ -490,15 +485,12 @@ public class ClaudeCodeProvider : ProviderBase
                     // CLI not found, but key is configured - show as available
                     return new[]
                     {
-                        new ProviderUsage
+                        new StatusProviderUsage
                     {
                         ProviderId = this.ProviderId,
                         ProviderName = providerLabel,
                         IsAvailable = true,
                         Description = "Connected (API key configured)",
-                        IsStatusOnly = true,
-                        IsQuotaBased = false,
-                        PlanType = this.Definition.PlanType,
                         RawJson = "{\"source\":\"claude-cli\",\"status\":\"process_start_failed\"}",
                         HttpStatus = 503,
                     },
@@ -527,15 +519,12 @@ public class ClaudeCodeProvider : ProviderBase
                     // CLI failed, but key is configured - show as available
                     return new[]
                     {
-                        new ProviderUsage
+                        new StatusProviderUsage
                     {
                         ProviderId = this.ProviderId,
                         ProviderName = providerLabel,
                         IsAvailable = true,
                         Description = "Connected (API key configured)",
-                        IsStatusOnly = true,
-                        IsQuotaBased = false,
-                        PlanType = this.Definition.PlanType,
                         RawJson = string.IsNullOrWhiteSpace(error) ? "{\"source\":\"claude-cli\",\"status\":\"failed\"}" : error,
                         HttpStatus = 500,
                     },
@@ -551,15 +540,12 @@ public class ClaudeCodeProvider : ProviderBase
                 // Exception occurred, but key is configured - show as available
                 return new[]
                 {
-                    new ProviderUsage
+                    new StatusProviderUsage
                 {
                     ProviderId = this.ProviderId,
                     ProviderName = providerLabel,
                     IsAvailable = true,
                     Description = "Connected (API key configured)",
-                    IsStatusOnly = true,
-                    IsQuotaBased = false,
-                    PlanType = this.Definition.PlanType,
                     RawJson = ex.ToString(),
                     HttpStatus = 500,
                 },
@@ -598,7 +584,7 @@ public class ClaudeCodeProvider : ProviderBase
 
         double usagePercentage = budgetLimit > 0 ? (currentUsage / budgetLimit) * 100.0 : 0;
 
-        return new ProviderUsage
+        return new QuotaProviderUsage
         {
             ProviderId = this.ProviderId,
             ProviderName = providerLabel,

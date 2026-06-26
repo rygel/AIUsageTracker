@@ -21,14 +21,26 @@ public class StartupAntiHammerTests
             INotificationService notificationService,
             IConfigService configService,
             IAppPathProvider pathProvider,
-            ProviderRefreshDependencies refreshDeps)
+            IMonitorJobScheduler jobScheduler,
+            ProviderRefreshCircuitBreakerService circuitBreakerService,
+            ProviderUsagePersistenceService usagePersistenceService,
+            ProviderConnectivityCheckService connectivityCheckService,
+            ProviderManagerLifecycleService providerManagerLifecycle,
+            ProviderRefreshNotificationService refreshNotificationService,
+            IProviderUsageProcessingPipeline usageProcessingPipeline)
             : base(
                 logger,
                 database,
                 notificationService,
                 configService,
                 pathProvider,
-                refreshDeps)
+                jobScheduler,
+                circuitBreakerService,
+                usagePersistenceService,
+                connectivityCheckService,
+                providerManagerLifecycle,
+                refreshNotificationService,
+                usageProcessingPipeline)
         {
         }
 
@@ -83,37 +95,24 @@ public class StartupAntiHammerTests
         mockConfigService.Setup(cs => cs.GetConfigsAsync())
             .ReturnsAsync(new List<ProviderConfig>());
 
-        mockJobScheduler.Setup(
-            scheduler => scheduler.Enqueue(
-                It.IsAny<string>(),
-                It.IsAny<Func<CancellationToken, Task>>(),
-                It.IsAny<MonitorJobPriority>(),
-                It.IsAny<string?>()))
-            .Returns((string jobName, Func<CancellationToken, Task> work, MonitorJobPriority priority, string? coalesceKey) =>
+        mockJobScheduler.Setup(s => s.RegisterRecurringRefresh(
+                It.IsAny<TimeSpan>(),
+                It.IsAny<Func<CancellationToken, Task>>()))
+            .Callback(() => { });
+
+        mockJobScheduler.Setup(s => s.QueueStartupTargetedRefresh(
+                It.IsAny<Func<CancellationToken, Task>>()))
+            .Returns((Func<CancellationToken, Task> refreshTask) =>
             {
-                work(CancellationToken.None).GetAwaiter().GetResult();
+                refreshTask(CancellationToken.None).GetAwaiter().GetResult();
                 return true;
             });
 
         var processingPipeline = new ProviderUsageProcessingPipeline(NullLogger<ProviderUsageProcessingPipeline>.Instance);
-        var configLoadingService = new ProviderRefreshConfigLoadingService(mockConfigService.Object, mockDb.Object, NullLogger<ProviderRefreshConfigLoadingService>.Instance);
         var usagePersistenceService = new ProviderUsagePersistenceService(mockDb.Object, NullLogger<ProviderUsagePersistenceService>.Instance);
         var connectivityCheckService = new ProviderConnectivityCheckService(mockConfigService.Object, processingPipeline);
-        var refreshJobScheduler = new ProviderRefreshJobScheduler(mockJobScheduler.Object, NullLogger<ProviderRefreshJobScheduler>.Instance);
         var providerManagerLifecycle = new ProviderManagerLifecycleService(NullLogger<ProviderManagerLifecycleService>.Instance, mockLoggerFactory.Object, mockConfigService.Object, mockPathProvider.Object, Enumerable.Empty<IProviderService>());
         var refreshNotificationService = new ProviderRefreshNotificationService(usageAlertsService);
-        var startupSequenceService = new StartupSequenceService(refreshJobScheduler, mockConfigService.Object, mockPathProvider.Object, NullLogger<StartupSequenceService>.Instance);
-
-        var refreshDeps = new ProviderRefreshDependencies(
-            providerCircuitBreakerService,
-            configLoadingService,
-            usagePersistenceService,
-            connectivityCheckService,
-            refreshJobScheduler,
-            providerManagerLifecycle,
-            refreshNotificationService,
-            startupSequenceService,
-            processingPipeline);
 
         var service = new TestableProviderRefreshService(
             mockLogger.Object,
@@ -121,7 +120,13 @@ public class StartupAntiHammerTests
             mockNotificationService.Object,
             mockConfigService.Object,
             mockPathProvider.Object,
-            refreshDeps);
+            mockJobScheduler.Object,
+            providerCircuitBreakerService,
+            usagePersistenceService,
+            connectivityCheckService,
+            providerManagerLifecycle,
+            refreshNotificationService,
+            processingPipeline);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
 
@@ -169,37 +174,24 @@ public class StartupAntiHammerTests
         mockConfigService.Setup(cs => cs.GetConfigsAsync())
             .ReturnsAsync(new List<ProviderConfig>());
 
-        mockJobScheduler.Setup(
-            scheduler => scheduler.Enqueue(
-                It.IsAny<string>(),
-                It.IsAny<Func<CancellationToken, Task>>(),
-                It.IsAny<MonitorJobPriority>(),
-                It.IsAny<string?>()))
-            .Returns((string jobName, Func<CancellationToken, Task> work, MonitorJobPriority priority, string? coalesceKey) =>
+        mockJobScheduler.Setup(s => s.RegisterRecurringRefresh(
+                It.IsAny<TimeSpan>(),
+                It.IsAny<Func<CancellationToken, Task>>()))
+            .Callback(() => { });
+
+        mockJobScheduler.Setup(s => s.QueueInitialDataSeeding(
+                It.IsAny<Func<CancellationToken, Task>>()))
+            .Returns((Func<CancellationToken, Task> seedingTask) =>
             {
-                work(CancellationToken.None).GetAwaiter().GetResult();
+                seedingTask(CancellationToken.None).GetAwaiter().GetResult();
                 return true;
             });
 
         var processingPipeline = new ProviderUsageProcessingPipeline(NullLogger<ProviderUsageProcessingPipeline>.Instance);
-        var configLoadingService = new ProviderRefreshConfigLoadingService(mockConfigService.Object, mockDb.Object, NullLogger<ProviderRefreshConfigLoadingService>.Instance);
         var usagePersistenceService = new ProviderUsagePersistenceService(mockDb.Object, NullLogger<ProviderUsagePersistenceService>.Instance);
         var connectivityCheckService = new ProviderConnectivityCheckService(mockConfigService.Object, processingPipeline);
-        var refreshJobScheduler = new ProviderRefreshJobScheduler(mockJobScheduler.Object, NullLogger<ProviderRefreshJobScheduler>.Instance);
         var providerManagerLifecycle = new ProviderManagerLifecycleService(NullLogger<ProviderManagerLifecycleService>.Instance, mockLoggerFactory.Object, mockConfigService.Object, mockPathProvider.Object, Enumerable.Empty<IProviderService>());
         var refreshNotificationService = new ProviderRefreshNotificationService(usageAlertsService);
-        var startupSequenceService = new StartupSequenceService(refreshJobScheduler, mockConfigService.Object, mockPathProvider.Object, NullLogger<StartupSequenceService>.Instance);
-
-        var refreshDeps = new ProviderRefreshDependencies(
-            providerCircuitBreakerService,
-            configLoadingService,
-            usagePersistenceService,
-            connectivityCheckService,
-            refreshJobScheduler,
-            providerManagerLifecycle,
-            refreshNotificationService,
-            startupSequenceService,
-            processingPipeline);
 
         var service = new TestableProviderRefreshService(
             mockLogger.Object,
@@ -207,7 +199,13 @@ public class StartupAntiHammerTests
             mockNotificationService.Object,
             mockConfigService.Object,
             mockPathProvider.Object,
-            refreshDeps);
+            mockJobScheduler.Object,
+            providerCircuitBreakerService,
+            usagePersistenceService,
+            connectivityCheckService,
+            providerManagerLifecycle,
+            refreshNotificationService,
+            processingPipeline);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
 

@@ -115,7 +115,7 @@ public sealed class UsageDatabaseDedupTests : IDisposable
         var t1 = DateTime.UtcNow.AddMinutes(-5);
 
         await db.StoreHistoryAsync([
-            new ProviderUsage
+            new WindowedProviderUsage
             {
                 ProviderId = "openrouter",
                 ProviderName = "OpenRouter",
@@ -133,7 +133,7 @@ public sealed class UsageDatabaseDedupTests : IDisposable
         ]);
 
         await db.StoreHistoryAsync([
-            new ProviderUsage
+            new WindowedProviderUsage
             {
                 ProviderId = "openrouter",
                 ProviderName = "OpenRouter",
@@ -330,7 +330,7 @@ public sealed class UsageDatabaseDedupTests : IDisposable
         int httpStatus = 200,
         DateTime fetchedAt = default)
     {
-        return new ProviderUsage
+        return new WindowedProviderUsage
         {
             ProviderId = providerId,
             ProviderName = providerId,

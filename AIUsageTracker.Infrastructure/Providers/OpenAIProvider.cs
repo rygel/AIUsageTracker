@@ -115,7 +115,7 @@ public class OpenAIProvider : ProviderBase
 
         try
         {
-            return await this.GetNativeUsageAsync(accessToken, accountId, providerLabel).ConfigureAwait(false);
+            return await this.GetNativeUsageAsync(accessToken, accountId, providerLabel, config).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
@@ -240,16 +240,7 @@ public class OpenAIProvider : ProviderBase
         {
             return new[]
             {
-                new ProviderUsage
-                {
-                    ProviderId = this.ProviderId,
-                    ProviderName = providerLabel,
-                    IsAvailable = false,
-                    State = ProviderUsageState.Missing,
-                    Description = "Project keys (sk-proj-...) not supported yet. Use a standard user API key.",
-                    IsQuotaBased = this.Definition.IsQuotaBased,
-                    PlanType = this.Definition.PlanType,
-                },
+                    this.CreateUnavailableUsage("Project keys (sk-proj-...) not supported yet. Use a standard user API key.", state: ProviderUsageState.Missing),
             };
         }
 
@@ -263,32 +254,23 @@ public class OpenAIProvider : ProviderBase
             {
                 return new[]
                 {
-                    new ProviderUsage
-                    {
-                        ProviderId = this.ProviderId,
-                        ProviderName = providerLabel,
-                        IsAvailable = true,
-                        UsedPercent = 0,
-                        IsQuotaBased = this.Definition.IsQuotaBased,
-                        PlanType = this.Definition.PlanType,
-                        Description = "Connected (API Key)",
-                        IsStatusOnly = true,
-                    },
+                        new QuotaProviderUsage
+                        {
+                            ProviderId = this.ProviderId,
+                            ProviderName = providerLabel,
+                            IsAvailable = true,
+                            UsedPercent = 0,
+                            IsQuotaBased = this.Definition.IsQuotaBased,
+                            PlanType = this.Definition.PlanType,
+                            Description = "Connected (API Key)",
+                            IsStatusOnly = true,
+                        },
                 };
             }
 
             return new[]
             {
-                new ProviderUsage
-                {
-                    ProviderId = this.ProviderId,
-                    ProviderName = providerLabel,
-                    IsAvailable = false,
-                    State = ProviderUsageState.Error,
-                    Description = $"Invalid Key ({response.StatusCode})",
-                    IsQuotaBased = this.Definition.IsQuotaBased,
-                    PlanType = this.Definition.PlanType,
-                },
+                    this.CreateUnavailableUsage($"Invalid Key ({response.StatusCode})", (int)response.StatusCode),
             };
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
@@ -296,21 +278,12 @@ public class OpenAIProvider : ProviderBase
             this._logger.LogError(ex, "OpenAI API key validation failed");
             return new[]
             {
-                new ProviderUsage
-                {
-                    ProviderId = this.ProviderId,
-                    ProviderName = providerLabel,
-                    IsAvailable = false,
-                    State = ProviderUsageState.Error,
-                    Description = "Connection Failed",
-                    IsQuotaBased = this.Definition.IsQuotaBased,
-                    PlanType = this.Definition.PlanType,
-                },
+                    this.CreateUnavailableUsage("Connection Failed"),
             };
         }
     }
 
-    private async Task<IEnumerable<ProviderUsage>> GetNativeUsageAsync(string accessToken, string? accountId, string providerLabel)
+    private async Task<IEnumerable<ProviderUsage>> GetNativeUsageAsync(string accessToken, string? accountId, string providerLabel, ProviderConfig config)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, WhamUsageEndpoint);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
@@ -352,55 +325,47 @@ public class OpenAIProvider : ProviderBase
         if (burstUsed.HasValue || burstResetTime.HasValue)
         {
             var primaryUsed = burstUsed ?? 0.0;
-            results.Add(new ProviderUsage
-            {
-                ProviderId = this.ProviderId,
-                ProviderName = providerLabel,
-                CardId = "burst",
-                GroupId = this.ProviderId,
-                Name = "5-hour quota",
-                AccountName = accountIdentity,
-                IsAvailable = true,
-                IsQuotaBased = this.Definition.IsQuotaBased,
-                PlanType = this.Definition.PlanType,
-                UsedPercent = primaryUsed,
-                RequestsUsed = primaryUsed,
-                RequestsAvailable = 100,
-                Description = $"{burstDesc} | Plan: {planType}{creditsDesc}",
-                AuthSource = AuthSource.OpenCodeSession,
-                NextResetTime = burstResetTime,
-                PeriodDuration = TimeSpan.FromHours(5),
-                WindowKind = WindowKind.Burst,
-                RawJson = content,
-                HttpStatus = httpStatus,
-            });
+            var usage = CreateWindowedUsage(config);
+            usage.ProviderName = providerLabel;
+            usage.CardId = "burst";
+            usage.GroupId = this.ProviderId;
+            usage.Name = "5-hour quota";
+            usage.AccountName = accountIdentity;
+            usage.IsAvailable = true;
+            usage.UsedPercent = primaryUsed;
+            usage.RequestsUsed = primaryUsed;
+            usage.RequestsAvailable = 100;
+            usage.Description = $"{burstDesc} | Plan: {planType}{creditsDesc}";
+            usage.AuthSource = AuthSource.OpenCodeSession;
+            usage.NextResetTime = burstResetTime;
+            usage.PeriodDuration = TimeSpan.FromHours(5);
+            usage.WindowKind = WindowKind.Burst;
+            usage.RawJson = content;
+            usage.HttpStatus = httpStatus;
+            results.Add(usage);
         }
 
         if (weeklyUsed.HasValue || weeklyResetTime.HasValue)
         {
             var wUsed = weeklyUsed ?? 0.0;
-            results.Add(new ProviderUsage
-            {
-                ProviderId = this.ProviderId,
-                ProviderName = providerLabel,
-                CardId = "weekly",
-                GroupId = this.ProviderId,
-                Name = "Weekly quota",
-                AccountName = accountIdentity,
-                IsAvailable = true,
-                IsQuotaBased = this.Definition.IsQuotaBased,
-                PlanType = this.Definition.PlanType,
-                UsedPercent = wUsed,
-                RequestsUsed = wUsed,
-                RequestsAvailable = 100,
-                Description = $"{weeklyDesc} | Plan: {planType}{creditsDesc}",
-                AuthSource = AuthSource.OpenCodeSession,
-                NextResetTime = weeklyResetTime,
-                PeriodDuration = TimeSpan.FromDays(7),
-                WindowKind = WindowKind.Rolling,
-                RawJson = content,
-                HttpStatus = httpStatus,
-            });
+            var usage = CreateWindowedUsage(config);
+            usage.ProviderName = providerLabel;
+            usage.CardId = "weekly";
+            usage.GroupId = this.ProviderId;
+            usage.Name = "Weekly quota";
+            usage.AccountName = accountIdentity;
+            usage.IsAvailable = true;
+            usage.UsedPercent = wUsed;
+            usage.RequestsUsed = wUsed;
+            usage.RequestsAvailable = 100;
+            usage.Description = $"{weeklyDesc} | Plan: {planType}{creditsDesc}";
+            usage.AuthSource = AuthSource.OpenCodeSession;
+            usage.NextResetTime = weeklyResetTime;
+            usage.PeriodDuration = TimeSpan.FromDays(7);
+            usage.WindowKind = WindowKind.Rolling;
+            usage.RawJson = content;
+            usage.HttpStatus = httpStatus;
+            results.Add(usage);
         }
 
         if (results.Count == 0)
@@ -409,23 +374,19 @@ public class OpenAIProvider : ProviderBase
             var secondaryUsed = doc.RootElement.ReadDouble(JsonKeyRateLimit, JsonKeySecondaryWindow, JsonKeyUsedPercent) ?? 0.0;
             var used = Math.Max(primaryUsed, secondaryUsed);
             var remaining = Math.Clamp(100.0 - used, 0.0, 100.0);
-            results.Add(new ProviderUsage
-            {
-                ProviderId = this.ProviderId,
-                ProviderName = providerLabel,
-                AccountName = accountIdentity,
-                IsAvailable = true,
-                IsQuotaBased = this.Definition.IsQuotaBased,
-                PlanType = this.Definition.PlanType,
-                UsedPercent = used,
-                RequestsUsed = used,
-                RequestsAvailable = 100,
-                Description = $"{remaining.ToString("F0", CultureInfo.InvariantCulture)}% remaining ({used.ToString("F0", CultureInfo.InvariantCulture)}% used) | Plan: {planType}{creditsDesc}",
-                AuthSource = AuthSource.OpenCodeSession,
-                NextResetTime = ResolveResetTime(doc.RootElement),
-                RawJson = content,
-                HttpStatus = httpStatus,
-            });
+            var usage = CreateWindowedUsage(config);
+            usage.ProviderName = providerLabel;
+            usage.AccountName = accountIdentity;
+            usage.IsAvailable = true;
+            usage.UsedPercent = used;
+            usage.RequestsUsed = used;
+            usage.RequestsAvailable = 100;
+            usage.Description = $"{remaining.ToString("F0", CultureInfo.InvariantCulture)}% remaining ({used.ToString("F0", CultureInfo.InvariantCulture)}% used) | Plan: {planType}{creditsDesc}";
+            usage.AuthSource = AuthSource.OpenCodeSession;
+            usage.NextResetTime = ResolveResetTime(doc.RootElement);
+            usage.RawJson = content;
+            usage.HttpStatus = httpStatus;
+            results.Add(usage);
         }
 
         return results;

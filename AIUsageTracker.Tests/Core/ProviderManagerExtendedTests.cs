@@ -154,7 +154,7 @@ public class ProviderManagerExtendedTests
                 .ContinueWith(
                     _ => (IEnumerable<ProviderUsage>)new[]
                     {
-                        new ProviderUsage { ProviderId = "slow-provider", IsAvailable = true },
+                        new QuotaProviderUsage { ProviderId = "slow-provider", IsAvailable = true },
                     },
                     TaskScheduler.Default),
         };

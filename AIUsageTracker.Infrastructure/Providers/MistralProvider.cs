@@ -71,23 +71,21 @@ public class MistralProvider : ProviderBase
             var response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
-            return response.IsSuccessStatusCode
-                ? new[]
-                {
-                    new ProviderUsage
-                    {
-                        ProviderId = this.ProviderId,
-                        ProviderName = providerLabel,
-                        IsAvailable = true,
-                        UsedPercent = 0,
-                        IsQuotaBased = this.Definition.IsQuotaBased,
-                        PlanType = this.Definition.PlanType,
-                        Description = "Connected (Check Dashboard)",
-                        RawJson = content,
-                        HttpStatus = (int)response.StatusCode,
-                    },
-                }
-                : new[] { this.CreateUnavailableUsage(DescribeUnavailableStatus(response.StatusCode), (int)response.StatusCode) };
+            if (response.IsSuccessStatusCode)
+            {
+                var usage = CreateQuotaUsage(config);
+                usage.ProviderName = providerLabel;
+                usage.IsAvailable = true;
+                usage.IsQuotaBased = this.Definition.IsQuotaBased;
+                usage.PlanType = this.Definition.PlanType;
+                usage.RawJson = content;
+                usage.HttpStatus = (int)response.StatusCode;
+                usage.UsedPercent = 0;
+                usage.Description = "Connected (Check Dashboard)";
+                return new[] { usage };
+            }
+
+            return new[] { this.CreateUnavailableUsage(DescribeUnavailableStatus(response.StatusCode), (int)response.StatusCode) };
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {

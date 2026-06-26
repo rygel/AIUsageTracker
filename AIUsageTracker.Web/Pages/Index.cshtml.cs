@@ -2,8 +2,9 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Infrastructure.Configuration;
+using AIUsageTracker.Infrastructure.Services;
 using AIUsageTracker.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -15,10 +16,10 @@ namespace AIUsageTracker.Web.Pages;
 public class IndexModel : PageModel
 {
     private readonly WebDatabaseService _dbService;
-    private readonly IUsageAnalyticsService _analyticsService;
-    private readonly IPreferencesStore _preferencesStore;
+    private readonly UsageAnalyticsService _analyticsService;
+    private readonly PreferencesStore _preferencesStore;
 
-    public IndexModel(WebDatabaseService dbService, IUsageAnalyticsService analyticsService, IPreferencesStore preferencesStore)
+    public IndexModel(WebDatabaseService dbService, UsageAnalyticsService analyticsService, PreferencesStore preferencesStore)
     {
         this._dbService = dbService;
         this._analyticsService = analyticsService;
@@ -41,6 +42,9 @@ public class IndexModel : PageModel
     public IReadOnlyList<BudgetStatus> BudgetStatuses { get; private set; } = [];
 
     public IReadOnlyList<UsageComparison> UsageComparisons { get; private set; } = [];
+
+    public IReadOnlyDictionary<string, List<double>> SparklineData { get; private set; }
+        = new Dictionary<string, List<double>>(StringComparer.OrdinalIgnoreCase);
 
     public bool IsDatabaseAvailable => this._dbService.IsDatabaseAvailable();
 
@@ -150,6 +154,7 @@ public class IndexModel : PageModel
         }
 
         await this.LoadAnalyticsAsync(this.LatestUsage.Select(x => x.ProviderId).ToList()).ConfigureAwait(false);
+        await this.LoadSparklineDataAsync(this.LatestUsage.Select(x => x.ProviderId).ToList()).ConfigureAwait(false);
     }
 
     private async Task LoadAnalyticsAsync(IReadOnlyList<string> providerIds)
@@ -181,6 +186,22 @@ public class IndexModel : PageModel
         {
             this.UsageComparisons = (await this._analyticsService.GetUsageComparisonsAsync(providerIds).ConfigureAwait(false)).ToList();
         }
+    }
+
+    private async Task LoadSparklineDataAsync(IReadOnlyList<string> providerIds)
+    {
+        var samples = await this._dbService.GetHistorySamplesAsync(providerIds, 24, 24).ConfigureAwait(false);
+
+        this.SparklineData = samples
+            .GroupBy(s => s.ProviderId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderBy(s => s.FetchedAt)
+                      .Select(s => s is QuotaProviderUsage q && q.RequestsAvailable > 0
+                          ? Math.Clamp((q.RequestsUsed / q.RequestsAvailable) * 100.0, 0, 100)
+                          : 0)
+                      .ToList(),
+                StringComparer.OrdinalIgnoreCase);
     }
 
     private async Task LoadColorThresholdsAsync()

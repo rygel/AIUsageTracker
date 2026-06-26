@@ -113,7 +113,7 @@ public class MockProviderService : IProviderService
         return Task.FromResult<IEnumerable<ProviderUsage>>(
             new[]
             {
-                new ProviderUsage
+                new QuotaProviderUsage
                 {
                     ProviderId = config.ProviderId,
                     IsAvailable = false,
@@ -146,7 +146,7 @@ public class MockProviderService : IProviderService
             UsageHandler = _ => Task.FromResult<IEnumerable<ProviderUsage>>(
                 new[]
                 {
-                    new ProviderUsage
+                    new WindowedProviderUsage
                     {
                         ProviderId = providerId,
                         ProviderName = providerName,

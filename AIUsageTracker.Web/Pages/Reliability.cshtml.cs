@@ -2,8 +2,8 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Infrastructure.Services;
 using AIUsageTracker.Web.Services;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.OutputCaching;
@@ -14,9 +14,9 @@ namespace AIUsageTracker.Web.Pages;
 public class ReliabilityModel : PageModel
 {
     private readonly WebDatabaseService _dbService;
-    private readonly IUsageAnalyticsService _analyticsService;
+    private readonly UsageAnalyticsService _analyticsService;
 
-    public ReliabilityModel(WebDatabaseService dbService, IUsageAnalyticsService analyticsService)
+    public ReliabilityModel(WebDatabaseService dbService, UsageAnalyticsService analyticsService)
     {
         this._dbService = dbService;
         this._analyticsService = analyticsService;

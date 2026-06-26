@@ -540,7 +540,7 @@ string.Equals(schema.AccessTokenProperty, "accessToken", StringComparison.Ordina
     [Fact]
     public void UsageFilter_RemovesNonPersistedProviderIds_UsingPersistenceGate()
     {
-        var usages = new List<ProviderUsage>
+        var usages = new List<WindowedProviderUsage>
         {
             new() { ProviderId = "codex", ProviderName = "OpenAI" },
             new() { ProviderId = "openai", ProviderName = "OpenAI" },

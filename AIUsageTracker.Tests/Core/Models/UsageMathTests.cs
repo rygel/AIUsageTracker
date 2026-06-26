@@ -13,7 +13,7 @@ public class UsageMathTests
     {
         // Arrange
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(start, used: 10, available: 100),
             CreateSample(start.AddHours(12), used: 20, available: 100),
@@ -36,7 +36,7 @@ public class UsageMathTests
     {
         // Arrange
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(start, used: 70, available: 100),
             CreateSample(start.AddHours(10), used: 80, available: 100),
@@ -58,7 +58,7 @@ public class UsageMathTests
     public void CalculateBurnRateForecast_WithInsufficientHistory_ReturnsUnavailable()
     {
         // Arrange
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(DateTime.UtcNow, used: 10, available: 100),
         };
@@ -76,7 +76,7 @@ public class UsageMathTests
     {
         // Arrange
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(start, used: 10, available: 100),
             CreateSample(start.AddHours(12), used: 10, available: 100),
@@ -96,7 +96,7 @@ public class UsageMathTests
     {
         // Arrange
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(start, used: 10, available: 100),
             CreateSample(start.AddMinutes(30), used: 16, available: 100),
@@ -116,7 +116,7 @@ public class UsageMathTests
     {
         // Arrange
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(start, used: 70, available: 100),
             CreateSample(start.AddHours(12), used: 85, available: 100),
@@ -142,7 +142,7 @@ public class UsageMathTests
     {
         // Arrange
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(start, used: 95, available: 100),
             CreateSample(start.AddHours(24), used: 110, available: 100),
@@ -162,7 +162,7 @@ public class UsageMathTests
     {
         // Arrange
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(start, used: 10, available: 100, latencyMs: 400),
             CreateUnavailableSample(start.AddMinutes(5), latencyMs: 800),
@@ -189,7 +189,7 @@ public class UsageMathTests
     public void CalculateReliabilitySnapshot_WithNoHistory_ReturnsUnavailable()
     {
         // Arrange
-        var history = new List<ProviderUsage>();
+        var history = new List<QuotaProviderUsage>();
 
         // Act
         var snapshot = UsageMath.CalculateReliabilitySnapshot(history);
@@ -204,7 +204,7 @@ public class UsageMathTests
     {
         // Arrange
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(start, used: 10, available: 100),
         };
@@ -223,7 +223,7 @@ public class UsageMathTests
     {
         // Arrange
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(start, used: 10, available: 100, latencyMs: 0),
             CreateUnavailableSample(start.AddMinutes(5), latencyMs: 0),
@@ -243,7 +243,7 @@ public class UsageMathTests
     {
         // Arrange
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(start, used: 10, available: 200),
             CreateSample(start.AddHours(12), used: 20, available: 200),
@@ -267,7 +267,7 @@ public class UsageMathTests
     {
         // Arrange
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(start, used: 40, available: 100),
             CreateSample(start.AddHours(12), used: 52, available: 100),
@@ -290,7 +290,7 @@ public class UsageMathTests
     {
         // Arrange
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(start, used: 10, available: 100),
             CreateSample(start.AddHours(12), used: 20, available: 100),
@@ -308,9 +308,9 @@ public class UsageMathTests
         Assert.Null(snapshot.LastDetectedUtc);
     }
 
-    private static ProviderUsage CreateSample(DateTime fetchedAt, double used, double available, double latencyMs = 0)
+    private static QuotaProviderUsage CreateSample(DateTime fetchedAt, double used, double available, double latencyMs = 0)
     {
-        return new ProviderUsage
+        return new QuotaProviderUsage
         {
             ProviderId = "test-provider",
             RequestsUsed = used,
@@ -321,9 +321,9 @@ public class UsageMathTests
         };
     }
 
-    private static ProviderUsage CreateUnavailableSample(DateTime fetchedAt, double latencyMs = 0)
+    private static QuotaProviderUsage CreateUnavailableSample(DateTime fetchedAt, double latencyMs = 0)
     {
-        return new ProviderUsage
+        return new QuotaProviderUsage
         {
             ProviderId = "test-provider",
             RequestsUsed = 0,

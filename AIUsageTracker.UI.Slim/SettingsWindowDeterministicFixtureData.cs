@@ -10,7 +10,7 @@ internal sealed class SettingsWindowDeterministicFixtureData
 {
     public required List<ProviderConfig> Configs { get; init; }
 
-    public required List<ProviderUsage> Usages { get; init; }
+    public required List<QuotaProviderUsage> Usages { get; init; }
 
     public required IReadOnlyList<SettingsWindowHistoryRow> HistoryRows { get; init; }
 

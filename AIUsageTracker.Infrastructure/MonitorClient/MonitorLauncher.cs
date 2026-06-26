@@ -6,12 +6,13 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Core.Runtime;
 using Microsoft.Extensions.Logging;
 
-namespace AIUsageTracker.Core.MonitorClient;
+namespace AIUsageTracker.Infrastructure.MonitorClient;
 
-public class MonitorLauncher : IMonitorLauncher
+public class MonitorLauncher
 {
     private static readonly JsonSerializerOptions CaseInsensitiveOptions = new() { PropertyNameCaseInsensitive = true };
     internal const int DefaultPort = 5000;
@@ -448,11 +449,6 @@ public class MonitorLauncher : IMonitorLauncher
         catch (UnauthorizedAccessException ex)
         {
             this._logger?.LogDebug(ex, "Access denied reading monitor metadata: {Message}", ex.Message);
-            return (null, path);
-        }
-        catch (Exception ex) when (ex is IOException or JsonException)
-        {
-            this._logger?.LogDebug(ex, "Failed to load monitor metadata: {Message}", ex.Message);
             return (null, path);
         }
     }

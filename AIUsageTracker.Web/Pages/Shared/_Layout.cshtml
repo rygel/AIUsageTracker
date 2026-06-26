@@ -42,6 +42,11 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a href="/analytics" class="nav-link @(Context.Request.Path.Value?.Contains("/analytics") == true ? "active" : "")">
+                            <span class="nav-text">Analytics</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a href="/providers" class="nav-link @(Context.Request.Path.Value?.Contains("/providers") == true ? "active" : "")">
                             <span class="nav-text">Providers</span>
                         </a>

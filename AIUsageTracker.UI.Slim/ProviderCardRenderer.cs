@@ -143,6 +143,39 @@ internal sealed class ProviderCardRenderer
                     margin: new Thickness(6, 0, 0, 0)),
                 Dock.Right);
         }
+
+        if (presentation.FetchedAt != default)
+        {
+            var fetchedUtc = UsageMath.AsUtc(presentation.FetchedAt);
+            var ago = DateTime.UtcNow - fetchedUtc;
+            string freshnessText;
+            if (ago.TotalMinutes < 1)
+            {
+                freshnessText = "just now";
+            }
+            else if (ago.TotalHours < 1)
+            {
+                freshnessText = $"{(int)ago.TotalMinutes}m ago";
+            }
+            else if (ago.TotalDays < 1)
+            {
+                freshnessText = $"{(int)ago.TotalHours}h ago";
+            }
+            else
+            {
+                freshnessText = fetchedUtc.ToLocalTime().ToString("MMM d", CultureInfo.InvariantCulture);
+            }
+
+            var tertiaryBrush = this._getResourceBrush(ResourceKeyTertiaryText, Brushes.Gray);
+            AddDockedElement(
+                contentPanel,
+                this.CreateDockedTextBlock(
+                    freshnessText,
+                    fontSize: 8,
+                    foreground: tertiaryBrush,
+                    margin: new Thickness(6, 0, 0, 0)),
+                Dock.Right);
+        }
     }
 
     private void AttachTooltip(Grid grid, ProviderUsage usage, string friendlyName)
@@ -408,18 +441,24 @@ internal sealed class ProviderCardRenderer
 
     private void RenderDailyBudget(DockPanel panel, ProviderUsage usage)
     {
-        if (usage.PeriodDuration.HasValue && usage.PeriodDuration.Value.TotalDays >= 1)
+        var periodDuration = usage switch
         {
-            var dailyBudget = 100.0 / usage.PeriodDuration.Value.TotalDays;
+            WindowedProviderUsage w => w.PeriodDuration,
+            ModelScopedProviderUsage m => m.PeriodDuration,
+            _ => null,
+        };
+        if (periodDuration.HasValue && periodDuration.Value.TotalDays >= 1)
+        {
+            var dailyBudget = 100.0 / periodDuration.Value.TotalDays;
             this.AddSlotText(panel, $"{dailyBudget.ToString("F0", CultureInfo.InvariantCulture)}%/day budget", this._getResourceBrush(ResourceKeyTertiaryText, Brushes.Gray), 9);
         }
     }
 
     private void RenderUsageRate(DockPanel panel, ProviderUsage usage)
     {
-        if (this._preferences.ShowUsagePerHour && usage.UsagePerHour.HasValue)
+        if (this._preferences.ShowUsagePerHour && usage is QuotaProviderUsage q && q.UsagePerHour.HasValue)
         {
-            this.AddSlotText(panel, $"{usage.UsagePerHour.Value:F1}/hr", this._getResourceBrush(ResourceKeyTertiaryText, Brushes.Gray), 9);
+            this.AddSlotText(panel, $"{q.UsagePerHour.Value:F1}/hr", this._getResourceBrush(ResourceKeyTertiaryText, Brushes.Gray), 9);
         }
     }
 
@@ -527,15 +566,35 @@ internal sealed class ProviderCardRenderer
             : $"({resetLabel}: {formattedReset})";
     }
 
-    private static string GetUsedSlotText(ProviderUsage usage) =>
-        usage.IsCurrencyUsage
-            ? UsageMath.FormatUsedCurrency(usage.RequestsUsed)
-            : UsageMath.FormatUsedPercent(usage.UsedPercent);
+    private static string GetUsedSlotText(ProviderUsage usage)
+    {
+        if (usage is QuotaProviderUsage q && q.IsCurrencyUsage)
+        {
+            return UsageMath.FormatUsedCurrency(q.RequestsUsed);
+        }
 
-    private static string GetRemainingSlotText(ProviderUsage usage) =>
-        usage.IsCurrencyUsage
-            ? UsageMath.FormatRemainingCurrency(usage.RequestsAvailable - usage.RequestsUsed)
-            : UsageMath.FormatRemainingPercent(100 - usage.UsedPercent);
+        if (usage is QuotaProviderUsage q2)
+        {
+            return UsageMath.FormatUsedPercent(q2.UsedPercent);
+        }
+
+        return string.Empty;
+    }
+
+    private static string GetRemainingSlotText(ProviderUsage usage)
+    {
+        if (usage is QuotaProviderUsage q && q.IsCurrencyUsage)
+        {
+            return UsageMath.FormatRemainingCurrency(q.RequestsAvailable - q.RequestsUsed);
+        }
+
+        if (usage is QuotaProviderUsage q2)
+        {
+            return UsageMath.FormatRemainingPercent(100 - q2.UsedPercent);
+        }
+
+        return string.Empty;
+    }
 
     internal static bool ShouldRenderSlot(CardSlotContent slot, ProviderCardPresentation presentation)
     {

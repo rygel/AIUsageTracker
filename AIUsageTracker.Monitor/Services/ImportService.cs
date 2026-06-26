@@ -106,7 +106,7 @@ public class ImportService
 
                 try
                 {
-                    var usage = new ProviderUsage
+                    var usage = new QuotaProviderUsage
                     {
                         FetchedAt = DateTime.Parse(values[0], CultureInfo.InvariantCulture),
                         ProviderId = values[1].Trim(),

@@ -27,6 +27,12 @@ internal static class WebStartupServiceExtensions
                 policy.Expire(TimeSpan.FromSeconds(20));
                 policy.SetVaryByQuery("hours");
             });
+
+            options.AddPolicy("AnalyticsCache", policy =>
+            {
+                policy.Expire(TimeSpan.FromSeconds(20));
+                policy.SetVaryByQuery("hours");
+            });
         });
         services.AddResponseCompression(options =>
         {

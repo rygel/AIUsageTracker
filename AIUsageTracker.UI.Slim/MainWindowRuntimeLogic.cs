@@ -159,9 +159,9 @@ internal static partial class MainWindowRuntimeLogic
 
                 return true;
             })
-            .GroupBy(usage => $"{usage.ProviderId ?? string.Empty}::{usage.CardId ?? string.Empty}", StringComparer.OrdinalIgnoreCase)
+            .GroupBy(usage => $"{usage.ProviderId ?? string.Empty}::{(usage is WindowedProviderUsage w ? w.CardId : (usage as ModelScopedProviderUsage)?.CardId) ?? string.Empty}", StringComparer.OrdinalIgnoreCase)
             .Select(group => group.OrderByDescending(usage => usage.FetchedAt).First())
-            .OrderByDescending(usage => usage.IsQuotaBased)
+            .OrderByDescending(usage => usage is QuotaProviderUsage q && q.IsQuotaBased)
             .ToList();
 
         return filteredUsages;
@@ -181,9 +181,10 @@ internal static partial class MainWindowRuntimeLogic
 
         foreach (var usage in usages)
         {
-            if (currentIsQuota != usage.IsQuotaBased || currentItems == null)
+            var isQuotaBased = usage is QuotaProviderUsage q && q.IsQuotaBased;
+            if (currentIsQuota != isQuotaBased || currentItems == null)
             {
-                currentIsQuota = usage.IsQuotaBased;
+                currentIsQuota = isQuotaBased;
                 currentItems = new List<ProviderUsage>();
                 sections.Add(new ProviderSectionLayout(currentIsQuota.Value, currentItems));
             }
@@ -201,7 +202,13 @@ internal static partial class MainWindowRuntimeLogic
     /// </summary>
     private static void EnrichWithPeriodDuration(ProviderUsage usage)
     {
-        if (usage.PeriodDuration.HasValue)
+        var existing = usage switch
+        {
+            WindowedProviderUsage w => w.PeriodDuration,
+            ModelScopedProviderUsage m => m.PeriodDuration,
+            _ => null,
+        };
+        if (existing.HasValue)
         {
             return;
         }
@@ -229,7 +236,15 @@ internal static partial class MainWindowRuntimeLogic
 
         if (matchedWindow?.PeriodDuration is { } duration)
         {
-            usage.PeriodDuration = duration;
+            switch (usage)
+            {
+                case WindowedProviderUsage w:
+                    w.PeriodDuration = duration;
+                    break;
+                case ModelScopedProviderUsage m:
+                    m.PeriodDuration = duration;
+                    break;
+            }
         }
     }
 
@@ -237,9 +252,12 @@ internal static partial class MainWindowRuntimeLogic
     {
         ArgumentNullException.ThrowIfNull(usage);
 
-        return usage.NextResetTime.HasValue
-            ? new[] { usage.NextResetTime.Value }
-            : Array.Empty<DateTime>();
+        if (usage is QuotaProviderUsage q && q.NextResetTime.HasValue)
+        {
+            return new[] { q.NextResetTime.Value };
+        }
+
+        return Array.Empty<DateTime>();
     }
 
     internal static string? ResolveResetWindowLabel(ProviderUsage usage)
@@ -256,8 +274,10 @@ internal static partial class MainWindowRuntimeLogic
             return null;
         }
 
-        var explicitLabel = NormalizeResetWindowLabel(usage.Name)
-            ?? NormalizeResetWindowLabel(usage.CardId)
+        var cardName = usage is WindowedProviderUsage w ? w.Name : (usage as ModelScopedProviderUsage)?.Name;
+        var cardId = usage is WindowedProviderUsage w2 ? w2.CardId : (usage as ModelScopedProviderUsage)?.CardId;
+        var explicitLabel = NormalizeResetWindowLabel(cardName)
+            ?? NormalizeResetWindowLabel(cardId)
             ?? NormalizeResetWindowLabel(usage.ProviderName);
         if (!string.IsNullOrWhiteSpace(explicitLabel))
         {
@@ -281,7 +301,7 @@ internal static partial class MainWindowRuntimeLogic
             }
         }
 
-        return usage.PlanType == PlanType.Coding && usage.IsQuotaBased
+        return usage is QuotaProviderUsage q && q.PlanType == PlanType.Coding && q.IsQuotaBased
             ? "5h"
             : null;
     }
@@ -311,7 +331,7 @@ internal static partial class MainWindowRuntimeLogic
 
         return presentation.SuppressSingleResetTime
             ? (null, null)
-            : (usage.NextResetTime, ResolveResetWindowLabel(usage));
+            : (usage is QuotaProviderUsage q ? q.NextResetTime : null, ResolveResetWindowLabel(usage));
     }
 
     /// <summary>
@@ -323,17 +343,18 @@ internal static partial class MainWindowRuntimeLogic
     {
         var tooltipBuilder = new System.Text.StringBuilder();
         tooltipBuilder.AppendLine(friendlyName);
-        var modelProvider = !string.IsNullOrWhiteSpace(usage.ParentProviderId)
-            ? usage.ParentProviderId
+        var parentPid = usage is WindowedProviderUsage w ? w.ParentProviderId : null;
+        var modelProvider = !string.IsNullOrWhiteSpace(parentPid)
+            ? parentPid
             : usage.ProviderId;
         if (!string.IsNullOrWhiteSpace(modelProvider))
         {
             tooltipBuilder.AppendLine($"Model provider: {modelProvider}");
         }
 
-        if (!string.IsNullOrWhiteSpace(usage.ModelName))
+        if (usage is ModelScopedProviderUsage m && !string.IsNullOrWhiteSpace(m.ModelName))
         {
-            tooltipBuilder.AppendLine($"Model: {usage.ModelName}");
+            tooltipBuilder.AppendLine($"Model: {m.ModelName}");
         }
 
         tooltipBuilder.AppendLine($"Status: {(usage.IsAvailable ? "Active" : "Inactive")}");
@@ -347,14 +368,22 @@ internal static partial class MainWindowRuntimeLogic
             AppendWindowLimitLines(tooltipBuilder, usage, useRelativeResetTime);
             AppendSingleResetLine(tooltipBuilder, usage, useRelativeResetTime);
 
-            if (usage.PeriodDuration.HasValue && usage.PeriodDuration.Value.TotalDays >= 1)
+            var periodDuration = usage switch
             {
-                var dailyBudget = 100.0 / usage.PeriodDuration.Value.TotalDays;
-                var elapsedDays = UsageMath.GetElapsedDays(usage.NextResetTime, usage.PeriodDuration);
+                WindowedProviderUsage pw => pw.PeriodDuration,
+                ModelScopedProviderUsage pm => pm.PeriodDuration,
+                _ => null,
+            };
+            var nextReset = usage is QuotaProviderUsage q ? q.NextResetTime : null;
+            var usedPct = usage is QuotaProviderUsage q2 ? q2.UsedPercent : 0;
+            if (periodDuration.HasValue && periodDuration.Value.TotalDays >= 1)
+            {
+                var dailyBudget = 100.0 / periodDuration.Value.TotalDays;
+                var elapsedDays = UsageMath.GetElapsedDays(nextReset, periodDuration);
                 var expectedAtThisPoint = dailyBudget * elapsedDays;
                 tooltipBuilder.AppendLine();
                 tooltipBuilder.AppendLine(CultureInfo.InvariantCulture, $"Daily budget: {dailyBudget:F0}%/day");
-                tooltipBuilder.AppendLine(CultureInfo.InvariantCulture, $"Expected by now: {expectedAtThisPoint:F0}% | Actual: {usage.UsedPercent:F0}%");
+                tooltipBuilder.AppendLine(CultureInfo.InvariantCulture, $"Expected by now: {expectedAtThisPoint:F0}% | Actual: {usedPct:F0}%");
             }
         }
 
@@ -378,13 +407,13 @@ internal static partial class MainWindowRuntimeLogic
         ProviderUsage usage,
         bool useRelativeResetTime)
     {
-        if (usage.WindowCards == null || usage.WindowCards.Count == 0)
+        if (usage is not WindowedProviderUsage wu || wu.WindowCards == null || wu.WindowCards.Count == 0)
         {
             return;
         }
 
-        var burstCard = usage.WindowCards.FirstOrDefault(card => card.WindowKind == WindowKind.Burst);
-        var rollingCard = usage.WindowCards.FirstOrDefault(card => card.WindowKind == WindowKind.Rolling);
+        var burstCard = wu.WindowCards.FirstOrDefault(card => card.WindowKind == WindowKind.Burst);
+        var rollingCard = wu.WindowCards.FirstOrDefault(card => card.WindowKind == WindowKind.Rolling);
         if (burstCard == null && rollingCard == null)
         {
             return;
@@ -400,12 +429,13 @@ internal static partial class MainWindowRuntimeLogic
         ProviderUsage usage,
         bool useRelativeResetTime)
     {
-        if ((usage.WindowCards?.Count ?? 0) > 0 || !usage.NextResetTime.HasValue)
+        var qUsage = usage as QuotaProviderUsage;
+        if ((usage is WindowedProviderUsage wu && (wu.WindowCards?.Count ?? 0) > 0) || qUsage?.NextResetTime == null)
         {
             return;
         }
 
-        var resetText = FormatTooltipResetText(usage, usage.NextResetTime.Value, useRelativeResetTime);
+        var resetText = FormatTooltipResetText(usage, qUsage.NextResetTime.Value, useRelativeResetTime);
         var label = ResolveResetWindowLabel(usage);
         tooltipBuilder.AppendLine();
         tooltipBuilder.AppendLine(
@@ -420,18 +450,18 @@ internal static partial class MainWindowRuntimeLogic
         ProviderUsage? windowCard,
         bool useRelativeResetTime)
     {
-        if (windowCard == null || string.IsNullOrWhiteSpace(windowCard.Name))
+        if (windowCard is not WindowedProviderUsage wc || string.IsNullOrWhiteSpace(wc.Name))
         {
             return;
         }
 
-        var label = windowCard.Name;
-        var remainingPercent = UsageMath.ClampPercent(100.0 - windowCard.UsedPercent);
+        var label = wc.Name;
+        var remainingPercent = UsageMath.ClampPercent(100.0 - wc.UsedPercent);
 
         tooltipBuilder.AppendLine(CultureInfo.InvariantCulture, $"{label} limit: {remainingPercent:F0}% remaining");
-        if (windowCard.NextResetTime.HasValue)
+        if (wc.NextResetTime.HasValue)
         {
-            var resetText = FormatTooltipResetText(windowCard, windowCard.NextResetTime.Value, useRelativeResetTime, ownerUsage);
+            var resetText = FormatTooltipResetText(wc, wc.NextResetTime.Value, useRelativeResetTime, ownerUsage);
             tooltipBuilder.AppendLine($"{label} resets: {resetText}");
         }
     }

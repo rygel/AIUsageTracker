@@ -10,9 +10,10 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.MonitorClient;
 using Microsoft.Extensions.Logging;
 
-namespace AIUsageTracker.Core.MonitorClient;
+namespace AIUsageTracker.Infrastructure.MonitorClient;
 
 public class MonitorService : IMonitorService
 {
@@ -37,21 +38,21 @@ public class MonitorService : IMonitorService
     private long _refreshErrorCount;
     private long _refreshTotalLatencyMs;
     private long _refreshLastLatencyMs;
-    private readonly object _groupedUsageCacheLock = new();
+    private readonly Lock _groupedUsageCacheLock = new();
     private AgentGroupedUsageSnapshot? _cachedGroupedUsageSnapshot;
     private string? _cachedGroupedUsageETag;
 
     private readonly HttpClient _httpClient;
     private readonly JsonSerializerOptions _jsonOptions;
     private readonly ILogger<MonitorService>? _logger;
-    private readonly IMonitorLauncher _monitorLauncher;
+    private readonly MonitorLauncher _monitorLauncher;
 
     public MonitorService()
         : this(CreateDefaultHttpClient(), logger: null)
     {
     }
 
-    public MonitorService(HttpClient httpClient, ILogger<MonitorService>? logger, IMonitorLauncher? monitorLauncher = null)
+    public MonitorService(HttpClient httpClient, ILogger<MonitorService>? logger, MonitorLauncher? monitorLauncher = null)
     {
         this._httpClient = httpClient;
         this._logger = logger;
@@ -627,6 +628,56 @@ public class MonitorService : IMonitorService
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
             this._logger?.LogWarning(ex, "CheckProviderAsync failed for {ProviderId}", providerId);
+            return new MonitorActionResult
+            {
+                Success = false,
+                Message = $"Connection error: {ex.Message}",
+            };
+        }
+    }
+
+    public async Task<MonitorActionResult> TestProviderConnectionAsync(string providerId, string apiKey)
+    {
+        try
+        {
+            var requestUrl = this.BuildMonitorUrl(MonitorApiRoutes.ProviderTest(providerId));
+            var payload = new ProviderTestRequest { ApiKey = apiKey };
+            using var content = JsonContent.Create(payload);
+            using var response = await this._httpClient.PostAsync(requestUrl, content).ConfigureAwait(false);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await this.ReadMonitorResponseJsonAsync<AgentProviderCheckResponse>(
+                    response,
+                    nameof(this.TestProviderConnectionAsync)).ConfigureAwait(false);
+                return new MonitorActionResult
+                {
+                    Success = result?.Success ?? false,
+                    Message = result?.Message ?? "Unknown status",
+                };
+            }
+
+            var error = await this.ReadMonitorResponseJsonAsync<AgentProviderCheckResponse>(
+                response,
+                nameof(this.TestProviderConnectionAsync)).ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(error?.Message))
+            {
+                return new MonitorActionResult
+                {
+                    Success = false,
+                    Message = error.Message,
+                };
+            }
+
+            return new MonitorActionResult
+            {
+                Success = false,
+                Message = $"HTTP {response.StatusCode}",
+            };
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+        {
+            this._logger?.LogWarning(ex, "TestProviderConnectionAsync failed for {ProviderId}", providerId);
             return new MonitorActionResult
             {
                 Success = false,

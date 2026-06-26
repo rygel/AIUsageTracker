@@ -105,8 +105,8 @@ public class BrowserService : IBrowserService
     {
         var possiblePaths = new[]
         {
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", WebProjectName, "bin", "Debug", "net8.0", $"{WebProjectName}.exe"),
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", WebProjectName, "bin", "Release", "net8.0", $"{WebProjectName}.exe"),
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", WebProjectName, "bin", "Debug", "net10.0", $"{WebProjectName}.exe"),
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", WebProjectName, "bin", "Release", "net10.0", $"{WebProjectName}.exe"),
             Path.Combine(AppContext.BaseDirectory, $"{WebProjectName}.exe"),
         };
 

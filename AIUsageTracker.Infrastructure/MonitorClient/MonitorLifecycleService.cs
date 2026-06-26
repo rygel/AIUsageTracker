@@ -2,13 +2,15 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Core.MonitorClient;
+
+namespace AIUsageTracker.Infrastructure.MonitorClient;
 
 public sealed class MonitorLifecycleService
 {
-    private readonly IMonitorLauncher _launcher;
+    private readonly MonitorLauncher _launcher;
 
-    public MonitorLifecycleService(IMonitorLauncher monitorLauncher)
+    public MonitorLifecycleService(MonitorLauncher monitorLauncher)
     {
         this._launcher = monitorLauncher;
     }

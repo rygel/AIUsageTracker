@@ -208,6 +208,7 @@ public class DatabaseMigrationService
                 fetched_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 details_json TEXT,
                 parent_provider_id TEXT REFERENCES providers(provider_id) ON DELETE SET NULL,
+                card_type TEXT,
                 FOREIGN KEY (provider_id) REFERENCES providers(provider_id) ON DELETE CASCADE
             );
 
@@ -239,9 +240,10 @@ public class DatabaseMigrationService
         EnsureColumn(connection, TableProviders, "config_json", "TEXT");
         EnsureColumn(connection, TableProviders, "auth_source", "TEXT DEFAULT 'manual'");
         EnsureColumn(connection, TableProviders, "plan_type", "TEXT DEFAULT 'usage'");
+        // Ensure ALL provider_history columns exist before the timestamp conversion,
+        // because the conversion recreates the table and copies all columns.
         EnsureColumn(connection, TableProviderHistory, "next_reset_time", "TEXT");
         EnsureColumn(connection, TableProviderHistory, "details_json", "TEXT");
-        EnsureColumn(connection, TableProviderHistory, "next_reset_time", "TEXT");
         EnsureColumn(connection, TableProviderHistory, "response_latency_ms", "REAL NOT NULL DEFAULT 0");
         EnsureColumn(connection, TableProviderHistory, "http_status", "INTEGER NOT NULL DEFAULT 0");
         EnsureColumn(connection, TableProviderHistory, "upstream_response_validity", "INTEGER NOT NULL DEFAULT 0");
@@ -252,8 +254,10 @@ public class DatabaseMigrationService
         EnsureColumn(connection, TableProviderHistory, "window_kind", "INTEGER NOT NULL DEFAULT 0");
         EnsureColumn(connection, TableProviderHistory, "model_name", "TEXT");
         EnsureColumn(connection, TableProviderHistory, "name", "TEXT");
+        EnsureColumn(connection, TableProviderHistory, "card_type", "TEXT");
 
-        // Convert fetched_at TEXT → INTEGER epoch for databases that pre-date V11.
+        // Convert fetched_at TEXT → INTEGER epoch. All columns are ensured above
+        // so the table recreation preserves all data.
         ConvertTimestampsToEpochIfNeeded(connection);
 
         ExecuteNonQuery(
@@ -285,8 +289,20 @@ public class DatabaseMigrationService
             return;
         }
 
+        // Capture source columns BEFORE migration. Every column must survive.
+        var sourceColumns = GetColumnNames(connection, TableProviderHistory);
+        var sourceSnapshotColumns = GetColumnNames(connection, "raw_snapshots");
+
+        // Build INSERT SELECT dynamically from actual source columns.
+        // If the new CREATE TABLE is missing a source column, the INSERT THROWS.
+        var historySelect = BuildColumnSelect(sourceColumns);
+        var historyTarget = string.Join(", ", sourceColumns.Select(c => $"\"{c}\""));
+
+        var snapshotSelect = BuildColumnSelect(sourceSnapshotColumns);
+        var snapshotTarget = string.Join(", ", sourceSnapshotColumns.Select(c => $"\"{c}\""));
+
         ExecuteNonQuery(connection, "PRAGMA foreign_keys = OFF");
-        ExecuteNonQuery(connection, @"
+        ExecuteNonQuery(connection, $@"
             CREATE TABLE provider_history_new (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 provider_id TEXT NOT NULL,
@@ -303,18 +319,21 @@ public class DatabaseMigrationService
                 fetched_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
                 details_json TEXT,
                 parent_provider_id TEXT REFERENCES providers(provider_id) ON DELETE SET NULL,
+                card_id TEXT,
+                group_id TEXT,
+                window_kind INTEGER NOT NULL DEFAULT 0,
+                model_name TEXT,
+                name TEXT,
+                card_type TEXT,
                 FOREIGN KEY (provider_id) REFERENCES providers(provider_id) ON DELETE CASCADE
             );
-            INSERT INTO provider_history_new
-            SELECT id, provider_id, is_available, status_message, next_reset_time,
-                   requests_used, requests_available, requests_percentage,
-                   response_latency_ms, http_status, upstream_response_validity, upstream_response_note,
-                   CAST(strftime('%s', fetched_at) AS INTEGER),
-                   details_json, parent_provider_id
+            INSERT INTO provider_history_new ({historyTarget})
+            SELECT {historySelect}
             FROM provider_history;
             DROP TABLE provider_history;
             ALTER TABLE provider_history_new RENAME TO provider_history;
-
+        ");
+        ExecuteNonQuery(connection, $@"
             CREATE TABLE raw_snapshots_new (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 provider_id TEXT NOT NULL REFERENCES providers(provider_id) ON DELETE CASCADE,
@@ -322,14 +341,67 @@ public class DatabaseMigrationService
                 http_status INTEGER NOT NULL DEFAULT 200,
                 fetched_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
             );
-            INSERT INTO raw_snapshots_new
-            SELECT id, provider_id, raw_json, http_status,
-                   CAST(strftime('%s', fetched_at) AS INTEGER)
+            INSERT INTO raw_snapshots_new ({snapshotTarget})
+            SELECT {snapshotSelect}
             FROM raw_snapshots;
             DROP TABLE raw_snapshots;
             ALTER TABLE raw_snapshots_new RENAME TO raw_snapshots;
         ");
         ExecuteNonQuery(connection, "PRAGMA foreign_keys = ON");
+
+        // Verify no columns were lost — defensive assertion against future drift.
+        var newHistoryColumns = GetColumnNames(connection, TableProviderHistory);
+        var missingHistory = sourceColumns.Except(newHistoryColumns, StringComparer.OrdinalIgnoreCase).ToList();
+        if (missingHistory.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"Timestamp conversion destroyed columns from provider_history: {string.Join(", ", missingHistory)}. "
+                + "The CREATE TABLE must include every source column.");
+        }
+
+        var newSnapshotColumns = GetColumnNames(connection, "raw_snapshots");
+        var missingSnapshot = sourceSnapshotColumns.Except(newSnapshotColumns, StringComparer.OrdinalIgnoreCase).ToList();
+        if (missingSnapshot.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"Timestamp conversion destroyed columns from raw_snapshots: {string.Join(", ", missingSnapshot)}.");
+        }
+    }
+
+    /// <summary>
+    /// Builds a SELECT expression list that copies every column, transforming
+    /// <c>fetched_at</c> from TEXT to epoch INTEGER. Everything else passes through.
+    /// </summary>
+    private static string BuildColumnSelect(List<string> columns)
+    {
+        var exprs = columns.Select(c =>
+            string.Equals(c, "fetched_at", StringComparison.OrdinalIgnoreCase)
+                ? "CAST(strftime('%s', fetched_at) AS INTEGER)"
+                : $"\"{c}\"");
+        return string.Join(", ", exprs);
+    }
+
+    private static List<string> GetColumnNames(SqliteConnection connection, string tableName)
+    {
+        if (!TableInfoSql.TryGetValue(tableName, out var pragmaSql))
+        {
+            throw new ArgumentException($"Table '{tableName}' is not in the migration allowlist.", nameof(tableName));
+        }
+
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = pragmaSql;
+        using var reader = cmd.ExecuteReader();
+        var columns = new List<string>();
+        while (reader.Read())
+        {
+            var name = reader["name"]?.ToString();
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                columns.Add(name);
+            }
+        }
+
+        return columns;
     }
 
     private static string? GetColumnType(SqliteConnection connection, string tableName, string columnName)

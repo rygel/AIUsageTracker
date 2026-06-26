@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Services;
@@ -36,7 +37,12 @@ public class DataExportService : IDataExportService
             foreach (var row in history)
             {
                 var isAvail = row.IsAvailable ? 1 : 0;
-                sb.AppendFormat(CultureInfo.InvariantCulture, "\"{0}\",\"{1}\",{2},{3},{4},{5},\"{6}\",\"{7:O}\",\"{8:O}\"\r\n", row.ProviderId, row.ProviderName, row.RequestsUsed, row.RequestsAvailable, row.UsedPercent, isAvail, row.Description?.Replace("\"", "\"\"", StringComparison.Ordinal), row.FetchedAt, row.NextResetTime?.ToString("O"));
+                var quotaRow = row as QuotaProviderUsage;
+                var used = quotaRow?.RequestsUsed ?? 0;
+                var avail = quotaRow?.RequestsAvailable ?? 0;
+                var usedPct = quotaRow?.UsedPercent ?? 0;
+                var nextReset = quotaRow?.NextResetTime?.ToString("O");
+                sb.AppendFormat(CultureInfo.InvariantCulture, "\"{0}\",\"{1}\",{2},{3},{4},{5},\"{6}\",\"{7:O}\",\"{8}\"\r\n", row.ProviderId, row.ProviderName, used, avail, usedPct, isAvail, row.Description?.Replace("\"", "\"\"", StringComparison.Ordinal), row.FetchedAt, nextReset);
             }
 
             return sb.ToString();

@@ -236,7 +236,8 @@ public static class ProviderMetadataCatalog
 
         foreach (var providerType in providerTypes)
         {
-            var staticDefProp = providerType.GetProperty("StaticDefinition",
+            var staticDefProp = providerType.GetProperty(
+                "StaticDefinition",
                 System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
             if (staticDefProp?.GetValue(null) is ProviderDefinition definition)
             {
@@ -246,7 +247,7 @@ public static class ProviderMetadataCatalog
             // Some providers have additional definitions (e.g. CodexProvider.SparkDefinition)
             var additionalDefs = providerType.GetProperties(
                 System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
-                .Where(p => p.PropertyType == typeof(ProviderDefinition) && p.Name != "StaticDefinition");
+                .Where(p => p.PropertyType == typeof(ProviderDefinition) && !string.Equals(p.Name, "StaticDefinition", StringComparison.Ordinal));
 
             foreach (var prop in additionalDefs)
             {

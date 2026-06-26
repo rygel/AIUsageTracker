@@ -74,6 +74,7 @@ public class AppPreferences
 
     public bool StartUiWithWindows { get; set; } = false;
 
+    [JsonConverter(typeof(JsonStringEnumConverter<AppTheme>))]
     public AppTheme Theme { get; set; } = AppTheme.Dark;
 
     public bool DebugMode { get; set; } = false; // Enable detailed debug logging
@@ -98,7 +99,11 @@ public class AppPreferences
     public IDictionary<string, bool> CollapsedGroupIds { get; set; } = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
 
     // Update channel (Stable or Beta).
-    // Intentionally persisted as a numeric enum value (0=Stable, 1=Beta).
+    // Uses JsonStringEnumConverter so it accepts BOTH string ("Beta") and numeric (1)
+    // on read, and writes as string. This is critical for upgrade compatibility:
+    // older builds that briefly had the converter wrote strings, while builds that
+    // lost it (merge 8eb7c163) wrote numbers. Both must deserialize correctly.
+    [JsonConverter(typeof(JsonStringEnumConverter<UpdateChannel>))]
     public UpdateChannel UpdateChannel { get; set; } = UpdateChannel.Stable;
 
     // Display Options
@@ -139,7 +144,25 @@ public class AppPreferences
 
     public static AppPreferences Deserialize(string json)
     {
-        var preferences = JsonSerializer.Deserialize<AppPreferences>(json) ?? new AppPreferences();
+        AppPreferences preferences;
+        try
+        {
+            preferences = JsonSerializer.Deserialize<AppPreferences>(json) ?? new AppPreferences();
+        }
+        catch (JsonException)
+        {
+            // A single incompatible property (e.g. enum serialized as string
+            // in one version and numeric in another) must NOT wipe ALL
+            // preferences.  Retry with JsonStringEnumConverter applied
+            // globally so every enum accepts both string and numeric input.
+            var lenientOptions = new JsonSerializerOptions
+            {
+                Converters = { new JsonStringEnumConverter() },
+                NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString,
+            };
+            preferences = JsonSerializer.Deserialize<AppPreferences>(json, lenientOptions) ?? new AppPreferences();
+        }
+
         preferences.ApplyMigrations(json);
         preferences.SchemaVersion = CurrentSchemaVersion;
         return preferences;

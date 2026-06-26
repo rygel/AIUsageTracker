@@ -45,7 +45,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         var result = await this._provider.GetUsageAsync(this.Config);
 
         // Assert
-        var usage = result.Single();
+        var usage = result.OfType<WindowedProviderUsage>().Single();
         Assert.Equal("Kimi for Coding", usage.ProviderName);
 
         // 10 used out of 100 = 10% used
@@ -79,7 +79,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         var result = await this._provider.GetUsageAsync(this.Config);
 
         // Assert
-        var usage = result.Single();
+        var usage = result.OfType<WindowedProviderUsage>().Single();
 
         // 50% used
         Assert.Equal(50, usage.UsedPercent);
@@ -110,7 +110,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         var result = await this._provider.GetUsageAsync(this.Config);
 
         // Assert
-        var usage = result.Single();
+        var usage = result.OfType<WindowedProviderUsage>().Single();
 
         // 95% used
         Assert.Equal(95, usage.UsedPercent);
@@ -160,7 +160,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         var result = await this._provider.GetUsageAsync(this.Config);
 
         // Assert — provider now emits flat cards: one per quota window
-        var usages = result.ToList();
+        var usages = result.OfType<WindowedProviderUsage>().ToList();
 
         // Should have 2 flat cards: 5h limit + 7d limit (Weekly-from-usage is skipped when a 7d entry exists in data.Limits)
         Assert.Equal(2, usages.Count);
@@ -212,7 +212,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         var result = await this._provider.GetUsageAsync(this.Config);
 
         // Assert — provider emits flat cards (weekly from usage + burst from limits)
-        var usages = result.ToList();
+        var usages = result.OfType<WindowedProviderUsage>().ToList();
 
         // Weekly card from usage block (no 7d entry in limits)
         var weeklyCard = Assert.Single(usages, u => u.WindowKind == WindowKind.Rolling);
@@ -268,7 +268,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         var result = await this._provider.GetUsageAsync(this.Config);
 
         // Assert — provider emits flat cards (rolling + burst)
-        var usages = result.ToList();
+        var usages = result.OfType<WindowedProviderUsage>().ToList();
 
         // Rolling card from limits (7d entry exists in limits, so usage block is skipped)
         var rollingCards = usages.Where(u => u.WindowKind == WindowKind.Rolling).ToList();
@@ -311,7 +311,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         var result = await this._provider.GetUsageAsync(this.Config);
 
         // Assert
-        var usage = result.Single();
+        var usage = result.OfType<WindowedProviderUsage>().Single();
 
         // 0.5% used - rounds to 0 for display (50 / 10000 = 0.5%)
         Assert.True(usage.UsedPercent <= 1);
@@ -352,7 +352,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         var result = await this._provider.GetUsageAsync(this.Config);
 
         // Provider now emits flat cards: burst (300min) + rolling (weekly from usage)
-        var usages = result.ToList();
+        var usages = result.OfType<WindowedProviderUsage>().ToList();
         var burstCard = Assert.Single(usages, u => u.WindowKind == WindowKind.Burst);
         var rollingCard = Assert.Single(usages, u => u.WindowKind == WindowKind.Rolling);
 
@@ -404,7 +404,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
 
         // Assert — provider emits flat cards: Hourly (Burst) + Weekly from limits (Rolling)
         // Weekly-from-usage is skipped when a 7d entry exists in data.Limits
-        var usages = result.ToList();
+        var usages = result.OfType<WindowedProviderUsage>().ToList();
         Assert.Equal(2, usages.Count);
 
         var hourlyCard = Assert.Single(usages, u => u.WindowKind == WindowKind.Burst);
@@ -448,7 +448,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         var result = await this._provider.GetUsageAsync(this.Config);
 
         // Provider emits flat cards: burst (3h window) + rolling (weekly from usage)
-        var burstCard = Assert.Single(result, u => u.WindowKind == WindowKind.Burst);
+        var burstCard = Assert.Single(result.OfType<WindowedProviderUsage>(), u => u.WindowKind == WindowKind.Burst);
         Assert.Equal("3h Limit", burstCard.Name);
     }
 
@@ -483,7 +483,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         var result = await this._provider.GetUsageAsync(this.Config);
 
         // Provider emits flat cards: burst (1d window) + rolling (weekly from usage)
-        var burstCard = Assert.Single(result, u => u.WindowKind == WindowKind.Burst);
+        var burstCard = Assert.Single(result.OfType<WindowedProviderUsage>(), u => u.WindowKind == WindowKind.Burst);
         Assert.Equal("1d Limit", burstCard.Name); // Duration is formatted as "1d" not "Daily"
     }
 

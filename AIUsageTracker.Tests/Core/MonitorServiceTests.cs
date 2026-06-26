@@ -7,6 +7,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Infrastructure.MonitorClient;
 using AIUsageTracker.Tests.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -96,7 +97,7 @@ public class MonitorServiceTests
         var baseline = this._service.GetTelemetrySnapshot();
         var usage = new List<ProviderUsage>
         {
-            new() { ProviderId = "openai", ProviderName = "OpenAI", IsAvailable = true },
+            new QuotaProviderUsage { ProviderId = "openai", ProviderName = "OpenAI", IsAvailable = true },
         };
         this.SetupMockResponse(HttpStatusCode.OK, usage);
 
@@ -190,7 +191,7 @@ public class MonitorServiceTests
             var requestedUrls = new List<string>();
             var usage = new List<ProviderUsage>
             {
-                new() { ProviderId = "openai", ProviderName = "OpenAI", IsAvailable = true },
+                new QuotaProviderUsage { ProviderId = "openai", ProviderName = "OpenAI", IsAvailable = true },
             };
 
             service.AgentUrl = "http://localhost:5000";
@@ -249,7 +250,7 @@ public class MonitorServiceTests
             var requestedUrls = new List<string>();
             var usage = new List<ProviderUsage>
             {
-                new() { ProviderId = "openai", ProviderName = "OpenAI", IsAvailable = true },
+                new QuotaProviderUsage { ProviderId = "openai", ProviderName = "OpenAI", IsAvailable = true },
             };
 
             service.AgentUrl = "http://localhost:5000";

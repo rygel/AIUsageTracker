@@ -51,6 +51,8 @@ public interface IMonitorService
 
     Task<MonitorActionResult> CheckProviderAsync(string providerId);
 
+    Task<MonitorActionResult> TestProviderConnectionAsync(string providerId, string apiKey);
+
     Task<bool> CheckHealthAsync();
 
     /// <summary>

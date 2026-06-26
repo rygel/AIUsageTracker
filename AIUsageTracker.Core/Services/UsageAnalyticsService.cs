@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Core.Services;
 
-public class UsageAnalyticsService : IUsageAnalyticsService
+public class UsageAnalyticsService
 {
     private readonly IWebDatabaseRepository _repository;
     private readonly IMemoryCache _cache;
@@ -54,7 +54,7 @@ public class UsageAnalyticsService : IUsageAnalyticsService
 
         foreach (var group in data.GroupBy(r => r.ProviderId, StringComparer.OrdinalIgnoreCase))
         {
-            var samples = group.Where(x => x.IsAvailable).ToList();
+            var samples = group.Where(x => x.IsAvailable).OfType<QuotaProviderUsage>().ToList();
             forecasts[group.Key] = UsageMath.CalculateBurnRateForecast(samples);
         }
 
@@ -128,7 +128,7 @@ public class UsageAnalyticsService : IUsageAnalyticsService
 
         foreach (var group in data.GroupBy(r => r.ProviderId, StringComparer.OrdinalIgnoreCase))
         {
-            var samples = group.Where(x => x.IsAvailable).ToList();
+            var samples = group.Where(x => x.IsAvailable).OfType<QuotaProviderUsage>().ToList();
             anomalies[group.Key] = UsageMath.CalculateUsageAnomalySnapshot(samples);
         }
 

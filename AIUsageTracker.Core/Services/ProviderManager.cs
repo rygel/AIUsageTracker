@@ -48,6 +48,9 @@ public class ProviderManager : IDisposable
 
     public IReadOnlyList<ProviderConfig>? LastConfigs => this._lastConfigs;
 
+    public IProviderService? GetProviderService(string providerId) =>
+        this._providers.FirstOrDefault(p => p.CanHandleProviderId(providerId));
+
     public int MaxConcurrentProviderRequests { get; }
 
     public static int ClampMaxConcurrentProviderRequests(int value)
@@ -194,7 +197,7 @@ public class ProviderManager : IDisposable
         (bool IsQuotaBased, PlanType PlanType, string DisplayName) defaults,
         Stopwatch stopwatch)
     {
-        return new ProviderUsage
+        return new QuotaProviderUsage
         {
             ProviderId = config.ProviderId,
             ProviderName = defaults.DisplayName,
@@ -215,7 +218,7 @@ public class ProviderManager : IDisposable
         string message,
         Stopwatch stopwatch)
     {
-        return new ProviderUsage
+        return new QuotaProviderUsage
         {
             ProviderId = config.ProviderId,
             ProviderName = defaults.DisplayName,
@@ -234,7 +237,7 @@ public class ProviderManager : IDisposable
         string message,
         Stopwatch stopwatch)
     {
-        return new ProviderUsage
+        return new QuotaProviderUsage
         {
             ProviderId = config.ProviderId,
             ProviderName = defaults.DisplayName,
@@ -253,7 +256,7 @@ public class ProviderManager : IDisposable
         ProviderConfig config,
         (bool IsQuotaBased, PlanType PlanType, string DisplayName) defaults)
     {
-        return new ProviderUsage
+        return new QuotaProviderUsage
         {
             ProviderId = config.ProviderId,
             ProviderName = defaults.DisplayName,

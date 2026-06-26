@@ -107,7 +107,7 @@ public class ThemeApplicationTests
                     continue;
                 }
 
-                if (line.Contains("new Window", StringComparison.Ordinal) && !line.Contains("WindowInteropHelper", StringComparison.Ordinal))
+                if (line.Contains("new Window", StringComparison.Ordinal) && !line.Contains("WindowInteropHelper", StringComparison.Ordinal) && !line.Contains("WindowedProviderUsage", StringComparison.Ordinal))
                 {
                     // Check if Background is set from resources within ~10 lines
                     var contextEnd = Math.Min(i + 15, lines.Length);
@@ -213,7 +213,8 @@ public class ThemeApplicationTests
     public void ResolveSystemTheme_ReturnsDarkOrLight()
     {
         var result = App.ResolveSystemTheme();
-        Assert.True(result == AppTheme.Dark || result == AppTheme.Light,
+        Assert.True(
+            result == AppTheme.Dark || result == AppTheme.Light,
             $"ResolveSystemTheme returned {result}, expected Dark or Light");
     }
 

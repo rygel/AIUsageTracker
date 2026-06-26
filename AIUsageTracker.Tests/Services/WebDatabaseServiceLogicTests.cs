@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using AIUsageTracker.Core.Models;
 using AIUsageTracker.Tests.Infrastructure;
 
 namespace AIUsageTracker.Tests.Services;
@@ -25,10 +26,10 @@ public class WebDatabaseServiceLogicTests : DatabaseTestBase
 
         Assert.Equal(2, results.Count);
 
-        var openAi = results.First(result => string.Equals(result.ProviderId, "openai", StringComparison.Ordinal));
+        var openAi = (QuotaProviderUsage)results.First(result => string.Equals(result.ProviderId, "openai", StringComparison.Ordinal));
         Assert.Equal(20, openAi.RequestsUsed);
 
-        var anthropic = results.First(result => string.Equals(result.ProviderId, "anthropic", StringComparison.Ordinal));
+        var anthropic = (QuotaProviderUsage)results.First(result => string.Equals(result.ProviderId, "anthropic", StringComparison.Ordinal));
         Assert.Equal(15, anthropic.RequestsUsed);
     }
 
