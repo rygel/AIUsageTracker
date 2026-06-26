@@ -26,7 +26,7 @@ internal static class WebServiceCollectionExtensions
             return new WebDatabaseService(cache, logger, pathProvider, connectionFactory, databasePath);
         });
         services.AddSingleton<IWebDatabaseRepository>(sp => sp.GetRequiredService<WebDatabaseService>());
-        services.AddSingleton<IUsageAnalyticsService, UsageAnalyticsService>();
+        services.AddSingleton<UsageAnalyticsService>();
         services.AddSingleton<IMonitorLauncher, MonitorLauncher>();
         services.AddSingleton<IMonitorService, MonitorService>();
         services.AddSingleton<IMonitorLauncherClient>(sp =>
