@@ -4,6 +4,16 @@ This document provides essential information for agentic coding assistants worki
 
 ## Critical Rules
 
+### NEVER Wipe User Settings (CRITICAL)
+- **User preferences are sacred. NEVER allow a deserialization failure to reset ALL preferences to defaults.**
+- `AppPreferences.Deserialize` MUST catch `JsonException` and retry with lenient options before falling back to defaults. A single incompatible property must NEVER destroy every setting the user has configured.
+- **Every enum property on `AppPreferences` MUST have `[JsonConverter(typeof(JsonStringEnumConverter<T>))]`** so it accepts both string and numeric values on read. This is mandatory for forward/backward compatibility across versions.
+- **Mandatory tests** — these MUST exist and MUST pass or the build fails:
+  - `preferences.json` with string enum values (e.g. `"UpdateChannel": "Beta"`) must deserialize correctly even if the current code writes numeric.
+  - `preferences.json` with numeric enum values (e.g. `"UpdateChannel": 1`) must deserialize correctly even if the current code writes strings.
+  - A `preferences.json` with ONE corrupt property must still salvage ALL other valid properties — the corrupt one is skipped, not the entire file.
+- **Root cause context**: Merge commit `8eb7c163` silently dropped the `JsonStringEnumConverter` attribute from `UpdateChannel`. Users who had `"UpdateChannel": "Beta"` (string) in their `preferences.json` hit a `JsonException` on startup, and `PreferencesStore.LoadAsync()` returned `new AppPreferences()` — wiping EVERY setting (theme, fonts, thresholds, window position, notification config, hidden providers, everything). This must NEVER happen again.
+
 ### NEVER Create Releases Without Explicit Permission
 - **I MUST NEVER** create git tags or releases without your explicit instruction
 - **I MUST NEVER** initiate CI/CD release workflows without your permission

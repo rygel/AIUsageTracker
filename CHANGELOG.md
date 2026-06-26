@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [2.3.6-beta.12] - 2026-06-26
+
+### Fixed
+- **Settings wipe on update (CRITICAL)**: Merge commit `8eb7c163` silently dropped `[JsonConverter(typeof(JsonStringEnumConverter<UpdateChannel>))]` from `AppPreferences.cs`. Users whose `preferences.json` had `"UpdateChannel": "Beta"` (string) hit a `JsonException` on startup, causing `PreferencesStore.LoadAsync()` to return `new AppPreferences()` — wiping EVERY setting (theme, fonts, thresholds, window position, notifications, hidden providers, everything). Fixed by restoring the converter on `UpdateChannel` and `AppTheme`, and hardening `AppPreferences.Deserialize` to retry with lenient options before falling back to defaults.
+- **Force-save before installer launch**: `UpdateInstallerHelper` now force-saves preferences before launching the installer (which runs `taskkill /F`), preventing loss of unsaved settings changes.
+
+### Added
+- **Regression tests**: 15 tests covering string/numeric enum deserialization, blast-radius protection (one corrupt property must not wipe all preferences), mixed-format round-trips, and cross-format upgrade scenarios.
+- **AGENTS.md rule**: Mandatory `[JsonStringEnumConverter]` on all enum properties and mandatory tests for string/numeric/corrupt-property scenarios.
+
 ## [2.3.6-beta.11] - 2026-06-25
 
 ### Fixed

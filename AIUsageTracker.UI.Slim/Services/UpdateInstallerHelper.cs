@@ -3,12 +3,19 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Infrastructure.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.UI.Slim.Services;
 
 internal static class UpdateInstallerHelper
 {
+    /// <summary>
+    /// Downloads and installs an update. Preferences are force-saved to disk
+    /// BEFORE the installer launches, because the installer force-kills this
+    /// process via taskkill /F. Without this save, any unsaved preference
+    /// changes (including UpdateChannel) are lost.
+    /// </summary>
     public static async Task DownloadAndInstallAsync(
         Window owner,
         UpdateInfo updateInfo,
@@ -67,6 +74,21 @@ internal static class UpdateInstallerHelper
 
             var progress = new Progress<double>(p => progressBar.Value = p);
             progressWindow.Show();
+
+            // CRITICAL: Force-save preferences before the installer launches.
+            // The installer runs taskkill /F which terminates this process
+            // immediately — any pending debounced saves (600ms timer) are lost.
+            // Without this, UpdateChannel and other unsaved settings revert to defaults.
+            try
+            {
+                var preferencesStore = App.Host.Services.GetRequiredService<UiPreferencesStore>();
+                await preferencesStore.SaveAsync(App.Preferences).ConfigureAwait(true);
+                logger.LogInformation("[UPDATE] Preferences force-saved before installer launch");
+            }
+            catch (Exception saveEx)
+            {
+                logger.LogWarning(saveEx, "[UPDATE] Failed to force-save preferences before installer launch");
+            }
 
             UiDiagnosticFileLog.Write($"[UPDATE] Starting download: {updateInfo.DownloadUrl}");
             var result = await updateChecker.DownloadAndInstallUpdateAsync(updateInfo, progress).ConfigureAwait(true);
