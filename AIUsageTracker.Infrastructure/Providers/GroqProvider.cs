@@ -93,7 +93,7 @@ public class GroqProvider : ProviderBase
                 var resetTime = ResolveResetTimeFromSeconds(resetRequestsSeconds);
                 var resetDesc = FormatResetDescription(resetRequestsSeconds);
 
-                cards.Add(new ProviderUsage
+                cards.Add(new QuotaProviderUsage
                 {
                     ProviderId = this.ProviderId,
                     ProviderName = providerLabel,
@@ -123,7 +123,7 @@ public class GroqProvider : ProviderBase
                 var resetTime = ResolveResetTimeFromSeconds(resetTokensSeconds);
                 var resetDesc = FormatResetDescription(resetTokensSeconds);
 
-                cards.Add(new ProviderUsage
+                cards.Add(new QuotaProviderUsage
                 {
                     ProviderId = this.ProviderId,
                     ProviderName = providerLabel,
@@ -146,15 +146,11 @@ public class GroqProvider : ProviderBase
 
             if (cards.Count == 0)
             {
-                cards.Add(new ProviderUsage
+                cards.Add(new StatusProviderUsage
                 {
                     ProviderId = this.ProviderId,
                     ProviderName = providerLabel,
                     IsAvailable = true,
-                    IsStatusOnly = true,
-                    UsedPercent = 0,
-                    PlanType = this.Definition.PlanType,
-                    IsQuotaBased = this.Definition.IsQuotaBased,
                     Description = "Connected (no rate-limit headers returned)",
                     RawJson = content,
                     HttpStatus = httpStatus,

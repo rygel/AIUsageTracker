@@ -63,14 +63,17 @@ public class GroqProviderTests : HttpProviderTestBase<GroqProvider>
         Assert.Equal(2, cards.Count);
         Assert.All(cards, c => Assert.True(c.IsAvailable));
         Assert.All(cards, c => Assert.Equal("groq", c.ProviderId));
+        Assert.All(cards, c => Assert.IsType<QuotaProviderUsage>(c));
 
-        var dailyRequests = cards.First(c => string.Equals(c.CardId, "daily-requests", StringComparison.Ordinal));
+        var dailyRequests = Assert.IsType<QuotaProviderUsage>(
+            cards.First(c => c is QuotaProviderUsage q && q.CardId == "daily-requests"));
         Assert.Equal(14400, dailyRequests.RequestsAvailable);
         Assert.Equal(30, dailyRequests.RequestsUsed);
         Assert.True(dailyRequests.UsedPercent < 1);
         Assert.NotNull(dailyRequests.NextResetTime);
 
-        var perMinuteTokens = cards.First(c => string.Equals(c.CardId, "per-minute-tokens", StringComparison.Ordinal));
+        var perMinuteTokens = Assert.IsType<QuotaProviderUsage>(
+            cards.First(c => c is QuotaProviderUsage q && q.CardId == "per-minute-tokens"));
         Assert.Equal(18000, perMinuteTokens.RequestsAvailable);
         Assert.Equal(3, perMinuteTokens.RequestsUsed);
         Assert.NotNull(perMinuteTokens.NextResetTime);
@@ -90,7 +93,7 @@ public class GroqProviderTests : HttpProviderTestBase<GroqProvider>
         var usage = Assert.Single(results);
 
         Assert.True(usage.IsAvailable);
-        Assert.True(usage.IsStatusOnly);
+        Assert.IsType<StatusProviderUsage>(usage);
         Assert.Contains("Connected", usage.Description, StringComparison.Ordinal);
     }
 
@@ -125,7 +128,7 @@ public class GroqProviderTests : HttpProviderTestBase<GroqProvider>
         this.SetupHttpResponse(ModelsUrl, response);
 
         var results = await this._provider.GetUsageAsync(_config);
-        var card = Assert.Single(results);
+        var card = Assert.IsType<QuotaProviderUsage>(Assert.Single(results));
 
         Assert.Equal("daily-requests", card.CardId);
         Assert.Equal(1000, card.RequestsAvailable);

@@ -56,7 +56,7 @@ public partial class App
             return;
         }
 
-        var avgRemaining = active.Average(u => u.RemainingPercent);
+        var avgRemaining = active.OfType<QuotaProviderUsage>().Select(q => q.RemainingPercent).DefaultIfEmpty(0).Average();
         this._trayIcon.ToolTipText = $"AI Usage Tracker — {active.Count} active, {avgRemaining:F0}% avg remaining";
     }
 
