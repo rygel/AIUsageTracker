@@ -190,7 +190,7 @@ public sealed class ProviderCardPresentationCatalogTests
     [Fact]
     public void Create_UsesDeclaredWindowLabels_ForKimiStyleLimitNames()
     {
-        // Labels are driven by the window card's Name property.
+        // Labels come from the provider definition's QuotaWindowDefinition.DualBarLabel.
         var usage = new WindowedProviderUsage
         {
             ProviderId = "kimi-for-coding",
@@ -199,15 +199,15 @@ public sealed class ProviderCardPresentationCatalogTests
             UsedPercent = 25,
             WindowCards = new[]
             {
-                new WindowedProviderUsage { ProviderId = "kimi-for-coding", Name = "5h Limit",     WindowKind = WindowKind.Burst,   UsedPercent = 0.0 },
-                new WindowedProviderUsage { ProviderId = "kimi-for-coding", Name = "Weekly Limit", WindowKind = WindowKind.Rolling, UsedPercent = 25.0 },
+                new WindowedProviderUsage { ProviderId = "kimi-for-coding", WindowKind = WindowKind.Burst,   UsedPercent = 0.0 },
+                new WindowedProviderUsage { ProviderId = "kimi-for-coding", WindowKind = WindowKind.Rolling, UsedPercent = 25.0 },
             },
         };
 
         var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: true);
 
-        // Short window (5h/Burst) is top bar (Primary), long window (Weekly/Rolling) is bottom.
-        Assert.Equal("5h Limit 0% used | Weekly Limit 25% used", presentation.StatusText);
+        // DualBarLabel from Kimi definition: Burst="5h", Rolling="Weekly"
+        Assert.Equal("5h 0% used | Weekly 25% used", presentation.StatusText);
     }
 
     // --- Pipeline regression tests ---
@@ -305,26 +305,26 @@ public sealed class ProviderCardPresentationCatalogTests
             {
                 new AgentGroupedProviderUsage
                 {
-                    ProviderId = "claude-code",
+                    ProviderId = "codex",
                     IsAvailable = true,
                     IsQuotaBased = true,
                     UsedPercent = 84,
                     Models = Array.Empty<AgentGroupedModelUsage>(),
                     ProviderDetails = new[]
                     {
-                        new WindowedProviderUsage
+                        new ModelScopedProviderUsage
                         {
-                            ProviderId = "claude-code",
-                            Name = "Current Session",
+                            ProviderId = "codex",
                             WindowKind = WindowKind.Burst,
                             UsedPercent = 84,
+                            ModelName = "gpt-4",
                         },
-                        new WindowedProviderUsage
+                        new ModelScopedProviderUsage
                         {
-                            ProviderId = "claude-code",
-                            Name = "All Models",
+                            ProviderId = "codex",
                             WindowKind = WindowKind.Rolling,
                             UsedPercent = 16,
+                            ModelName = "gpt-4",
                         },
                     },
                 },
@@ -334,7 +334,8 @@ public sealed class ProviderCardPresentationCatalogTests
         var usages = GroupedUsageDisplayAdapter.Expand(snapshot);
         var usage = Assert.Single(usages);
         var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
-        Assert.Equal("Current Session 16% remaining | All Models 84% remaining", presentation.StatusText);
+        // Codex DualBarLabels: Burst="5h", Rolling="Weekly"
+        Assert.Equal("5h 16% remaining | Weekly 84% remaining", presentation.StatusText);
     }
 
     [Theory]
