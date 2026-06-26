@@ -324,6 +324,8 @@ public partial class Program
         builder.Services.AddSingleton<IConfigService, ConfigService>();
         builder.Services.AddSingleton<IGitHubAuthService, GitHubAuthService>();
         builder.Services.AddSingleton<IProviderDiscoveryService, ProviderDiscoveryService>();
+        AIUsageTracker.Infrastructure.Providers.ProviderMetadataCatalog.Initialize(
+            typeof(AIUsageTracker.Infrastructure.Providers.ProviderMetadataCatalog).Assembly);
         builder.Services.AddProvidersFromAssembly();
         builder.Services.AddSingleton<UsageAlertsService>();
         builder.Services.AddSingleton<ProviderRefreshCircuitBreakerService>();
