@@ -1,5 +1,6 @@
 @page
 @model IndexModel
+@using AIUsageTracker.Core.Models
 @using AIUsageTracker.Infrastructure.Providers
 @{
     ViewData["Title"] = "Dashboard";
@@ -503,20 +504,24 @@
         return "neutral";
     }
 
-    string GetUsageClass(double usage) => usage switch
+    string GetUsageClass(double usage)
     {
-        var u when u >= Model.ColorThresholdRed => "danger",
-        var u when u >= Model.ColorThresholdYellow => "warning",
-        _ => "success"
-    };
+        var tier = UsageMath.GetThresholdTier(usage, Model.ColorThresholdYellow, Model.ColorThresholdRed);
+        return tier switch
+        {
+            ThresholdTier.Red => "danger",
+            ThresholdTier.Yellow => "warning",
+            _ => "success"
+        };
+    }
 
     string GetProgressClass(double usedPercentage)
     {
-        // Color thresholds synchronized with desktop UI preferences
-        return usedPercentage switch
+        var tier = UsageMath.GetThresholdTier(usedPercentage, Model.ColorThresholdYellow, Model.ColorThresholdRed);
+        return tier switch
         {
-            var u when u >= Model.ColorThresholdRed => "high",
-            var u when u >= Model.ColorThresholdYellow => "medium",
+            ThresholdTier.Red => "high",
+            ThresholdTier.Yellow => "medium",
             _ => "low"
         };
     }

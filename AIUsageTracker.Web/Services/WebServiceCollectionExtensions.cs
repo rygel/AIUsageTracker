@@ -3,6 +3,7 @@
 // </copyright>
 
 using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.Services;
 using AIUsageTracker.Infrastructure.Configuration;
 using AIUsageTracker.Infrastructure.Helpers;
 using AIUsageTracker.Infrastructure.MonitorClient;

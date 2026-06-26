@@ -3,7 +3,7 @@
 // </copyright>
 
 using AIUsageTracker.Core.Interfaces;
-using AIUsageTracker.Infrastructure.Services;
+using AIUsageTracker.Core.Services;
 using AIUsageTracker.Tests.Infrastructure;
 using AIUsageTracker.Web.Services;
 using Microsoft.Data.Sqlite;

@@ -352,20 +352,17 @@ internal sealed class ProviderCardRenderer
 
     private Brush GetProgressBarColor(double usedPercentage)
     {
-        var yellowThreshold = this._preferences.ColorThresholdYellow;
-        var redThreshold = this._preferences.ColorThresholdRed;
+        var tier = UsageMath.GetThresholdTier(
+            usedPercentage,
+            this._preferences.ColorThresholdYellow,
+            this._preferences.ColorThresholdRed);
 
-        if (usedPercentage >= redThreshold)
+        return tier switch
         {
-            return this._getResourceBrush(ResourceKeyProgressBarRed, Brushes.Crimson);
-        }
-
-        if (usedPercentage >= yellowThreshold)
-        {
-            return this._getResourceBrush("ProgressBarYellow", Brushes.Gold);
-        }
-
-        return this._getResourceBrush(ResourceKeyProgressBarGreen, Brushes.MediumSeaGreen);
+            ThresholdTier.Red => this._getResourceBrush(ResourceKeyProgressBarRed, Brushes.Crimson),
+            ThresholdTier.Yellow => this._getResourceBrush("ProgressBarYellow", Brushes.Gold),
+            _ => this._getResourceBrush(ResourceKeyProgressBarGreen, Brushes.MediumSeaGreen),
+        };
     }
 
     private string? BuildResetBadgeText(ProviderUsage usage, ProviderCardPresentation presentation)
@@ -573,12 +570,12 @@ internal sealed class ProviderCardRenderer
     {
         if (usage is QuotaProviderUsage q && q.IsCurrencyUsage)
         {
-            return $"${q.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture)} used";
+            return UsageMath.FormatUsedCurrency(q.RequestsUsed);
         }
 
         if (usage is QuotaProviderUsage q2)
         {
-            return $"{q2.UsedPercent.ToString("F0", CultureInfo.InvariantCulture)}% used";
+            return UsageMath.FormatUsedPercent(q2.UsedPercent);
         }
 
         return string.Empty;
@@ -588,13 +585,12 @@ internal sealed class ProviderCardRenderer
     {
         if (usage is QuotaProviderUsage q && q.IsCurrencyUsage)
         {
-            var remaining = Math.Max(0, q.RequestsAvailable - q.RequestsUsed);
-            return $"${remaining.ToString("F2", CultureInfo.InvariantCulture)} remaining";
+            return UsageMath.FormatRemainingCurrency(q.RequestsAvailable - q.RequestsUsed);
         }
 
         if (usage is QuotaProviderUsage q2)
         {
-            return $"{Math.Max(0, 100 - q2.UsedPercent).ToString("F0", CultureInfo.InvariantCulture)}% remaining";
+            return UsageMath.FormatRemainingPercent(100 - q2.UsedPercent);
         }
 
         return string.Empty;

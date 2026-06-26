@@ -442,6 +442,81 @@ public class UsageMathTests
         Assert.Equal(usedPercent, result.ColorPercent, precision: 1);
     }
 
+    // ── GetThresholdTier ────────────────────────────────────────────────────
+    [Theory]
+    [InlineData(0, ThresholdTier.Green)]
+    [InlineData(59, ThresholdTier.Green)]
+    [InlineData(60, ThresholdTier.Yellow)]
+    [InlineData(79, ThresholdTier.Yellow)]
+    [InlineData(80, ThresholdTier.Red)]
+    [InlineData(100, ThresholdTier.Red)]
+    public void GetThresholdTier_DefaultThresholds_ReturnsCorrectTier(double usedPercent, ThresholdTier expected)
+    {
+        var tier = UsageMath.GetThresholdTier(usedPercent, yellowThreshold: 60, redThreshold: 80);
+        Assert.Equal(expected, tier);
+    }
+
+    [Fact]
+    public void GetThresholdTier_ExactlyAtYellow_ReturnsYellow()
+    {
+        Assert.Equal(ThresholdTier.Yellow, UsageMath.GetThresholdTier(50, 50, 90));
+    }
+
+    [Fact]
+    public void GetThresholdTier_ExactlyAtRed_ReturnsRed()
+    {
+        Assert.Equal(ThresholdTier.Red, UsageMath.GetThresholdTier(90, 50, 90));
+    }
+
+    [Fact]
+    public void GetThresholdTier_BelowYellow_ReturnsGreen()
+    {
+        Assert.Equal(ThresholdTier.Green, UsageMath.GetThresholdTier(49.9, 50, 90));
+    }
+
+    // ── Format methods ──────────────────────────────────────────────────────
+    [Fact]
+    public void FormatUsedPercent_NormalValue()
+    {
+        Assert.Equal("75% used", UsageMath.FormatUsedPercent(75));
+    }
+
+    [Fact]
+    public void FormatUsedPercent_ClampsAbove100()
+    {
+        Assert.Equal("100% used", UsageMath.FormatUsedPercent(150));
+    }
+
+    [Fact]
+    public void FormatUsedPercent_ClampsBelowZero()
+    {
+        Assert.Equal("0% used", UsageMath.FormatUsedPercent(-10));
+    }
+
+    [Fact]
+    public void FormatRemainingPercent_NormalValue()
+    {
+        Assert.Equal("25% remaining", UsageMath.FormatRemainingPercent(25));
+    }
+
+    [Fact]
+    public void FormatUsedCurrency_NormalValue()
+    {
+        Assert.Equal("$12.50 used", UsageMath.FormatUsedCurrency(12.5));
+    }
+
+    [Fact]
+    public void FormatRemainingCurrency_NormalValue()
+    {
+        Assert.Equal("$7.50 remaining", UsageMath.FormatRemainingCurrency(7.5));
+    }
+
+    [Fact]
+    public void FormatRemainingCurrency_ClampsNegative()
+    {
+        Assert.Equal("$0.00 remaining", UsageMath.FormatRemainingCurrency(-5));
+    }
+
     // ── ComputePaceColor projected percent ─────────────────────────────────
     [Fact]
     public void ComputePaceColor_ProjectedPercent_UnderPace()

@@ -3,7 +3,7 @@
 // </copyright>
 
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Infrastructure.Services;
+using AIUsageTracker.Core.Services;
 using AIUsageTracker.Web.Services;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.OutputCaching;

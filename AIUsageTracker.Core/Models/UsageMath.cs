@@ -102,6 +102,49 @@ public static class UsageMath
     }
 
     /// <summary>
+    /// Classifies a used percentage into a threshold tier based on configurable yellow/red thresholds.
+    /// The comparison is: >= redThreshold → Red, >= yellowThreshold → Yellow, else Green.
+    /// </summary>
+    public static ThresholdTier GetThresholdTier(double usedPercent, double yellowThreshold, double redThreshold)
+    {
+        if (usedPercent >= redThreshold)
+        {
+            return ThresholdTier.Red;
+        }
+
+        if (usedPercent >= yellowThreshold)
+        {
+            return ThresholdTier.Yellow;
+        }
+
+        return ThresholdTier.Green;
+    }
+
+    /// <summary>
+    /// Formats a used percentage as "{value:F0}% used" (invariant culture, clamped).
+    /// </summary>
+    public static string FormatUsedPercent(double usedPercent) =>
+        $"{ClampPercent(usedPercent).ToString("F0", CultureInfo.InvariantCulture)}% used";
+
+    /// <summary>
+    /// Formats a remaining percentage as "{value:F0}% remaining" (invariant culture, clamped).
+    /// </summary>
+    public static string FormatRemainingPercent(double remainingPercent) =>
+        $"{ClampPercent(remainingPercent).ToString("F0", CultureInfo.InvariantCulture)}% remaining";
+
+    /// <summary>
+    /// Formats a used currency amount as "${value:F2} used" (invariant culture).
+    /// </summary>
+    public static string FormatUsedCurrency(double usedAmount) =>
+        $"${usedAmount.ToString("F2", CultureInfo.InvariantCulture)} used";
+
+    /// <summary>
+    /// Formats a remaining currency amount as "${value:F2} remaining" (invariant culture, clamped to >= 0).
+    /// </summary>
+    public static string FormatRemainingCurrency(double remainingAmount) =>
+        $"${Math.Max(0, remainingAmount).ToString("F2", CultureInfo.InvariantCulture)} remaining";
+
+    /// <summary>
     /// Calculates what percentage one value is of another.
     /// </summary>
     /// <param name="value">The value to calculate percentage for.</param>
