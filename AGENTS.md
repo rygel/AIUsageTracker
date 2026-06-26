@@ -14,6 +14,16 @@ This document provides essential information for agentic coding assistants worki
   - A `preferences.json` with ONE corrupt property must still salvage ALL other valid properties — the corrupt one is skipped, not the entire file.
 - **Root cause context**: Merge commit `8eb7c163` silently dropped the `JsonStringEnumConverter` attribute from `UpdateChannel`. Users who had `"UpdateChannel": "Beta"` (string) in their `preferences.json` hit a `JsonException` on startup, and `PreferencesStore.LoadAsync()` returned `new AppPreferences()` — wiping EVERY setting (theme, fonts, thresholds, window position, notification config, hidden providers, everything). This must NEVER happen again.
 
+### NEVER Cause Data Loss in Migrations (CRITICAL)
+- **Customer data is sacred. A database migration MUST NEVER lose data. Every column must survive every migration step.**
+- SQLite table-recreation migrations (CREATE new → INSERT INTO new → DROP old → RENAME) are the #1 data-loss risk. The INSERT SELECT MUST include EVERY column that exists in the source table. No exceptions.
+- **Mandatory**: When adding a column to `provider_history` (or any table that `ConvertTimestampsToEpochIfNeeded` recreates), the column MUST be added to BOTH:
+  1. The CREATE TABLE statement in the conversion
+  2. The INSERT INTO ... SELECT statement in the conversion
+- **Mandatory test**: Every table-recreation migration MUST have a test that inserts data WITH the relevant columns populated, runs the migration, and verifies the data survived. A test that only checks column existence is NOT sufficient — it must verify DATA preservation.
+- **Single source of truth**: The EnsureColumn calls and the conversion's column list must stay in sync. If they drift, data is silently destroyed. The conversion's CREATE TABLE and INSERT SELECT must match the EnsureColumn list exactly.
+- **Root cause context**: PR #654 added 6 card columns (`card_type`, `window_kind`, `card_id`, `group_id`, `model_name`, `name`) to `provider_history`. `ConvertTimestampsToEpochIfNeeded` recreated the table with a hardcoded 15-column INSERT that didn't include them. The columns were added back empty via EnsureColumn AFTER the recreation — permanently wiping card classification data from all historical rows. This caused OpenAI dual bars to disappear.
+
 ### NEVER Create Releases Without Explicit Permission
 - **I MUST NEVER** create git tags or releases without your explicit instruction
 - **I MUST NEVER** initiate CI/CD release workflows without your permission

@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [2.3.6-beta.13] - 2026-06-26
+
+### Fixed
+- **Migration data loss (CRITICAL)**: `ConvertTimestampsToEpochIfNeeded` recreated `provider_history` with a hardcoded column list that omitted 6 card columns (`card_id`, `group_id`, `window_kind`, `model_name`, `name`, `card_type`). All historical card classification data was silently wiped, causing OpenAI dual bars to disappear. Fixed by reading column names dynamically from `PRAGMA table_info` so the INSERT can never miss a column. Post-migration assertion verifies no columns were lost and throws if they were.
+
+### Added
+- **Strict migration test**: New test proves that a source table with an unknown column causes the migration to throw instead of silently dropping data.
+- **Data preservation test**: New test inserts card data before migration and verifies it survives.
+- **AGENTS.md rule**: Mandatory rule requiring every table-recreation migration to have a data-preservation test, and all columns must appear in both the CREATE TABLE and INSERT SELECT.
+
 ## [2.3.6-beta.12] - 2026-06-26
 
 ### Fixed
