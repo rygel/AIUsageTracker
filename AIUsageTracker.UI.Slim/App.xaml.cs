@@ -6,6 +6,8 @@ using System.Net.Http;
 using System.Windows;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Providers;
+using AIUsageTracker.Infrastructure.Extensions;
 using AIUsageTracker.Infrastructure.MonitorClient;
 using AIUsageTracker.Infrastructure.Services;
 using AIUsageTracker.UI.Slim.Services;
@@ -183,6 +185,8 @@ public partial class App : Application
 
     private static void ConfigureServices(IServiceCollection services)
     {
+        ProviderMetadataCatalog.Initialize(typeof(ProviderRegistrationExtensions).Assembly);
+
         // Infrastructure
         services.AddSingleton<IAppPathProvider, AIUsageTracker.Infrastructure.Helpers.DefaultAppPathProvider>();
         services.AddSingleton<UiPreferencesStore>();
