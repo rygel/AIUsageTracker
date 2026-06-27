@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [2.3.8-beta.1] - 2026-06-27
+
+### Added
+- **Anthropic Usage/Cost provider**: New provider tracking spending via Anthropic admin API (cost_report + usage_report endpoints). Uses `x-api-key` header auth. Emits daily-cost and daily-tokens cards.
+- **Spending summary on Web dashboard**: Homepage now shows total spent, budget remaining, and per-provider breakdown for currency-based providers.
+- **Rate-limit header parsing**: Shared `TryGetHeaderDouble` method on `ProviderBase` for extracting rate-limit headers. GroqProvider and ClaudeCodeProvider refactored to use it.
+
+### Changed
+- **ProviderMetadataCatalog moved to Core**: The catalog now lives in `AIUsageTracker.Core.Providers` instead of Infrastructure. Composition roots pass the Infrastructure assembly to `Initialize()` for provider discovery.
+- **BetaUpdateCheck fix**: Version suffix parsing now correctly handles develop-suffix format (e.g. `2.3.7-beta.1-1-develop`).
+
 ## [2.3.7-beta.1] - 2026-06-26
 
 ### Added
