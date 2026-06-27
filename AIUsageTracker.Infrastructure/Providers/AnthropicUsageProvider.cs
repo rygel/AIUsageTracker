@@ -37,6 +37,8 @@ public class AnthropicUsageProvider : ProviderBase
         ExplicitApiKeyPrefixes = new[] { "sk-ant-admin01-" },
         BadgeColorHex = "#D4A27F",
         BadgeInitial = "A",
+        ShowInMainWindow = false,
+        ShowInSettings = false,
     };
 
     public override ProviderDefinition Definition => StaticDefinition;
