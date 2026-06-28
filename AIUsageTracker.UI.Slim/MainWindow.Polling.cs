@@ -311,6 +311,22 @@ public partial class MainWindow : Window
 
     private void ApplyFetchedUsages(IReadOnlyList<ProviderUsage> usages, DateTime now, string statusSuffix = "")
     {
+        bool hasAvailableCurrent;
+        bool newAllUnavailable;
+        lock (this._dataLock)
+        {
+            hasAvailableCurrent = this._usages.Any(u => u.IsAvailable);
+            newAllUnavailable = usages.All(u => !u.IsAvailable);
+        }
+
+        if (hasAvailableCurrent && newAllUnavailable)
+        {
+            this._logger.LogInformation(
+                "Skipping update: incoming data is all unavailable, preserving existing data");
+            this.ShowStatus($"{now:HH:mm:ss} (reconnecting...)", StatusType.Warning);
+            return;
+        }
+
         var switchToNormalInterval = this._pollingTimer != null
             && this._pollingTimer.Interval != NormalPollingInterval;
 
