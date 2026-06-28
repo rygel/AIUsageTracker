@@ -511,3 +511,4 @@ ci_screenshots/
 .sonarqube/
 build-task107.err
 test-task107.err
+build-hib.err

@@ -323,7 +323,6 @@ public partial class MainWindow : Window
         {
             this._logger.LogInformation(
                 "Skipping update: incoming data is all unavailable, preserving existing data");
-            this.ShowStatus($"{now:HH:mm:ss} (reconnecting...)", StatusType.Warning);
             return;
         }
 

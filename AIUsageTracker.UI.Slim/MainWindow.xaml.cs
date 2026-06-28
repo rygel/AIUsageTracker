@@ -563,19 +563,6 @@ public partial class MainWindow : Window
     [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
     {
-        if (e.Mode == PowerModes.Resume)
-        {
-            this._logger.LogInformation("System resumed from sleep/hibernate");
-            this.Dispatcher.InvokeAsync(() =>
-            {
-                if (this._pollingTimer != null && this._pollingTimer.Interval != StartupPollingInterval)
-                {
-                    this._pollingTimer.Interval = StartupPollingInterval;
-                }
-
-                _ = this.RefreshDataAsync();
-            });
-        }
     }
 
     private void UpdatePrivacyButtonState()
