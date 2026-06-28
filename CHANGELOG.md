@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-## [2.3.8-beta.1] - 2026-06-27
+## [2.3.8-beta.1] - 2026-06-28
 
 ### Added
 - **Anthropic Usage/Cost provider**: New provider tracking spending via Anthropic admin API (cost_report + usage_report endpoints). Uses `x-api-key` header auth. Emits daily-cost and daily-tokens cards.
@@ -12,6 +12,11 @@
 ### Changed
 - **ProviderMetadataCatalog moved to Core**: The catalog now lives in `AIUsageTracker.Core.Providers` instead of Infrastructure. Composition roots pass the Infrastructure assembly to `Initialize()` for provider discovery.
 - **BetaUpdateCheck fix**: Version suffix parsing now correctly handles develop-suffix format (e.g. `2.3.7-beta.1-1-develop`).
+- **AnthropicUsageProvider hidden**: Disabled from main window and settings pending verification with real admin API key.
+
+### Fixed
+- **Hibernate data preservation**: After resuming from sleep/hibernate, the UI keeps showing stale data instead of wiping to zero. No special resume handling — normal polling timer eventually brings new data. An all-unavailable guard in `ApplyFetchedUsages` prevents overwriting available data with reconnecting-state data.
+- **Auth fallback contract**: `anthropic-usage` provider declared `ANTHROPIC_ADMIN_API_KEY` as discovery environment variable to satisfy provider metadata catalog contract test.
 
 ## [2.3.7-beta.1] - 2026-06-26
 
