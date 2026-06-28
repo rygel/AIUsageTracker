@@ -565,7 +565,16 @@ public partial class MainWindow : Window
     {
         if (e.Mode == PowerModes.Resume)
         {
-            this._logger.LogInformation("System resumed");
+            this._logger.LogInformation("System resumed from sleep/hibernate");
+            this.Dispatcher.InvokeAsync(() =>
+            {
+                if (this._pollingTimer != null && this._pollingTimer.Interval != StartupPollingInterval)
+                {
+                    this._pollingTimer.Interval = StartupPollingInterval;
+                }
+
+                _ = this.RefreshDataAsync();
+            });
         }
     }
 
