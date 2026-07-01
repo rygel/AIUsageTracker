@@ -83,7 +83,7 @@ body {
 
 .hero {
     background: linear-gradient(160deg, #1a1a2e 0%, var(--bg-primary) 60%);
-    padding: 80px 0 60px;
+    padding: 48px 0 36px;
     overflow: hidden;
 }
 
@@ -162,7 +162,7 @@ body {
 /* ===== SECTIONS ===== */
 
 .section {
-    padding: 80px 0;
+    padding: 40px 0;
 }
 
 .section--alt {
@@ -180,7 +180,7 @@ body {
     text-align: center;
     color: var(--text-muted);
     font-size: 1.05rem;
-    margin-bottom: 48px;
+    margin-bottom: 24px;
 }
 
 /* ===== PROVIDER GRID ===== */
@@ -238,7 +238,7 @@ body {
 .features-columns {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 48px;
+    gap: 32px;
 }
 
 .feature-column h3 {
@@ -308,8 +308,8 @@ body {
 .download__steps {
     display: flex;
     justify-content: center;
-    gap: 48px;
-    margin-bottom: 40px;
+    gap: 32px;
+    margin-bottom: 28px;
 }
 
 .download__step {
@@ -338,6 +338,43 @@ body {
 
 .download__step a {
     color: var(--accent);
+}
+
+/* ===== SUPPORT ===== */
+
+.support-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.support-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    background: var(--bg-secondary);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: var(--radius);
+    text-decoration: none;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.support-card:hover {
+    border-color: rgba(59, 130, 246, 0.4);
+    transform: translateY(-1px);
+}
+
+.support-card__name {
+    font-weight: 500;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+
+.support-card__action {
+    font-size: 0.85rem;
+    color: var(--accent);
+    font-weight: 600;
 }
 
 /* ===== FOOTER ===== */
@@ -405,7 +442,7 @@ body {
 
 @media (max-width: 900px) {
     .hero {
-        padding: 60px 0 40px;
+        padding: 36px 0 24px;
     }
 
     .hero__content {
@@ -442,6 +479,10 @@ body {
         gap: 32px;
     }
 
+    .support-grid {
+        grid-template-columns: 1fr;
+    }
+
     .screenshot-grid {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -458,7 +499,7 @@ body {
     }
 
     .section {
-        padding: 56px 0;
+        padding: 28px 0;
     }
 
     .section__title {
