@@ -3,10 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Usage Tracker — Monitor all your AI API usage in one place</title>
-    <meta name="description" content="A streamlined Windows dashboard and tray utility to monitor AI API usage, costs, and quotas across multiple providers.">
+    <title>AI Usage Tracker — Monitor your AI API usage in one place</title>
+    <meta name="description" content="A desktop GUI, web dashboard, and cross-platform CLI to monitor AI API usage, costs, and quotas across 18+ providers. Built with .NET 10.">
+    <meta name="keywords" content="AI usage tracker, API usage monitor, AI quota tracker, AI spending monitor, Claude usage, OpenAI usage, Gemini usage, Copilot usage, API cost tracker, AI credits monitor, provider usage dashboard, AI billing tracker">
+    <meta name="author" content="rygel">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://aiusagetracker.outerstellar.net/">
     <link rel="icon" href="favicon.png" type="image/png">
     <link rel="stylesheet" href="style.css">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="AI Usage Tracker — Monitor your AI API usage in one place">
+    <meta property="og:description" content="Track AI API usage, costs, and quotas across 18+ providers. Desktop GUI, web dashboard, and cross-platform CLI.">
+    <meta property="og:url" content="https://aiusagetracker.outerstellar.net/">
+    <meta property="og:site_name" content="AI Usage Tracker">
+    <meta property="og:image" content="https://aiusagetracker.outerstellar.net/screenshot_dashboard_privacy.png">
+    <meta property="og:image:alt" content="AI Usage Tracker desktop dashboard showing provider usage with progress bars">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="AI Usage Tracker — Monitor your AI API usage">
+    <meta name="twitter:description" content="Track AI API usage, costs, and quotas across 18+ providers. Desktop GUI, web dashboard, and CLI.">
+    <meta name="twitter:image" content="https://aiusagetracker.outerstellar.net/screenshot_dashboard_privacy.png">
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "AI Usage Tracker",
+        "description": "A desktop GUI, web dashboard, and cross-platform CLI to monitor AI API usage, costs, and quotas across 18+ providers including Claude, Gemini, OpenAI, GitHub Copilot, DeepSeek, and more.",
+        "applicationCategory": "Utilities",
+        "operatingSystem": "Windows, Linux",
+        "softwareVersion": "2.3.8-beta.1",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        },
+        "license": "https://opensource.org/licenses/MIT",
+        "url": "https://aiusagetracker.outerstellar.net/",
+        "downloadUrl": "https://github.com/rygel/AIUsageTracker/releases",
+        "codeRepository": "https://github.com/rygel/AIUsageTracker",
+        "programmingLanguage": "C#",
+        "runtimePlatform": ".NET 10",
+        "screenshot": "https://aiusagetracker.outerstellar.net/screenshot_dashboard_privacy.png"
+    }
+    </script>
+
     <script async src="https://startupbar.co/widget/loader.js" data-startup-id="d77ace7a-c7d8-4eac-81b9-fe98f973d04a"></script>
 </head>
 <body>
@@ -19,10 +64,11 @@
                 <img src="favicon.png" alt="" width="32" height="32">
                 <span>AI Usage Tracker</span>
             </div>
-            <h1>Track every AI provider<br><span class="hero__highlight">in one glance</span></h1>
+            <h1>Track most AI providers<br><span class="hero__highlight">in one glance</span></h1>
             <p class="hero__tagline">
-                A compact Windows dashboard and tray utility that monitors your AI API usage,
-                costs, and quotas across 14+ providers. Auto-discovers your keys, stays out of your way.
+                Three ways to monitor your AI API usage, costs, and quotas across 18+ providers:
+                a compact desktop GUI with system tray integration, a full web dashboard with
+                charts and analytics, and a cross-platform CLI. Auto-discovers your keys, stays out of your way.
             </p>
             <div class="hero__cta">
                 <a href="https://github.com/rygel/AIUsageTracker/releases" class="btn btn--primary">
@@ -33,8 +79,8 @@
                 </a>
             </div>
             <div class="hero__meta">
-                <span class="badge">Windows</span>
-                <span class="badge">.NET 8</span>
+                <span class="badge">Windows | Linux</span>
+                <span class="badge">.NET 10</span>
                 <span class="badge">MIT License</span>
             </div>
         </div>
@@ -48,20 +94,23 @@
 <section class="section">
     <div class="container">
         <h2 class="section__title">Supported Providers</h2>
-        <p class="section__subtitle">All your AI services in a single view</p>
+        <p class="section__subtitle">18+ providers in a single view</p>
         <div class="provider-grid">
             <div class="provider-card"><span class="provider-card__name">Antigravity</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
             <div class="provider-card"><span class="provider-card__name">Claude Code</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
             <div class="provider-card"><span class="provider-card__name">DeepSeek</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
             <div class="provider-card"><span class="provider-card__name">Gemini</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
             <div class="provider-card"><span class="provider-card__name">GitHub Copilot</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
+            <div class="provider-card"><span class="provider-card__name">Groq</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
             <div class="provider-card"><span class="provider-card__name">Kimi (Moonshot)</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
-            <div class="provider-card"><span class="provider-card__name">Minimax (CN)</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
-            <div class="provider-card"><span class="provider-card__name">Minimax (Intl)</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
+            <div class="provider-card"><span class="provider-card__name">MiniMax (China)</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
+            <div class="provider-card"><span class="provider-card__name">MiniMax (Intl)</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
             <div class="provider-card"><span class="provider-card__name">Mistral</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
             <div class="provider-card"><span class="provider-card__name">OpenAI (Codex)</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
-            <div class="provider-card"><span class="provider-card__name">Opencode Zen</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
+            <div class="provider-card"><span class="provider-card__name">OpenCode Go</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
+            <div class="provider-card"><span class="provider-card__name">OpenCode Zen</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
             <div class="provider-card"><span class="provider-card__name">Synthetic</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
+            <div class="provider-card"><span class="provider-card__name">Xiaomi</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
             <div class="provider-card"><span class="provider-card__name">Z.AI</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
             <div class="provider-card"><span class="provider-card__name">OpenRouter</span><span class="provider-card__status provider-card__status--planned">Planned</span></div>
         </div>
@@ -77,32 +126,112 @@
             <div class="feature-card">
                 <div class="feature-card__icon">&#128269;</div>
                 <h3>Smart Discovery</h3>
-                <p>Automatically scans environment variables, Claude Code credentials, and standard config files. Zero configuration friction.</p>
+                <p>Automatically scans environment variables, Claude Code credentials, and standard config files for existing API keys. Zero configuration friction.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-card__icon">&#128202;</div>
                 <h3>Live Dashboard</h3>
-                <p>Compact always-on-top window with real-time progress bars showing remaining credits, quotas, and spending.</p>
+                <p>Compact always-on-top window with real-time progress bars showing remaining credits, quotas, and spending. Inverted health-bar mode starts full and green, depletes to red.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-card__icon">&#128226;</div>
                 <h3>Tray Integration</h3>
-                <p>Per-provider tray icons with live progress bars. Glance at your system tray to see which providers are healthy.</p>
+                <p>Per-provider tray icons with live Core Temp-style progress bars. Auto-hide on focus loss. Glance at your system tray to see which providers are healthy.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-card__icon">&#9889;</div>
                 <h3>Pace Projection</h3>
-                <p>Will you hit your limit before reset? Headroom, on-pace, and over-pace badges tell you at a glance.</p>
+                <p>Will you hit your limit before reset? Headroom (under 70%), On Pace (70-100%), and Over Pace (red) badges with projected end-of-period percentage. Works for both burst and rolling windows. Toggle on or off.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-card__icon">&#127760;</div>
                 <h3>Web Dashboard</h3>
-                <p>Browse usage history, charts, and analytics from any browser. Seven built-in themes including Dracula and Nord.</p>
+                <p>A full ASP.NET Core web app with spending summaries, interactive charts, per-model analytics, reliability monitoring, CSV export, and 14 built-in themes. Auto-refreshes every 60 seconds via HTMX.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-card__icon">&#128187;</div>
+                <h3>Cross-Platform CLI</h3>
+                <p>Check status, view history, manage keys, export data (CSV/JSON), and control the background monitor service from any terminal on Windows or Linux.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-card__icon">&#128259;</div>
                 <h3>Auto-Updates</h3>
-                <p>In-app release notifications with one-click download. Beta and stable channels supported.</p>
+                <p>NetSparkle-powered update checker with beta and stable channels. In-app notifications with one-click download.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-card__icon">&#127937;</div>
+                <h3>Card Presets</h3>
+                <p>Multiple display presets: default, compact, detailed, and pace-focus. Dual-bar mode for providers with burst and rolling windows. Customizable color thresholds.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-card__icon">&#128176;</div>
+                <h3>Spending Summary</h3>
+                <p>Total spent, budget remaining, and per-provider breakdown for currency-based providers. Burn-rate forecasts predict when you'll exhaust your budget.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== WEB APPLICATION ===== -->
+<section class="section">
+    <div class="container">
+        <h2 class="section__title">Full Web Application</h2>
+        <p class="section__subtitle">Not just a tray utility &mdash; a complete web dashboard accessible from any browser</p>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-card__icon">&#128176;</div>
+                <h3>Dashboard &amp; Spending</h3>
+                <p>Homepage with stats cards, provider usage bars, reliability cards, sparklines, and burn-rate forecasts. Spending summary for all currency-based providers.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-card__icon">&#128202;</div>
+                <h3>Usage History &amp; Charts</h3>
+                <p>Interactive time-series charts powered by Chart.js with server-side downsampling for fast rendering across any date range. Track trends over weeks or months.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-card__icon">&#129504;</div>
+                <h3>Per-Model Analytics</h3>
+                <p>Dedicated analytics page with per-model breakdown table, latency trends, HTTP status history, and raw provider JSON inspection panel.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-card__icon">&#128737;</div>
+                <h3>Reliability Monitoring</h3>
+                <p>Track provider uptime, response times, and error rates. Dedicated reliability page with auto-refresh to catch issues as they happen.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-card__icon">&#128229;</div>
+                <h3>CSV Export</h3>
+                <p>Export up to 90 days of usage data in RFC 4180 CSV format from the history page, raw data view, or via the CLI. Drop it into Excel or any analysis tool.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-card__icon">&#127912;</div>
+                <h3>14 Themes</h3>
+                <p>Dark, Light, Corporate, Midnight, Dracula, Nord, Monokai, OneDark, Solarized Dark, Solarized Light, Catppuccin Frappe, Macchiato, Mocha, and Latte. Switch instantly.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== THREE WAYS ===== -->
+<section class="section section--alt">
+    <div class="container">
+        <h2 class="section__title">Three Ways to Track</h2>
+        <p class="section__subtitle">GUI, web, or terminal &mdash; whatever fits your workflow</p>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-card__icon">&#128187;</div>
+                <h3>Desktop GUI</h3>
+                <p>A compact always-on-top WPF window for Windows. System tray integration with per-provider live progress bars, auto-hide on focus loss, and one-click access to all settings.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-card__icon">&#127760;</div>
+                <h3>Web Dashboard</h3>
+                <p>An ASP.NET Core Razor Pages application served on your local network. Dashboard, charts, analytics, reliability, history, and provider details. HTMX auto-refresh, no page reloads.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-card__icon">&#128193;</div>
+                <h3>CLI (act)</h3>
+                <p>Cross-platform .NET CLI for Windows and Linux. Commands: status, history, list, set-key, remove-key, scan, config, agent start/stop/restart, check, and export. Auto-starts the monitor if needed.</p>
             </div>
         </div>
     </div>
@@ -115,8 +244,8 @@
         <p class="section__subtitle">Click any screenshot to enlarge</p>
         <div class="screenshot-grid" id="screenshotGrid">
             <figure class="screenshot-item">
-                <img src="screenshot_dashboard_privacy.png" alt="Dashboard" loading="lazy" data-full="screenshot_dashboard_privacy.png">
-                <figcaption>Dashboard</figcaption>
+                <img src="screenshot_dashboard_privacy.png" alt="Desktop Dashboard" loading="lazy" data-full="screenshot_dashboard_privacy.png">
+                <figcaption>Desktop Dashboard</figcaption>
             </figure>
             <figure class="screenshot-item">
                 <img src="screenshot_settings_providers_privacy.png" alt="Provider Settings" loading="lazy" data-full="screenshot_settings_providers_privacy.png">
@@ -175,9 +304,8 @@
             <a href="https://github.com/rygel/AIUsageTracker/releases">Releases</a>
             <a href="https://discord.gg/AZtNQtWuJA">Discord</a>
             <a href="https://github.com/rygel/AIUsageTracker/blob/develop/docs/user_manual.md">User Manual</a>
-            <a href="https://github.com/rygel/AIUsageTracker/blob/develop/docs/cli_documentation.md">CLI Docs</a>
         </div>
-        <p class="footer__license">MIT License &mdash; built with .NET 8</p>
+        <p class="footer__license">MIT License &mdash; built with .NET 10</p>
     </div>
 </footer>
 
