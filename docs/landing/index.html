@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Usage Tracker — Monitor all your AI API usage in one place</title>
+    <meta name="description" content="A streamlined Windows dashboard and tray utility to monitor AI API usage, costs, and quotas across multiple providers.">
+    <link rel="icon" href="favicon.png" type="image/png">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ===== HERO ===== -->
+<header class="hero">
+    <div class="container hero__content">
+        <div class="hero__text">
+            <div class="hero__badge">
+                <img src="favicon.png" alt="" width="32" height="32">
+                <span>AI Usage Tracker</span>
+            </div>
+            <h1>Track every AI provider<br><span class="hero__highlight">in one glance</span></h1>
+            <p class="hero__tagline">
+                A compact Windows dashboard and tray utility that monitors your AI API usage,
+                costs, and quotas across 14+ providers. Auto-discovers your keys, stays out of your way.
+            </p>
+            <div class="hero__cta">
+                <a href="https://github.com/rygel/AIUsageTracker/releases" class="btn btn--primary">
+                    Download
+                </a>
+                <a href="https://github.com/rygel/AIUsageTracker" class="btn btn--secondary">
+                    View on GitHub
+                </a>
+            </div>
+            <div class="hero__meta">
+                <span class="badge">Windows</span>
+                <span class="badge">.NET 8</span>
+                <span class="badge">MIT License</span>
+            </div>
+        </div>
+        <div class="hero__screenshot">
+            <img src="screenshot_dashboard_privacy.png" alt="AI Usage Tracker Dashboard" loading="eager">
+        </div>
+    </div>
+</header>
+
+<!-- ===== PROVIDERS ===== -->
+<section class="section">
+    <div class="container">
+        <h2 class="section__title">Supported Providers</h2>
+        <p class="section__subtitle">All your AI services in a single view</p>
+        <div class="provider-grid">
+            <div class="provider-card"><span class="provider-card__name">Antigravity</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
+            <div class="provider-card"><span class="provider-card__name">Claude Code</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
+            <div class="provider-card"><span class="provider-card__name">DeepSeek</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
+            <div class="provider-card"><span class="provider-card__name">Gemini</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
+            <div class="provider-card"><span class="provider-card__name">GitHub Copilot</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
+            <div class="provider-card"><span class="provider-card__name">Kimi (Moonshot)</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
+            <div class="provider-card"><span class="provider-card__name">Minimax (CN)</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
+            <div class="provider-card"><span class="provider-card__name">Minimax (Intl)</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
+            <div class="provider-card"><span class="provider-card__name">Mistral</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
+            <div class="provider-card"><span class="provider-card__name">OpenAI (Codex)</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
+            <div class="provider-card"><span class="provider-card__name">Opencode Zen</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
+            <div class="provider-card"><span class="provider-card__name">Synthetic</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
+            <div class="provider-card"><span class="provider-card__name">Z.AI</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
+            <div class="provider-card"><span class="provider-card__name">OpenRouter</span><span class="provider-card__status provider-card__status--planned">Planned</span></div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== FEATURES ===== -->
+<section class="section section--alt">
+    <div class="container">
+        <h2 class="section__title">Features</h2>
+        <p class="section__subtitle">Everything you need to stay on top of your AI usage</p>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-card__icon">&#128269;</div>
+                <h3>Smart Discovery</h3>
+                <p>Automatically scans environment variables, Claude Code credentials, and standard config files. Zero configuration friction.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-card__icon">&#128202;</div>
+                <h3>Live Dashboard</h3>
+                <p>Compact always-on-top window with real-time progress bars showing remaining credits, quotas, and spending.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-card__icon">&#128226;</div>
+                <h3>Tray Integration</h3>
+                <p>Per-provider tray icons with live progress bars. Glance at your system tray to see which providers are healthy.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-card__icon">&#9889;</div>
+                <h3>Pace Projection</h3>
+                <p>Will you hit your limit before reset? Headroom, on-pace, and over-pace badges tell you at a glance.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-card__icon">&#127760;</div>
+                <h3>Web Dashboard</h3>
+                <p>Browse usage history, charts, and analytics from any browser. Seven built-in themes including Dracula and Nord.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-card__icon">&#128259;</div>
+                <h3>Auto-Updates</h3>
+                <p>In-app release notifications with one-click download. Beta and stable channels supported.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== SCREENSHOTS ===== -->
+<section class="section">
+    <div class="container">
+        <h2 class="section__title">Take a Look</h2>
+        <p class="section__subtitle">Click any screenshot to enlarge</p>
+        <div class="screenshot-grid" id="screenshotGrid">
+            <figure class="screenshot-item">
+                <img src="screenshot_dashboard_privacy.png" alt="Dashboard" loading="lazy" data-full="screenshot_dashboard_privacy.png">
+                <figcaption>Dashboard</figcaption>
+            </figure>
+            <figure class="screenshot-item">
+                <img src="screenshot_settings_providers_privacy.png" alt="Provider Settings" loading="lazy" data-full="screenshot_settings_providers_privacy.png">
+                <figcaption>Provider Settings</figcaption>
+            </figure>
+            <figure class="screenshot-item">
+                <img src="screenshot_web_dashboard.png" alt="Web Dashboard" loading="lazy" data-full="screenshot_web_dashboard.png">
+                <figcaption>Web Dashboard</figcaption>
+            </figure>
+            <figure class="screenshot-item">
+                <img src="screenshot_web_charts.png" alt="Usage Charts" loading="lazy" data-full="screenshot_web_charts.png">
+                <figcaption>Usage Charts</figcaption>
+            </figure>
+            <figure class="screenshot-item">
+                <img src="card-catalog/card_preset-default.png" alt="Card Presets" loading="lazy" data-full="card-catalog/card_preset-default.png">
+                <figcaption>Card Presets</figcaption>
+            </figure>
+            <figure class="screenshot-item">
+                <img src="screenshot_settings_cards_privacy.png" alt="Card Settings" loading="lazy" data-full="screenshot_settings_cards_privacy.png">
+                <figcaption>Card Settings</figcaption>
+            </figure>
+        </div>
+    </div>
+</section>
+
+<!-- ===== DOWNLOAD ===== -->
+<section class="section section--alt">
+    <div class="container download">
+        <h2 class="section__title">Get Started</h2>
+        <p class="section__subtitle">Three steps to tracking your AI usage</p>
+        <div class="download__steps">
+            <div class="download__step">
+                <div class="download__step-num">1</div>
+                <p>Download the latest installer from <a href="https://github.com/rygel/AIUsageTracker/releases">Releases</a></p>
+            </div>
+            <div class="download__step">
+                <div class="download__step-num">2</div>
+                <p>Run the installer &mdash; it auto-scans for your existing API keys</p>
+            </div>
+            <div class="download__step">
+                <div class="download__step-num">3</div>
+                <p>Pin the dashboard and watch your usage update in real time</p>
+            </div>
+        </div>
+        <a href="https://github.com/rygel/AIUsageTracker/releases" class="btn btn--primary btn--large">
+            Download Latest Release
+        </a>
+    </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer class="footer">
+    <div class="container footer__content">
+        <div class="footer__links">
+            <a href="https://github.com/rygel/AIUsageTracker">GitHub</a>
+            <a href="https://github.com/rygel/AIUsageTracker/releases">Releases</a>
+            <a href="https://discord.gg/AZtNQtWuJA">Discord</a>
+            <a href="https://github.com/rygel/AIUsageTracker/blob/develop/docs/user_manual.md">User Manual</a>
+            <a href="https://github.com/rygel/AIUsageTracker/blob/develop/docs/cli_documentation.md">CLI Docs</a>
+        </div>
+        <p class="footer__license">MIT License &mdash; built with .NET 8</p>
+    </div>
+</footer>
+
+<!-- ===== LIGHTBOX ===== -->
+<div class="lightbox" id="lightbox">
+    <img src="" alt="" id="lightboxImg">
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
