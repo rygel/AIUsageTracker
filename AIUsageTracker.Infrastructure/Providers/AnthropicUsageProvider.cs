@@ -35,6 +35,7 @@ public class AnthropicUsageProvider : ProviderBase
     {
         IsCurrencyUsage = true,
         ExplicitApiKeyPrefixes = new[] { "sk-ant-admin01-" },
+        DiscoveryEnvironmentVariables = new[] { "ANTHROPIC_ADMIN_API_KEY" },
         BadgeColorHex = "#D4A27F",
         BadgeInitial = "A",
         ShowInMainWindow = false,
