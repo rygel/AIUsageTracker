@@ -162,7 +162,11 @@ body {
 /* ===== SECTIONS ===== */
 
 .section {
-    padding: 40px 0;
+    padding: 0 0 28px;
+}
+
+.section + .section {
+    padding-top: 0;
 }
 
 .section--alt {
@@ -499,7 +503,7 @@ body {
     }
 
     .section {
-        padding: 28px 0;
+        padding-bottom: 20px;
     }
 
     .section__title {
