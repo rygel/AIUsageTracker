@@ -2,20 +2,25 @@
 
 ## [Unreleased]
 
-## [2.3.8-beta.1] - 2026-06-28
+## [2.4.0] - 2026-07-01
 
 ### Added
 - **Anthropic Usage/Cost provider**: New provider tracking spending via Anthropic admin API (cost_report + usage_report endpoints). Uses `x-api-key` header auth. Emits daily-cost and daily-tokens cards.
+- **Groq provider**: New provider tracking rate-limit headers (daily requests + per-minute tokens) via `GROQ_API_KEY`.
 - **Spending summary on Web dashboard**: Homepage now shows total spent, budget remaining, and per-provider breakdown for currency-based providers.
-- **Rate-limit header parsing**: Shared `TryGetHeaderDouble` method on `ProviderBase` for extracting rate-limit headers. GroqProvider and ClaudeCodeProvider refactored to use it.
+- **CSV export**: Export button on History page downloads 90 days of usage data in RFC 4180 CSV format.
+- **Analytics page**: Web dashboard `/analytics` page with per-model breakdown, latency trends, HTTP status history, and provider details JSON panel.
+- **Landing page**: Public landing page at `aiusagetracker.outerstellar.net` with provider list, feature overview, screenshots, and download links.
+- **Rate-limit header parsing**: Shared `TryGetHeaderDouble` method on `ProviderBase` for extracting rate-limit headers.
 
 ### Changed
 - **ProviderMetadataCatalog moved to Core**: The catalog now lives in `AIUsageTracker.Core.Providers` instead of Infrastructure. Composition roots pass the Infrastructure assembly to `Initialize()` for provider discovery.
-- **BetaUpdateCheck fix**: Version suffix parsing now correctly handles develop-suffix format (e.g. `2.3.7-beta.1-1-develop`).
-- **AnthropicUsageProvider hidden**: Disabled from main window and settings pending verification with real admin API key.
+- **Rendering architecture cleanup**: Removed card type filtering (`.OfType<T>()`) from rendering pipeline. Labels come exclusively from `QuotaWindowDefinition.DualBarLabel`. Deleted `LegacyParentCardBuilder`.
+- **Hibernate data preservation**: After resuming from sleep/hibernate, the UI keeps showing stale data instead of wiping to zero. All-unavailable guard prevents overwriting good data with reconnecting-state data.
 
 ### Fixed
-- **Hibernate data preservation**: After resuming from sleep/hibernate, the UI keeps showing stale data instead of wiping to zero. No special resume handling — normal polling timer eventually brings new data. An all-unavailable guard in `ApplyFetchedUsages` prevents overwriting available data with reconnecting-state data.
+- **Migration data loss (CRITICAL)**: `ConvertTimestampsToEpochIfNeeded` recreated `provider_history` with a hardcoded column list that omitted 6 card columns. Fixed by reading column names dynamically from `PRAGMA table_info`.
+- **OpenAI (Codex) dual bars missing (CRITICAL)**: Rendering code filtered `.OfType<WindowedProviderUsage>()` which silently discarded `ModelScopedProviderUsage` cards. Fixed by filtering on `QuotaProviderUsage` base type.
 - **Auth fallback contract**: `anthropic-usage` provider declared `ANTHROPIC_ADMIN_API_KEY` as discovery environment variable to satisfy provider metadata catalog contract test.
 
 ## [2.3.7-beta.1] - 2026-06-26
