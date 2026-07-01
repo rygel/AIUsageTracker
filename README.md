@@ -11,6 +11,8 @@
 
 A streamlined Windows dashboard and tray utility to monitor AI API usage, costs, and quotas across multiple providers.
 
+**Website:** [aiusagetracker.outerstellar.net](https://aiusagetracker.outerstellar.net/)
+
 ## Support
 If you want to support me and are interested in different AI model providers, you can sign up with my referral codes:
 - [Opencode Go](https://opencode.ai/go?ref=BJK682KYXH):GLM-5.1, Kimi K2.6, MiMo-V2.5 (Pro), MiniMax M3, Qwen3.7 Max, DeepSeek V4 Pro/Flash

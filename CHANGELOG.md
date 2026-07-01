@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Added
+- **Landing page redesign**: Consolidated three bloated feature sections into a dense 3-column layout (Desktop GUI / Web Dashboard / CLI). Added "Support the Project" section with referral links. Reduced vertical spacing throughout.
+- **Website link in README**: Added link to `aiusagetracker.outerstellar.net`.
+
+### Changed
+- **Provider statuses on landing page**: Groq, MiniMax (China), Gemini, Mistral moved to Beta. MiniMax (Intl), OpenAI (Codex) moved to Tested. Providers sorted by status (Tested, Beta, Planned).
+- **Fixed provider count**: Corrected "18+" claim to "16" (the actual count) across all meta tags, JSON-LD, and page copy.
+- **Fixed CLI name**: Removed fabricated "act" binary name from landing page.
+- **Release links**: Download buttons now point to `/releases/latest` for stable releases.
+
 ## [2.4.0] - 2026-07-01
 
 ### Added
