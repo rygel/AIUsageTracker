@@ -38,6 +38,7 @@ jobs:
           cp docs/tray_icon_*.png _site/ 2>/dev/null || true
           cp -r docs/card-catalog _site/ 2>/dev/null || true
           cp AIUsageTracker.Web/wwwroot/favicon.png _site/ 2>/dev/null || true
+          echo "aiusagetracker.outerstellar.net" > _site/CNAME
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
