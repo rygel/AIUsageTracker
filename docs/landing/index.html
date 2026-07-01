@@ -103,12 +103,12 @@
             <div class="provider-card"><span class="provider-card__name">GitHub Copilot</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
             <div class="provider-card"><span class="provider-card__name">Groq</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
             <div class="provider-card"><span class="provider-card__name">Kimi (Moonshot)</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
-            <div class="provider-card"><span class="provider-card__name">MiniMax (China)</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
-            <div class="provider-card"><span class="provider-card__name">MiniMax (Intl)</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
+            <div class="provider-card"><span class="provider-card__name">MiniMax (China)</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
+            <div class="provider-card"><span class="provider-card__name">MiniMax (Intl)</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
             <div class="provider-card"><span class="provider-card__name">Mistral</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
-            <div class="provider-card"><span class="provider-card__name">OpenAI (Codex)</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
-            <div class="provider-card"><span class="provider-card__name">OpenCode Go</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
-            <div class="provider-card"><span class="provider-card__name">OpenCode Zen</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
+            <div class="provider-card"><span class="provider-card__name">OpenAI (Codex)</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
+            <div class="provider-card"><span class="provider-card__name">OpenCode Go</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
+            <div class="provider-card"><span class="provider-card__name">OpenCode Zen</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
             <div class="provider-card"><span class="provider-card__name">Synthetic</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
             <div class="provider-card"><span class="provider-card__name">Xiaomi</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
             <div class="provider-card"><span class="provider-card__name">Z.AI</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
@@ -122,116 +122,36 @@
     <div class="container">
         <h2 class="section__title">Features</h2>
         <p class="section__subtitle">Everything you need to stay on top of your AI usage</p>
-        <div class="feature-grid">
-            <div class="feature-card">
-                <div class="feature-card__icon">&#128269;</div>
-                <h3>Smart Discovery</h3>
-                <p>Automatically scans environment variables, Claude Code credentials, and standard config files for existing API keys. Zero configuration friction.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-card__icon">&#128202;</div>
-                <h3>Live Dashboard</h3>
-                <p>Compact always-on-top window with real-time progress bars showing remaining credits, quotas, and spending. Inverted health-bar mode starts full and green, depletes to red.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-card__icon">&#128226;</div>
-                <h3>Tray Integration</h3>
-                <p>Per-provider tray icons with live Core Temp-style progress bars. Auto-hide on focus loss. Glance at your system tray to see which providers are healthy.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-card__icon">&#9889;</div>
-                <h3>Pace Projection</h3>
-                <p>Will you hit your limit before reset? Headroom (under 70%), On Pace (70-100%), and Over Pace (red) badges with projected end-of-period percentage. Works for both burst and rolling windows. Toggle on or off.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-card__icon">&#127760;</div>
-                <h3>Web Dashboard</h3>
-                <p>A full ASP.NET Core web app with spending summaries, interactive charts, per-model analytics, reliability monitoring, CSV export, and 14 built-in themes. Auto-refreshes every 60 seconds via HTMX.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-card__icon">&#128187;</div>
-                <h3>Cross-Platform CLI</h3>
-                <p>Check status, view history, manage keys, export data (CSV/JSON), and control the background monitor service from any terminal on Windows or Linux.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-card__icon">&#128259;</div>
-                <h3>Auto-Updates</h3>
-                <p>NetSparkle-powered update checker with beta and stable channels. In-app notifications with one-click download.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-card__icon">&#127937;</div>
-                <h3>Card Presets</h3>
-                <p>Multiple display presets: default, compact, detailed, and pace-focus. Dual-bar mode for providers with burst and rolling windows. Customizable color thresholds.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-card__icon">&#128176;</div>
-                <h3>Spending Summary</h3>
-                <p>Total spent, budget remaining, and per-provider breakdown for currency-based providers. Burn-rate forecasts predict when you'll exhaust your budget.</p>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- ===== WEB APPLICATION ===== -->
-<section class="section">
-    <div class="container">
-        <h2 class="section__title">Full Web Application</h2>
-        <p class="section__subtitle">Not just a tray utility &mdash; a complete web dashboard accessible from any browser</p>
-        <div class="feature-grid">
-            <div class="feature-card">
-                <div class="feature-card__icon">&#128176;</div>
-                <h3>Dashboard &amp; Spending</h3>
-                <p>Homepage with stats cards, provider usage bars, reliability cards, sparklines, and burn-rate forecasts. Spending summary for all currency-based providers.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-card__icon">&#128202;</div>
-                <h3>Usage History &amp; Charts</h3>
-                <p>Interactive time-series charts powered by Chart.js with server-side downsampling for fast rendering across any date range. Track trends over weeks or months.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-card__icon">&#129504;</div>
-                <h3>Per-Model Analytics</h3>
-                <p>Dedicated analytics page with per-model breakdown table, latency trends, HTTP status history, and raw provider JSON inspection panel.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-card__icon">&#128737;</div>
-                <h3>Reliability Monitoring</h3>
-                <p>Track provider uptime, response times, and error rates. Dedicated reliability page with auto-refresh to catch issues as they happen.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-card__icon">&#128229;</div>
-                <h3>CSV Export</h3>
-                <p>Export up to 90 days of usage data in RFC 4180 CSV format from the history page, raw data view, or via the CLI. Drop it into Excel or any analysis tool.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-card__icon">&#127912;</div>
-                <h3>14 Themes</h3>
-                <p>Dark, Light, Corporate, Midnight, Dracula, Nord, Monokai, OneDark, Solarized Dark, Solarized Light, Catppuccin Frappe, Macchiato, Mocha, and Latte. Switch instantly.</p>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- ===== THREE WAYS ===== -->
-<section class="section section--alt">
-    <div class="container">
-        <h2 class="section__title">Three Ways to Track</h2>
-        <p class="section__subtitle">GUI, web, or terminal &mdash; whatever fits your workflow</p>
-        <div class="feature-grid">
-            <div class="feature-card">
-                <div class="feature-card__icon">&#128187;</div>
+        <div class="features-columns">
+            <div class="feature-column">
                 <h3>Desktop GUI</h3>
-                <p>A compact always-on-top WPF window for Windows. System tray integration with per-provider live progress bars, auto-hide on focus loss, and one-click access to all settings.</p>
+                <ul class="feature-list">
+                    <li><strong>Live progress bars</strong> &mdash; remaining credits, quotas, and spending at a glance</li>
+                    <li><strong>System tray</strong> &mdash; per-provider icons with live bars, auto-hide on focus loss</li>
+                    <li><strong>Pace projection</strong> &mdash; predicts if you'll hit your limit before reset</li>
+                    <li><strong>Card presets</strong> &mdash; default, compact, detailed, and dual-bar modes</li>
+                    <li><strong>Auto-updates</strong> &mdash; beta and stable channels with one-click install</li>
+                </ul>
             </div>
-            <div class="feature-card">
-                <div class="feature-card__icon">&#127760;</div>
+            <div class="feature-column">
                 <h3>Web Dashboard</h3>
-                <p>An ASP.NET Core Razor Pages application served on your local network. Dashboard, charts, analytics, reliability, history, and provider details. HTMX auto-refresh, no page reloads.</p>
+                <ul class="feature-list">
+                    <li><strong>Full dashboard</strong> &mdash; spending summaries, burn-rate forecasts, sparklines</li>
+                    <li><strong>Interactive charts</strong> &mdash; time-series with server-side downsampling</li>
+                    <li><strong>Per-model analytics</strong> &mdash; breakdown tables, latency trends, raw JSON</li>
+                    <li><strong>Reliability monitoring</strong> &mdash; uptime, response times, error rates</li>
+                    <li><strong>14 themes</strong> &mdash; Dracula, Nord, Catppuccin, Monokai, and more</li>
+                </ul>
             </div>
-            <div class="feature-card">
-                <div class="feature-card__icon">&#128193;</div>
-                <h3>CLI (act)</h3>
-                <p>Cross-platform .NET CLI for Windows and Linux. Commands: status, history, list, set-key, remove-key, scan, config, agent start/stop/restart, check, and export. Auto-starts the monitor if needed.</p>
+            <div class="feature-column">
+                <h3>CLI</h3>
+                <ul class="feature-list">
+                    <li><strong>Status &amp; history</strong> &mdash; check usage from any terminal</li>
+                    <li><strong>Key management</strong> &mdash; set, remove, and scan for API keys</li>
+                    <li><strong>Export</strong> &mdash; CSV and JSON, up to 90 days</li>
+                    <li><strong>Monitor control</strong> &mdash; start, stop, restart the background service</li>
+                    <li><strong>Auto-discovery</strong> &mdash; scans env vars and config files for existing keys</li>
+                </ul>
             </div>
         </div>
     </div>
