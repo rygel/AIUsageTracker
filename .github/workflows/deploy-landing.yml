@@ -34,6 +34,7 @@ jobs:
         run: |
           mkdir -p _site
           cp docs/landing/index.html docs/landing/style.css docs/landing/app.js _site/
+          cp docs/landing/robots.txt docs/landing/sitemap.xml _site/
           cp docs/screenshot_*.png _site/ 2>/dev/null || true
           cp docs/tray_icon_*.png _site/ 2>/dev/null || true
           cp -r docs/card-catalog _site/ 2>/dev/null || true

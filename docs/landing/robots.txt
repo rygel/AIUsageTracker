@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://aiusagetracker.outerstellar.net/sitemap.xml
