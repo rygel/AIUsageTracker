@@ -700,6 +700,98 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
         }
     }
 
+    [Fact]
+    public async Task GetUsageAsync_PrefersAbsoluteResetAtEpoch_OverRelativeResetAfterSecondsAsync()
+    {
+        var tempDir = TestTempPaths.CreateDirectory("codex-test-reset-at-epoch");
+        var authPath = Path.Combine(tempDir, "auth.json");
+        var token = CreateJwt("user@example.com", "plus");
+
+        await File.WriteAllTextAsync(authPath, JsonSerializer.Serialize(new
+        {
+            tokens = new { access_token = token },
+        }));
+
+        const long primaryResetAt = 1800000000L;
+        const long secondaryResetAt = 1800604800L;
+
+        this.SetupHttpResponse("https://chatgpt.com/backend-api/wham/usage", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent(JsonSerializer.Serialize(new
+            {
+                plan_type = "plus",
+                rate_limit = new
+                {
+                    primary_window = new { used_percent = 25, reset_after_seconds = 1200, reset_at = primaryResetAt },
+                    secondary_window = new { used_percent = 10, reset_after_seconds = 600, reset_at = secondaryResetAt },
+                },
+            })),
+        });
+
+        var provider = new CodexProvider(this.HttpClient, this.Logger.Object, authPath);
+
+        try
+        {
+            var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).OfType<ModelScopedProviderUsage>().ToList();
+
+            var burst = Assert.Single(usages, u => string.Equals(u.CardId, "burst", StringComparison.Ordinal));
+            var expectedBurst = DateTimeOffset.FromUnixTimeSeconds(primaryResetAt).LocalDateTime;
+            Assert.Equal(expectedBurst, burst.NextResetTime);
+
+            var weekly = Assert.Single(usages, u => string.Equals(u.CardId, "weekly", StringComparison.Ordinal));
+            var expectedWeekly = DateTimeOffset.FromUnixTimeSeconds(secondaryResetAt).LocalDateTime;
+            Assert.Equal(expectedWeekly, weekly.NextResetTime);
+        }
+        finally
+        {
+            TestTempPaths.CleanupPath(tempDir);
+        }
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_FallsBackToResetAfterSeconds_WhenResetAtAbsentAsync()
+    {
+        var tempDir = TestTempPaths.CreateDirectory("codex-test-reset-fallback");
+        var authPath = Path.Combine(tempDir, "auth.json");
+        var token = CreateJwt("user@example.com", "plus");
+
+        await File.WriteAllTextAsync(authPath, JsonSerializer.Serialize(new
+        {
+            tokens = new { access_token = token },
+        }));
+
+        this.SetupHttpResponse("https://chatgpt.com/backend-api/wham/usage", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent(JsonSerializer.Serialize(new
+            {
+                plan_type = "plus",
+                rate_limit = new
+                {
+                    primary_window = new { used_percent = 25, reset_after_seconds = 3600 },
+                },
+            })),
+        });
+
+        var provider = new CodexProvider(this.HttpClient, this.Logger.Object, authPath);
+
+        try
+        {
+            var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).OfType<ModelScopedProviderUsage>().ToList();
+
+            var burst = Assert.Single(usages, u => string.Equals(u.CardId, "burst", StringComparison.Ordinal));
+            Assert.NotNull(burst.NextResetTime);
+            var expectedEarliest = DateTime.Now.AddSeconds(3550);
+            var expectedLatest = DateTime.Now.AddSeconds(3650);
+            Assert.InRange(burst.NextResetTime!.Value, expectedEarliest, expectedLatest);
+        }
+        finally
+        {
+            TestTempPaths.CleanupPath(tempDir);
+        }
+    }
+
     private static string CreateJwt(string email, string planType)
     {
         var headerJson = JsonSerializer.Serialize(new { alg = "HS256", typ = "JWT" });

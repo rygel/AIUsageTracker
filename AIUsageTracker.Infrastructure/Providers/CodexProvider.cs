@@ -92,6 +92,7 @@ public class CodexProvider : ProviderBase
     private const string JsonKeySecondaryWindow = "secondary_window";
     private const string JsonKeyUsedPercent = "used_percent";
     private const string JsonKeyResetAfterSeconds = "reset_after_seconds";
+    private const string JsonKeyResetAt = "reset_at";
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<CodexProvider> _logger;
@@ -226,6 +227,16 @@ public class CodexProvider : ProviderBase
         return candidates.FirstOrDefault(c => !string.IsNullOrWhiteSpace(c));
     }
 
+    private static DateTime? ResolveWindowResetTime(double? resetAtEpoch, double? resetAfterSeconds)
+    {
+        if (resetAtEpoch.HasValue && resetAtEpoch.Value > 0)
+        {
+            return DateTimeOffset.FromUnixTimeSeconds((long)resetAtEpoch.Value).LocalDateTime;
+        }
+
+        return ResolveResetTimeFromSeconds(resetAfterSeconds);
+    }
+
     private static string? ResolveAccountIdentity(
         JsonElement root,
         string? jwtEmail,
@@ -274,7 +285,7 @@ public class CodexProvider : ProviderBase
         candidates = ParseRateLimitProperties(root);
 
         var preferredRateLimitCandidate = SelectPreferredSparkCandidate(candidates);
-        return preferredRateLimitCandidate ?? new SparkWindow(Label: null, ModelName: null, PrimaryUsedPercent: null, PrimaryResetAfterSeconds: null, SecondaryUsedPercent: null, SecondaryResetAfterSeconds: null);
+        return preferredRateLimitCandidate ?? new SparkWindow(Label: null, ModelName: null, PrimaryUsedPercent: null, PrimaryResetTime: null, SecondaryUsedPercent: null, SecondaryResetTime: null);
     }
 
     private static List<SparkWindow> ParseAdditionalRateLimits(JsonElement root)
@@ -342,12 +353,16 @@ public class CodexProvider : ProviderBase
     private static SparkWindow? TryParseSparkWindowFromElement(JsonElement element, string? label, string? modelName)
     {
         var primaryUsedPercent = element.ReadDouble(JsonKeyPrimaryWindow, JsonKeyUsedPercent);
-        var primaryResetAfterSeconds = element.ReadDouble(JsonKeyPrimaryWindow, JsonKeyResetAfterSeconds);
+        var primaryResetTime = ResolveWindowResetTime(
+            element.ReadDouble(JsonKeyPrimaryWindow, JsonKeyResetAt),
+            element.ReadDouble(JsonKeyPrimaryWindow, JsonKeyResetAfterSeconds));
         var secondaryUsedPercent = element.ReadDouble(JsonKeySecondaryWindow, JsonKeyUsedPercent);
-        var secondaryResetAfterSeconds = element.ReadDouble(JsonKeySecondaryWindow, JsonKeyResetAfterSeconds);
-        if (primaryUsedPercent.HasValue || primaryResetAfterSeconds.HasValue || secondaryUsedPercent.HasValue || secondaryResetAfterSeconds.HasValue)
+        var secondaryResetTime = ResolveWindowResetTime(
+            element.ReadDouble(JsonKeySecondaryWindow, JsonKeyResetAt),
+            element.ReadDouble(JsonKeySecondaryWindow, JsonKeyResetAfterSeconds));
+        if (primaryUsedPercent.HasValue || primaryResetTime.HasValue || secondaryUsedPercent.HasValue || secondaryResetTime.HasValue)
         {
-            return new SparkWindow(label, modelName, primaryUsedPercent, primaryResetAfterSeconds, secondaryUsedPercent, secondaryResetAfterSeconds);
+            return new SparkWindow(label, modelName, primaryUsedPercent, primaryResetTime, secondaryUsedPercent, secondaryResetTime);
         }
 
         return null;
@@ -475,7 +490,9 @@ public class CodexProvider : ProviderBase
             : null;
 
         // Primary card: 5-hour burst
-        var burstResetTime = ResolveResetTimeFromSeconds(primaryResetSeconds);
+        var burstResetTime = ResolveWindowResetTime(
+            root.ReadDouble(JsonKeyRateLimit, JsonKeyPrimaryWindow, JsonKeyResetAt),
+            primaryResetSeconds);
         var burstCard = CreateModelScopedUsage(config);
         burstCard.ProviderName = providerLabel;
         burstCard.CardId = "burst";
@@ -501,7 +518,9 @@ public class CodexProvider : ProviderBase
         // Weekly card when secondary window data is present
         if (secondaryUsedPercent.HasValue)
         {
-            var weeklyResetTime = ResolveResetTimeFromSeconds(secondaryResetSeconds);
+            var weeklyResetTime = ResolveWindowResetTime(
+                root.ReadDouble(JsonKeyRateLimit, JsonKeySecondaryWindow, JsonKeyResetAt),
+                secondaryResetSeconds);
             var weeklyRemaining = Math.Clamp(100.0 - secondaryUsedPercent.Value, 0.0, 100.0);
             var weeklyDesc = sparkWindow.HasWindowData && effectiveSparkPercent.HasValue
                 ? $"{weeklyRemaining.ToString("F0", CultureInfo.InvariantCulture)}% remaining | Plan: {planType} | Spark: {effectiveSparkPercent.Value.ToString("F0", CultureInfo.InvariantCulture)}% used"
@@ -534,7 +553,7 @@ public class CodexProvider : ProviderBase
         {
             var sparkDisplayName = ProviderMetadataCatalog.GetConfiguredDisplayName(CodexSparkProviderId);
             var sparkBurstUsed = sparkWindow.PrimaryUsedPercent ?? 0.0;
-            var sparkBurstResetTime = ResolveResetTimeFromSeconds(sparkWindow.PrimaryResetAfterSeconds);
+            var sparkBurstResetTime = sparkWindow.PrimaryResetTime;
 
             var sparkBurstCard = CreateModelScopedUsage(config);
             sparkBurstCard.ProviderId = CodexSparkProviderId;
@@ -559,7 +578,7 @@ public class CodexProvider : ProviderBase
             usages.Add(sparkBurstCard);
 
             var sparkWeeklyUsed = sparkWindow.SecondaryUsedPercent ?? 0.0;
-            var sparkWeeklyResetTime = ResolveResetTimeFromSeconds(sparkWindow.SecondaryResetAfterSeconds);
+            var sparkWeeklyResetTime = sparkWindow.SecondaryResetTime;
 
             var sparkWeeklyCard = CreateModelScopedUsage(config);
             sparkWeeklyCard.ProviderId = CodexSparkProviderId;
@@ -635,9 +654,9 @@ public class CodexProvider : ProviderBase
         string? Label,
         string? ModelName,
         double? PrimaryUsedPercent,
-        double? PrimaryResetAfterSeconds,
+        DateTime? PrimaryResetTime,
         double? SecondaryUsedPercent,
-        double? SecondaryResetAfterSeconds)
+        DateTime? SecondaryResetTime)
     {
         /// <summary>
         /// Gets a value indicating whether true when any meaningful window data is present — usage percentages or reset timers.
@@ -645,7 +664,7 @@ public class CodexProvider : ProviderBase
         /// API omits used_percent (returning only reset_after_seconds).
         /// </summary>
         public bool HasWindowData => this.PrimaryUsedPercent.HasValue || this.SecondaryUsedPercent.HasValue
-            || this.PrimaryResetAfterSeconds.HasValue || this.SecondaryResetAfterSeconds.HasValue;
+            || this.PrimaryResetTime.HasValue || this.SecondaryResetTime.HasValue;
     }
 
     private sealed class CodexAuth
