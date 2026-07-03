@@ -2,7 +2,10 @@
 
 ## [Unreleased]
 
+## [2.4.1-beta.1] - 2026-07-03
+
 ### Added
+- **Landing page SEO**: Added `robots.txt`, `sitemap.xml`, FAQ structured data, and Organization structured data for search engine visibility and AI search indexing.
 - **Landing page redesign**: Consolidated three bloated feature sections into a dense 3-column layout (Desktop GUI / Web Dashboard / CLI). Added "Support the Project" section with referral links. Reduced vertical spacing throughout.
 - **Website link in README**: Added link to `aiusagetracker.outerstellar.net`.
 
@@ -11,6 +14,10 @@
 - **Fixed provider count**: Corrected "18+" claim to "16" (the actual count) across all meta tags, JSON-LD, and page copy.
 - **Fixed CLI name**: Removed fabricated "act" binary name from landing page.
 - **Release links**: Download buttons now point to `/releases/latest` for stable releases.
+
+### Fixed
+- **Codex reset time accuracy**: The Codex provider now uses the absolute `reset_at` epoch timestamp from the API instead of computing `now + reset_after_seconds`, which drifted by network latency (~18s). Falls back to relative when `reset_at` is absent.
+- **Semgrep CI**: Replaced stale `semgrep-action@v1` Docker image with direct `pip install semgrep` to fix `ValueError: invalid rule severity value: MEDIUM` crash.
 
 ## [2.4.0] - 2026-07-01
 
