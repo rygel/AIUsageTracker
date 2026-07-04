@@ -43,6 +43,7 @@ internal static class GroupedUsageDisplayAdapter
             }
             else
             {
+                var windowCards = provider.ProviderDetails.Cast<QuotaProviderUsage>().ToList();
                 usages.Add(new WindowedProviderUsage
                 {
                     ProviderId = provider.ProviderId,
@@ -59,8 +60,11 @@ internal static class GroupedUsageDisplayAdapter
                     Description = provider.Description,
                     FetchedAt = provider.FetchedAt,
                     NextResetTime = provider.NextResetTime,
+                    ResetCreditsAvailable = windowCards
+                        .FirstOrDefault(c => c.WindowKind == WindowKind.Burst)?
+                        .ResetCreditsAvailable,
                     PeriodDuration = FlatWindowCardBuilder.ResolvePeriodDuration(provider.ProviderId),
-                    WindowCards = provider.ProviderDetails.Cast<QuotaProviderUsage>().ToList(),
+                    WindowCards = windowCards,
                 });
             }
         }
