@@ -364,9 +364,10 @@ internal static partial class MainWindowRuntimeLogic
             tooltipBuilder.AppendLine($"Description: {usage.Description}");
         }
 
-        if (usage is QuotaProviderUsage qReset && qReset.ResetCreditsAvailable.HasValue)
+        var resetCredits = ResolveResetCredits(usage);
+        if (resetCredits.HasValue)
         {
-            tooltipBuilder.AppendLine($"Reset credits available: {qReset.ResetCreditsAvailable.Value}");
+            tooltipBuilder.AppendLine($"Reset credits available: {resetCredits.Value}");
         }
 
         if (ShouldRenderDerivedUsageDetails(usage))
@@ -406,6 +407,26 @@ internal static partial class MainWindowRuntimeLogic
     private static bool ShouldRenderDerivedUsageDetails(ProviderUsage usage)
     {
         return usage.IsAvailable && usage.State == ProviderUsageState.Available;
+    }
+
+    /// <summary>
+    /// Resolves reset credits from the usage or its burst window card (dual-bar layout).
+    /// </summary>
+    private static int? ResolveResetCredits(ProviderUsage usage)
+    {
+        if (usage is QuotaProviderUsage q && q.ResetCreditsAvailable.HasValue)
+        {
+            return q.ResetCreditsAvailable;
+        }
+
+        if (usage is WindowedProviderUsage wu && wu.WindowCards != null)
+        {
+            return wu.WindowCards
+                .FirstOrDefault(c => c.WindowKind == WindowKind.Burst)?
+                .ResetCreditsAvailable;
+        }
+
+        return null;
     }
 
     private static void AppendWindowLimitLines(
