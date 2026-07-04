@@ -332,6 +332,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             quotaCandidate.IsStatusOnly = (srcQuota?.IsStatusOnly ?? false) || (definition?.IsStatusOnly ?? false);
             quotaCandidate.IsCurrencyUsage = (srcQuota?.IsCurrencyUsage ?? false) || (definition?.IsCurrencyUsage ?? false);
             quotaCandidate.NextResetTime = normalizedNextResetTimeUtc;
+            quotaCandidate.ResetCreditsAvailable = srcQuota?.ResetCreditsAvailable;
         }
 
 

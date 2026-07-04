@@ -93,6 +93,8 @@ public class CodexProvider : ProviderBase
     private const string JsonKeyUsedPercent = "used_percent";
     private const string JsonKeyResetAfterSeconds = "reset_after_seconds";
     private const string JsonKeyResetAt = "reset_at";
+    private const string JsonKeyRateLimitResetCredits = "rate_limit_reset_credits";
+    private const string JsonKeyAvailableCount = "available_count";
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<CodexProvider> _logger;
@@ -485,6 +487,9 @@ public class CodexProvider : ProviderBase
         var sparkWindow = ExtractSparkWindow(root);
         var accountIdentity = ResolveAccountIdentity(root, jwtEmail, authIdentity, accountId);
 
+        var resetCreditsDouble = root.ReadDouble(JsonKeyRateLimitResetCredits, JsonKeyAvailableCount);
+        int? resetCreditsAvailable = resetCreditsDouble.HasValue ? (int)resetCreditsDouble.Value : (int?)null;
+
         var effectiveSparkPercent = sparkWindow.HasWindowData
             ? (double?)Math.Max(sparkWindow.PrimaryUsedPercent ?? 0.0, sparkWindow.SecondaryUsedPercent ?? 0.0)
             : null;
@@ -510,6 +515,7 @@ public class CodexProvider : ProviderBase
         burstCard.AuthSource = AuthSource.CodexNative(planType);
         burstCard.NextResetTime = burstResetTime;
         burstCard.PeriodDuration = TimeSpan.FromHours(5);
+        burstCard.ResetCreditsAvailable = resetCreditsAvailable;
         burstCard.RawJson = rawJson;
         burstCard.HttpStatus = httpStatus;
 

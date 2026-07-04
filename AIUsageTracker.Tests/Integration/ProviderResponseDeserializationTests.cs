@@ -63,6 +63,9 @@ public class ProviderResponseDeserializationTests
             "credits": {
                 "balance": 150.00,
                 "unlimited": false
+            },
+            "rate_limit_reset_credits": {
+                "available_count": 3
             }
         }
         """;
@@ -93,6 +96,7 @@ public class ProviderResponseDeserializationTests
         Assert.Equal("codex", burstCard.ProviderId);
         Assert.Equal(42.5, burstCard.UsedPercent, precision: 1);
         Assert.NotNull(burstCard.NextResetTime);
+        Assert.Equal(3, burstCard.ResetCreditsAvailable);
 
         // Weekly card (secondary_window, 7d)
         var weeklyCard = usages.First(u => string.Equals(u.CardId, "weekly", StringComparison.Ordinal));

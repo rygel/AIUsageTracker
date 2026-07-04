@@ -50,6 +50,7 @@ public sealed class DatabaseMigrationServiceTests : IDisposable
         Assert.Contains("model_name", historyColumns, StringComparer.OrdinalIgnoreCase);
         Assert.Contains("name", historyColumns, StringComparer.OrdinalIgnoreCase);
         Assert.Contains("card_type", historyColumns, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("reset_credits_available", historyColumns, StringComparer.OrdinalIgnoreCase);
     }
 
     [Fact]

@@ -255,6 +255,7 @@ public class DatabaseMigrationService
         EnsureColumn(connection, TableProviderHistory, "model_name", "TEXT");
         EnsureColumn(connection, TableProviderHistory, "name", "TEXT");
         EnsureColumn(connection, TableProviderHistory, "card_type", "TEXT");
+        EnsureColumn(connection, TableProviderHistory, "reset_credits_available", "INTEGER");
 
         // Convert fetched_at TEXT → INTEGER epoch. All columns are ensured above
         // so the table recreation preserves all data.
@@ -325,6 +326,7 @@ public class DatabaseMigrationService
                 model_name TEXT,
                 name TEXT,
                 card_type TEXT,
+                reset_credits_available INTEGER,
                 FOREIGN KEY (provider_id) REFERENCES providers(provider_id) ON DELETE CASCADE
             );
             INSERT INTO provider_history_new ({historyTarget})
