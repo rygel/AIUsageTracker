@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [2.4.2-beta.1] - 2026-07-04
+
+### Added
+- **Codex reset credits in tooltip**: The Codex card tooltip now shows `rate_limit_reset_credits.available_count` — the number of manual rate-limit resets still available.
+- **Codex reset credits in database**: `reset_credits_available` column added to `provider_history`. Every history row permanently records how many reset credits were available, letting users track when credits were consumed.
+
+### Fixed
+- **Auto-tag workflow**: Fixed `persist-credentials: false` that prevented the auto-tag-release workflow from pushing git tags. Future beta/stable releases will auto-tag correctly.
+
 ## [2.4.1-beta.1] - 2026-07-03
 
 ### Added
