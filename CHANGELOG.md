@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.4.2-beta.3] - 2026-07-04
+
+### Fixed
+- **Reset credits propagation to parent instead of child-digging**: The beta.2 fix added `ResolveResetCredits` — a helper that dug into `WindowCards` to find the burst card's value. This was the same bad pattern of parent-reaching-into-child we'd explicitly decided to eliminate. Proper fix: `GroupedUsageDisplayAdapter.Expand` now propagates `ResetCreditsAvailable` to the `WindowedProviderUsage` parent at construction time. The tooltip code uses the simple `usage.ResetCreditsAvailable` check like every other provider.
+
 ## [2.4.2-beta.2] - 2026-07-04
 
 ### Fixed
