@@ -112,6 +112,7 @@ public sealed class CachedGroupedUsageProjectionService
                 usage.Description,
                 usage.FetchedAt,
                 NextResetTime = q?.NextResetTime,
+                ResetCreditsAvailable = q?.ResetCreditsAvailable,
             };
         });
 

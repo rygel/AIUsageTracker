@@ -44,6 +44,7 @@ internal static class FlatWindowCardBuilder
                 FetchedAt = provider.FetchedAt,
                 NextResetTime = modelState.NextResetTime,
                 PeriodDuration = ResolvePeriodDuration(provider.ProviderId),
+                ResetCreditsAvailable = model.ResetCreditsAvailable,
             });
         }
 

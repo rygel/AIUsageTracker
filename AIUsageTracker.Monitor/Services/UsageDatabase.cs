@@ -277,7 +277,8 @@ public class UsageDatabase : IUsageDatabase
                         response_latency_ms, http_status,
                         upstream_response_validity, upstream_response_note,
                         parent_provider_id, card_id, group_id,
-                        window_kind, model_name, name, card_type
+                        window_kind, model_name, name, card_type,
+                        reset_credits_available
                     ) VALUES (
                         @ProviderId,
                         @RequestsUsed, @RequestsAvailable, @RequestsPercentage,
@@ -285,7 +286,8 @@ public class UsageDatabase : IUsageDatabase
                         @ResponseLatencyMs, @HttpStatus,
                         @UpstreamResponseValidity, @UpstreamResponseNote,
                         @ParentProviderId, @CardId, @GroupId,
-                        @WindowKind, @ModelName, @Name, @CardType
+                        @WindowKind, @ModelName, @Name, @CardType,
+                        @ResetCreditsAvailable
                     )";
 
                 await connection.ExecuteAsync(insertSql, toInsert).ConfigureAwait(false);
@@ -325,7 +327,8 @@ public class UsageDatabase : IUsageDatabase
             && (long)usage.HttpStatus == last.HttpStatus
             && string.Equals(newStatusMessage, last.StatusMessage ?? string.Empty, StringComparison.Ordinal)
             && string.Equals(newNextResetTime, last.NextResetTime, StringComparison.Ordinal)
-            && string.Equals((usage as WindowedProviderUsage)?.Name ?? (usage as ModelScopedProviderUsage)?.Name, last.Name, StringComparison.Ordinal);
+            && string.Equals((usage as WindowedProviderUsage)?.Name ?? (usage as ModelScopedProviderUsage)?.Name, last.Name, StringComparison.Ordinal)
+            && q?.ResetCreditsAvailable == last.ResetCreditsAvailable;
     }
 
     private static void ClassifyHistoryEntries(
@@ -377,7 +380,8 @@ public class UsageDatabase : IUsageDatabase
                     (int)(w?.WindowKind ?? m?.WindowKind ?? WindowKind.None),
                     m?.ModelName,
                     w?.Name ?? m?.Name,
-                    GetCardType(u)));
+                    GetCardType(u),
+                    q?.ResetCreditsAvailable));
             }
         }
     }
@@ -409,7 +413,8 @@ public class UsageDatabase : IUsageDatabase
                    h.status_message AS StatusMessage,
                    h.next_reset_time AS NextResetTime,
                    h.http_status AS HttpStatus,
-                   h.name AS Name
+                   h.name AS Name,
+                   h.reset_credits_available AS ResetCreditsAvailable
             FROM provider_history h
             WHERE h.id IN (
                 SELECT MAX(id)
@@ -434,7 +439,8 @@ public class UsageDatabase : IUsageDatabase
         string? StatusMessage,
         string? NextResetTime,
         long HttpStatus,
-        string? Name);
+        string? Name,
+        long? ResetCreditsAvailable);
 
     private sealed record HistoryInsertParams(
         string ProviderId,
@@ -455,7 +461,8 @@ public class UsageDatabase : IUsageDatabase
         int WindowKind,
         string? ModelName,
         string? Name,
-        string CardType);
+        string CardType,
+        int? ResetCreditsAvailable);
 
     private sealed record HistoryTouchParams(long Id, long FetchedAt);
 
@@ -645,7 +652,8 @@ public class UsageDatabase : IUsageDatabase
                        COALESCE(h.window_kind, 0) AS WindowKind,
                        h.model_name AS ModelName,
                        h.name AS Name,
-                       COALESCE(h.card_type, 'quota') AS CardType
+                       COALESCE(h.card_type, 'quota') AS CardType,
+                       h.reset_credits_available AS ResetCreditsAvailable
                 FROM provider_history h
                 LEFT JOIN providers p ON h.provider_id = p.provider_id
                 WHERE h.id IN (
@@ -759,6 +767,7 @@ public class UsageDatabase : IUsageDatabase
             quota.DisplayAsFraction = source.DisplayAsFraction;
             quota.IsStatusOnly = source.IsStatusOnly;
             quota.NextResetTime = source.NextResetTime;
+            quota.ResetCreditsAvailable = source.ResetCreditsAvailable;
             quota.UsagePerHour = source.UsagePerHour;
             quota.WindowKind = source.WindowKind;
             quota.Name = source.Name;

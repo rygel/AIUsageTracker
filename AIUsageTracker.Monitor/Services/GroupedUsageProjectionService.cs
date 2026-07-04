@@ -139,6 +139,7 @@ public static class GroupedUsageProjectionService
                     UsedPercentage = usedPercentage,
                     RemainingPercentage = remainingPercentage,
                     NextResetTime = q?.NextResetTime,
+                    ResetCreditsAvailable = q?.ResetCreditsAvailable,
                     Description = u.Description ?? string.Empty,
                     QuotaBuckets = BuildSummaryQuotaBuckets(usedPercentage, remainingPercentage, q?.NextResetTime, u.Description),
                 };

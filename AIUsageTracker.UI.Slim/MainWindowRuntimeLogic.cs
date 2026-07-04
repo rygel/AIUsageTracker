@@ -364,6 +364,11 @@ internal static partial class MainWindowRuntimeLogic
             tooltipBuilder.AppendLine($"Description: {usage.Description}");
         }
 
+        if (usage is QuotaProviderUsage qReset && qReset.ResetCreditsAvailable.HasValue)
+        {
+            tooltipBuilder.AppendLine($"Reset credits available: {qReset.ResetCreditsAvailable.Value}");
+        }
+
         if (ShouldRenderDerivedUsageDetails(usage))
         {
             AppendWindowLimitLines(tooltipBuilder, usage, useRelativeResetTime);

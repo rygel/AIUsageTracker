@@ -49,4 +49,11 @@ public class QuotaProviderUsage : ProviderUsage
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public TimeSpan? PeriodDuration { get; set; }
+
+    /// <summary>
+    /// Gets or sets the number of rate-limit reset credits still available (e.g. Codex
+    /// <c>rate_limit_reset_credits.available_count</c>). Null when the provider does not report it.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? ResetCreditsAvailable { get; set; }
 }
