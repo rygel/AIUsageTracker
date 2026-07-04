@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.4.2-beta.2] - 2026-07-04
+
+### Fixed
+- **Reset credits tooltip rendering**: The `reset_credits_available` value was stored in the database and returned by the API but not shown in the card tooltip. For dual-bar providers (Codex), the value lives on the child burst card inside `WindowCards`, not on the parent `WindowedProviderUsage`. Added `ResolveResetCredits` helper that checks both the parent usage and the burst window card.
+
 ## [2.4.2-beta.1] - 2026-07-04
 
 ### Added
