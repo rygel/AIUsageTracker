@@ -361,12 +361,15 @@ internal static partial class MainWindowRuntimeLogic
         tooltipBuilder.AppendLine($"Status: {(usage.IsAvailable ? "Active" : "Inactive")}");
         if (!string.IsNullOrEmpty(usage.Description))
         {
-            tooltipBuilder.AppendLine($"Description: {usage.Description}");
             if (usage is QuotaProviderUsage q && q.RequestsAvailable > 0)
             {
                 tooltipBuilder.AppendLine(showUsed
                     ? UsageMath.FormatUsedPercent(q.UsedPercent)
                     : UsageMath.FormatRemainingPercent(q.RemainingPercent));
+            }
+            else
+            {
+                tooltipBuilder.AppendLine($"Description: {usage.Description}");
             }
         }
 
