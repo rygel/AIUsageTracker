@@ -13,11 +13,11 @@ internal static class WebProviderUsageMapper
     {
         var cardType = (string?)row.card_type;
 
-        var providerId = row.provider_id ?? row.ProviderId ?? string.Empty;
+        var providerId = row.provider_id ?? string.Empty;
         var providerName = row.ProviderName ?? string.Empty;
-        var isAvailable = row.is_available == 1 || (row.IsAvailable != null && row.IsAvailable == 1);
+        var isAvailable = row.is_available == 1;
         var description = row.status_message ?? string.Empty;
-        var fetchedAt = ParseDateTimeUtc(row.fetched_at ?? row.FetchedAt);
+        var fetchedAt = ParseDateTimeUtc(row.fetched_at);
 
         if (cardType == "status")
         {
@@ -28,7 +28,7 @@ internal static class WebProviderUsageMapper
                 IsAvailable = isAvailable,
                 Description = description,
                 FetchedAt = fetchedAt,
-                ResponseLatencyMs = (double)(row.response_latency_ms ?? row.ResponseLatencyMs ?? 0.0),
+                ResponseLatencyMs = (double)(row.response_latency_ms ?? 0.0),
             };
         }
 
@@ -38,14 +38,14 @@ internal static class WebProviderUsageMapper
             ProviderName = providerName,
             IsAvailable = isAvailable,
             Description = description,
-            RequestsUsed = (double)(row.requests_used ?? row.RequestsUsed ?? 0.0),
-            RequestsAvailable = (double)(row.requests_available ?? row.RequestsAvailable ?? 0.0),
-            UsedPercent = (double)(row.requests_percentage ?? row.UsedPercent ?? 0.0),
-            ResponseLatencyMs = (double)(row.response_latency_ms ?? row.ResponseLatencyMs ?? 0.0),
+            RequestsUsed = (double)(row.requests_used ?? 0.0),
+            RequestsAvailable = (double)(row.requests_available ?? 0.0),
+            UsedPercent = (double)(row.requests_percentage ?? 0.0),
+            ResponseLatencyMs = (double)(row.response_latency_ms ?? 0.0),
             FetchedAt = fetchedAt,
         };
 
-        usage.NextResetTime = ParseNullableDateTimeUtc(row.next_reset_time ?? row.NextResetTime);
+        usage.NextResetTime = ParseNullableDateTimeUtc(row.next_reset_time);
 
         return usage;
     }

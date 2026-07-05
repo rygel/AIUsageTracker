@@ -16,8 +16,9 @@ public static class ProviderDerivedModelAssignmentResolver
     {
         ArgumentNullException.ThrowIfNull(orderedModels);
 
-        if (string.IsNullOrWhiteSpace(ownerProviderId) ||
-            orderedModels.Count == 0)
+        ArgumentException.ThrowIfNullOrWhiteSpace(ownerProviderId);
+
+        if (orderedModels.Count == 0)
         {
             return Array.Empty<ProviderDerivedModelAssignment>();
         }
@@ -25,7 +26,8 @@ public static class ProviderDerivedModelAssignmentResolver
         var definition = ProviderMetadataCatalog.Find(ownerProviderId);
         if (definition == null)
         {
-            return Array.Empty<ProviderDerivedModelAssignment>();
+            throw new InvalidOperationException(
+                $"Provider '{ownerProviderId}' not found in metadata catalog. Cannot resolve derived model assignments.");
         }
 
         if (definition.VisibleDerivedProviderIds.Count > 0)
