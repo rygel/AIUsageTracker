@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.4.2-beta.5] - 2026-07-05
+
+### Fixed
+- **Tooltip percentage respects Show Used toggle**: Quota provider tooltips show a single toggle-consistent percentage line (e.g., `"11% used"` or `"90% remaining"`) instead of the raw provider description which duplicated plan names and percentages.
+
 ## [2.4.2-beta.4] - 2026-07-05
 
 ### Fixed
