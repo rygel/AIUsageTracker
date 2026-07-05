@@ -60,7 +60,7 @@ public static class ProviderMetadataCatalog
             return providerId;
         }
 
-        return Find(providerId)?.ProviderId ?? providerId ?? string.Empty;
+        return Find(providerId)?.ProviderId ?? providerId;
     }
 
     public static string GetConfiguredDisplayName(string providerId)

@@ -46,33 +46,39 @@ public class WebDatabaseService : IWebDatabaseRepository
 
     private const string HistorySamplesSql = @"
             WITH normalized AS (
-                SELECT h.provider_id AS ProviderId,
-                       h.requests_used AS RequestsUsed,
-                       h.requests_available AS RequestsAvailable,
-                       h.is_available AS IsAvailable,
-                       h.response_latency_ms AS ResponseLatencyMs,
+                SELECT h.provider_id AS provider_id,
+                       h.requests_used AS requests_used,
+                       h.requests_available AS requests_available,
+                       h.is_available AS is_available,
+                       h.response_latency_ms AS response_latency_ms,
+                       h.status_message AS status_message,
+                       h.requests_percentage AS requests_percentage,
+                       h.next_reset_time AS next_reset_time,
                        CASE
                            WHEN typeof(h.fetched_at) IN ('integer', 'real')
                                THEN datetime(CAST(h.fetched_at AS INTEGER), 'unixepoch')
                            ELSE datetime(h.fetched_at)
-                       END AS FetchedAtUtc
+                       END AS fetched_at
                 FROM provider_history h
                 WHERE h.provider_id IN @ProviderIds
             ),
             ranked AS (
-                SELECT ProviderId,
-                       RequestsUsed,
-                       RequestsAvailable,
-                       IsAvailable,
-                       ResponseLatencyMs,
-                       FetchedAtUtc AS FetchedAt,
-                       ROW_NUMBER() OVER (PARTITION BY ProviderId ORDER BY datetime(FetchedAtUtc) DESC) AS RowNum
+                SELECT provider_id,
+                       requests_used,
+                       requests_available,
+                       is_available,
+                       response_latency_ms,
+                       status_message,
+                       requests_percentage,
+                       next_reset_time,
+                       fetched_at,
+                       ROW_NUMBER() OVER (PARTITION BY provider_id ORDER BY datetime(fetched_at) DESC) AS RowNum
                 FROM normalized
-                WHERE datetime(FetchedAtUtc) >= datetime(@CutoffUtc)
+                WHERE datetime(fetched_at) >= datetime(@CutoffUtc)
             )
             SELECT * FROM ranked
             WHERE RowNum <= @MaxSamples
-            ORDER BY ProviderId, datetime(FetchedAt) ASC";
+            ORDER BY provider_id, datetime(fetched_at) ASC";
 
     private const string ChartDataSql = @"
             SELECT

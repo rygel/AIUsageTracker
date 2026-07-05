@@ -183,7 +183,8 @@ internal sealed class ProviderCardRenderer
         var toolTipContent = MainWindowRuntimeLogic.BuildTooltipContent(
             usage,
             friendlyName,
-            this._preferences.UseRelativeResetTime);
+            this._preferences.UseRelativeResetTime,
+            this._preferences.ShowUsedPercentages);
         if (!string.IsNullOrEmpty(toolTipContent))
         {
             grid.ToolTip = this._createToolTip(grid, toolTipContent);

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.4.2-beta.4] - 2026-07-05
+
+### Fixed
+- **Tooltip percentage respects Show Used toggle**: The tooltip now shows an additional toggle-consistent percentage line (`"45% used"` or `"55% remaining"`) for quota providers alongside the raw description, matching the card status text and progress bar.
+
 ## [2.4.2-beta.3] - 2026-07-04
 
 ### Fixed

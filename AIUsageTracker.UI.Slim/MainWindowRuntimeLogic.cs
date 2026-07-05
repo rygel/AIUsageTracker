@@ -173,7 +173,7 @@ internal static partial class MainWindowRuntimeLogic
         ArgumentNullException.ThrowIfNull(usages);
         if (usages.Count == 0)
         {
-            return Array.Empty<ProviderSectionLayout>();
+            throw new ArgumentException("Usages collection must not be empty — caller guarantees non-empty before calling.", nameof(usages));
         }
 
         var sections = new List<ProviderSectionLayout>();
@@ -340,7 +340,7 @@ internal static partial class MainWindowRuntimeLogic
     /// information for multi-day quota periods.
     /// </summary>
     /// <returns></returns>
-    internal static string? BuildTooltipContent(ProviderUsage usage, string friendlyName, bool useRelativeResetTime = false)
+    internal static string? BuildTooltipContent(ProviderUsage usage, string friendlyName, bool useRelativeResetTime = false, bool showUsed = false)
     {
         var tooltipBuilder = new System.Text.StringBuilder();
         tooltipBuilder.AppendLine(friendlyName);
@@ -362,6 +362,12 @@ internal static partial class MainWindowRuntimeLogic
         if (!string.IsNullOrEmpty(usage.Description))
         {
             tooltipBuilder.AppendLine($"Description: {usage.Description}");
+            if (usage is QuotaProviderUsage q && q.RequestsAvailable > 0)
+            {
+                tooltipBuilder.AppendLine(showUsed
+                    ? UsageMath.FormatUsedPercent(q.UsedPercent)
+                    : UsageMath.FormatRemainingPercent(q.RemainingPercent));
+            }
         }
 
         if (usage is QuotaProviderUsage qReset && qReset.ResetCreditsAvailable.HasValue)

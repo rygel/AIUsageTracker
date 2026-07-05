@@ -510,7 +510,7 @@ public class GeminiProvider : ProviderBase
         return data?.Buckets;
     }
 
-    private static IReadOnlyList<ProviderUsage> BuildModelQuotaCards(
+    private IReadOnlyList<ProviderUsage> BuildModelQuotaCards(
         ProviderConfig config,
         string providerName,
         IEnumerable<Bucket> buckets,
@@ -526,6 +526,10 @@ public class GeminiProvider : ProviderBase
             .ToList();
         if (modelBuckets.Count == 0)
         {
+            this._logger.LogWarning(
+                "Gemini quota API returned {BucketCount} buckets but none had identifiable model IDs for account {AccountEmail}",
+                buckets is ICollection<Bucket> bucketList ? bucketList.Count : -1,
+                accountEmail);
             return Array.Empty<ProviderUsage>();
         }
 
