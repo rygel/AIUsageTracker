@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2.4.2-beta.6] - 2026-07-06
+
+### Fixed
+- **Silent-zero bugs in OpenAI, Codex, ClaudeCode providers**: When API responses lack usage data (missing `rate_limit` windows, missing `used_percent`, null `FiveHour` quotas), providers now return error cards instead of showing 0%.
+- **ZaiProvider merged quotas**: Z.AI's TOKENS_LIMIT (5h coding plan, 3% used) and TIME_LIMIT (monthly search/reader quota, 11% used) are now separate cards instead of being merged into one via `ApplyMcpAdjustment`.
+
 ## [2.4.2-beta.5] - 2026-07-05
 
 ### Fixed
