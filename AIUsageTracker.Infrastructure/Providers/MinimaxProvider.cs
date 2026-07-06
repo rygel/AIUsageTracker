@@ -100,17 +100,11 @@ public class MinimaxProvider : ProviderBase
         string providerLabel,
         CancellationToken cancellationToken)
     {
-        string url;
-        if (!string.IsNullOrEmpty(config.BaseUrl))
-        {
-            url = config.BaseUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+        var url = !string.IsNullOrEmpty(config.BaseUrl)
+            ? config.BaseUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase)
                 ? config.BaseUrl
-                : "https://" + config.BaseUrl;
-        }
-        else
-        {
-            url = ProviderEndpoints.Minimax.TokenPlanRemains;
-        }
+                : "https://" + config.BaseUrl
+            : ProviderEndpoints.Minimax.TokenPlanRemains;
 
         return await this.GetRemainsUsageAsync(config, providerLabel, url, cancellationToken).ConfigureAwait(false);
     }
@@ -120,17 +114,11 @@ public class MinimaxProvider : ProviderBase
         string providerLabel,
         CancellationToken cancellationToken)
     {
-        string url;
-        if (!string.IsNullOrEmpty(config.BaseUrl))
-        {
-            url = config.BaseUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+        var url = !string.IsNullOrEmpty(config.BaseUrl)
+            ? config.BaseUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase)
                 ? config.BaseUrl
-                : "https://" + config.BaseUrl;
-        }
-        else
-        {
-            url = ProviderEndpoints.Minimax.CodingPlanRemains;
-        }
+                : "https://" + config.BaseUrl
+            : ProviderEndpoints.Minimax.CodingPlanRemains;
 
         return await this.GetRemainsUsageAsync(config, providerLabel, url, cancellationToken).ConfigureAwait(false);
     }

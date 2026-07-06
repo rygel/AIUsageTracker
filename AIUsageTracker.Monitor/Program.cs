@@ -111,7 +111,7 @@ public partial class Program
             await app.WaitForShutdownAsync().ConfigureAwait(false);
             MonitorInfoPersistence.SaveMonitorInfo(0, isDebugMode, logger, pathProvider, startupStatus: "stopped");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or HttpRequestException)
         {
             logger.LogError(ex, "Monitor startup failed");
             MonitorInfoPersistence.SaveMonitorInfo(0, isDebugMode, logger, pathProvider, startupStatus: $"failed: {ex.Message}");

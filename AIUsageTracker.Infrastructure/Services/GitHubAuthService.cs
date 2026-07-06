@@ -63,7 +63,7 @@ public class GitHubAuthService : IGitHubAuthService
 
             return (result.Device_code, result.User_code, result.Verification_uri, result.Expires_in, result.Interval);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or InvalidOperationException)
         {
             this._logger.LogError(ex, "Error initiating device flow");
             throw new InvalidOperationException("Error initiating device flow.", ex);

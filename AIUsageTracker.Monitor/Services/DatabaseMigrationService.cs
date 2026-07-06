@@ -74,7 +74,7 @@ public class DatabaseMigrationService
 
             this._logger.LogInformation("DB migrated ({Count} applied)", evolve.NbMigration);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is EvolveDb.EvolveException or SqliteException or InvalidOperationException)
         {
             this._logger.LogError(ex, "Database migration failed: {Message}", ex.Message);
             throw new InvalidOperationException("Database migration failed.", ex);

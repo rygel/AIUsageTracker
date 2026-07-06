@@ -112,7 +112,7 @@ public class ConfigService : IConfigService
             Volatile.Write<IReadOnlyList<ProviderConfig>?>(ref this._cachedConfigs, null);
             this._logger.LogInformation("Saved: {ProviderId}", config.ProviderId);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
         {
             this._logger.LogError(ex, "Failed to save config for {ProviderId}: {Message}", config.ProviderId, ex.Message);
             throw new InvalidOperationException($"Failed to save config for {config.ProviderId}.", ex);
@@ -130,7 +130,7 @@ public class ConfigService : IConfigService
             Volatile.Write<AppPreferences?>(ref this._cachedPreferences, null); // force ScanForKeysAsync to reload suppressed list from disk
             this._logger.LogInformation("Removed: {ProviderId}", providerId);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
         {
             this._logger.LogError(ex, "Failed to remove config for {ProviderId}: {Message}", providerId, ex.Message);
             throw new InvalidOperationException($"Failed to remove config for {providerId}.", ex);
@@ -177,7 +177,7 @@ public class ConfigService : IConfigService
             Volatile.Write<AppPreferences?>(ref this._cachedPreferences, null);
             this._logger.LogInformation("Prefs saved");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
         {
             this._logger.LogError(ex, "Failed to save preferences: {Message}", ex.Message);
             throw new InvalidOperationException("Failed to save preferences.", ex);
