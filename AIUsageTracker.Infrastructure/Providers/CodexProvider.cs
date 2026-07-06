@@ -480,7 +480,7 @@ public class CodexProvider : ProviderBase
     {
         var providerLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(this.ProviderId);
         var planType = root.ReadString("plan_type") ?? jwtPlanType ?? "unknown";
-        var primaryUsedPercent = root.ReadDouble(JsonKeyRateLimit, JsonKeyPrimaryWindow, JsonKeyUsedPercent) ?? 0.0;
+        var primaryUsedPercent = root.ReadDouble(JsonKeyRateLimit, JsonKeyPrimaryWindow, JsonKeyUsedPercent);
         var primaryResetSeconds = root.ReadDouble(JsonKeyRateLimit, JsonKeyPrimaryWindow, JsonKeyResetAfterSeconds);
         var secondaryUsedPercent = root.ReadDouble(JsonKeyRateLimit, JsonKeySecondaryWindow, JsonKeyUsedPercent);
         var secondaryResetSeconds = root.ReadDouble(JsonKeyRateLimit, JsonKeySecondaryWindow, JsonKeyResetAfterSeconds);
@@ -494,32 +494,46 @@ public class CodexProvider : ProviderBase
             ? (double?)Math.Max(sparkWindow.PrimaryUsedPercent ?? 0.0, sparkWindow.SecondaryUsedPercent ?? 0.0)
             : null;
 
-        // Primary card: 5-hour burst
+        var usages = new List<ProviderUsage>();
+
+        // Primary card: 5-hour burst — only emit when window data is present
         var burstResetTime = ResolveWindowResetTime(
             root.ReadDouble(JsonKeyRateLimit, JsonKeyPrimaryWindow, JsonKeyResetAt),
             primaryResetSeconds);
-        var burstCard = CreateModelScopedUsage(config);
-        burstCard.ProviderName = providerLabel;
-        burstCard.CardId = "burst";
-        burstCard.GroupId = config.ProviderId;
-        burstCard.Name = "5h";
-        burstCard.WindowKind = WindowKind.Burst;
-        burstCard.UsedPercent = primaryUsedPercent;
-        burstCard.RequestsUsed = primaryUsedPercent;
-        burstCard.RequestsAvailable = 100.0;
-        burstCard.IsQuotaBased = this.Definition.IsQuotaBased;
-        burstCard.PlanType = this.Definition.PlanType;
-        burstCard.IsAvailable = true;
-        burstCard.Description = $"{Math.Clamp(100.0 - primaryUsedPercent, 0.0, 100.0).ToString("F0", CultureInfo.InvariantCulture)}% remaining | Plan: {planType}";
-        burstCard.AccountName = accountIdentity ?? string.Empty;
-        burstCard.AuthSource = AuthSource.CodexNative(planType);
-        burstCard.NextResetTime = burstResetTime;
-        burstCard.PeriodDuration = TimeSpan.FromHours(5);
-        burstCard.ResetCreditsAvailable = resetCreditsAvailable;
-        burstCard.RawJson = rawJson;
-        burstCard.HttpStatus = httpStatus;
+        if (primaryUsedPercent.HasValue || burstResetTime.HasValue)
+        {
+            var burstPct = primaryUsedPercent ?? 0.0;
+            var burstCard = CreateModelScopedUsage(config);
+            burstCard.ProviderName = providerLabel;
+            burstCard.CardId = "burst";
+            burstCard.GroupId = config.ProviderId;
+            burstCard.Name = "5h";
+            burstCard.WindowKind = WindowKind.Burst;
+            burstCard.UsedPercent = burstPct;
+            burstCard.RequestsUsed = burstPct;
+            burstCard.RequestsAvailable = 100.0;
+            burstCard.IsQuotaBased = this.Definition.IsQuotaBased;
+            burstCard.PlanType = this.Definition.PlanType;
+            burstCard.IsAvailable = true;
+            burstCard.Description = $"{Math.Clamp(100.0 - burstPct, 0.0, 100.0).ToString("F0", CultureInfo.InvariantCulture)}% remaining | Plan: {planType}";
+            burstCard.AccountName = accountIdentity ?? string.Empty;
+            burstCard.AuthSource = AuthSource.CodexNative(planType);
+            burstCard.NextResetTime = burstResetTime;
+            burstCard.PeriodDuration = TimeSpan.FromHours(5);
+            burstCard.ResetCreditsAvailable = resetCreditsAvailable;
+            burstCard.RawJson = rawJson;
+            burstCard.HttpStatus = httpStatus;
+            usages.Add(burstCard);
+        }
 
-        var usages = new List<ProviderUsage> { burstCard };
+        if (usages.Count == 0 && !secondaryUsedPercent.HasValue && !sparkWindow.HasWindowData)
+        {
+            this._logger.LogWarning("[CODEX] No usage window data in response — returning error");
+            return new List<ProviderUsage>
+            {
+                this.CreateUnavailableUsageWithIdentity("No usage window data in response", accountIdentity, httpStatus),
+            };
+        }
 
         // Weekly card when secondary window data is present
         if (secondaryUsedPercent.HasValue)

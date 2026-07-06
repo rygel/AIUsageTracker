@@ -320,7 +320,9 @@ public class ClaudeCodeProvider : ProviderBase
         // All-models 7-day rolling quota
         if (response.SevenDay != null)
         {
-            var desc = $"5h: {(response.FiveHour?.Utilization ?? 0).ToString("F0", CultureInfo.InvariantCulture)}% | 7d: {response.SevenDay.Utilization.ToString("F0", CultureInfo.InvariantCulture)}% used";
+            var desc = response.FiveHour != null
+                ? $"5h: {response.FiveHour.Utilization.ToString("F0", CultureInfo.InvariantCulture)}% | 7d: {response.SevenDay.Utilization.ToString("F0", CultureInfo.InvariantCulture)}% used"
+                : $"7d: {response.SevenDay.Utilization.ToString("F0", CultureInfo.InvariantCulture)}% used";
             if (response.ExtraUsage?.IsEnabled == true)
             {
                 desc += " | Extra usage enabled";
