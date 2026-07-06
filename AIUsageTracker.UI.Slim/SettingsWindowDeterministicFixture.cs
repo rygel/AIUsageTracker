@@ -4,6 +4,7 @@
 
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Core.Providers;
 
 namespace AIUsageTracker.UI.Slim;
 
@@ -17,7 +18,7 @@ internal static class SettingsWindowDeterministicFixture
             .Select(CreateConfig)
             .ToList();
 
-        var usages = new List<ProviderUsage>
+        var usages = new List<QuotaProviderUsage>
         {
             CreateUsage(
                 new DeterministicProviderScenario(AntigravityProvider.StaticDefinition.ProviderId, "local-session"),
@@ -54,7 +55,7 @@ internal static class SettingsWindowDeterministicFixture
         return config;
     }
 
-    private static ProviderUsage CreateUsage(
+    private static QuotaProviderUsage CreateUsage(
         DeterministicProviderScenario scenario,
         DateTime deterministicNow,
         FixtureUsageScenario usageScenario,
@@ -65,7 +66,7 @@ internal static class SettingsWindowDeterministicFixture
         var planType = def.PlanType;
         var isQuotaBased = def.IsQuotaBased;
 
-        return new ProviderUsage
+        return new QuotaProviderUsage
         {
             ProviderId = scenario.ProviderId,
             ProviderName = ProviderMetadataCatalog.GetConfiguredDisplayName(scenario.ProviderId),

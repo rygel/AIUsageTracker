@@ -18,12 +18,15 @@ public sealed class ProviderDerivedModelAssignmentResolverExtendedTests
     }
 
     [Fact]
-    public void Resolve_ReturnsEmpty_ForNullOrWhitespaceProviderId()
+    public void Resolve_ThrowsOnNullOrWhitespaceProviderId()
     {
         var models = new[] { new AgentGroupedModelUsage { ModelId = "m1" } };
-        Assert.Empty(ProviderDerivedModelAssignmentResolver.Resolve(null!, models));
-        Assert.Empty(ProviderDerivedModelAssignmentResolver.Resolve(string.Empty, models));
-        Assert.Empty(ProviderDerivedModelAssignmentResolver.Resolve("   ", models));
+        Assert.Throws<ArgumentNullException>(() =>
+            ProviderDerivedModelAssignmentResolver.Resolve(null!, models));
+        Assert.Throws<ArgumentException>(() =>
+            ProviderDerivedModelAssignmentResolver.Resolve(string.Empty, models));
+        Assert.Throws<ArgumentException>(() =>
+            ProviderDerivedModelAssignmentResolver.Resolve("   ", models));
     }
 
     [Fact]
@@ -33,10 +36,11 @@ public sealed class ProviderDerivedModelAssignmentResolverExtendedTests
     }
 
     [Fact]
-    public void Resolve_ReturnsEmpty_ForUnknownProviderId()
+    public void Resolve_ThrowsOnUnknownProviderId()
     {
         var models = new[] { new AgentGroupedModelUsage { ModelId = "m1" } };
-        Assert.Empty(ProviderDerivedModelAssignmentResolver.Resolve("nonexistent-provider-xyz", models));
+        Assert.Throws<InvalidOperationException>(() =>
+            ProviderDerivedModelAssignmentResolver.Resolve("nonexistent-provider-xyz", models));
     }
 
     [Fact]

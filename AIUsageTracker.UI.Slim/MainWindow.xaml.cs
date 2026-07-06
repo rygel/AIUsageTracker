@@ -11,7 +11,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Infrastructure.MonitorClient;
 using AIUsageTracker.Infrastructure.Services;
 using AIUsageTracker.UI.Slim.Services;
 using AIUsageTracker.UI.Slim.ViewModels;
@@ -44,7 +44,7 @@ public partial class MainWindow : Window
 
     private GitHubUpdateChecker _updateChecker;
     private AppPreferences _preferences = new();
-    private readonly object _dataLock = new();
+    private readonly Lock _dataLock = new();
     private List<ProviderUsage> _usages = new();
     private List<ProviderConfig> _configs = new();
     private bool _isPrivacyMode = App.IsPrivacyMode;
@@ -563,10 +563,6 @@ public partial class MainWindow : Window
     [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
     {
-        if (e.Mode == PowerModes.Resume)
-        {
-            this._logger.LogInformation("System resumed");
-        }
     }
 
     private void UpdatePrivacyButtonState()

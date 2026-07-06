@@ -3,11 +3,9 @@
 // </copyright>
 
 using System.Globalization;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Providers;
-using AIUsageTracker.Infrastructure.Mappers;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Providers;
@@ -72,6 +70,7 @@ public class DeepSeekProvider : ProviderBase
         if (!fetchResult.IsSuccess)
         {
             var errorUsage = fetchResult.FailureUsage!;
+
             // DeepSeek: HTTP error means key exists but request failed — show as available with error
             // Network/timeout exceptions should remain unavailable
             if (errorUsage.HttpStatus > 0)
@@ -89,23 +88,18 @@ public class DeepSeekProvider : ProviderBase
 
         if (result.BalanceInfos == null || result.BalanceInfos.Count == 0)
         {
-            return new[]
-            {
-                new ProviderUsage
-                {
-                    ProviderId = this.ProviderId,
-                    ProviderName = providerLabel,
-                    IsAvailable = true,
-                    UsedPercent = 0,
-                    RequestsUsed = 0,
-                    RequestsAvailable = 0,
-                    IsQuotaBased = this.Definition.IsQuotaBased,
-                    PlanType = this.Definition.PlanType,
-                    Description = "No balance found",
-                    RawJson = content,
-                    HttpStatus = httpStatus,
-                },
-            };
+            var noBalance = CreateQuotaUsage(config);
+            noBalance.ProviderName = providerLabel;
+            noBalance.IsAvailable = true;
+            noBalance.IsQuotaBased = this.Definition.IsQuotaBased;
+            noBalance.PlanType = this.Definition.PlanType;
+            noBalance.RawJson = content;
+            noBalance.HttpStatus = httpStatus;
+            noBalance.UsedPercent = 0;
+            noBalance.RequestsUsed = 0;
+            noBalance.RequestsAvailable = 0;
+            noBalance.Description = "No balance found";
+            return new[] { noBalance };
         }
 
         var flatCards = new List<ProviderUsage>();
@@ -113,22 +107,23 @@ public class DeepSeekProvider : ProviderBase
         {
             var currencyCode = info.Currency ?? "USD";
             var currencySymbol = string.Equals(currencyCode, "CNY", StringComparison.OrdinalIgnoreCase) ? "¥" : "$";
-            flatCards.Add(new ProviderUsage
+            var card = new WindowedProviderUsage
             {
-                ProviderId = this.ProviderId,
+                ProviderId = config.ProviderId,
                 ProviderName = providerLabel,
+                IsAvailable = true,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
+                RawJson = content,
+                HttpStatus = httpStatus,
                 Name = $"Balance ({currencyCode})",
                 CardId = $"balance-{currencyCode.ToLowerInvariant()}",
                 GroupId = this.ProviderId,
                 Description = string.Format(CultureInfo.InvariantCulture, "{0}{1:F2} ({2:F2} topped-up + {3:F2} granted)", currencySymbol, info.TotalBalance, info.ToppedUpBalance, info.GrantedBalance),
-                IsAvailable = true,
-                PlanType = this.Definition.PlanType,
                 IsCurrencyUsage = true,
-                IsQuotaBased = this.Definition.IsQuotaBased,
                 UsedPercent = 0,
-                RawJson = content,
-                HttpStatus = httpStatus,
-            });
+            };
+            flatCards.Add(card);
         }
 
         return flatCards;

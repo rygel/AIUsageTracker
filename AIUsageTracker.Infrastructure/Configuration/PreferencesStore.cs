@@ -13,7 +13,7 @@ namespace AIUsageTracker.Infrastructure.Configuration;
 /// Reads and writes AppPreferences to the shared preferences.json file.
 /// Shared across Desktop, Monitor, and Web projects.
 /// </summary>
-public class PreferencesStore : IPreferencesStore
+public class PreferencesStore
 {
     private readonly ILogger<PreferencesStore> _logger;
     private readonly IAppPathProvider _pathProvider;
@@ -40,8 +40,6 @@ public class PreferencesStore : IPreferencesStore
 
         try
         {
-            // Use FileShare.ReadWrite so the read succeeds even when the monitor
-            // or a previous app instance holds the file open for writing.
 #pragma warning disable MA0004
             await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
 #pragma warning restore MA0004
@@ -51,16 +49,8 @@ public class PreferencesStore : IPreferencesStore
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
-            var backupPath = GetBackupPath(path);
-            if (File.Exists(backupPath))
-            {
-                this._logger.LogWarning(ex, "Failed to load preferences from {Path}. Attempting backup from {BackupPath}", path, backupPath);
-                var backupJson = await File.ReadAllTextAsync(backupPath).ConfigureAwait(false);
-                return AppPreferences.Deserialize(backupJson);
-            }
-
-            this._logger.LogWarning(ex, "Failed to load preferences from {Path} and no backup available", path);
-            throw;
+            this._logger.LogWarning(ex, "Failed to load preferences from {Path}", path);
+            return new AppPreferences();
         }
     }
 
@@ -81,8 +71,7 @@ public class PreferencesStore : IPreferencesStore
             await AtomicFileWriter.WriteAllTextAtomicAsync(
                 path,
                 json,
-                this._logger,
-                backupPath: GetBackupPath(path)).ConfigureAwait(false);
+                this._logger).ConfigureAwait(false);
             return true;
         }
         catch (IOException ex)
@@ -111,6 +100,4 @@ public class PreferencesStore : IPreferencesStore
 
         return this._pathProvider.GetPreferencesFilePath();
     }
-
-    private static string GetBackupPath(string preferencesPath) => $"{preferencesPath}.bak";
 }

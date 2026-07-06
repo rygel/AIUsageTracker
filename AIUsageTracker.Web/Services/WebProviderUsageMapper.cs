@@ -11,20 +11,41 @@ internal static class WebProviderUsageMapper
 {
     public static ProviderUsage Map(dynamic row)
     {
-        var usage = new ProviderUsage
+        var cardType = (string?)row.card_type;
+
+        var providerId = row.provider_id ?? string.Empty;
+        var providerName = row.ProviderName ?? string.Empty;
+        var isAvailable = row.is_available == 1;
+        var description = row.status_message ?? string.Empty;
+        var fetchedAt = ParseDateTimeUtc(row.fetched_at);
+
+        if (cardType == "status")
         {
-            ProviderId = row.provider_id ?? row.ProviderId,
-            ProviderName = row.ProviderName,
-            IsAvailable = row.is_available == 1 || (row.IsAvailable != null && row.IsAvailable == 1),
-            Description = row.status_message ?? string.Empty,
-            RequestsUsed = (double)(row.requests_used ?? row.RequestsUsed ?? 0.0),
-            RequestsAvailable = (double)(row.requests_available ?? row.RequestsAvailable ?? 0.0),
-            UsedPercent = (double)(row.requests_percentage ?? row.UsedPercent ?? 0.0),
-            ResponseLatencyMs = (double)(row.response_latency_ms ?? row.ResponseLatencyMs ?? 0.0),
-            FetchedAt = ParseDateTimeUtc(row.fetched_at ?? row.FetchedAt),
+            return new StatusProviderUsage
+            {
+                ProviderId = providerId,
+                ProviderName = providerName,
+                IsAvailable = isAvailable,
+                Description = description,
+                FetchedAt = fetchedAt,
+                ResponseLatencyMs = (double)(row.response_latency_ms ?? 0.0),
+            };
+        }
+
+        var usage = new QuotaProviderUsage
+        {
+            ProviderId = providerId,
+            ProviderName = providerName,
+            IsAvailable = isAvailable,
+            Description = description,
+            RequestsUsed = (double)(row.requests_used ?? 0.0),
+            RequestsAvailable = (double)(row.requests_available ?? 0.0),
+            UsedPercent = (double)(row.requests_percentage ?? 0.0),
+            ResponseLatencyMs = (double)(row.response_latency_ms ?? 0.0),
+            FetchedAt = fetchedAt,
         };
 
-        usage.NextResetTime = ParseNullableDateTimeUtc(row.next_reset_time ?? row.NextResetTime);
+        usage.NextResetTime = ParseNullableDateTimeUtc(row.next_reset_time);
 
         return usage;
     }

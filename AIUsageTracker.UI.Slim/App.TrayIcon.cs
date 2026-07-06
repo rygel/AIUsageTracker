@@ -9,6 +9,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Core.Providers;
 using CommunityToolkit.Mvvm.Input;
 using Hardcodet.Wpf.TaskbarNotification;
 using Microsoft.Extensions.Logging;
@@ -39,6 +40,25 @@ public partial class App
             enablePaceAdjustment);
 
         this.SyncProviderTrayIcons(desiredIcons, yellowThreshold, redThreshold, showUsed);
+        this.UpdateMainTrayTooltip(usages);
+    }
+
+    private void UpdateMainTrayTooltip(IReadOnlyList<ProviderUsage> usages)
+    {
+        if (this._trayIcon == null)
+        {
+            return;
+        }
+
+        var active = usages.Where(u => u.IsAvailable).ToList();
+        if (active.Count == 0)
+        {
+            this._trayIcon.ToolTipText = "AI Usage Tracker";
+            return;
+        }
+
+        var avgRemaining = active.OfType<QuotaProviderUsage>().Select(q => q.RemainingPercent).DefaultIfEmpty(0).Average();
+        this._trayIcon.ToolTipText = $"AI Usage Tracker — {active.Count} active, {avgRemaining:F0}% avg remaining";
     }
 
     private static Dictionary<string, (string ToolTip, double FillPercent, PaceColorResult PaceColor, bool IsQuota)> BuildDesiredIcons(
@@ -60,7 +80,7 @@ public partial class App
                     return configDefinition?.HandlesProviderId(usageProviderId) ??
                            string.Equals(usageProviderId, config.ProviderId, StringComparison.OrdinalIgnoreCase);
                 })
-                .OrderByDescending(u => u.UsedPercent)
+                .OrderByDescending(u => u is QuotaProviderUsage q ? q.UsedPercent : 0)
                 .FirstOrDefault();
             if (usage == null)
             {
@@ -71,7 +91,8 @@ public partial class App
                 usage.IsAvailable &&
                 !usage.Description.Contains("unknown", StringComparison.OrdinalIgnoreCase))
             {
-                var isQuota = usage.IsQuotaBased || usage.PlanType == PlanType.Coding;
+                var qu = usage as QuotaProviderUsage;
+                var isQuota = qu?.IsQuotaBased == true || qu?.PlanType == PlanType.Coding;
                 var presentation = MainWindowRuntimeLogic.Create(usage, showUsed, enablePaceAdjustment);
                 var statusText = presentation.StatusText;
                 if (presentation.HasDualBuckets && !showDualQuotaBars)
@@ -83,12 +104,18 @@ public partial class App
                 }
 
                 var providerLabel = usage.ProviderName ?? ProviderMetadataCatalog.GetConfiguredDisplayName(usage.ProviderId ?? string.Empty);
+                var periodDuration = usage switch
+                {
+                    WindowedProviderUsage w => w.PeriodDuration,
+                    ModelScopedProviderUsage m => m.PeriodDuration,
+                    _ => null,
+                };
                 var paceColor = UsageMath.ComputePaceColor(
-                    usage.UsedPercent,
-                    usage.NextResetTime,
-                    usage.PeriodDuration,
+                    qu?.UsedPercent ?? 0,
+                    qu?.NextResetTime,
+                    periodDuration,
                     enablePaceAdjustment);
-                desiredIcons[config.ProviderId] = ($"{providerLabel}: {statusText}", usage.RemainingPercent, paceColor, isQuota);
+                desiredIcons[config.ProviderId] = ($"{providerLabel}: {statusText}", qu?.RemainingPercent ?? 0, paceColor, isQuota);
             }
         }
 
@@ -174,18 +201,13 @@ public partial class App
             else
             {
                 var colorPercent = paceColor.ColorPercent;
-                if (colorPercent >= redThreshold)
+                var tier = UsageMath.GetThresholdTier(colorPercent, yellowThreshold, redThreshold);
+                fillBrush = tier switch
                 {
-                    fillBrush = Brushes.Crimson;
-                }
-                else if (colorPercent >= yellowThreshold)
-                {
-                    fillBrush = Brushes.Gold;
-                }
-                else
-                {
-                    fillBrush = Brushes.MediumSeaGreen;
-                }
+                    ThresholdTier.Red => Brushes.Crimson,
+                    ThresholdTier.Yellow => Brushes.Gold,
+                    _ => Brushes.MediumSeaGreen,
+                };
             }
 
             var barWidth = size - 6;

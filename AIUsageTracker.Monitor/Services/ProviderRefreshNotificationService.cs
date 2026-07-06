@@ -61,7 +61,7 @@ public sealed class ProviderRefreshNotificationService
         {
             sb.Append(usage.ProviderId)
                 .Append('|')
-                .Append(usage.UsedPercent.ToString("F1", CultureInfo.InvariantCulture))
+                .Append(usage is QuotaProviderUsage q ? q.UsedPercent.ToString("F1", CultureInfo.InvariantCulture) : "0")
                 .Append('|')
                 .Append(usage.IsAvailable ? '1' : '0')
                 .Append('|')

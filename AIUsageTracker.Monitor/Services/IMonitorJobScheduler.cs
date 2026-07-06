@@ -20,6 +20,18 @@ public interface IMonitorJobScheduler
         TimeSpan? initialDelay = null,
         string? coalesceKey = null);
 
+    void RegisterRecurringRefresh(
+        TimeSpan interval,
+        Func<CancellationToken, Task> refreshTask);
+
+    bool QueueManualRefresh(
+        Func<CancellationToken, Task> refreshTask,
+        string? coalesceKey = null);
+
+    bool QueueInitialDataSeeding(Func<CancellationToken, Task> seedingTask);
+
+    bool QueueStartupTargetedRefresh(Func<CancellationToken, Task> refreshTask);
+
     void Pause();
 
     void Resume();

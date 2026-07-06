@@ -1,6 +1,6 @@
 # <img src="AIUsageTracker.Web/wwwroot/favicon.png" width="32" height="32" valign="middle"> AI Usage Tracker
 
-![Version](https://img.shields.io/badge/version-2.3.5-orange)
+![Version](https://img.shields.io/badge/version-2.4.2--beta.6-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20|%20Linux%20-blue)
 ![Language](https://img.shields.io/badge/language-C%23%20|%20.NET-purple)
@@ -10,6 +10,8 @@
 <img src="docs/screenshot_dashboard_privacy.png" alt="Dashboard" width="50%" />
 
 A streamlined Windows dashboard and tray utility to monitor AI API usage, costs, and quotas across multiple providers.
+
+**Website:** [aiusagetracker.outerstellar.net](https://aiusagetracker.outerstellar.net/)
 
 ## Support
 If you want to support me and are interested in different AI model providers, you can sign up with my referral codes:

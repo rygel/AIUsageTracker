@@ -20,7 +20,7 @@ public class ProviderUsagePersistenceServiceTests
         var activeProviderIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "openai" };
         var usages = new List<ProviderUsage>
         {
-            new()
+            new QuotaProviderUsage()
             {
                 ProviderId = "openai",
                 ProviderName = "OpenAI",
@@ -43,7 +43,7 @@ public class ProviderUsagePersistenceServiceTests
         var activeProviderIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "antigravity" };
         var usages = new List<ProviderUsage>
         {
-            new()
+            new QuotaProviderUsage()
             {
                 ProviderId = "antigravity.gemini-pro",
                 ProviderName = "Gemini Pro",
@@ -72,7 +72,7 @@ public class ProviderUsagePersistenceServiceTests
         var activeProviderIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "gemini" };
         var usages = new List<ProviderUsage>
         {
-            new()
+            new QuotaProviderUsage()
             {
                 ProviderId = "gemini-cli.hourly",
                 ProviderName = "Gemini CLI (Hourly)",
@@ -101,7 +101,7 @@ public class ProviderUsagePersistenceServiceTests
         var activeProviderIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var usages = new List<ProviderUsage>
         {
-            new()
+            new QuotaProviderUsage()
             {
                 ProviderId = "dynamic-one",
                 ProviderName = "Dynamic One",
@@ -109,7 +109,7 @@ public class ProviderUsagePersistenceServiceTests
                 RawJson = "{\"ok\":true}",
                 HttpStatus = 201,
             },
-            new()
+            new QuotaProviderUsage()
             {
                 ProviderId = "dynamic-two",
                 ProviderName = "Dynamic Two",
@@ -136,7 +136,7 @@ public class ProviderUsagePersistenceServiceTests
         this._database.SetupSequence(database => database.GetLatestHistoryAsync(It.IsAny<IReadOnlyCollection<string>?>()))
             .ReturnsAsync(new List<ProviderUsage>
             {
-                new()
+                new QuotaProviderUsage()
                 {
                     ProviderId = "openai",
                     ProviderName = "OpenAI",
@@ -146,7 +146,7 @@ public class ProviderUsagePersistenceServiceTests
             })
             .ReturnsAsync(new List<ProviderUsage>
             {
-                new()
+                new QuotaProviderUsage()
                 {
                     ProviderId = "anthropic",
                     ProviderName = "Anthropic",
@@ -168,7 +168,7 @@ public class ProviderUsagePersistenceServiceTests
         var activeProviderIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var usages = new List<ProviderUsage>
         {
-            new()
+            new QuotaProviderUsage()
             {
                 ProviderId = "anthropic",
                 ProviderName = "Anthropic",

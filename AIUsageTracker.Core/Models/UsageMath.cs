@@ -102,6 +102,49 @@ public static class UsageMath
     }
 
     /// <summary>
+    /// Classifies a used percentage into a threshold tier based on configurable yellow/red thresholds.
+    /// The comparison is: >= redThreshold → Red, >= yellowThreshold → Yellow, else Green.
+    /// </summary>
+    public static ThresholdTier GetThresholdTier(double usedPercent, double yellowThreshold, double redThreshold)
+    {
+        if (usedPercent >= redThreshold)
+        {
+            return ThresholdTier.Red;
+        }
+
+        if (usedPercent >= yellowThreshold)
+        {
+            return ThresholdTier.Yellow;
+        }
+
+        return ThresholdTier.Green;
+    }
+
+    /// <summary>
+    /// Formats a used percentage as "{value:F0}% used" (invariant culture, clamped).
+    /// </summary>
+    public static string FormatUsedPercent(double usedPercent) =>
+        $"{ClampPercent(usedPercent).ToString("F0", CultureInfo.InvariantCulture)}% used";
+
+    /// <summary>
+    /// Formats a remaining percentage as "{value:F0}% remaining" (invariant culture, clamped).
+    /// </summary>
+    public static string FormatRemainingPercent(double remainingPercent) =>
+        $"{ClampPercent(remainingPercent).ToString("F0", CultureInfo.InvariantCulture)}% remaining";
+
+    /// <summary>
+    /// Formats a used currency amount as "${value:F2} used" (invariant culture).
+    /// </summary>
+    public static string FormatUsedCurrency(double usedAmount) =>
+        $"${usedAmount.ToString("F2", CultureInfo.InvariantCulture)} used";
+
+    /// <summary>
+    /// Formats a remaining currency amount as "${value:F2} remaining" (invariant culture, clamped to >= 0).
+    /// </summary>
+    public static string FormatRemainingCurrency(double remainingAmount) =>
+        $"${Math.Max(0, remainingAmount).ToString("F2", CultureInfo.InvariantCulture)} remaining";
+
+    /// <summary>
     /// Calculates what percentage one value is of another.
     /// </summary>
     /// <param name="value">The value to calculate percentage for.</param>
@@ -168,7 +211,7 @@ public static class UsageMath
     /// <returns></returns>
     public static double? ParsePercent(string? value) => ParsePercent(value, out _);
 
-    public static double GetEffectiveUsedPercent(ProviderUsage usage)
+    public static double GetEffectiveUsedPercent(QuotaProviderUsage usage)
     {
         ArgumentNullException.ThrowIfNull(usage);
 
@@ -182,7 +225,7 @@ public static class UsageMath
     /// </summary>
     /// <param name="cards">The list of provider usage cards to inspect.</param>
     /// <returns>The inferred reset time, or null if no reset time is available.</returns>
-    public static DateTime? InferResetTimeFromCards(IReadOnlyList<ProviderUsage>? cards)
+    public static DateTime? InferResetTimeFromCards(IReadOnlyList<QuotaProviderUsage>? cards)
     {
         if (cards == null || cards.Count == 0)
         {
@@ -369,7 +412,7 @@ public static class UsageMath
         };
     }
 
-    public static BurnRateForecast CalculateBurnRateForecast(IEnumerable<ProviderUsage> history)
+    public static BurnRateForecast CalculateBurnRateForecast(IEnumerable<QuotaProviderUsage> history)
     {
         ArgumentNullException.ThrowIfNull(history);
 
@@ -446,7 +489,7 @@ public static class UsageMath
         };
     }
 
-    public static UsageAnomalySnapshot CalculateUsageAnomalySnapshot(IEnumerable<ProviderUsage> history)
+    public static UsageAnomalySnapshot CalculateUsageAnomalySnapshot(IEnumerable<QuotaProviderUsage> history)
     {
         ArgumentNullException.ThrowIfNull(history);
 
@@ -546,7 +589,7 @@ public static class UsageMath
             out percent);
     }
 
-    private static List<ProviderUsage> FilterValidSamples(IEnumerable<ProviderUsage> history)
+    private static List<QuotaProviderUsage> FilterValidSamples(IEnumerable<QuotaProviderUsage> history)
     {
         return history
             .Where(x => x.FetchedAt != default && x.RequestsAvailable > 0 && !double.IsNaN(x.RequestsUsed))
@@ -554,13 +597,13 @@ public static class UsageMath
             .ToList();
     }
 
-    private static bool ValidateMinimumSamples(List<ProviderUsage> samples, int minimum, string errorMessage, out BurnRateForecast forecast)
+    private static bool ValidateMinimumSamples(List<QuotaProviderUsage> samples, int minimum, string errorMessage, out BurnRateForecast forecast)
     {
         forecast = BurnRateForecast.Unavailable(errorMessage);
         return samples.Count >= minimum;
     }
 
-    private static bool ValidateTimeWindow(List<ProviderUsage> cycleSamples, out BurnRateForecast forecast)
+    private static bool ValidateTimeWindow(List<QuotaProviderUsage> cycleSamples, out BurnRateForecast forecast)
     {
         forecast = BurnRateForecast.Unavailable("Insufficient time window");
         var first = cycleSamples[0];
@@ -569,7 +612,7 @@ public static class UsageMath
         return elapsedDays > 0 && (last.FetchedAt - first.FetchedAt).TotalHours >= MinimumElapsedHours;
     }
 
-    private static double CalculateBurnRatePerDay(List<ProviderUsage> cycleSamples, out double elapsedDays)
+    private static double CalculateBurnRatePerDay(List<QuotaProviderUsage> cycleSamples, out double elapsedDays)
     {
         var first = cycleSamples[0];
         var last = cycleSamples[^1];
@@ -594,7 +637,7 @@ public static class UsageMath
         return burnRatePerDay > 0 && !double.IsNaN(burnRatePerDay) && !double.IsInfinity(burnRatePerDay);
     }
 
-    private static BurnRateForecast CreateBurnRateForecast(double burnRatePerDay, List<ProviderUsage> cycleSamples)
+    private static BurnRateForecast CreateBurnRateForecast(double burnRatePerDay, List<QuotaProviderUsage> cycleSamples)
     {
         var last = cycleSamples[^1];
         var remaining = Math.Max(0, last.RequestsAvailable - last.RequestsUsed);
@@ -624,7 +667,7 @@ public static class UsageMath
         };
     }
 
-    private static List<ProviderUsage> FilterValidSamplesForAnomaly(IEnumerable<ProviderUsage> history)
+    private static List<QuotaProviderUsage> FilterValidSamplesForAnomaly(IEnumerable<QuotaProviderUsage> history)
     {
         return history
             .Where(x => x.FetchedAt != default && x.RequestsAvailable > 0 && !double.IsNaN(x.RequestsUsed))
@@ -632,13 +675,13 @@ public static class UsageMath
             .ToList();
     }
 
-    private static bool ValidateMinimumSamplesForAnomaly(List<ProviderUsage> samples, int minimum, string errorMessage, out UsageAnomalySnapshot snapshot)
+    private static bool ValidateMinimumSamplesForAnomaly(List<QuotaProviderUsage> samples, int minimum, string errorMessage, out UsageAnomalySnapshot snapshot)
     {
         snapshot = UsageAnomalySnapshot.Unavailable(errorMessage);
         return samples.Count >= minimum;
     }
 
-    private static List<(double RatePerDay, DateTime FetchedAt)> CalculateRatesPerDay(List<ProviderUsage> cycleSamples)
+    private static List<(double RatePerDay, DateTime FetchedAt)> CalculateRatesPerDay(List<QuotaProviderUsage> cycleSamples)
     {
         var rates = new List<(double RatePerDay, DateTime FetchedAt)>();
         for (var i = 1; i < cycleSamples.Count; i++)
@@ -687,7 +730,7 @@ public static class UsageMath
         return true;
     }
 
-    private static UsageAnomalySnapshot CreateAnomalySnapshot(double baselineMedian, List<double> baselineRates, (double RatePerDay, DateTime FetchedAt) latest, List<ProviderUsage> cycleSamples)
+    private static UsageAnomalySnapshot CreateAnomalySnapshot(double baselineMedian, List<double> baselineRates, (double RatePerDay, DateTime FetchedAt) latest, List<QuotaProviderUsage> cycleSamples)
     {
         var mad = Median(baselineRates.Select(x => Math.Abs(x - baselineMedian)).ToList());
         var sigma = mad * AnomalyMadScale;
@@ -730,7 +773,7 @@ public static class UsageMath
         }
     }
 
-    private static List<ProviderUsage> TrimToLatestCycle(List<ProviderUsage> orderedSamples)
+    private static List<QuotaProviderUsage> TrimToLatestCycle(List<QuotaProviderUsage> orderedSamples)
     {
         if (orderedSamples.Count < 2)
         {

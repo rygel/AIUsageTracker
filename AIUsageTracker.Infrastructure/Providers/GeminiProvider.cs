@@ -100,19 +100,7 @@ public class GeminiProvider : ProviderBase
         var accounts = this.LoadAccounts();
         if (accounts == null || accounts.Accounts == null || accounts.Accounts.Count == 0)
         {
-            return new[]
-            {
-                new ProviderUsage
-                {
-                    ProviderId = this.ProviderId,
-                    ProviderName = providerLabel,
-                    IsAvailable = false,
-                    IsQuotaBased = this.Definition.IsQuotaBased,
-                    PlanType = this.Definition.PlanType,
-                    State = ProviderUsageState.Missing,
-                    Description = "No Gemini accounts found",
-                },
-            };
+            return new[] { this.CreateUnavailableUsage("No Gemini accounts found", state: ProviderUsageState.Missing) };
         }
 
         var results = new List<ProviderUsage>();
@@ -128,7 +116,7 @@ public class GeminiProvider : ProviderBase
                 var accessToken = await this.RefreshTokenAsync(account.RefreshToken).ConfigureAwait(false);
                 var buckets = await this.FetchQuotaAsync(accessToken, account.ProjectId).ConfigureAwait(false);
                 var allBuckets = buckets ?? new List<Bucket>();
-                var modelQuotaCards = BuildModelQuotaCards(this.ProviderId, providerLabel, allBuckets, account.Email);
+                var modelQuotaCards = BuildModelQuotaCards(config, providerLabel, allBuckets, account.Email);
                 this._logger.LogDebug(
                     "Gemini quota received {BucketCount} bucket(s) and resolved {ModelCount} model card(s): {BucketSummary}",
                     allBuckets.Count,
@@ -522,8 +510,8 @@ public class GeminiProvider : ProviderBase
         return data?.Buckets;
     }
 
-    private static IReadOnlyList<ProviderUsage> BuildModelQuotaCards(
-        string providerId,
+    private IReadOnlyList<ProviderUsage> BuildModelQuotaCards(
+        ProviderConfig config,
         string providerName,
         IEnumerable<Bucket> buckets,
         string accountEmail)
@@ -538,10 +526,14 @@ public class GeminiProvider : ProviderBase
             .ToList();
         if (modelBuckets.Count == 0)
         {
+            this._logger.LogWarning(
+                "Gemini quota API returned {BucketCount} buckets but none had identifiable model IDs for account {AccountEmail}",
+                buckets is ICollection<Bucket> bucketList ? bucketList.Count : -1,
+                accountEmail);
             return Array.Empty<ProviderUsage>();
         }
 
-        var cards = new List<ProviderUsage>();
+        var cards = new List<ModelScopedProviderUsage>();
         foreach (var modelGroup in modelBuckets.GroupBy(entry => entry.ModelId!, StringComparer.OrdinalIgnoreCase))
         {
             var representative = modelGroup
@@ -559,23 +551,21 @@ public class GeminiProvider : ProviderBase
             var resetTime = ParseResetTimeUtc(representative.ResetTime);
             var resetSuffix = resetTime.HasValue ? $" (Resets: ({resetTime.Value.ToString("MMM dd HH:mm", CultureInfo.InvariantCulture)}))" : string.Empty;
 
-            cards.Add(new ProviderUsage
-            {
-                ProviderId = providerId,
-                ProviderName = providerName,
-                AccountName = accountEmail,
-                Name = FormatGeminiModelDisplayName(modelGroup.Key),
-                CardId = $"model-{modelGroup.Key.ToLowerInvariant().Replace("/", "-", StringComparison.Ordinal)}",
-                GroupId = providerId,
-                ModelName = modelGroup.Key,
-                Description = $"{remainingPercent.ToString("F1", CultureInfo.InvariantCulture)}% remaining{resetSuffix}",
-                NextResetTime = resetTime,
-                UsedPercent = usedPercent,
-                IsQuotaBased = true,
-                IsAvailable = true,
-                PlanType = PlanType.Coding,
-                HttpStatus = 200,
-            });
+            var card = CreateModelScopedUsage(config);
+            card.ProviderName = providerName;
+            card.AccountName = accountEmail;
+            card.Name = FormatGeminiModelDisplayName(modelGroup.Key);
+            card.CardId = $"model-{modelGroup.Key.ToLowerInvariant().Replace("/", "-", StringComparison.Ordinal)}";
+            card.GroupId = config.ProviderId;
+            card.ModelName = modelGroup.Key;
+            card.Description = $"{remainingPercent.ToString("F1", CultureInfo.InvariantCulture)}% remaining{resetSuffix}";
+            card.NextResetTime = resetTime;
+            card.UsedPercent = usedPercent;
+            card.IsQuotaBased = true;
+            card.IsAvailable = true;
+            card.PlanType = PlanType.Coding;
+            card.HttpStatus = 200;
+            cards.Add(card);
         }
 
         return cards

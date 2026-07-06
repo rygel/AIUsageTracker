@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Usage Tracker — Monitor your AI API usage in one place</title>
+    <meta name="description" content="A desktop GUI, web dashboard, and cross-platform CLI to monitor AI API usage, costs, and quotas across 16 providers. Built with .NET 10.">
+    <meta name="keywords" content="AI usage tracker, API usage monitor, AI quota tracker, AI spending monitor, Claude usage, OpenAI usage, Gemini usage, Copilot usage, API cost tracker, AI credits monitor, provider usage dashboard, AI billing tracker">
+    <meta name="author" content="rygel">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://aiusagetracker.outerstellar.net/">
+    <link rel="icon" href="favicon.png" type="image/png">
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="AI Usage Tracker — Monitor your AI API usage in one place">
+    <meta property="og:description" content="Track AI API usage, costs, and quotas across 16 providers. Desktop GUI, web dashboard, and cross-platform CLI.">
+    <meta property="og:url" content="https://aiusagetracker.outerstellar.net/">
+    <meta property="og:site_name" content="AI Usage Tracker">
+    <meta property="og:image" content="https://aiusagetracker.outerstellar.net/screenshot_dashboard_privacy.png">
+    <meta property="og:image:alt" content="AI Usage Tracker desktop dashboard showing provider usage with progress bars">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="AI Usage Tracker — Monitor your AI API usage">
+    <meta name="twitter:description" content="Track AI API usage, costs, and quotas across 16 providers. Desktop GUI, web dashboard, and CLI.">
+    <meta name="twitter:image" content="https://aiusagetracker.outerstellar.net/screenshot_dashboard_privacy.png">
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "AI Usage Tracker",
+        "description": "A desktop GUI, web dashboard, and cross-platform CLI to monitor AI API usage, costs, and quotas across 16 providers including Claude, Gemini, OpenAI, GitHub Copilot, DeepSeek, and more.",
+        "applicationCategory": "Utilities",
+        "operatingSystem": "Windows, Linux",
+        "softwareVersion": "2.3.7",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        },
+        "license": "https://opensource.org/licenses/MIT",
+        "url": "https://aiusagetracker.outerstellar.net/",
+        "downloadUrl": "https://github.com/rygel/AIUsageTracker/releases/latest",
+        "codeRepository": "https://github.com/rygel/AIUsageTracker",
+        "programmingLanguage": "C#",
+        "runtimePlatform": ".NET 10",
+        "screenshot": "https://aiusagetracker.outerstellar.net/screenshot_dashboard_privacy.png"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "AI Usage Tracker",
+        "url": "https://aiusagetracker.outerstellar.net/",
+        "logo": "https://aiusagetracker.outerstellar.net/favicon.png",
+        "sameAs": [
+            "https://github.com/rygel/AIUsageTracker",
+            "https://discord.gg/AZtNQtWuJA"
+        ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {
+                "@type": "Question",
+                "name": "What is AI Usage Tracker?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "AI Usage Tracker is a free, open-source Windows desktop application and web dashboard that monitors your AI API usage, costs, and quotas across 16 providers including Claude Code, GitHub Copilot, OpenAI Codex, Gemini, Z.AI, and more."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Which AI providers are supported?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "AI Usage Tracker supports 16 providers: Antigravity, Claude Code, GitHub Copilot, Kimi (Moonshot), MiniMax, OpenAI (Codex), Synthetic, Z.AI, DeepSeek, Gemini, Groq, Mistral, OpenCode Go, OpenCode Zen, Xiaomi, and OpenRouter (planned)."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Is AI Usage Tracker free?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Yes. AI Usage Tracker is free and open-source under the MIT License. Download the latest release from GitHub."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "What platforms does AI Usage Tracker run on?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "The desktop GUI runs on Windows. A cross-platform CLI is available for Windows and Linux. A web dashboard provides browser-based access to usage data, charts, and analytics."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "How does AI Usage Tracker find my API keys?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "AI Usage Tracker auto-discovers existing API keys from environment variables and configuration files (such as .codex/auth.json, Claude settings, and opencode auth.json). No manual setup is required for supported providers."
+                }
+            }
+        ]
+    }
+    </script>
+
+    <script async src="https://startupbar.co/widget/loader.js" data-startup-id="d77ace7a-c7d8-4eac-81b9-fe98f973d04a"></script>
+</head>
+<body>
+
+<!-- ===== HERO ===== -->
+<header class="hero">
+    <div class="container hero__content">
+        <div class="hero__text">
+            <div class="hero__badge">
+                <img src="favicon.png" alt="" width="32" height="32">
+                <span>AI Usage Tracker</span>
+            </div>
+            <h1>Track your AI providers<br><span class="hero__highlight">in one glance</span></h1>
+            <p class="hero__tagline">
+                Three ways to monitor your AI API usage, costs, and quotas across 16 providers:
+                a compact desktop GUI with system tray integration, a full web dashboard with
+                charts and analytics, and a cross-platform CLI. Auto-discovers your keys, stays out of your way.
+            </p>
+            <div class="hero__cta">
+                <a href="https://github.com/rygel/AIUsageTracker/releases/latest" class="btn btn--primary">
+                    Download
+                </a>
+                <a href="https://github.com/rygel/AIUsageTracker" class="btn btn--secondary">
+                    View on GitHub
+                </a>
+            </div>
+            <div class="hero__meta">
+                <span class="badge">Windows | Linux</span>
+                <span class="badge">.NET 10</span>
+                <span class="badge">MIT License</span>
+            </div>
+        </div>
+        <div class="hero__screenshot">
+            <img src="screenshot_dashboard_privacy.png" alt="AI Usage Tracker Dashboard" loading="eager">
+        </div>
+    </div>
+</header>
+
+<!-- ===== PROVIDERS ===== -->
+<section class="section">
+    <div class="container">
+        <h2 class="section__title">Supported Providers</h2>
+        <p class="section__subtitle">16 providers in a single view</p>
+        <div class="provider-grid">
+            <div class="provider-card"><span class="provider-card__name">Antigravity</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
+            <div class="provider-card"><span class="provider-card__name">Claude Code</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
+            <div class="provider-card"><span class="provider-card__name">GitHub Copilot</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
+            <div class="provider-card"><span class="provider-card__name">Kimi (Moonshot)</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
+            <div class="provider-card"><span class="provider-card__name">MiniMax (Intl)</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
+            <div class="provider-card"><span class="provider-card__name">OpenAI (Codex)</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
+            <div class="provider-card"><span class="provider-card__name">Synthetic</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
+            <div class="provider-card"><span class="provider-card__name">Z.AI</span><span class="provider-card__status provider-card__status--ok">Tested</span></div>
+            <div class="provider-card"><span class="provider-card__name">DeepSeek</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
+            <div class="provider-card"><span class="provider-card__name">Gemini</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
+            <div class="provider-card"><span class="provider-card__name">Groq</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
+            <div class="provider-card"><span class="provider-card__name">MiniMax (China)</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
+            <div class="provider-card"><span class="provider-card__name">Mistral</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
+            <div class="provider-card"><span class="provider-card__name">OpenCode Go</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
+            <div class="provider-card"><span class="provider-card__name">OpenCode Zen</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
+            <div class="provider-card"><span class="provider-card__name">Xiaomi</span><span class="provider-card__status provider-card__status--beta">Beta</span></div>
+            <div class="provider-card"><span class="provider-card__name">OpenRouter</span><span class="provider-card__status provider-card__status--planned">Planned</span></div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== FEATURES ===== -->
+<section class="section section--alt">
+    <div class="container">
+        <h2 class="section__title">Features</h2>
+        <p class="section__subtitle">Everything you need to stay on top of your AI usage</p>
+        <div class="features-columns">
+            <div class="feature-column">
+                <h3>Desktop GUI</h3>
+                <ul class="feature-list">
+                    <li><strong>Live progress bars</strong> &mdash; remaining credits, quotas, and spending at a glance</li>
+                    <li><strong>System tray</strong> &mdash; per-provider icons with live bars, auto-hide on focus loss</li>
+                    <li><strong>Pace projection</strong> &mdash; predicts if you'll hit your limit before reset</li>
+                    <li><strong>Card presets</strong> &mdash; default, compact, detailed, and dual-bar modes</li>
+                    <li><strong>Auto-updates</strong> &mdash; beta and stable channels with one-click install</li>
+                </ul>
+            </div>
+            <div class="feature-column">
+                <h3>Web Dashboard</h3>
+                <ul class="feature-list">
+                    <li><strong>Full dashboard</strong> &mdash; spending summaries, burn-rate forecasts, sparklines</li>
+                    <li><strong>Interactive charts</strong> &mdash; time-series with server-side downsampling</li>
+                    <li><strong>Per-model analytics</strong> &mdash; breakdown tables, latency trends, raw JSON</li>
+                    <li><strong>Reliability monitoring</strong> &mdash; uptime, response times, error rates</li>
+                    <li><strong>14 themes</strong> &mdash; Dracula, Nord, Catppuccin, Monokai, and more</li>
+                </ul>
+            </div>
+            <div class="feature-column">
+                <h3>CLI</h3>
+                <ul class="feature-list">
+                    <li><strong>Status &amp; history</strong> &mdash; check usage from any terminal</li>
+                    <li><strong>Key management</strong> &mdash; set, remove, and scan for API keys</li>
+                    <li><strong>Export</strong> &mdash; CSV and JSON, up to 90 days</li>
+                    <li><strong>Monitor control</strong> &mdash; start, stop, restart the background service</li>
+                    <li><strong>Auto-discovery</strong> &mdash; scans env vars and config files for existing keys</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== SCREENSHOTS ===== -->
+<section class="section">
+    <div class="container">
+        <h2 class="section__title">Take a Look</h2>
+        <p class="section__subtitle">Click any screenshot to enlarge</p>
+        <div class="screenshot-grid" id="screenshotGrid">
+            <figure class="screenshot-item">
+                <img src="screenshot_dashboard_privacy.png" alt="Desktop Dashboard" loading="lazy" data-full="screenshot_dashboard_privacy.png">
+                <figcaption>Desktop Dashboard</figcaption>
+            </figure>
+            <figure class="screenshot-item">
+                <img src="screenshot_settings_providers_privacy.png" alt="Provider Settings" loading="lazy" data-full="screenshot_settings_providers_privacy.png">
+                <figcaption>Provider Settings</figcaption>
+            </figure>
+            <figure class="screenshot-item">
+                <img src="screenshot_web_dashboard.png" alt="Web Dashboard" loading="lazy" data-full="screenshot_web_dashboard.png">
+                <figcaption>Web Dashboard</figcaption>
+            </figure>
+            <figure class="screenshot-item">
+                <img src="screenshot_web_charts.png" alt="Usage Charts" loading="lazy" data-full="screenshot_web_charts.png">
+                <figcaption>Usage Charts</figcaption>
+            </figure>
+            <figure class="screenshot-item">
+                <img src="card-catalog/card_preset-default.png" alt="Card Presets" loading="lazy" data-full="card-catalog/card_preset-default.png">
+                <figcaption>Card Presets</figcaption>
+            </figure>
+            <figure class="screenshot-item">
+                <img src="screenshot_settings_cards_privacy.png" alt="Card Settings" loading="lazy" data-full="screenshot_settings_cards_privacy.png">
+                <figcaption>Card Settings</figcaption>
+            </figure>
+        </div>
+    </div>
+</section>
+
+<!-- ===== DOWNLOAD ===== -->
+<section class="section section--alt">
+    <div class="container download">
+        <h2 class="section__title">Get Started</h2>
+        <p class="section__subtitle">Three steps to tracking your AI usage</p>
+        <div class="download__steps">
+            <div class="download__step">
+                <div class="download__step-num">1</div>
+                <p>Download the latest installer from <a href="https://github.com/rygel/AIUsageTracker/releases/latest">Releases</a></p>
+            </div>
+            <div class="download__step">
+                <div class="download__step-num">2</div>
+                <p>Run the installer &mdash; it auto-scans for your existing API keys</p>
+            </div>
+            <div class="download__step">
+                <div class="download__step-num">3</div>
+                <p>Pin the dashboard and watch your usage update in real time</p>
+            </div>
+        </div>
+        <a href="https://github.com/rygel/AIUsageTracker/releases" class="btn btn--primary btn--large">
+            Download Latest Release
+        </a>
+    </div>
+</section>
+
+<!-- ===== SUPPORT ===== -->
+<section class="section">
+    <div class="container">
+        <h2 class="section__title">Support the Project</h2>
+        <p class="section__subtitle">Use these referral links when signing up &mdash; it costs you nothing and helps fund development</p>
+        <div class="support-grid">
+            <a href="https://opencode.ai/go?ref=BJK682KYXH" class="support-card">
+                <span class="support-card__name">OpenCode Go</span>
+                <span class="support-card__action">Sign up &rarr;</span>
+            </a>
+            <a href="https://z.ai/subscribe?ic=JQTB1W1M0L" class="support-card">
+                <span class="support-card__name">Z.AI</span>
+                <span class="support-card__action">Sign up &rarr;</span>
+            </a>
+            <a href="https://platform.minimax.io/subscribe/token-plan?code=7tAWJBCP5L&source=link" class="support-card">
+                <span class="support-card__name">MiniMax</span>
+                <span class="support-card__action">Sign up &rarr;</span>
+            </a>
+            <a href="https://synthetic.new/?referral=SNJDbFCgSUZso9E" class="support-card">
+                <span class="support-card__name">Synthetic</span>
+                <span class="support-card__action">Sign up &rarr;</span>
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer class="footer">
+    <div class="container footer__content">
+        <div class="footer__links">
+            <a href="https://github.com/rygel/AIUsageTracker">GitHub</a>
+            <a href="https://github.com/rygel/AIUsageTracker/releases/latest">Releases</a>
+            <a href="https://discord.gg/AZtNQtWuJA">Discord</a>
+            <a href="https://github.com/rygel/AIUsageTracker/blob/develop/docs/user_manual.md">User Manual</a>
+        </div>
+        <p class="footer__license">MIT License &mdash; built with .NET 10</p>
+    </div>
+</footer>
+
+<!-- ===== LIGHTBOX ===== -->
+<div class="lightbox" id="lightbox">
+    <img src="" alt="" id="lightboxImg">
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

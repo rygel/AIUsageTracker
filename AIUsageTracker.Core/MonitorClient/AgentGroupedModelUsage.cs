@@ -16,6 +16,12 @@ public sealed class AgentGroupedModelUsage
 
     public DateTime? NextResetTime { get; set; }
 
+    /// <summary>
+    /// Gets or sets the number of rate-limit reset credits still available (e.g. Codex
+    /// <c>rate_limit_reset_credits.available_count</c>). Null when not reported.
+    /// </summary>
+    public int? ResetCreditsAvailable { get; set; }
+
     public string Description { get; set; } = string.Empty;
 
     public double? EffectiveUsedPercentage { get; set; }

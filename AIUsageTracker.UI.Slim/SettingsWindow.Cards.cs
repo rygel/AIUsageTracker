@@ -12,7 +12,7 @@ namespace AIUsageTracker.UI.Slim;
 public partial class SettingsWindow
 {
     private readonly List<UserPreset> _userPresets = new();
-    private List<ProviderUsage> _cardPreviewUsages = new();
+    private List<QuotaProviderUsage> _cardPreviewUsages = new();
 
     private enum CardPreset
     {
@@ -48,15 +48,14 @@ public partial class SettingsWindow
     private void InitializeCardDesigner()
     {
         this._cardPreviewUsages = this._usages
-            .OrderByDescending(u => u.IsAvailable && u.UsedPercent > 0 ? 1 : 0)
-            .ThenByDescending(u => u.UsedPercent)
+            .OrderByDescending(u => u is QuotaProviderUsage qu && qu.UsedPercent > 0 && u.IsAvailable ? 1 : 0)
+            .ThenByDescending(u => u is QuotaProviderUsage qu ? qu.UsedPercent : 0)
             .ThenByDescending(u => u.IsAvailable ? 1 : 0)
             .Take(5)
             .ToList();
 
         this.PopulateCardSlotOptions();
 
-        // Load saved slot configuration from preferences
         this.PrimaryBadgeSlot.SelectedValue = this._preferences.CardPrimaryBadge;
         this.SecondaryBadgeSlot.SelectedValue = this._preferences.CardSecondaryBadge;
         this.StatusLineSlot.SelectedValue = this._preferences.CardStatusLine;

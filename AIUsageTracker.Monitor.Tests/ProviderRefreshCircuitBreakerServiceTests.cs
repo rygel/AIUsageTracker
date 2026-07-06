@@ -71,7 +71,7 @@ public class ProviderRefreshCircuitBreakerServiceTests
             configs,
             new[]
             {
-                new ProviderUsage
+                new StatusProviderUsage
                 {
                     ProviderId = "openai",
                     IsAvailable = true,
@@ -102,7 +102,7 @@ public class ProviderRefreshCircuitBreakerServiceTests
             configs,
             new[]
             {
-                new ProviderUsage
+                new StatusProviderUsage
                 {
                     ProviderId = "openai.spark",
                     IsAvailable = true,
@@ -175,7 +175,7 @@ public class ProviderRefreshCircuitBreakerServiceTests
             configs,
             new[]
             {
-                new ProviderUsage
+                new StatusProviderUsage
                 {
                     ProviderId = "openai",
                     IsAvailable = true,
@@ -274,7 +274,7 @@ public class ProviderRefreshCircuitBreakerServiceTests
             new() { ProviderId = "mistral" },
         };
 
-        var failedUsage = new ProviderUsage
+        var failedUsage = new StatusProviderUsage
         {
             ProviderId = "mistral",
             IsAvailable = false,
@@ -318,7 +318,7 @@ public class ProviderRefreshCircuitBreakerServiceTests
         var configs = new List<ProviderConfig> { new() { ProviderId = "openai" } };
         var retryAfter = TimeSpan.FromMinutes(5);
 
-        var rateLimitUsage = new ProviderUsage
+        var rateLimitUsage = new StatusProviderUsage
         {
             ProviderId = "openai",
             IsAvailable = false,
@@ -353,7 +353,7 @@ public class ProviderRefreshCircuitBreakerServiceTests
     {
         var configs = new List<ProviderConfig> { new() { ProviderId = "openai" } };
 
-        var rateLimitUsage = new ProviderUsage
+        var rateLimitUsage = new StatusProviderUsage
         {
             ProviderId = "openai",
             IsAvailable = false,
@@ -387,7 +387,7 @@ public class ProviderRefreshCircuitBreakerServiceTests
     {
         var configs = new List<ProviderConfig> { new() { ProviderId = "openai" } };
 
-        var failedUsage = new ProviderUsage
+        var failedUsage = new StatusProviderUsage
         {
             ProviderId = "openai",
             IsAvailable = false,
@@ -414,7 +414,7 @@ public class ProviderRefreshCircuitBreakerServiceTests
     {
         var configs = new List<ProviderConfig> { new() { ProviderId = "openai" } };
 
-        var rateLimitUsage = new ProviderUsage
+        var rateLimitUsage = new StatusProviderUsage
         {
             ProviderId = "openai",
             IsAvailable = false,
@@ -449,7 +449,7 @@ public class ProviderRefreshCircuitBreakerServiceTests
     {
         var configs = new List<ProviderConfig> { new() { ProviderId = "openai" } };
 
-        var failedUsage = new ProviderUsage
+        var failedUsage = new StatusProviderUsage
         {
             ProviderId = "openai",
             IsAvailable = false,
@@ -460,7 +460,7 @@ public class ProviderRefreshCircuitBreakerServiceTests
 
         this._service.UpdateProviderFailureStates(configs, new[] { failedUsage });
 
-        var successUsage = new ProviderUsage
+        var successUsage = new StatusProviderUsage
         {
             ProviderId = "openai",
             IsAvailable = true,

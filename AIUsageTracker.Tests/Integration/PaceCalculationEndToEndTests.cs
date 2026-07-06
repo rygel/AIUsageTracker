@@ -25,7 +25,7 @@ public class PaceCalculationEndToEndTests
         var nextResetUtc = now.AddDays(5);
         var periodDuration = TimeSpan.FromDays(7);
 
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "codex",
             ProviderName = "OpenAI (Codex)",
@@ -65,7 +65,7 @@ public class PaceCalculationEndToEndTests
         var nextResetUtc = now.AddDays(5);
         var periodDuration = TimeSpan.FromDays(7);
 
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "codex",
             ProviderName = "OpenAI (Codex)",
@@ -100,7 +100,7 @@ public class PaceCalculationEndToEndTests
         var periodDuration = TimeSpan.FromHours(5);
         var nextResetUtc = now.AddHours(3); // 2 hours elapsed, 3 remaining
 
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "codex.burst",
             ProviderName = "Burst Window",
@@ -133,7 +133,7 @@ public class PaceCalculationEndToEndTests
         var periodDuration = TimeSpan.FromHours(5);
         var nextResetUtc = now.AddHours(3);
 
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "codex.burst",
             ProviderName = "Burst Window",

@@ -2,6 +2,230 @@
 
 ## [Unreleased]
 
+## [2.4.2-beta.6] - 2026-07-06
+
+### Fixed
+- **Silent-zero bugs in OpenAI, Codex, ClaudeCode providers**: When API responses lack usage data (missing `rate_limit` windows, missing `used_percent`, null `FiveHour` quotas), providers now return error cards instead of showing 0%.
+- **ZaiProvider merged quotas**: Z.AI's TOKENS_LIMIT (5h coding plan, 3% used) and TIME_LIMIT (monthly search/reader quota, 11% used) are now separate cards instead of being merged into one via `ApplyMcpAdjustment`.
+
+## [2.4.2-beta.5] - 2026-07-05
+
+### Fixed
+- **Tooltip percentage respects Show Used toggle**: Quota provider tooltips show a single toggle-consistent percentage line (e.g., `"11% used"` or `"90% remaining"`) instead of the raw provider description which duplicated plan names and percentages.
+
+## [2.4.2-beta.4] - 2026-07-05
+
+### Fixed
+- **Tooltip percentage respects Show Used toggle**: The tooltip now shows an additional toggle-consistent percentage line (`"45% used"` or `"55% remaining"`) for quota providers alongside the raw description, matching the card status text and progress bar.
+
+## [2.4.2-beta.3] - 2026-07-04
+
+### Fixed
+- **Reset credits propagation to parent instead of child-digging**: The beta.2 fix added `ResolveResetCredits` — a helper that dug into `WindowCards` to find the burst card's value. This was the same bad pattern of parent-reaching-into-child we'd explicitly decided to eliminate. Proper fix: `GroupedUsageDisplayAdapter.Expand` now propagates `ResetCreditsAvailable` to the `WindowedProviderUsage` parent at construction time. The tooltip code uses the simple `usage.ResetCreditsAvailable` check like every other provider.
+
+## [2.4.2-beta.2] - 2026-07-04
+
+### Fixed
+- **Reset credits tooltip rendering**: The `reset_credits_available` value was stored in the database and returned by the API but not shown in the card tooltip. For dual-bar providers (Codex), the value lives on the child burst card inside `WindowCards`, not on the parent `WindowedProviderUsage`. Added `ResolveResetCredits` helper that checks both the parent usage and the burst window card.
+
+## [2.4.2-beta.1] - 2026-07-04
+
+### Added
+- **Codex reset credits in tooltip**: The Codex card tooltip now shows `rate_limit_reset_credits.available_count` — the number of manual rate-limit resets still available.
+- **Codex reset credits in database**: `reset_credits_available` column added to `provider_history`. Every history row permanently records how many reset credits were available, letting users track when credits were consumed.
+
+### Fixed
+- **Auto-tag workflow**: Fixed `persist-credentials: false` that prevented the auto-tag-release workflow from pushing git tags. Future beta/stable releases will auto-tag correctly.
+
+## [2.4.1-beta.1] - 2026-07-03
+
+### Added
+- **Landing page SEO**: Added `robots.txt`, `sitemap.xml`, FAQ structured data, and Organization structured data for search engine visibility and AI search indexing.
+- **Landing page redesign**: Consolidated three bloated feature sections into a dense 3-column layout (Desktop GUI / Web Dashboard / CLI). Added "Support the Project" section with referral links. Reduced vertical spacing throughout.
+- **Website link in README**: Added link to `aiusagetracker.outerstellar.net`.
+
+### Changed
+- **Provider statuses on landing page**: Groq, MiniMax (China), Gemini, Mistral moved to Beta. MiniMax (Intl), OpenAI (Codex) moved to Tested. Providers sorted by status (Tested, Beta, Planned).
+- **Fixed provider count**: Corrected "18+" claim to "16" (the actual count) across all meta tags, JSON-LD, and page copy.
+- **Fixed CLI name**: Removed fabricated "act" binary name from landing page.
+- **Release links**: Download buttons now point to `/releases/latest` for stable releases.
+
+### Fixed
+- **Codex reset time accuracy**: The Codex provider now uses the absolute `reset_at` epoch timestamp from the API instead of computing `now + reset_after_seconds`, which drifted by network latency (~18s). Falls back to relative when `reset_at` is absent.
+- **Semgrep CI**: Replaced stale `semgrep-action@v1` Docker image with direct `pip install semgrep` to fix `ValueError: invalid rule severity value: MEDIUM` crash.
+
+## [2.4.0] - 2026-07-01
+
+### Added
+- **Anthropic Usage/Cost provider**: New provider tracking spending via Anthropic admin API (cost_report + usage_report endpoints). Uses `x-api-key` header auth. Emits daily-cost and daily-tokens cards.
+- **Groq provider**: New provider tracking rate-limit headers (daily requests + per-minute tokens) via `GROQ_API_KEY`.
+- **Spending summary on Web dashboard**: Homepage now shows total spent, budget remaining, and per-provider breakdown for currency-based providers.
+- **CSV export**: Export button on History page downloads 90 days of usage data in RFC 4180 CSV format.
+- **Analytics page**: Web dashboard `/analytics` page with per-model breakdown, latency trends, HTTP status history, and provider details JSON panel.
+- **Landing page**: Public landing page at `aiusagetracker.outerstellar.net` with provider list, feature overview, screenshots, and download links.
+- **Rate-limit header parsing**: Shared `TryGetHeaderDouble` method on `ProviderBase` for extracting rate-limit headers.
+
+### Changed
+- **ProviderMetadataCatalog moved to Core**: The catalog now lives in `AIUsageTracker.Core.Providers` instead of Infrastructure. Composition roots pass the Infrastructure assembly to `Initialize()` for provider discovery.
+- **Rendering architecture cleanup**: Removed card type filtering (`.OfType<T>()`) from rendering pipeline. Labels come exclusively from `QuotaWindowDefinition.DualBarLabel`. Deleted `LegacyParentCardBuilder`.
+- **Hibernate data preservation**: After resuming from sleep/hibernate, the UI keeps showing stale data instead of wiping to zero. All-unavailable guard prevents overwriting good data with reconnecting-state data.
+
+### Fixed
+- **Migration data loss (CRITICAL)**: `ConvertTimestampsToEpochIfNeeded` recreated `provider_history` with a hardcoded column list that omitted 6 card columns. Fixed by reading column names dynamically from `PRAGMA table_info`.
+- **OpenAI (Codex) dual bars missing (CRITICAL)**: Rendering code filtered `.OfType<WindowedProviderUsage>()` which silently discarded `ModelScopedProviderUsage` cards. Fixed by filtering on `QuotaProviderUsage` base type.
+- **Auth fallback contract**: `anthropic-usage` provider declared `ANTHROPIC_ADMIN_API_KEY` as discovery environment variable to satisfy provider metadata catalog contract test.
+
+## [2.3.7-beta.1] - 2026-06-26
+
+### Added
+- **Groq provider**: New provider tracking rate-limit headers (daily requests + per-minute tokens) via `GROQ_API_KEY`. Falls back to status-only card when headers absent.
+- **CSV export**: Export button on History page downloads 90 days of usage data in RFC 4180 CSV format.
+- **Tray tooltip**: System tray now shows active provider count and average remaining percentage.
+- **Analytics page**: Web dashboard `/analytics` page with per-model breakdown, latency trends, HTTP status history, and provider details JSON panel (Chart.js).
+- **Provider API research**: Findings doc documenting Gemini (already implemented), Anthropic (admin key barrier), and Groq (implemented) API capabilities.
+
+### Changed
+- **ProviderMetadataCatalog inversion**: Added `Initialize(Assembly)` static method with zero-providers guard. Prerequisite for Core migration. Backward-compatible fallback.
+- **IUsageAnalyticsService collapsed**: Interface removed; concrete `UsageAnalyticsService` used directly (redundant with Core.Services move on develop).
+
+## [2.3.6-beta.15] - 2026-06-26
+
+### Changed
+- **Removed card filtering from rendering pipeline**: `GroupedUsageDisplayAdapter` no longer filters `ProviderDetails` by type (`.OfType<T>()`) or `WindowKind`. All cards pass straight through as WindowCards.
+- **Labels from canonical definition**: Dual bar labels now come exclusively from `QuotaWindowDefinition.DualBarLabel`. Removed all hardcoded fallbacks (`?? "Burst"`, `?? "Rolling"`, `?? false`).
+- **Deleted `LegacyParentCardBuilder`**: Inlined into `GroupedUsageDisplayAdapter`. No adapter class with fallback logic.
+- **Architecture rules**: Added "Rendering Architecture: Definition Controls Everything" rule to AGENTS.md and source file comments. The Monitor sends raw data; `ProviderDefinition` is the single source of truth for all rendering decisions.
+
+## [2.3.6-beta.14] - 2026-06-26
+
+### Fixed
+- **OpenAI (Codex) dual bars missing (CRITICAL)**: Codex provider returns `ModelScopedProviderUsage` cards for its burst and rolling windows, but the rendering code filtered `.OfType<WindowedProviderUsage>()` in three places — silently discarding the cards because the two types are siblings under `QuotaProviderUsage`, not parent-child. Fixed by filtering on `QuotaProviderUsage` (the common base) so both card types are included.
+- Updated test to use `ModelScopedProviderUsage` (matching what Codex actually returns) and assert dual bar data is built correctly.
+
+## [2.3.6-beta.13] - 2026-06-26
+
+### Fixed
+- **Migration data loss (CRITICAL)**: `ConvertTimestampsToEpochIfNeeded` recreated `provider_history` with a hardcoded column list that omitted 6 card columns (`card_id`, `group_id`, `window_kind`, `model_name`, `name`, `card_type`). All historical card classification data was silently wiped, causing OpenAI dual bars to disappear. Fixed by reading column names dynamically from `PRAGMA table_info` so the INSERT can never miss a column. Post-migration assertion verifies no columns were lost and throws if they were.
+
+### Added
+- **Strict migration test**: New test proves that a source table with an unknown column causes the migration to throw instead of silently dropping data.
+- **Data preservation test**: New test inserts card data before migration and verifies it survives.
+- **AGENTS.md rule**: Mandatory rule requiring every table-recreation migration to have a data-preservation test, and all columns must appear in both the CREATE TABLE and INSERT SELECT.
+
+## [2.3.6-beta.12] - 2026-06-26
+
+### Fixed
+- **Settings wipe on update (CRITICAL)**: Merge commit `8eb7c163` silently dropped `[JsonConverter(typeof(JsonStringEnumConverter<UpdateChannel>))]` from `AppPreferences.cs`. Users whose `preferences.json` had `"UpdateChannel": "Beta"` (string) hit a `JsonException` on startup, causing `PreferencesStore.LoadAsync()` to return `new AppPreferences()` — wiping EVERY setting (theme, fonts, thresholds, window position, notifications, hidden providers, everything). Fixed by restoring the converter on `UpdateChannel` and `AppTheme`, and hardening `AppPreferences.Deserialize` to retry with lenient options before falling back to defaults.
+- **Force-save before installer launch**: `UpdateInstallerHelper` now force-saves preferences before launching the installer (which runs `taskkill /F`), preventing loss of unsaved settings changes.
+
+### Added
+- **Regression tests**: 15 tests covering string/numeric enum deserialization, blast-radius protection (one corrupt property must not wipe all preferences), mixed-format round-trips, and cross-format upgrade scenarios.
+- **AGENTS.md rule**: Mandatory `[JsonStringEnumConverter]` on all enum properties and mandatory tests for string/numeric/corrupt-property scenarios.
+
+## [2.3.6-beta.11] - 2026-06-25
+
+### Fixed
+- **Timestamp conversion dropping newer columns**: `ConvertTimestampsToEpochIfNeeded` recreated `provider_history` but only preserved a subset of columns, silently wiping `card_id`, `group_id`, `window_kind`, `model_name`, `name`, and `card_type` on databases with TEXT `fetched_at`. Fixed by reordering: conversion runs first, then all `EnsureColumn` calls add columns the conversion doesn't preserve.
+- **Migration test coverage**: Added assertions for all `provider_history` columns plus a direct `card_type` query test. Added project rule to AGENTS.md requiring test assertions for every `EnsureColumn` addition.
+
+### Fixed
+- **Timestamp conversion dropping newer columns**: `ConvertTimestampsToEpochIfNeeded` recreated `provider_history` but only preserved a subset of columns, silently wiping `card_id`, `group_id`, `window_kind`, `model_name`, `name`, and `card_type` on databases with TEXT `fetched_at`. Fixed by reordering: conversion runs first, then all `EnsureColumn` calls add columns the conversion doesn't preserve.
+- **Migration test coverage**: Added assertions for all `provider_history` columns plus a direct `card_type` query test. Added project rule to AGENTS.md requiring test assertions for every `EnsureColumn` addition.
+
+## [2.3.6-beta.10] - 2026-06-25
+
+### Fixed
+- **card_type column missing on pre-Evolve databases**: The V14 migration only ran through Evolve, which is skipped for databases that predate the migration system. Added `EnsureColumn` call to the compatibility bootstrap so existing databases get the column. This fixes the HTTP 500 crash on every `/api/usage/grouped` request.
+- **Startup delay**: Reduced Monitor crash-detection wait from 3s to 500ms.
+
+## [2.3.6-beta.9] - 2026-06-25
+
+### Added
+- **ProviderUsage subtype hierarchy**: Sealed subtypes (`QuotaProviderUsage`, `WindowedProviderUsage`, `ModelScopedProviderUsage`, `StatusProviderUsage`) with compile-time safety and polymorphic JSON serialization via `[JsonDerivedType]` discriminators.
+- **Database migration V14**: Added `card_type` discriminator column to `provider_history` for subtype reconstruction on read.
+- **Web UI**: Spending summary, sparklines, and terminal title.
+- **Architecture guardrail tests**: 8 tests enforcing ProviderUsage hierarchy invariants.
+
+### Fixed
+- **Issue #647**: Installer installed .NET 8 runtimes instead of .NET 10 — Monitor crashed silently on machines without ASP.NET Core Runtime.
+- **DB read path**: ProviderUsage subtypes now correctly reconstructed from `card_type` discriminator on every `QueryAsync` call.
+- **Processing pipeline**: `StatusProviderUsage` no longer converted to `QuotaProviderUsage` with zeros during normalization.
+- **Monitor launcher**: Detects immediate process exit (missing runtime) and logs a diagnostic message.
+- **Update notification**: Preserved after hibernation network failure.
+
+### Changed
+- **16 providers migrated** to emit concrete `ProviderUsage` subtypes instead of setting `CardType` on the base class.
+- **Stale `net8.0` paths** updated to `net10.0` in MonitorLauncher and BrowserService.
+
+## [2.3.6-beta.8] - 2026-06-12
+
+### Tests
+- **Regression test**: LoadAsync must never throw when the preferences file is locked during update restart. This is the exact scenario that caused the preferences reset bug.
+
+## [2.3.6-beta.7] - 2026-06-12
+
+### Fixed
+- **Preferences no longer reset after update**: `PreferencesStore.LoadAsync` re-threw when the file was locked during update restart (introduced by commit d9036e5d's backup mechanism). App.xaml.cs caught the throw and created defaults that overwrote real user settings. LoadAsync now catches and returns defaults without throwing.
+
+### Cleaned
+- **Removed backup mechanism from AtomicFileWriter**: Dropped unused `backupPath` parameter from `WriteAllTextAtomicAsync` and `ReplaceFile`. The backup logic was the root cause of the preferences reset regression.
+
+### Tests
+- **Regression tests**: LoadAsync never throws for any file state, LoadAsync is read-only, no `.bak` files created, all 50+ preference fields survive save/load round-trip.
+
+## [2.3.6-beta.6] - 2026-06-12
+
+### Fixed
+- **ParseAppVersion `-develop` suffix**: `int.TryParse` failed on pre-release numbers like `"5-develop"`, defaulting `preRelease` to 0 and breaking version comparison. Now strips non-numeric suffixes before parsing.
+
+### Changed
+- **MonitorClient namespace split**: Process/HTTP types (`MonitorLauncher`, `MonitorLauncherProcessController`, `MonitorLifecycleService`, `MonitorService`) moved from `Core.MonitorClient` to `Infrastructure.MonitorClient`. DTO/snapshot types remain in Core.
+- **Collapsed unnecessary interfaces**: Removed `IPreferencesStore`, `IUsageAnalyticsService`, and `IMonitorLauncher` — single-implementation interfaces with no test mocking. Consumers now use concrete types directly.
+- **Deleted dead scaffolded types**: Removed `PercentageValueSemantic`, `BudgetPolicy`, and `ProviderResponseException` — 59 lines of unused code.
+
+## v2.3.6-beta.6-develop — 2026-06-12
+
+- 5ebfacfb release: v2.3.6-beta.6 (cycle 19) (#645)
+- a901763a chore: update 1 screenshot baseline(s) from CI (windows-2025) [skip ci]
+- a0fd59a2 Cycle 19: Carry-Forward Clearance (#644)
+
+## v2.3.6-beta.5-develop — 2026-06-12
+
+- 9d9f2132 release: v2.3.6-beta.5 (#643)
+- 1724f3a8 refactor: cycle 18 Infrastructure - remove dead dependency and constructor (#638)
+- 5bc91986 refactor: remove 21 code-restating comments across UI files (#642)
+- 2e5bb568 refactor: cycle 18 UI - remove dead dependencies and dead code (#637)
+- 6d364121 refactor: deduplicate architecture normalization, replace fake generic ParseValue (#641)
+- d9ba8b93 refactor: lean cleanup batch 3 - merge connection methods, simplify dispose, clean temp files (#640)
+- 0107ce47 refactor: lean cleanup batch 2 - remove dead code and simplify patterns (#639)
+
+## [2.3.6-beta.5] - 2026-06-12
+
+### Changed
+- **Lean code sweep (cycle 18)**: Removed ~300 lines of dead code, redundant wrappers, and restating comments across all projects. Merged duplicate connection methods, replaced fake generic parsing, simplified dispose patterns, and removed unused NuGet references (System.Drawing.Common from Infrastructure, System.Reactive from UI.Slim/Tests, System.Net.Http.Json from UI.Slim).
+
+## [2.3.6-beta.4] - 2026-06-11
+
+### Added
+- **Web Analytics page** (`/analytics`): new page with 4 analytics sections — Model Usage Breakdown (per-model distribution table), Latency Trend Chart (response_latency_ms over time), HTTP Status History (2xx vs 4xx/5xx over time), and Provider Details Panel (pretty-printed details_json from latest snapshots).
+- **Test Connection button**: Settings UI now has a Test button that calls `POST /api/providers/{providerId}/test` to verify API key connectivity.
+- **Descriptive error states**: `ProviderBase` auto-attaches `HttpFailureContext` in all error paths; UI reads `FailureContext.Classification` for actionable messages (rate-limited, auth-failed, unreachable, etc.).
+- **Provider health indicators**: `FetchedAt` relative time badge on provider cards showing data freshness.
+- **Minimax API provider**: new provider with credit-based quota windows.
+
+### Changed
+- **Migrated to .NET 10**: all projects now target `net10.0`. CI/CD workflows, PowerShell scripts, and `global.json` updated for SDK 10.0.300.
+- **Fixed `IsNewerVersion` for `-develop` suffix**: `ParseAppVersion` now strips non-numeric suffix from beta number before parsing.
+- **Added `/api/providers/{providerId}/test` to OpenAPI contract**: pre-existing endpoint gap.
+
+## [2.3.6-beta.1] - 2026-06-06
+
+### Fixed
+- **Minimax always shows two bars**: The Minimax provider had conditional fallback logic that skipped the burst (5h) card when `remaining_percent` was 0 (exhausted quota). Now always returns both 5h and Weekly cards using `remaining_percent` directly. No conditionals, no fallbacks.
+
+### Changed
+- **Minimax test fixtures**: Rewritten to match real API response format (`remaining_percent` fields). Added test using sanitized live API response snapshot.
+
 ## [2.3.5] - 2026-06-03
 
 ### Added

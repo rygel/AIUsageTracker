@@ -73,10 +73,6 @@ public class ProviderRefreshServiceTests
         var circuitBreakerLogger = new Mock<ILogger<ProviderRefreshCircuitBreakerService>>();
         this._providerRefreshCircuitBreakerService = new ProviderRefreshCircuitBreakerService(circuitBreakerLogger.Object);
 
-        var configLoadingService = new ProviderRefreshConfigLoadingService(
-            this._mockConfigService.Object,
-            this._mockDatabase.Object,
-            NullLogger<ProviderRefreshConfigLoadingService>.Instance);
         var usagePersistenceService = new ProviderUsagePersistenceService(
             this._mockDatabase.Object,
             NullLogger<ProviderUsagePersistenceService>.Instance);
@@ -85,9 +81,6 @@ public class ProviderRefreshServiceTests
         var connectivityCheckService = new ProviderConnectivityCheckService(
             this._mockConfigService.Object,
             processingPipeline);
-        var refreshJobScheduler = new ProviderRefreshJobScheduler(
-            this._mockJobScheduler.Object,
-            NullLogger<ProviderRefreshJobScheduler>.Instance);
         var providerManagerLifecycle = new ProviderManagerLifecycleService(
             NullLogger<ProviderManagerLifecycleService>.Instance,
             this._mockLoggerFactory.Object,
@@ -97,22 +90,6 @@ public class ProviderRefreshServiceTests
         var refreshNotificationService = new ProviderRefreshNotificationService(
             this._usageAlertsService,
             this._mockHubContext.Object);
-        var startupSequenceService = new StartupSequenceService(
-            refreshJobScheduler,
-            this._mockConfigService.Object,
-            this._mockPathProvider.Object,
-            NullLogger<StartupSequenceService>.Instance);
-
-        var refreshDeps = new ProviderRefreshDependencies(
-            this._providerRefreshCircuitBreakerService,
-            configLoadingService,
-            usagePersistenceService,
-            connectivityCheckService,
-            refreshJobScheduler,
-            providerManagerLifecycle,
-            refreshNotificationService,
-            startupSequenceService,
-            processingPipeline);
 
         this._service = new ProviderRefreshService(
             this._mockLogger.Object,
@@ -120,7 +97,13 @@ public class ProviderRefreshServiceTests
             this._mockNotificationService.Object,
             this._mockConfigService.Object,
             this._mockPathProvider.Object,
-            refreshDeps);
+            this._mockJobScheduler.Object,
+            this._providerRefreshCircuitBreakerService,
+            usagePersistenceService,
+            connectivityCheckService,
+            providerManagerLifecycle,
+            refreshNotificationService,
+            processingPipeline);
     }
 
     [Fact]
@@ -245,10 +228,8 @@ public class ProviderRefreshServiceTests
     public void QueueManualRefresh_UsesHighPriorityScheduler()
     {
         this._mockJobScheduler
-            .Setup(s => s.Enqueue(
-                It.IsAny<string>(),
+            .Setup(s => s.QueueManualRefresh(
                 It.IsAny<Func<CancellationToken, Task>>(),
-                It.IsAny<MonitorJobPriority>(),
                 It.IsAny<string?>()))
             .Returns(value: true);
 
@@ -256,11 +237,9 @@ public class ProviderRefreshServiceTests
 
         Assert.True(queued);
         this._mockJobScheduler.Verify(
-            s => s.Enqueue(
-                "manual-provider-refresh",
+            s => s.QueueManualRefresh(
                 It.IsAny<Func<CancellationToken, Task>>(),
-                MonitorJobPriority.High,
-                "manual-provider-refresh"),
+                null),
             Times.Once);
     }
 
@@ -268,10 +247,8 @@ public class ProviderRefreshServiceTests
     public void QueueManualRefresh_WithScopedRequest_UsesRequestAwareCoalesceKey()
     {
         this._mockJobScheduler
-            .Setup(s => s.Enqueue(
-                It.IsAny<string>(),
+            .Setup(s => s.QueueManualRefresh(
                 It.IsAny<Func<CancellationToken, Task>>(),
-                It.IsAny<MonitorJobPriority>(),
                 It.IsAny<string?>()))
             .Returns(value: true);
 
@@ -281,10 +258,8 @@ public class ProviderRefreshServiceTests
 
         Assert.True(queued);
         this._mockJobScheduler.Verify(
-            s => s.Enqueue(
-                "manual-provider-refresh",
+            s => s.QueueManualRefresh(
                 It.IsAny<Func<CancellationToken, Task>>(),
-                MonitorJobPriority.High,
                 "manual-provider-refresh|forceAll=False|bypass=True|include=openai,zai"),
             Times.Once);
     }
@@ -321,12 +296,10 @@ public class ProviderRefreshServiceTests
     {
         Func<CancellationToken, Task>? queuedWork = null;
         this._mockJobScheduler
-            .Setup(s => s.Enqueue(
-                It.IsAny<string>(),
+            .Setup(s => s.QueueManualRefresh(
                 It.IsAny<Func<CancellationToken, Task>>(),
-                It.IsAny<MonitorJobPriority>(),
                 It.IsAny<string?>()))
-            .Callback<string, Func<CancellationToken, Task>, MonitorJobPriority, string?>((_, work, _, _) => queuedWork = work)
+            .Callback<Func<CancellationToken, Task>, string?>((work, _) => queuedWork = work)
             .Returns(value: true);
 
         var stoppedActivities = new List<Activity>();
@@ -356,35 +329,28 @@ public class ProviderRefreshServiceTests
     public async Task StartAsync_WhenHistoryEmpty_QueuesStartupSeedingAndRecurringRefreshAsync()
     {
         this._mockDatabase.Setup(d => d.IsHistoryEmptyAsync()).ReturnsAsync(value: true);
+        this._mockJobScheduler
+            .Setup(s => s.QueueInitialDataSeeding(It.IsAny<Func<CancellationToken, Task>>()))
+            .Returns(value: true);
 
         await this._service.StartAsync(CancellationToken.None);
         await Task.Delay(100);
         await this._service.StopAsync(CancellationToken.None);
 
         this._mockJobScheduler.Verify(
-            s => s.RegisterRecurringJob(
-                "scheduled-provider-refresh",
+            s => s.RegisterRecurringRefresh(
                 It.IsAny<TimeSpan>(),
-                It.IsAny<Func<CancellationToken, Task>>(),
-                MonitorJobPriority.Low,
-                It.IsAny<TimeSpan?>(),
-                "scheduled-provider-refresh"),
+                It.IsAny<Func<CancellationToken, Task>>()),
             Times.Once);
 
         this._mockJobScheduler.Verify(
-            s => s.Enqueue(
-                "startup-provider-seeding",
-                It.IsAny<Func<CancellationToken, Task>>(),
-                MonitorJobPriority.High,
-                "startup-provider-seeding"),
+            s => s.QueueInitialDataSeeding(
+                It.IsAny<Func<CancellationToken, Task>>()),
             Times.Once);
 
         this._mockJobScheduler.Verify(
-            s => s.Enqueue(
-                "startup-targeted-provider-refresh",
-                It.IsAny<Func<CancellationToken, Task>>(),
-                It.IsAny<MonitorJobPriority>(),
-                It.IsAny<string?>()),
+            s => s.QueueStartupTargetedRefresh(
+                It.IsAny<Func<CancellationToken, Task>>()),
             Times.Never);
     }
 
@@ -392,35 +358,28 @@ public class ProviderRefreshServiceTests
     public async Task StartAsync_WhenHistoryExists_QueuesTargetedRefreshAndRecurringRefreshAsync()
     {
         this._mockDatabase.Setup(d => d.IsHistoryEmptyAsync()).ReturnsAsync(value: false);
+        this._mockJobScheduler
+            .Setup(s => s.QueueStartupTargetedRefresh(It.IsAny<Func<CancellationToken, Task>>()))
+            .Returns(value: true);
 
         await this._service.StartAsync(CancellationToken.None);
         await Task.Delay(100);
         await this._service.StopAsync(CancellationToken.None);
 
         this._mockJobScheduler.Verify(
-            s => s.RegisterRecurringJob(
-                "scheduled-provider-refresh",
+            s => s.RegisterRecurringRefresh(
                 It.IsAny<TimeSpan>(),
-                It.IsAny<Func<CancellationToken, Task>>(),
-                MonitorJobPriority.Low,
-                It.IsAny<TimeSpan?>(),
-                "scheduled-provider-refresh"),
+                It.IsAny<Func<CancellationToken, Task>>()),
             Times.Once);
 
         this._mockJobScheduler.Verify(
-            s => s.Enqueue(
-                "startup-targeted-provider-refresh",
-                It.IsAny<Func<CancellationToken, Task>>(),
-                MonitorJobPriority.Low,
-                "startup-targeted-provider-refresh"),
+            s => s.QueueStartupTargetedRefresh(
+                It.IsAny<Func<CancellationToken, Task>>()),
             Times.Once);
 
         this._mockJobScheduler.Verify(
-            s => s.Enqueue(
-                "startup-provider-seeding",
-                It.IsAny<Func<CancellationToken, Task>>(),
-                It.IsAny<MonitorJobPriority>(),
-                It.IsAny<string?>()),
+            s => s.QueueInitialDataSeeding(
+                It.IsAny<Func<CancellationToken, Task>>()),
             Times.Never);
     }
 
@@ -464,7 +423,7 @@ public class ProviderRefreshServiceTests
 
         scenario.Database.Verify(
             d => d.StoreHistoryAsync(It.Is<IEnumerable<ProviderUsage>>(items =>
-                items.Any(u => u.ProviderId == "codex" && Math.Abs(u.UsedPercent - 50) < 0.001))),
+                items.Any(u => u.ProviderId == "codex" && Math.Abs(((QuotaProviderUsage)u).UsedPercent - 50) < 0.001))),
             Times.Once);
     }
 
@@ -506,7 +465,7 @@ public class ProviderRefreshServiceTests
             {
                 Usages = new[]
                 {
-                    new ProviderUsage
+                    new StatusProviderUsage
                     {
                         ProviderId = "codex",
                         ProviderName = "OpenAI (Codex)",
@@ -589,7 +548,7 @@ public class ProviderRefreshServiceTests
         {
             new() { ProviderId = "codex", ApiKey = TestApiKey },
         };
-        var processedOutput = new ProviderUsage
+        var processedOutput = new QuotaProviderUsage
         {
             ProviderId = "codex",
             ProviderName = "OpenAI (Codex)",
@@ -634,7 +593,7 @@ public class ProviderRefreshServiceTests
         provider.Setup(p => p.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[]
             {
-                new ProviderUsage
+                new QuotaProviderUsage
                 {
                     ProviderId = "codex",
                     ProviderName = "OpenAI (Codex)",
@@ -670,19 +629,12 @@ public class ProviderRefreshServiceTests
             .Returns(value: true);
 
         var providers = new[] { provider };
-        var configLoadingService = new ProviderRefreshConfigLoadingService(
-            configService,
-            database,
-            NullLogger<ProviderRefreshConfigLoadingService>.Instance);
         var usagePersistenceService = new ProviderUsagePersistenceService(
             database,
             NullLogger<ProviderUsagePersistenceService>.Instance);
         var connectivityCheckService = new ProviderConnectivityCheckService(
             configService,
             pipeline);
-        var refreshJobScheduler = new ProviderRefreshJobScheduler(
-            mockJobScheduler.Object,
-            NullLogger<ProviderRefreshJobScheduler>.Instance);
         var providerManagerLifecycle = new ProviderManagerLifecycleService(
             NullLogger<ProviderManagerLifecycleService>.Instance,
             loggerFactory,
@@ -690,22 +642,6 @@ public class ProviderRefreshServiceTests
             pathProvider,
             providers);
         var refreshNotificationService = new ProviderRefreshNotificationService(usageAlertsService);
-        var startupSequenceService = new StartupSequenceService(
-            refreshJobScheduler,
-            configService,
-            pathProvider,
-            NullLogger<StartupSequenceService>.Instance);
-
-        var refreshDeps = new ProviderRefreshDependencies(
-            circuitBreakerService,
-            configLoadingService,
-            usagePersistenceService,
-            connectivityCheckService,
-            refreshJobScheduler,
-            providerManagerLifecycle,
-            refreshNotificationService,
-            startupSequenceService,
-            pipeline);
 
         return new ProviderRefreshService(
             logger,
@@ -713,7 +649,13 @@ public class ProviderRefreshServiceTests
             notificationService,
             configService,
             pathProvider,
-            refreshDeps);
+            mockJobScheduler.Object,
+            circuitBreakerService,
+            usagePersistenceService,
+            connectivityCheckService,
+            providerManagerLifecycle,
+            refreshNotificationService,
+            pipeline);
     }
 
     private static PipelineTestFiles CreatePipelineTestFiles()
@@ -747,13 +689,13 @@ public class ProviderRefreshServiceTests
 
     private static int GetProviderManagerConcurrency(ProviderRefreshService service)
     {
-        var refreshDepsField = typeof(ProviderRefreshService).GetField(
-            "_refreshDeps",
+        var lifecycleField = typeof(ProviderRefreshService).GetField(
+            "_providerManagerLifecycle",
             BindingFlags.Instance | BindingFlags.NonPublic);
-        Assert.NotNull(refreshDepsField);
+        Assert.NotNull(lifecycleField);
 
-        var refreshDeps = Assert.IsType<ProviderRefreshDependencies>(refreshDepsField!.GetValue(service));
-        return refreshDeps.ProviderManagerLifecycle.CurrentMaxConcurrency;
+        var lifecycle = Assert.IsType<ProviderManagerLifecycleService>(lifecycleField!.GetValue(service));
+        return lifecycle.CurrentMaxConcurrency;
     }
 
     [Fact]

@@ -20,10 +20,10 @@ public sealed class CachedGroupedUsageProjectionServiceTests
         var dbUsages = new List<ProviderUsage>
         {
             // openrouter row with no state info (as it comes from the DB)
-            new() { ProviderId = "openrouter", ProviderName = "OpenRouter", IsAvailable = false, Description = "API Key missing." },
+            new QuotaProviderUsage { ProviderId = "openrouter", ProviderName = "OpenRouter", IsAvailable = false, Description = "API Key missing." },
 
             // A configured provider that should appear
-            new() { ProviderId = "mistral", ProviderName = "Mistral", IsAvailable = true, UsedPercent = 20 },
+            new QuotaProviderUsage { ProviderId = "mistral", ProviderName = "Mistral", IsAvailable = true, UsedPercent = 20 },
         };
 
         var configs = new List<ProviderConfig>
@@ -64,7 +64,7 @@ public sealed class CachedGroupedUsageProjectionServiceTests
         // A StandardApiKey provider WITH a key should appear in the snapshot normally.
         var dbUsages = new List<ProviderUsage>
         {
-            new() { ProviderId = "openrouter", ProviderName = "OpenRouter", IsAvailable = true, UsedPercent = 50 },
+            new QuotaProviderUsage { ProviderId = "openrouter", ProviderName = "OpenRouter", IsAvailable = true, UsedPercent = 50 },
         };
 
         var configs = new List<ProviderConfig>
@@ -98,8 +98,8 @@ public sealed class CachedGroupedUsageProjectionServiceTests
         // remains visible.
         var dbUsages = new List<ProviderUsage>
         {
-            new() { ProviderId = "minimax", ProviderName = "MiniMax.com", IsAvailable = false, Description = "API Key not found." },
-            new() { ProviderId = "minimax-io", ProviderName = "MiniMax.io", IsAvailable = true, UsedPercent = 30 },
+            new QuotaProviderUsage { ProviderId = "minimax", ProviderName = "MiniMax.com", IsAvailable = false, Description = "API Key not found." },
+            new QuotaProviderUsage { ProviderId = "minimax-io", ProviderName = "MiniMax.io", IsAvailable = true, UsedPercent = 30 },
         };
 
         var configs = new List<ProviderConfig>

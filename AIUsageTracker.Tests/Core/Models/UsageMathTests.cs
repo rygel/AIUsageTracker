@@ -13,7 +13,7 @@ public class UsageMathTests
     {
         // Arrange
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(start, used: 10, available: 100),
             CreateSample(start.AddHours(12), used: 20, available: 100),
@@ -36,7 +36,7 @@ public class UsageMathTests
     {
         // Arrange
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(start, used: 70, available: 100),
             CreateSample(start.AddHours(10), used: 80, available: 100),
@@ -58,7 +58,7 @@ public class UsageMathTests
     public void CalculateBurnRateForecast_WithInsufficientHistory_ReturnsUnavailable()
     {
         // Arrange
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(DateTime.UtcNow, used: 10, available: 100),
         };
@@ -76,7 +76,7 @@ public class UsageMathTests
     {
         // Arrange
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(start, used: 10, available: 100),
             CreateSample(start.AddHours(12), used: 10, available: 100),
@@ -96,7 +96,7 @@ public class UsageMathTests
     {
         // Arrange
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(start, used: 10, available: 100),
             CreateSample(start.AddMinutes(30), used: 16, available: 100),
@@ -116,7 +116,7 @@ public class UsageMathTests
     {
         // Arrange
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(start, used: 70, available: 100),
             CreateSample(start.AddHours(12), used: 85, available: 100),
@@ -142,7 +142,7 @@ public class UsageMathTests
     {
         // Arrange
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(start, used: 95, available: 100),
             CreateSample(start.AddHours(24), used: 110, available: 100),
@@ -162,7 +162,7 @@ public class UsageMathTests
     {
         // Arrange
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(start, used: 10, available: 100, latencyMs: 400),
             CreateUnavailableSample(start.AddMinutes(5), latencyMs: 800),
@@ -189,7 +189,7 @@ public class UsageMathTests
     public void CalculateReliabilitySnapshot_WithNoHistory_ReturnsUnavailable()
     {
         // Arrange
-        var history = new List<ProviderUsage>();
+        var history = new List<QuotaProviderUsage>();
 
         // Act
         var snapshot = UsageMath.CalculateReliabilitySnapshot(history);
@@ -204,7 +204,7 @@ public class UsageMathTests
     {
         // Arrange
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(start, used: 10, available: 100),
         };
@@ -223,7 +223,7 @@ public class UsageMathTests
     {
         // Arrange
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(start, used: 10, available: 100, latencyMs: 0),
             CreateUnavailableSample(start.AddMinutes(5), latencyMs: 0),
@@ -243,7 +243,7 @@ public class UsageMathTests
     {
         // Arrange
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(start, used: 10, available: 200),
             CreateSample(start.AddHours(12), used: 20, available: 200),
@@ -267,7 +267,7 @@ public class UsageMathTests
     {
         // Arrange
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(start, used: 40, available: 100),
             CreateSample(start.AddHours(12), used: 52, available: 100),
@@ -290,7 +290,7 @@ public class UsageMathTests
     {
         // Arrange
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
-        var history = new List<ProviderUsage>
+        var history = new List<QuotaProviderUsage>
         {
             CreateSample(start, used: 10, available: 100),
             CreateSample(start.AddHours(12), used: 20, available: 100),
@@ -308,9 +308,9 @@ public class UsageMathTests
         Assert.Null(snapshot.LastDetectedUtc);
     }
 
-    private static ProviderUsage CreateSample(DateTime fetchedAt, double used, double available, double latencyMs = 0)
+    private static QuotaProviderUsage CreateSample(DateTime fetchedAt, double used, double available, double latencyMs = 0)
     {
-        return new ProviderUsage
+        return new QuotaProviderUsage
         {
             ProviderId = "test-provider",
             RequestsUsed = used,
@@ -321,9 +321,9 @@ public class UsageMathTests
         };
     }
 
-    private static ProviderUsage CreateUnavailableSample(DateTime fetchedAt, double latencyMs = 0)
+    private static QuotaProviderUsage CreateUnavailableSample(DateTime fetchedAt, double latencyMs = 0)
     {
-        return new ProviderUsage
+        return new QuotaProviderUsage
         {
             ProviderId = "test-provider",
             RequestsUsed = 0,
@@ -440,6 +440,81 @@ public class UsageMathTests
 
         // ColorPercent is always raw usedPercent — tier drives bar color, not ColorPercent.
         Assert.Equal(usedPercent, result.ColorPercent, precision: 1);
+    }
+
+    // ── GetThresholdTier ────────────────────────────────────────────────────
+    [Theory]
+    [InlineData(0, ThresholdTier.Green)]
+    [InlineData(59, ThresholdTier.Green)]
+    [InlineData(60, ThresholdTier.Yellow)]
+    [InlineData(79, ThresholdTier.Yellow)]
+    [InlineData(80, ThresholdTier.Red)]
+    [InlineData(100, ThresholdTier.Red)]
+    public void GetThresholdTier_DefaultThresholds_ReturnsCorrectTier(double usedPercent, ThresholdTier expected)
+    {
+        var tier = UsageMath.GetThresholdTier(usedPercent, yellowThreshold: 60, redThreshold: 80);
+        Assert.Equal(expected, tier);
+    }
+
+    [Fact]
+    public void GetThresholdTier_ExactlyAtYellow_ReturnsYellow()
+    {
+        Assert.Equal(ThresholdTier.Yellow, UsageMath.GetThresholdTier(50, 50, 90));
+    }
+
+    [Fact]
+    public void GetThresholdTier_ExactlyAtRed_ReturnsRed()
+    {
+        Assert.Equal(ThresholdTier.Red, UsageMath.GetThresholdTier(90, 50, 90));
+    }
+
+    [Fact]
+    public void GetThresholdTier_BelowYellow_ReturnsGreen()
+    {
+        Assert.Equal(ThresholdTier.Green, UsageMath.GetThresholdTier(49.9, 50, 90));
+    }
+
+    // ── Format methods ──────────────────────────────────────────────────────
+    [Fact]
+    public void FormatUsedPercent_NormalValue()
+    {
+        Assert.Equal("75% used", UsageMath.FormatUsedPercent(75));
+    }
+
+    [Fact]
+    public void FormatUsedPercent_ClampsAbove100()
+    {
+        Assert.Equal("100% used", UsageMath.FormatUsedPercent(150));
+    }
+
+    [Fact]
+    public void FormatUsedPercent_ClampsBelowZero()
+    {
+        Assert.Equal("0% used", UsageMath.FormatUsedPercent(-10));
+    }
+
+    [Fact]
+    public void FormatRemainingPercent_NormalValue()
+    {
+        Assert.Equal("25% remaining", UsageMath.FormatRemainingPercent(25));
+    }
+
+    [Fact]
+    public void FormatUsedCurrency_NormalValue()
+    {
+        Assert.Equal("$12.50 used", UsageMath.FormatUsedCurrency(12.5));
+    }
+
+    [Fact]
+    public void FormatRemainingCurrency_NormalValue()
+    {
+        Assert.Equal("$7.50 remaining", UsageMath.FormatRemainingCurrency(7.5));
+    }
+
+    [Fact]
+    public void FormatRemainingCurrency_ClampsNegative()
+    {
+        Assert.Equal("$0.00 remaining", UsageMath.FormatRemainingCurrency(-5));
     }
 
     // ── ComputePaceColor projected percent ─────────────────────────────────

@@ -4,6 +4,7 @@
 
 using System.Net;
 using System.Text.Json;
+using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 
 namespace AIUsageTracker.Tests.Infrastructure.Providers;
@@ -44,7 +45,7 @@ public class XiaomiProviderTests : HttpProviderTestBase<XiaomiProvider>
         var result = await this._provider.GetUsageAsync(this.Config);
 
         // Assert
-        var usage = result.Single();
+        var usage = result.OfType<QuotaProviderUsage>().Single();
         Assert.True(usage.IsAvailable);
         Assert.Contains("20", usage.UsedPercent.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal); // 200 used of 1000 = 20% used
         Assert.Equal(200.0, usage.RequestsUsed);

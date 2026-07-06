@@ -71,7 +71,7 @@ jobs:
       run_cross: ${{ steps.filter.outputs.cross }}
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -140,7 +140,7 @@ jobs:
     timeout-minutes: 12
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
           fetch-depth: 1
           fetch-tags: false
@@ -149,7 +149,7 @@ jobs:
       - name: Setup .NET with Cache
         uses: ./.github/actions/setup-dotnet-cache
         with:
-          dotnet-version: "8.0.x"
+          dotnet-version: "10.0.x"
           cache-key-prefix: "test"
 
       - name: Restore dependencies
@@ -212,11 +212,11 @@ jobs:
         with:
           name: test-binaries-debug
           path: |
-            AIUsageTracker.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
-            AIUsageTracker.Monitor.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
-            AIUsageTracker.Monitor.Tests/bin/Debug/net8.0/**
-            AIUsageTracker.Web.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
-            scripts/Seeder/bin/Debug/net8.0/**
+            AIUsageTracker.Tests/bin/Debug/net10.0-windows10.0.17763.0/**
+            AIUsageTracker.Monitor.Tests/bin/Debug/net10.0-windows10.0.17763.0/**
+            AIUsageTracker.Monitor.Tests/bin/Debug/net10.0/**
+            AIUsageTracker.Web.Tests/bin/Debug/net10.0-windows10.0.17763.0/**
+            scripts/Seeder/bin/Debug/net10.0/**
             scripts/run-vstest-with-retry.ps1
             scripts/resolve-test-assembly.ps1
             .github/test-quarantine.txt
@@ -338,7 +338,7 @@ jobs:
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
           persist-credentials: false
 
@@ -350,7 +350,7 @@ jobs:
 
       - name: Cache Playwright browsers
         id: cache-playwright
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae  # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: ~\AppData\Local\ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('**/AIUsageTracker.Web.Tests.csproj') }}
@@ -377,7 +377,7 @@ jobs:
         shell: pwsh
         run: |
           $ciBinaries = Join-Path $PWD "_ci_test_binaries"
-          $seederPath = Join-Path $ciBinaries "scripts\Seeder\bin\Debug\net8.0\Seeder.dll"
+          $seederPath = Join-Path $ciBinaries "scripts\Seeder\bin\Debug\net10.0\Seeder.dll"
           $fixturePath = Join-Path $ciBinaries "test-fixtures\provider-data.json"
           if (Test-Path $seederPath) {
             & dotnet $seederPath $fixturePath
@@ -489,14 +489,14 @@ jobs:
         os: [ubuntu-latest]
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
           persist-credentials: false
 
       - name: Setup .NET with Cache
         uses: ./.github/actions/setup-dotnet-cache
         with:
-          dotnet-version: "8.0.x"
+          dotnet-version: "10.0.x"
           cache-key-prefix: "cross-platform"
 
       - name: Restore Core

@@ -5,6 +5,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using AIUsageTracker.Core.Models;
 
 namespace AIUsageTracker.Monitor.Services;
 
@@ -55,10 +56,13 @@ public class ExportService
                 var time = item.FetchedAt.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
                 var provider = EscapeCsv(item.ProviderName);
 
-                var used = item.IsCurrencyUsage
-                    ? $"${item.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture)}"
-                    : item.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture);
-                csv.AppendLine($"{time},{provider},(Total),{used},,{item.PlanType}");
+                var isCurrency = item is QuotaProviderUsage q && q.IsCurrencyUsage;
+                var requestsUsed = item is QuotaProviderUsage q2 ? q2.RequestsUsed : 0;
+                var planType = item is QuotaProviderUsage q3 ? q3.PlanType : Core.Models.PlanType.Usage;
+                var used = isCurrency
+                    ? $"${requestsUsed.ToString("F2", CultureInfo.InvariantCulture)}"
+                    : requestsUsed.ToString("F2", CultureInfo.InvariantCulture);
+                csv.AppendLine($"{time},{provider},(Total),{used},,{planType}");
             }
 
             return (Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", $"usage_export_{DateTime.Now:yyyyMMdd}.csv");

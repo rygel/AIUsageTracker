@@ -1,0 +1,54 @@
+name: Deploy Landing Page
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'docs/landing/**'
+      - 'docs/screenshot_*.png'
+      - 'docs/card-catalog/**'
+      - '.github/workflows/deploy-landing.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "landing-pages"
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp docs/landing/index.html docs/landing/style.css docs/landing/app.js _site/
+          cp docs/landing/robots.txt docs/landing/sitemap.xml _site/
+          cp docs/screenshot_*.png _site/ 2>/dev/null || true
+          cp docs/tray_icon_*.png _site/ 2>/dev/null || true
+          cp -r docs/card-catalog _site/ 2>/dev/null || true
+          cp AIUsageTracker.Web/wwwroot/favicon.png _site/ 2>/dev/null || true
+          echo "aiusagetracker.outerstellar.net" > _site/CNAME
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

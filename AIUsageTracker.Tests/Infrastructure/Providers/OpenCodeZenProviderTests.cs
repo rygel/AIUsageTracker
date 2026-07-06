@@ -5,6 +5,7 @@
 using System.Reflection;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Core.Providers;
 
 namespace AIUsageTracker.Tests.Infrastructure.Providers;
 
@@ -299,7 +300,7 @@ public class OpenCodeZenProviderTests : HttpProviderTestBase<OpenCodeZenProvider
         {
             var provider = new OpenCodeZenProvider(this.Logger.Object, scriptPath);
             var result = await provider.GetUsageAsync(this.Config);
-            var usage = result.Single();
+            var usage = result.OfType<QuotaProviderUsage>().Single();
 
             Assert.True(usage.IsAvailable, $"Expected available but got: {usage.Description}");
             Assert.Equal(200, usage.HttpStatus);
@@ -325,7 +326,7 @@ public class OpenCodeZenProviderTests : HttpProviderTestBase<OpenCodeZenProvider
         {
             var provider = new OpenCodeZenProvider(this.Logger.Object, scriptPath);
             var result = await provider.GetUsageAsync(this.Config);
-            var usage = result.Single();
+            var usage = result.OfType<QuotaProviderUsage>().Single();
 
             Assert.True(usage.IsAvailable);
             Assert.Equal(0.0, usage.RequestsUsed);
@@ -345,7 +346,7 @@ public class OpenCodeZenProviderTests : HttpProviderTestBase<OpenCodeZenProvider
         {
             var provider = new OpenCodeZenProvider(this.Logger.Object, scriptPath);
             var result = await provider.GetUsageAsync(this.Config);
-            var usage = result.Single();
+            var usage = result.OfType<QuotaProviderUsage>().Single();
 
             Assert.True(usage.IsAvailable);
             Assert.Equal(285.39, usage.RequestsUsed, precision: 2);
@@ -421,13 +422,13 @@ public class OpenCodeZenProviderTests : HttpProviderTestBase<OpenCodeZenProvider
         }
     }
 
-    private ProviderUsage InvokeParseOutput(string output)
+    private QuotaProviderUsage InvokeParseOutput(string output)
     {
         var parseOutput = typeof(OpenCodeZenProvider).GetMethod(
             "ParseOutput", BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(parseOutput);
         var providerLabel = ProviderMetadataCatalog.GetConfiguredDisplayName("opencode-zen");
-        return (ProviderUsage)parseOutput.Invoke(this._provider, new object[] { output, this.Config, providerLabel })!;
+        return (QuotaProviderUsage)parseOutput.Invoke(this._provider, new object[] { output, this.Config, providerLabel })!;
     }
 
     private static (string ScriptPath, string TempDir) CreateMockCliScript(string output)

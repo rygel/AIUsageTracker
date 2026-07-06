@@ -35,8 +35,13 @@ public static class MonitorApiRoutes
     public static string ConfigByProvider(string providerId) =>
         $"/api/config/{EscapePathSegment(providerId)}";
 
+    public const string ProviderTestTemplate = "/api/providers/{providerId}/test";
+
     public static string ProviderCheck(string providerId) =>
         $"/api/providers/{EscapePathSegment(providerId)}/check";
+
+    public static string ProviderTest(string providerId) =>
+        $"/api/providers/{EscapePathSegment(providerId)}/test";
 
     public static string ExportByFormat(string format) =>
         $"/api/export/{EscapePathSegment(format)}";

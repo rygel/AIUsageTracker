@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Core.Providers;
 using Microsoft.Extensions.Logging;
 using SharpVectors.Converters;
 using SharpVectors.Renderers.Wpf;

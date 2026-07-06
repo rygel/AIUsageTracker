@@ -102,10 +102,13 @@ public class OpenCodeProvider : ProviderBase
             var contentType = response.Content.Headers.ContentType?.MediaType ?? string.Empty;
             if (!contentType.Contains("json", StringComparison.OrdinalIgnoreCase))
             {
-                this._logger.LogDebug(
+                this._logger.LogInformation(
                     "OpenCode credits API returned non-JSON content type '{ContentType}' — endpoint not available for this account",
                     contentType);
-                return Array.Empty<ProviderUsage>();
+                return new[]
+                {
+                    this.CreateUnavailableUsage("Credits not available for this account", httpStatus),
+                };
             }
 
             var creditsResponse = DeserializeJsonOrDefault<OpenCodeCreditsResponse>(responseBody);
@@ -138,7 +141,7 @@ public class OpenCodeProvider : ProviderBase
 
             return new[]
             {
-                new ProviderUsage
+                new QuotaProviderUsage
                 {
                     ProviderId = this.ProviderId,
                     ProviderName = "OpenCode Go",

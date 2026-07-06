@@ -4,6 +4,36 @@ This document provides essential information for agentic coding assistants worki
 
 ## Critical Rules
 
+### NEVER Wipe User Settings (CRITICAL)
+- **User preferences are sacred. NEVER allow a deserialization failure to reset ALL preferences to defaults.**
+- `AppPreferences.Deserialize` MUST catch `JsonException` and retry with lenient options before falling back to defaults. A single incompatible property must NEVER destroy every setting the user has configured.
+- **Every enum property on `AppPreferences` MUST have `[JsonConverter(typeof(JsonStringEnumConverter<T>))]`** so it accepts both string and numeric values on read. This is mandatory for forward/backward compatibility across versions.
+- **Mandatory tests** — these MUST exist and MUST pass or the build fails:
+  - `preferences.json` with string enum values (e.g. `"UpdateChannel": "Beta"`) must deserialize correctly even if the current code writes numeric.
+  - `preferences.json` with numeric enum values (e.g. `"UpdateChannel": 1`) must deserialize correctly even if the current code writes strings.
+  - A `preferences.json` with ONE corrupt property must still salvage ALL other valid properties — the corrupt one is skipped, not the entire file.
+- **Root cause context**: Merge commit `8eb7c163` silently dropped the `JsonStringEnumConverter` attribute from `UpdateChannel`. Users who had `"UpdateChannel": "Beta"` (string) in their `preferences.json` hit a `JsonException` on startup, and `PreferencesStore.LoadAsync()` returned `new AppPreferences()` — wiping EVERY setting (theme, fonts, thresholds, window position, notification config, hidden providers, everything). This must NEVER happen again.
+
+### NEVER Cause Data Loss in Migrations (CRITICAL)
+- **Customer data is sacred. A database migration MUST NEVER lose data. Every column must survive every migration step.**
+- SQLite table-recreation migrations (CREATE new → INSERT INTO new → DROP old → RENAME) are the #1 data-loss risk. The INSERT SELECT MUST include EVERY column that exists in the source table. No exceptions.
+- **Mandatory**: When adding a column to `provider_history` (or any table that `ConvertTimestampsToEpochIfNeeded` recreates), the column MUST be added to BOTH:
+  1. The CREATE TABLE statement in the conversion
+  2. The INSERT INTO ... SELECT statement in the conversion
+- **Mandatory test**: Every table-recreation migration MUST have a test that inserts data WITH the relevant columns populated, runs the migration, and verifies the data survived. A test that only checks column existence is NOT sufficient — it must verify DATA preservation.
+- **Single source of truth**: The EnsureColumn calls and the conversion's column list must stay in sync. If they drift, data is silently destroyed. The conversion's CREATE TABLE and INSERT SELECT must match the EnsureColumn list exactly.
+- **Root cause context**: PR #654 added 6 card columns (`card_type`, `window_kind`, `card_id`, `group_id`, `model_name`, `name`) to `provider_history`. `ConvertTimestampsToEpochIfNeeded` recreated the table with a hardcoded 15-column INSERT that didn't include them. The columns were added back empty via EnsureColumn AFTER the recreation — permanently wiping card classification data from all historical rows. This caused OpenAI dual bars to disappear.
+
+### Rendering Architecture: Definition Controls Everything (CRITICAL)
+- **The Monitor sends RAW data. It does NOT control rendering. It does NOT decide what cards to show, how to label them, or whether to use dual bars.**
+- **The `ProviderDefinition` class is the single source of truth for all rendering decisions.** It declares: `QuotaWindows` (card labels via `DualBarLabel`, durations via `PeriodDuration`, window kinds), `FamilyMode` (flat vs parent card), `PlanType`, `IsQuotaBased`, `IsCurrencyUsage`, `ShowInMainWindow`, and every other rendering property.
+- **The UI reads the definition and renders accordingly.** The Monitor's data shape (Models vs ProviderDetails) is an implementation detail of data transport — it must NEVER drive rendering decisions, filtering, or card construction logic.
+- **NEVER filter card data in the rendering pipeline.** No `.OfType<T>()`, no `.Where(d => d.WindowKind != ...)`, no type-based filtering. The definition declares what cards exist; the rendering code uses them.
+- **NEVER add hardcoded fallbacks for data that comes from the definition.** No `?? "Burst"`, no `?? false`, no `?? provider.SomeField`. If the definition is the source, use it directly. If the definition is null, that is a configuration error — do not paper over it with a fallback.
+- **NEVER create adapter/builder classes that reconstruct cards with fallback logic.** The old `LegacyParentCardBuilder` was deleted for this reason. Do not reintroduce it or anything like it.
+- **The rendering pipeline is**: Monitor sends raw values -> UI looks up `ProviderDefinition` -> UI renders using the definition's declared configuration. The Monitor does not participate in rendering decisions in any shape or form.
+- **Root cause context**: The rendering code had three layers of bad design: (1) `LegacyParentCardBuilder` filtered `ProviderDetails.OfType<WindowedProviderUsage>()` which silently excluded `ModelScopedProviderUsage` cards — siblings, not parent-child; (2) `TryBuildDualBarData` used `card.Name ?? definition.DetailName ?? "Burst"` — a three-level fallback chain ending in a hardcoded string, instead of using `QuotaWindowDefinition.DualBarLabel`; (3) `IsCurrencyUsage` fell back to `?? false` instead of using `definition.IsCurrencyUsage`. Each fallback masked a real data problem and made debugging impossible.
+
 ### NEVER Create Releases Without Explicit Permission
 - **I MUST NEVER** create git tags or releases without your explicit instruction
 - **I MUST NEVER** initiate CI/CD release workflows without your permission
@@ -29,6 +59,7 @@ This document provides essential information for agentic coding assistants worki
 - **Never duplicate provider metadata into DB tables.** The database stores raw values only; provider definitions (ProviderDefinition class) are the authority for interpretation.
 - Provider definitions are immutable per provider ID. If semantics change, a new provider class with a new ID is created.
 - When encountering data integrity concerns, do NOT suggest adding columns. Keep the schema minimal.
+- **When adding a column to `EnsureSchemaCompatibility`**: you MUST add a corresponding `Assert.Contains` in `DatabaseMigrationServiceTests.RunMigrations_LegacyDatabaseWithoutEvolveMetadata_AddsMissingProviderColumns`. Every column in the compatibility bootstrap must have a test assertion — no exceptions. This is how we prevent beta-9-style breakage where `card_type` was added to the code but missing from the test, shipping a release that crashed every API call on pre-Evolve databases.
 
 ### Take Full Ownership
 - Do not give hedged answers like "this will work IF the API returns X." Investigate the actual data (database, logs, live endpoints) and report what IS happening.

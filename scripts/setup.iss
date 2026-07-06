@@ -1,7 +1,7 @@
 ; AI Usage Tracker - Inno Setup Script
 
 #ifndef MyAppVersion
-  #define MyAppVersion "2.3.5"
+  #define MyAppVersion "2.4.2-beta.6"
 #endif
 #ifndef SourcePath
   #define SourcePath "..\dist\publish-win-x64"
@@ -35,17 +35,17 @@ begin
 
   if NeedsDesktopRuntime then
   begin
-    Dependency_AddDotNet80Desktop;
+    Dependency_AddDotNet100Desktop;
   end;
 
   if NeedsAspNetRuntime then
   begin
-    Dependency_AddDotNet80Asp;
+    Dependency_AddDotNet100Asp;
   end;
 
   if NeedsNetRuntime then
   begin
-    Dependency_AddDotNet80;
+    Dependency_AddDotNet100;
   end;
 end;
 

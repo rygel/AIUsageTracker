@@ -11,7 +11,7 @@ internal sealed class ScenarioMonitorLauncherClient : IMonitorLauncherClient
 {
     internal const string ScenarioPathEnvironmentVariable = "AIUSAGETRACKER_WEB_TEST_MONITOR_SCENARIO";
 
-    private readonly object _syncRoot = new();
+    private readonly Lock _syncRoot = new();
     private readonly IReadOnlyList<ScenarioStatus> _statusSequence;
     private readonly bool _ensureAgentRunningResult;
     private readonly bool _stopAgentResult;

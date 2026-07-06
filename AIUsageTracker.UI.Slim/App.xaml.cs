@@ -6,15 +6,17 @@ using System.Net.Http;
 using System.Windows;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Core.Providers;
+using AIUsageTracker.Infrastructure.Extensions;
+using AIUsageTracker.Infrastructure.MonitorClient;
 using AIUsageTracker.Infrastructure.Services;
 using AIUsageTracker.UI.Slim.Services;
 using AIUsageTracker.UI.Slim.ViewModels;
 using Hardcodet.Wpf.TaskbarNotification;
-using Microsoft.Win32;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Win32;
 
 namespace AIUsageTracker.UI.Slim;
 
@@ -143,7 +145,7 @@ public partial class App : Application
         StartMonitorWarmup();
 
         ApplyTheme(Preferences.Theme);
-        SystemEvents.UserPreferenceChanged += OnSystemThemeChanged;
+        SystemEvents.UserPreferenceChanged += this.OnSystemThemeChanged;
         IsPrivacyMode = Preferences.IsPrivacyMode;
 
         this.InitializeTrayIcon();
@@ -154,7 +156,7 @@ public partial class App : Application
 
     protected override async void OnExit(ExitEventArgs e)
     {
-        SystemEvents.UserPreferenceChanged -= OnSystemThemeChanged;
+        SystemEvents.UserPreferenceChanged -= this.OnSystemThemeChanged;
         this._trayIcon?.Dispose();
         foreach (var tray in this._providerTrayIcons.Values)
         {
@@ -183,10 +185,11 @@ public partial class App : Application
 
     private static void ConfigureServices(IServiceCollection services)
     {
+        ProviderMetadataCatalog.Initialize(typeof(ProviderRegistrationExtensions).Assembly);
+
         // Infrastructure
         services.AddSingleton<IAppPathProvider, AIUsageTracker.Infrastructure.Helpers.DefaultAppPathProvider>();
         services.AddSingleton<UiPreferencesStore>();
-        services.AddSingleton<IMonitorLauncher, MonitorLauncher>();
         services.AddSingleton<MonitorLauncher>();
         services.AddSingleton<IMonitorService, MonitorService>();
         services.AddSingleton<MonitorLifecycleService>();

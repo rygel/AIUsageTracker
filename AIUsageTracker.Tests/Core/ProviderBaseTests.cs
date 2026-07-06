@@ -35,6 +35,9 @@ public class ProviderBaseTests
 
         public string TestDescribeUnavailableException(Exception ex, string context = "Test context")
             => DescribeUnavailableException(ex, context);
+
+        public double? TestTryGetHeaderDouble(System.Net.Http.Headers.HttpResponseHeaders headers, string name)
+            => TryGetHeaderDouble(headers, name);
     }
 
     private readonly TestProvider _provider = new();
@@ -49,7 +52,6 @@ public class ProviderBaseTests
         Assert.False(usage.IsAvailable);
         Assert.Equal("Error message", usage.Description);
         Assert.Equal(401, usage.HttpStatus);
-        Assert.Equal(0, usage.UsedPercent);
     }
 
     [Fact]
@@ -90,5 +92,48 @@ public class ProviderBaseTests
         var description = this._provider.TestDescribeUnavailableException(ex);
 
         Assert.Contains("Connection failed", description, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void TryGetHeaderDouble_ValidHeader_ReturnsValue()
+    {
+        var response = new HttpResponseMessage();
+        response.Headers.Add("x-ratelimit-limit-requests", "14400");
+
+        var result = this._provider.TestTryGetHeaderDouble(response.Headers, "x-ratelimit-limit-requests");
+
+        Assert.Equal(14400, result);
+    }
+
+    [Fact]
+    public void TryGetHeaderDouble_DecimalValue_ReturnsValue()
+    {
+        var response = new HttpResponseMessage();
+        response.Headers.Add("x-ratelimit-reset-requests", "179.56");
+
+        var result = this._provider.TestTryGetHeaderDouble(response.Headers, "x-ratelimit-reset-requests");
+
+        Assert.Equal(179.56, result);
+    }
+
+    [Fact]
+    public void TryGetHeaderDouble_MissingHeader_ReturnsNull()
+    {
+        var response = new HttpResponseMessage();
+
+        var result = this._provider.TestTryGetHeaderDouble(response.Headers, "x-ratelimit-limit-requests");
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void TryGetHeaderDouble_MalformedValue_ReturnsNull()
+    {
+        var response = new HttpResponseMessage();
+        response.Headers.Add("x-ratelimit-limit-requests", "not-a-number");
+
+        var result = this._provider.TestTryGetHeaderDouble(response.Headers, "x-ratelimit-limit-requests");
+
+        Assert.Null(result);
     }
 }

@@ -13,8 +13,8 @@ $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $monitorProject = Join-Path $projectRoot "AIUsageTracker.Monitor\AIUsageTracker.Monitor.csproj"
 $slimProject = Join-Path $projectRoot "AIUsageTracker.UI.Slim\AIUsageTracker.UI.Slim.csproj"
-$monitorExe = Join-Path $projectRoot "AIUsageTracker.Monitor\bin\$Configuration\net8.0\AIUsageTracker.Monitor.exe"
-$slimExe = Join-Path $projectRoot "AIUsageTracker.UI.Slim\bin\$Configuration\net8.0-windows10.0.17763.0\AIUsageTracker.exe"
+$monitorExe = Join-Path $projectRoot "AIUsageTracker.Monitor\bin\$Configuration\net10.0\AIUsageTracker.Monitor.exe"
+$slimExe = Join-Path $projectRoot "AIUsageTracker.UI.Slim\bin\$Configuration\net10.0-windows10.0.17763.0\AIUsageTracker.exe"
 $monitorJsonPath = Join-Path $env:LOCALAPPDATA "AIUsageTracker\monitor.json"
 
 function Set-StableBuildEnvironment

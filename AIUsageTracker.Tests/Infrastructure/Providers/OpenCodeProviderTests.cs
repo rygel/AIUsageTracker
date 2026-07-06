@@ -45,7 +45,7 @@ public class OpenCodeProviderTests : HttpProviderTestBase<OpenCodeProvider>
         });
 
         var result = await this._provider.GetUsageAsync(this.Config);
-        var usage = result.Single();
+        var usage = result.OfType<QuotaProviderUsage>().Single();
 
         Assert.True(usage.IsAvailable);
         Assert.Equal(200, usage.HttpStatus);
@@ -75,7 +75,7 @@ public class OpenCodeProviderTests : HttpProviderTestBase<OpenCodeProvider>
         });
 
         var result = await this._provider.GetUsageAsync(this.Config);
-        var usage = result.Single();
+        var usage = result.OfType<QuotaProviderUsage>().Single();
 
         Assert.True(usage.IsAvailable);
         Assert.Equal(100.0, usage.UsedPercent);
@@ -100,7 +100,7 @@ public class OpenCodeProviderTests : HttpProviderTestBase<OpenCodeProvider>
         });
 
         var result = await this._provider.GetUsageAsync(this.Config);
-        var usage = result.Single();
+        var usage = result.OfType<QuotaProviderUsage>().Single();
 
         Assert.True(usage.IsAvailable);
         Assert.Equal(0.0, usage.UsedPercent);
@@ -135,10 +135,10 @@ public class OpenCodeProviderTests : HttpProviderTestBase<OpenCodeProvider>
     }
 
     [Fact]
-    public async Task GetUsageAsync_NonJsonContentType_ReturnsEmptyAsync()
+    public async Task GetUsageAsync_NonJsonContentType_ReturnsUnavailableAsync()
     {
         // API returns 200 with text/plain "Not Found" for unsupported accounts.
-        // Provider detects non-JSON Content-Type and silently hides.
+        // Provider detects non-JSON Content-Type and returns unavailable usage.
         this.SetupHttpResponse(CreditsUrl, new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent("Not Found", System.Text.Encoding.UTF8, "text/plain"),
@@ -146,11 +146,13 @@ public class OpenCodeProviderTests : HttpProviderTestBase<OpenCodeProvider>
 
         var result = await this._provider.GetUsageAsync(this.Config);
 
-        Assert.Empty(result);
+        var usage = Assert.Single(result);
+        Assert.False(usage.IsAvailable);
+        Assert.Contains("not available", usage.Description, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public async Task GetUsageAsync_HtmlContentType_ReturnsEmptyAsync()
+    public async Task GetUsageAsync_HtmlContentType_ReturnsUnavailableAsync()
     {
         this.SetupHttpResponse(CreditsUrl, new HttpResponseMessage(HttpStatusCode.OK)
         {
@@ -159,7 +161,9 @@ public class OpenCodeProviderTests : HttpProviderTestBase<OpenCodeProvider>
 
         var result = await this._provider.GetUsageAsync(this.Config);
 
-        Assert.Empty(result);
+        var usage = Assert.Single(result);
+        Assert.False(usage.IsAvailable);
+        Assert.Contains("not available", usage.Description, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -194,7 +198,7 @@ public class OpenCodeProviderTests : HttpProviderTestBase<OpenCodeProvider>
         });
 
         var result = await this._provider.GetUsageAsync(this.Config);
-        var usage = result.Single();
+        var usage = result.OfType<QuotaProviderUsage>().Single();
 
         Assert.True(usage.IsAvailable);
         Assert.Contains("125.00 credits remaining", usage.Description, StringComparison.Ordinal);

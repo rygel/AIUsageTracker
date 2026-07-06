@@ -145,15 +145,13 @@ public class OpenCodeZenProvider : ProviderBase
         ProviderUsageState state,
         string? providerLabel = null)
     {
-        return new ProviderUsage
+        return new StatusProviderUsage
         {
             ProviderId = providerId,
             ProviderName = providerLabel ?? ProviderDisplayName,
             IsAvailable = false,
             Description = description,
             State = state,
-            IsQuotaBased = false,
-            PlanType = PlanType.Usage,
             AuthSource = authSource ?? string.Empty,
             RawJson = rawJson,
             HttpStatus = httpStatus,
@@ -183,8 +181,7 @@ public class OpenCodeZenProvider : ProviderBase
             : 0;
     }
 
-    private static T ParseValue<T>(string input, string pattern)
-        where T : struct
+    private static int ParseInt(string input, string pattern)
     {
         var match = Regex.Match(
             input,
@@ -194,20 +191,26 @@ public class OpenCodeZenProvider : ProviderBase
         if (match.Success && match.Groups.Count > 1)
         {
             var valueText = match.Groups[1].Value.Replace(",", string.Empty, StringComparison.Ordinal);
-            if (typeof(T) == typeof(double) &&
-                double.TryParse(valueText, NumberStyles.Any, CultureInfo.InvariantCulture, out var doubleValue))
-            {
-                return (T)(object)doubleValue;
-            }
-
-            if (typeof(T) == typeof(int) &&
-                int.TryParse(valueText, NumberStyles.Any, CultureInfo.InvariantCulture, out var intValue))
-            {
-                return (T)(object)intValue;
-            }
+            return int.TryParse(valueText, NumberStyles.Any, CultureInfo.InvariantCulture, out var result) ? result : 0;
         }
 
-        return default;
+        return 0;
+    }
+
+    private static double ParseDouble(string input, string pattern)
+    {
+        var match = Regex.Match(
+            input,
+            pattern,
+            RegexOptions.CultureInvariant | RegexOptions.NonBacktracking,
+            TimeSpan.FromSeconds(1));
+        if (match.Success && match.Groups.Count > 1)
+        {
+            var valueText = match.Groups[1].Value.Replace(",", string.Empty, StringComparison.Ordinal);
+            return double.TryParse(valueText, NumberStyles.Any, CultureInfo.InvariantCulture, out var result) ? result : 0;
+        }
+
+        return 0;
     }
 
     private static string FormatTokens(double tokens)
@@ -295,7 +298,7 @@ public class OpenCodeZenProvider : ProviderBase
         {
             if (line.StartsWith("Messages", StringComparison.OrdinalIgnoreCase))
             {
-                entry.Messages = ParseValue<int>(line, @"Messages\s+([0-9,]+)");
+                entry.Messages = ParseInt(line, @"Messages\s+([0-9,]+)");
             }
             else if (line.StartsWith("Input Tokens", StringComparison.OrdinalIgnoreCase))
             {
@@ -311,7 +314,7 @@ public class OpenCodeZenProvider : ProviderBase
             }
             else if (line.StartsWith("Cost", StringComparison.OrdinalIgnoreCase))
             {
-                entry.Cost = ParseValue<double>(line, @"Cost\s+\$([0-9.]+)");
+                entry.Cost = ParseDouble(line, @"Cost\s+\$([0-9.]+)");
             }
         }
 
@@ -545,17 +548,17 @@ public class OpenCodeZenProvider : ProviderBase
         var cleaned = CleanAnsiOutput(output);
 
         // Overview
-        var totalCost = ParseValue<double>(cleaned, @"Total Cost\s+\$([0-9.]+)");
-        var sessions = ParseValue<int>(cleaned, @"Sessions\s+([0-9,]+)");
-        var messages = ParseValue<int>(cleaned, @"Messages\s+([0-9,]+)");
-        var days = ParseValue<int>(cleaned, @"Days\s+(\d+)");
+        var totalCost = ParseDouble(cleaned, @"Total Cost\s+\$([0-9.]+)");
+        var sessions = ParseInt(cleaned, @"Sessions\s+([0-9,]+)");
+        var messages = ParseInt(cleaned, @"Messages\s+([0-9,]+)");
+        var days = ParseInt(cleaned, @"Days\s+(\d+)");
 
         // Token summary
         // Use [0-9.,KMB] without T — "Input Tokens" in model blocks won't match because
         // 'T' in "Tokens" isn't in the char class, so only the summary "Input 8.4M" matches.
         var inputTokens = ExtractTokenCount(cleaned, @"Input\s+([0-9.,KMB]+)");
         var outputTokens = ExtractTokenCount(cleaned, @"Output\s+([0-9.,KMB]+)");
-        var avgCostPerDay = ParseValue<double>(cleaned, @"Avg Cost/Day\s+\$([0-9.]+)");
+        var avgCostPerDay = ParseDouble(cleaned, @"Avg Cost/Day\s+\$([0-9.]+)");
 
         // Breakdowns
         var models = ParseModelUsage(cleaned);
@@ -566,7 +569,7 @@ public class OpenCodeZenProvider : ProviderBase
             inputTokens, outputTokens, avgCostPerDay,
             models, tools);
 
-        return new ProviderUsage
+        return new QuotaProviderUsage
         {
             ProviderId = this.ProviderId,
             ProviderName = providerLabel ?? ProviderDisplayName,

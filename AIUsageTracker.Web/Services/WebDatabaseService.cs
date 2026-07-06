@@ -46,33 +46,39 @@ public class WebDatabaseService : IWebDatabaseRepository
 
     private const string HistorySamplesSql = @"
             WITH normalized AS (
-                SELECT h.provider_id AS ProviderId,
-                       h.requests_used AS RequestsUsed,
-                       h.requests_available AS RequestsAvailable,
-                       h.is_available AS IsAvailable,
-                       h.response_latency_ms AS ResponseLatencyMs,
+                SELECT h.provider_id AS provider_id,
+                       h.requests_used AS requests_used,
+                       h.requests_available AS requests_available,
+                       h.is_available AS is_available,
+                       h.response_latency_ms AS response_latency_ms,
+                       h.status_message AS status_message,
+                       h.requests_percentage AS requests_percentage,
+                       h.next_reset_time AS next_reset_time,
                        CASE
                            WHEN typeof(h.fetched_at) IN ('integer', 'real')
                                THEN datetime(CAST(h.fetched_at AS INTEGER), 'unixepoch')
                            ELSE datetime(h.fetched_at)
-                       END AS FetchedAtUtc
+                       END AS fetched_at
                 FROM provider_history h
                 WHERE h.provider_id IN @ProviderIds
             ),
             ranked AS (
-                SELECT ProviderId,
-                       RequestsUsed,
-                       RequestsAvailable,
-                       IsAvailable,
-                       ResponseLatencyMs,
-                       FetchedAtUtc AS FetchedAt,
-                       ROW_NUMBER() OVER (PARTITION BY ProviderId ORDER BY datetime(FetchedAtUtc) DESC) AS RowNum
+                SELECT provider_id,
+                       requests_used,
+                       requests_available,
+                       is_available,
+                       response_latency_ms,
+                       status_message,
+                       requests_percentage,
+                       next_reset_time,
+                       fetched_at,
+                       ROW_NUMBER() OVER (PARTITION BY provider_id ORDER BY datetime(fetched_at) DESC) AS RowNum
                 FROM normalized
-                WHERE datetime(FetchedAtUtc) >= datetime(@CutoffUtc)
+                WHERE datetime(fetched_at) >= datetime(@CutoffUtc)
             )
             SELECT * FROM ranked
             WHERE RowNum <= @MaxSamples
-            ORDER BY ProviderId, datetime(FetchedAt) ASC";
+            ORDER BY provider_id, datetime(fetched_at) ASC";
 
     private const string ChartDataSql = @"
             SELECT
@@ -86,6 +92,29 @@ public class WebDatabaseService : IWebDatabaseRepository
             WHERE h.fetched_at >= @CutoffUtc
             GROUP BY h.provider_id, (strftime('%s', h.fetched_at) / @BucketSeconds)
             ORDER BY Timestamp ASC";
+
+    private const string SpendingTrendSql = @"
+            WITH normalized AS (
+                SELECT h.provider_id AS ProviderId,
+                       MIN(p.provider_name) AS ProviderName,
+                       h.requests_used AS Amount,
+                       CASE
+                           WHEN typeof(h.fetched_at) IN ('integer', 'real')
+                               THEN date(CAST(h.fetched_at AS INTEGER), 'unixepoch')
+                           ELSE date(h.fetched_at)
+                       END AS Day
+                FROM provider_history h
+                JOIN providers p ON h.provider_id = p.provider_id
+                WHERE h.provider_id IN @ProviderIds
+                  AND h.fetched_at >= @CutoffUtc
+            )
+            SELECT ProviderId,
+                   ProviderName,
+                   Day AS Date,
+                   MAX(Amount) AS Amount
+            FROM normalized
+            GROUP BY ProviderId, Day
+            ORDER BY Day ASC";
 
     private const string RecentResetEventsSql = @"
             SELECT 
@@ -268,6 +297,35 @@ public class WebDatabaseService : IWebDatabaseRepository
         return list;
     }
 
+    public async Task<IReadOnlyList<SpendingTrendPoint>> GetSpendingTrendAsync(IEnumerable<string> providerIds, int days = 30)
+    {
+        var sw = Stopwatch.StartNew();
+
+        var ids = providerIds as IReadOnlyCollection<string> ?? providerIds.ToList();
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        var cutoffUtc = DateTime.UtcNow.AddDays(-days).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+
+        var list = await this.QueryDisplayNamedListIfDatabaseAvailableAsync(
+            connection => connection.QueryAsync<SpendingTrendPoint>(SpendingTrendSql, new
+            {
+                ProviderIds = ids,
+                CutoffUtc = cutoffUtc,
+            }),
+            []).ConfigureAwait(false);
+
+        this._logger.LogInformation(
+            "WebDB GetSpendingTrendAsync days={Days} providers={ProviderCount} rows={Count} elapsedMs={ElapsedMs}",
+            days,
+            ids.Count,
+            list.Count,
+            sw.ElapsedMilliseconds);
+        return list;
+    }
+
     public async Task<IReadOnlyList<ResetEvent>> GetRecentResetEventsAsync(int hours = 24)
     {
         var sw = Stopwatch.StartNew();
@@ -313,7 +371,142 @@ public class WebDatabaseService : IWebDatabaseRepository
         return await this.GetTableRawAsync("reset_events", page, pageSize, "timestamp DESC").ConfigureAwait(false);
     }
 
+    public async Task<IReadOnlyList<ModelUsageBreakdown>> GetModelUsageBreakdownAsync(int hours = 168)
+    {
+        var cutoffUtc = DateTime.UtcNow.AddHours(-hours).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+
+        const string sql = @"
+            SELECT
+                COALESCE(h.model_name, h.name, h.provider_id) AS ModelName,
+                MIN(p.provider_name) AS ProviderName,
+                COUNT(*) AS SampleCount,
+                SUM(h.requests_used) AS TotalUsed,
+                AVG(h.requests_percentage) AS AvgUsedPercent
+            FROM provider_history h
+            JOIN providers p ON h.provider_id = p.provider_id
+            WHERE h.fetched_at >= @CutoffUtc
+              AND (h.model_name IS NOT NULL OR h.name IS NOT NULL)
+            GROUP BY COALESCE(h.model_name, h.name, h.provider_id)
+            ORDER BY TotalUsed DESC";
+
+        return await this.QueryIfDatabaseAvailableAsync(
+            async connection => (await connection.QueryAsync<ModelUsageBreakdown>(sql, new { CutoffUtc = cutoffUtc }).ConfigureAwait(false)).ToList(),
+            []).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<LatencyDataPoint>> GetLatencyTrendAsync(int hours = 24)
+    {
+        var cutoffUtc = DateTime.UtcNow.AddHours(-hours).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+        var bucketSeconds = hours <= 24 ? 60 : hours <= 72 ? 300 : 3600;
+
+        const string sql = @"
+            SELECT
+                h.provider_id AS ProviderId,
+                MIN(p.provider_name) AS ProviderName,
+                datetime((strftime('%s', h.fetched_at) / @BucketSeconds) * @BucketSeconds, 'unixepoch') AS Timestamp,
+                AVG(h.response_latency_ms) AS AvgLatencyMs,
+                MAX(h.response_latency_ms) AS MaxLatencyMs
+            FROM provider_history h
+            JOIN providers p ON h.provider_id = p.provider_id
+            WHERE h.fetched_at >= @CutoffUtc
+              AND h.response_latency_ms > 0
+            GROUP BY h.provider_id, (strftime('%s', h.fetched_at) / @BucketSeconds)
+            ORDER BY Timestamp ASC";
+
+        return await this.QueryDisplayNamedListIfDatabaseAvailableAsync(
+            connection => connection.QueryAsync<LatencyDataPoint>(sql, new { CutoffUtc = cutoffUtc, BucketSeconds = bucketSeconds }),
+            []).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<HttpStatusHistoryPoint>> GetHttpStatusHistoryAsync(int hours = 24)
+    {
+        var cutoffUtc = DateTime.UtcNow.AddHours(-hours).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+        var bucketSeconds = hours <= 24 ? 60 : hours <= 72 ? 300 : 3600;
+
+        const string sql = @"
+            SELECT
+                h.provider_id AS ProviderId,
+                MIN(p.provider_name) AS ProviderName,
+                datetime((strftime('%s', h.fetched_at) / @BucketSeconds) * @BucketSeconds, 'unixepoch') AS Timestamp,
+                SUM(CASE WHEN h.http_status >= 200 AND h.http_status < 300 THEN 1 ELSE 0 END) AS SuccessCount,
+                SUM(CASE WHEN h.http_status >= 400 THEN 1 ELSE 0 END) AS ErrorCount,
+                COUNT(*) AS TotalCount
+            FROM provider_history h
+            JOIN providers p ON h.provider_id = p.provider_id
+            WHERE h.fetched_at >= @CutoffUtc
+            GROUP BY h.provider_id, (strftime('%s', h.fetched_at) / @BucketSeconds)
+            ORDER BY Timestamp ASC";
+
+        return await this.QueryDisplayNamedListIfDatabaseAvailableAsync(
+            connection => connection.QueryAsync<HttpStatusHistoryPoint>(sql, new { CutoffUtc = cutoffUtc, BucketSeconds = bucketSeconds }),
+            []).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<DetailsJsonEntry>> GetRecentDetailsJsonAsync(int limit = 20)
+    {
+        const string sql = @"
+            SELECT
+                h.provider_id AS ProviderId,
+                MIN(p.provider_name) AS ProviderName,
+                h.details_json AS DetailsJson,
+                h.fetched_at AS FetchedAt
+            FROM provider_history h
+            JOIN providers p ON h.provider_id = p.provider_id
+            WHERE h.details_json IS NOT NULL
+              AND h.details_json != ''
+              AND h.details_json != '[]'
+              AND h.details_json != '{}'
+            GROUP BY h.provider_id
+            ORDER BY MAX(h.id) DESC
+            LIMIT @Limit";
+
+        return await this.QueryIfDatabaseAvailableAsync(
+            async connection =>
+            {
+                var rows = await connection.QueryAsync<dynamic>(sql, new { Limit = limit }).ConfigureAwait(false);
+                return rows.Select(r => new DetailsJsonEntry
+                {
+                    ProviderId = (string)r.ProviderId,
+                    ProviderName = (string)r.ProviderName,
+                    DetailsJson = (string?)r.DetailsJson ?? string.Empty,
+                    FetchedAt = ParseFetchedAt(r.FetchedAt),
+                }).ToList();
+            },
+            []).ConfigureAwait(false);
+    }
+
     public string GetDatabasePath() => this._connectionFactory.GetDatabasePath();
+
+    private static DateTime ParseFetchedAt(object? value)
+    {
+        if (value == null || value is DBNull)
+        {
+            return DateTime.UtcNow;
+        }
+
+        if (value is DateTime dt)
+        {
+            return dt.Kind == DateTimeKind.Utc ? dt : dt.ToUniversalTime();
+        }
+
+        if (value is long epoch)
+        {
+            return DateTimeOffset.FromUnixTimeSeconds(epoch).UtcDateTime;
+        }
+
+        if (value is double dbl && double.IsFinite(dbl))
+        {
+            return DateTimeOffset.FromUnixTimeSeconds((long)dbl).UtcDateTime;
+        }
+
+        return DateTime.TryParse(
+            Convert.ToString(value, CultureInfo.InvariantCulture),
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+            out var parsed)
+            ? parsed
+            : DateTime.UtcNow;
+    }
 
     private async Task<(IReadOnlyList<IReadOnlyDictionary<string, object?>> Rows, int TotalCount)> GetTableRawAsync(string tableName, int page, int pageSize, string? orderBy = null)
     {

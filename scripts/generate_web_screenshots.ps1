@@ -17,7 +17,7 @@ dotnet build $testProject -c Debug
 
 # Install Playwright browsers if needed
 Write-Host "Ensuring Playwright browsers are installed..." -ForegroundColor Yellow
-$playwrightScript = Join-Path $testProject "bin/Debug/net8.0/playwright.ps1"
+$playwrightScript = Join-Path $testProject "bin/Debug/net10.0/playwright.ps1"
 if (Test-Path $playwrightScript) {
     & $playwrightScript install
 } else {

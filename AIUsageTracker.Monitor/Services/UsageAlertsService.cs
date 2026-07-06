@@ -5,6 +5,7 @@
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Core.Providers;
 
 namespace AIUsageTracker.Monitor.Services;
 
@@ -56,14 +57,19 @@ public class UsageAlertsService
                 continue;
             }
 
-            var usedPercentage = UsageMath.GetEffectiveUsedPercent(usage);
+            if (usage is not QuotaProviderUsage quotaUsage)
+            {
+                continue;
+            }
+
+            var usedPercentage = UsageMath.GetEffectiveUsedPercent(quotaUsage);
 
             // For rolling-window providers with a known period duration, use the projected
             // end-of-period percentage instead of raw usage.  This suppresses false-positive
             // alerts when the user is under pace (e.g. 70% used at 86% of a weekly window).
             // Only applied when the user has enabled pace adjustment in preferences.
             var effectivePercentage = prefs.EnablePaceAdjustment
-                ? GetEffectiveAlertPercent(usage, usedPercentage)
+                ? GetEffectiveAlertPercent(quotaUsage, usedPercentage)
                 : usedPercentage;
             if (effectivePercentage >= prefs.NotificationThreshold)
             {
@@ -101,12 +107,15 @@ public class UsageAlertsService
                     continue;
                 }
 
+                var prevQ = previous as QuotaProviderUsage;
+                var currQ = current as QuotaProviderUsage;
+                var usageQ = usage as QuotaProviderUsage;
                 await this._database.StoreResetEventAsync(
                     usage.ProviderId,
                     usage.ProviderName,
-                    previous.RequestsUsed,
-                    current.RequestsUsed,
-                    usage.IsQuotaBased ? "quota" : "usage").ConfigureAwait(false);
+                    prevQ?.RequestsUsed ?? 0,
+                    currQ?.RequestsUsed ?? 0,
+                    usageQ?.IsQuotaBased == true ? "quota" : "usage").ConfigureAwait(false);
 
                 await this.SendResetNotificationAsync(usage).ConfigureAwait(false);
                 this._logger.LogInformation("{ProviderId} reset: {Reason}", usage.ProviderId, resetReason);
@@ -118,7 +127,7 @@ public class UsageAlertsService
         }
     }
 
-    private static double GetEffectiveAlertPercent(ProviderUsage usage, double rawUsedPercent)
+    private static double GetEffectiveAlertPercent(QuotaProviderUsage usage, double rawUsedPercent)
     {
         // Only apply time-adjustment for rolling-window providers where we have timing data.
         if (!usage.NextResetTime.HasValue)
@@ -164,17 +173,21 @@ public class UsageAlertsService
 
     private static (bool IsReset, string Reason) TryDetectReset(ProviderUsage usage, ProviderUsage previous, ProviderUsage current)
     {
-        if (current.NextResetTime.HasValue &&
-            previous.NextResetTime.HasValue &&
-            current.NextResetTime.Value > previous.NextResetTime.Value.AddMinutes(1))
+        var prevQ = previous as QuotaProviderUsage;
+        var currQ = current as QuotaProviderUsage;
+        var usageQ = usage as QuotaProviderUsage;
+
+        if (currQ?.NextResetTime.HasValue == true &&
+            prevQ?.NextResetTime.HasValue == true &&
+            currQ.NextResetTime.Value > prevQ.NextResetTime.Value.AddMinutes(1))
         {
-            return (true, $"Reset detected via schedule: {previous.NextResetTime:HH:mm} -> {current.NextResetTime:HH:mm}");
+            return (true, $"Reset detected via schedule: {prevQ.NextResetTime:HH:mm} -> {currQ.NextResetTime:HH:mm}");
         }
 
-        if (usage.IsQuotaBased)
+        if (usageQ?.IsQuotaBased == true)
         {
-            var previousUsedPercent = UsageMath.GetEffectiveUsedPercent(previous);
-            var currentUsedPercent = UsageMath.GetEffectiveUsedPercent(current);
+            var previousUsedPercent = prevQ != null ? UsageMath.GetEffectiveUsedPercent(prevQ) : 0;
+            var currentUsedPercent = currQ != null ? UsageMath.GetEffectiveUsedPercent(currQ) : 0;
             if (previousUsedPercent > 50 && currentUsedPercent < previousUsedPercent * 0.3)
             {
                 return (true, $"Quota reset: {previousUsedPercent:F1}% -> {currentUsedPercent:F1}% used");
@@ -183,12 +196,12 @@ public class UsageAlertsService
             return (false, string.Empty);
         }
 
-        if (previous.RequestsUsed > current.RequestsUsed)
+        if (prevQ != null && currQ != null && prevQ.RequestsUsed > currQ.RequestsUsed)
         {
-            var dropPercent = (previous.RequestsUsed - current.RequestsUsed) / previous.RequestsUsed * 100;
+            var dropPercent = (prevQ.RequestsUsed - currQ.RequestsUsed) / prevQ.RequestsUsed * 100;
             if (dropPercent > 20)
             {
-                return (true, $"Usage reset: ${previous.RequestsUsed:F2} -> ${current.RequestsUsed:F2} ({dropPercent:F0}% drop)");
+                return (true, $"Usage reset: ${prevQ.RequestsUsed:F2} -> ${currQ.RequestsUsed:F2} ({dropPercent:F0}% drop)");
             }
         }
 
@@ -237,14 +250,14 @@ public class UsageAlertsService
             return;
         }
 
-        var details = usage.IsQuotaBased ? "Quota reset detected." : "Usage reset detected.";
+        var details = usage is QuotaProviderUsage q && q.IsQuotaBased ? "Quota reset detected." : "Usage reset detected.";
         this._notificationService.ShowQuotaExceeded(usage.ProviderName, details);
     }
 
     private void LogInsufficientHistory(ProviderUsage usage)
     {
         var ownerDefinition = ProviderMetadataCatalog.Find(usage.ProviderId ?? string.Empty);
-        if ((ownerDefinition?.IsChildProviderId(usage.ProviderId ?? string.Empty) ?? false) || usage.NextResetTime != null)
+        if ((ownerDefinition?.IsChildProviderId(usage.ProviderId ?? string.Empty) ?? false) || (usage as QuotaProviderUsage)?.NextResetTime != null)
         {
             this._logger.LogTrace("{ProviderId}: Initial record stored, waiting for history", usage.ProviderId);
             return;

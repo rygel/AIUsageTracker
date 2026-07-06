@@ -3,7 +3,6 @@
 // </copyright>
 
 using System.Globalization;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Providers;
@@ -106,24 +105,22 @@ public class KimiProvider : ProviderBase
 
         if (flatCards.Count == 0)
         {
-            return new[]
+            var fallback = new QuotaProviderUsage
             {
-                new ProviderUsage
-                {
-                    ProviderId = this.ProviderId,
-                    ProviderName = providerLabel,
-                    UsedPercent = data.Usage!.Limit > 0 ? UsageMath.CalculateUsedPercent(data.Usage!.Used, data.Usage!.Limit) : 0,
-                    RequestsUsed = data.Usage!.Used,
-                    RequestsAvailable = data.Usage!.Limit,
-                    IsQuotaBased = this.Definition.IsQuotaBased,
-                    PlanType = this.Definition.PlanType,
-                    IsAvailable = true,
-                    Description = "Active",
-                    RawJson = content,
-                    HttpStatus = statusCode,
-                    AuthSource = authSource ?? string.Empty,
-                },
+                ProviderId = this.ProviderId,
+                ProviderName = providerLabel,
+                IsAvailable = true,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
+                RawJson = content,
+                HttpStatus = statusCode,
+                UsedPercent = data.Usage!.Limit > 0 ? UsageMath.CalculateUsedPercent(data.Usage!.Used, data.Usage!.Limit) : 0,
+                RequestsUsed = data.Usage!.Used,
+                RequestsAvailable = data.Usage!.Limit,
+                Description = "Active",
+                AuthSource = authSource ?? string.Empty,
             };
+            return new[] { fallback };
         }
 
         return flatCards;
@@ -144,10 +141,15 @@ public class KimiProvider : ProviderBase
             weeklyResetDt = weeklyDt.ToUniversalTime();
         }
 
-        return new ProviderUsage
+        var weekly = new WindowedProviderUsage
         {
             ProviderId = this.ProviderId,
             ProviderName = providerLabel,
+            IsAvailable = true,
+            IsQuotaBased = this.Definition.IsQuotaBased,
+            PlanType = this.Definition.PlanType,
+            RawJson = content,
+            HttpStatus = statusCode,
             CardId = "weekly",
             GroupId = this.ProviderId,
             Name = "Weekly Limit",
@@ -155,16 +157,12 @@ public class KimiProvider : ProviderBase
             UsedPercent = weeklyUsedPct,
             RequestsUsed = usage.Used,
             RequestsAvailable = usage.Limit,
-            IsQuotaBased = this.Definition.IsQuotaBased,
-            PlanType = this.Definition.PlanType,
-            IsAvailable = true,
             Description = $"{usage.Remaining.ToString(CultureInfo.InvariantCulture)} remaining{(!string.IsNullOrEmpty(usage.ResetTime) ? $" (Resets: {FormatResetTime(usage.ResetTime)})" : string.Empty)}",
-            RawJson = content,
-            HttpStatus = statusCode,
             NextResetTime = weeklyResetDt,
             PeriodDuration = TimeSpan.FromDays(7),
             AuthSource = authSource ?? string.Empty,
         };
+        return weekly;
     }
 
     private void AddLimitCards(List<KimiLimitItem> limits, List<ProviderUsage> flatCards, HashSet<string> usedCardIds, string content, int statusCode, string? authSource, string providerLabel)
@@ -209,10 +207,15 @@ public class KimiProvider : ProviderBase
         var periodDuration = ResolvePeriodDuration(quotaBucketKind, win);
         var cardId = DeduplicateCardId(name, usedCardIds);
 
-        return new ProviderUsage
+        var limit = new WindowedProviderUsage
         {
             ProviderId = this.ProviderId,
             ProviderName = providerLabel,
+            IsAvailable = true,
+            IsQuotaBased = this.Definition.IsQuotaBased,
+            PlanType = this.Definition.PlanType,
+            RawJson = content,
+            HttpStatus = statusCode,
             CardId = cardId,
             GroupId = this.ProviderId,
             Name = name,
@@ -220,16 +223,12 @@ public class KimiProvider : ProviderBase
             UsedPercent = itemUsedPercentage,
             RequestsUsed = itemUsed,
             RequestsAvailable = det.Limit,
-            IsQuotaBased = this.Definition.IsQuotaBased,
-            PlanType = this.Definition.PlanType,
-            IsAvailable = true,
             Description = $"{det.Remaining.ToString(CultureInfo.InvariantCulture)} / {det.Limit.ToString(CultureInfo.InvariantCulture)} remaining (Resets: {resetDisplay})",
-            RawJson = content,
-            HttpStatus = statusCode,
             NextResetTime = itemResetDt,
             PeriodDuration = periodDuration,
             AuthSource = authSource ?? string.Empty,
         };
+        return limit;
     }
 
     private static string DeduplicateCardId(string name, HashSet<string> usedCardIds)

@@ -84,16 +84,13 @@ public class ClaudeCodeProvider : ProviderBase
         {
             return new[]
             {
-                new ProviderUsage
+                new StatusProviderUsage
             {
                 ProviderId = this.ProviderId,
                 ProviderName = providerLabel,
                 IsAvailable = false,
                 Description = "No API key configured",
                 State = ProviderUsageState.Missing,
-                IsStatusOnly = true,
-                IsQuotaBased = true,
-                PlanType = this.Definition.PlanType,
                 RawJson = "{\"source\":\"claude-code\",\"status\":\"api_key_missing\"}",
                 HttpStatus = 401,
             },
@@ -259,7 +256,7 @@ public class ClaudeCodeProvider : ProviderBase
 
         if (response.FiveHour != null)
         {
-            results.Add(new ProviderUsage
+            results.Add(new WindowedProviderUsage
             {
                 ProviderId = this.ProviderId,
                 ProviderName = providerLabel,
@@ -280,7 +277,7 @@ public class ClaudeCodeProvider : ProviderBase
 
         if (response.SevenDaySonnet != null)
         {
-            results.Add(new ProviderUsage
+            results.Add(new WindowedProviderUsage
             {
                 ProviderId = this.ProviderId,
                 ProviderName = providerLabel,
@@ -301,7 +298,7 @@ public class ClaudeCodeProvider : ProviderBase
 
         if (response.SevenDayOpus != null)
         {
-            results.Add(new ProviderUsage
+            results.Add(new WindowedProviderUsage
             {
                 ProviderId = this.ProviderId,
                 ProviderName = providerLabel,
@@ -323,13 +320,15 @@ public class ClaudeCodeProvider : ProviderBase
         // All-models 7-day rolling quota
         if (response.SevenDay != null)
         {
-            var desc = $"5h: {(response.FiveHour?.Utilization ?? 0).ToString("F0", CultureInfo.InvariantCulture)}% | 7d: {response.SevenDay.Utilization.ToString("F0", CultureInfo.InvariantCulture)}% used";
+            var desc = response.FiveHour != null
+                ? $"5h: {response.FiveHour.Utilization.ToString("F0", CultureInfo.InvariantCulture)}% | 7d: {response.SevenDay.Utilization.ToString("F0", CultureInfo.InvariantCulture)}% used"
+                : $"7d: {response.SevenDay.Utilization.ToString("F0", CultureInfo.InvariantCulture)}% used";
             if (response.ExtraUsage?.IsEnabled == true)
             {
                 desc += " | Extra usage enabled";
             }
 
-            results.Add(new ProviderUsage
+            results.Add(new WindowedProviderUsage
             {
                 ProviderId = this.ProviderId,
                 ProviderName = providerLabel,
@@ -350,12 +349,10 @@ public class ClaudeCodeProvider : ProviderBase
 
         if (results.Count == 0)
         {
-            results.Add(new ProviderUsage
+            results.Add(new StatusProviderUsage
             {
                 ProviderId = this.ProviderId,
                 ProviderName = providerLabel,
-                IsQuotaBased = true,
-                PlanType = this.Definition.PlanType,
                 IsAvailable = true,
                 RawJson = rawJson,
                 HttpStatus = httpStatus,
@@ -410,7 +407,7 @@ public class ClaudeCodeProvider : ProviderBase
                 // Build description with rate limit info
                 var description = $"Tier: {rateLimitHeaders.GetTierName()} | RPM: {rateLimitHeaders.RequestsRemaining.ToString(CultureInfo.InvariantCulture)}/{rateLimitHeaders.RequestsLimit.ToString(CultureInfo.InvariantCulture)} | Tokens/min: {rateLimitHeaders.InputTokensRemaining.ToString(CultureInfo.InvariantCulture)}/{rateLimitHeaders.InputTokensLimit.ToString(CultureInfo.InvariantCulture)}";
 
-                return new ProviderUsage
+                return new QuotaProviderUsage
                 {
                     ProviderId = this.ProviderId,
                     ProviderName = providerLabel,
@@ -439,33 +436,13 @@ public class ClaudeCodeProvider : ProviderBase
 
     private static RateLimitInfo ExtractRateLimitInfo(System.Net.Http.Headers.HttpResponseHeaders headers)
     {
-        var info = new RateLimitInfo();
-
-        if (headers.TryGetValues("anthropic-ratelimit-requests-limit", out var requestLimitValues) &&
-            int.TryParse(requestLimitValues.FirstOrDefault(), CultureInfo.InvariantCulture, out var limit))
+        return new RateLimitInfo
         {
-            info.RequestsLimit = limit;
-        }
-
-        if (headers.TryGetValues("anthropic-ratelimit-requests-remaining", out var requestRemainingValues) &&
-            int.TryParse(requestRemainingValues.FirstOrDefault(), CultureInfo.InvariantCulture, out var remaining))
-        {
-            info.RequestsRemaining = remaining;
-        }
-
-        if (headers.TryGetValues("anthropic-ratelimit-input-tokens-limit", out var inputLimitValues) &&
-            int.TryParse(inputLimitValues.FirstOrDefault(), CultureInfo.InvariantCulture, out var inputLimit))
-        {
-            info.InputTokensLimit = inputLimit;
-        }
-
-        if (headers.TryGetValues("anthropic-ratelimit-input-tokens-remaining", out var inputRemainingValues) &&
-            int.TryParse(inputRemainingValues.FirstOrDefault(), CultureInfo.InvariantCulture, out var inputRemaining))
-        {
-            info.InputTokensRemaining = inputRemaining;
-        }
-
-        return info;
+            RequestsLimit = (int)(TryGetHeaderDouble(headers, "anthropic-ratelimit-requests-limit") ?? 0),
+            RequestsRemaining = (int)(TryGetHeaderDouble(headers, "anthropic-ratelimit-requests-remaining") ?? 0),
+            InputTokensLimit = (int)(TryGetHeaderDouble(headers, "anthropic-ratelimit-input-tokens-limit") ?? 0),
+            InputTokensRemaining = (int)(TryGetHeaderDouble(headers, "anthropic-ratelimit-input-tokens-remaining") ?? 0),
+        };
     }
 
     private async Task<IEnumerable<ProviderUsage>> GetUsageFromCliAsync(string providerLabel)
@@ -490,15 +467,12 @@ public class ClaudeCodeProvider : ProviderBase
                     // CLI not found, but key is configured - show as available
                     return new[]
                     {
-                        new ProviderUsage
+                        new StatusProviderUsage
                     {
                         ProviderId = this.ProviderId,
                         ProviderName = providerLabel,
                         IsAvailable = true,
                         Description = "Connected (API key configured)",
-                        IsStatusOnly = true,
-                        IsQuotaBased = false,
-                        PlanType = this.Definition.PlanType,
                         RawJson = "{\"source\":\"claude-cli\",\"status\":\"process_start_failed\"}",
                         HttpStatus = 503,
                     },
@@ -527,15 +501,12 @@ public class ClaudeCodeProvider : ProviderBase
                     // CLI failed, but key is configured - show as available
                     return new[]
                     {
-                        new ProviderUsage
+                        new StatusProviderUsage
                     {
                         ProviderId = this.ProviderId,
                         ProviderName = providerLabel,
                         IsAvailable = true,
                         Description = "Connected (API key configured)",
-                        IsStatusOnly = true,
-                        IsQuotaBased = false,
-                        PlanType = this.Definition.PlanType,
                         RawJson = string.IsNullOrWhiteSpace(error) ? "{\"source\":\"claude-cli\",\"status\":\"failed\"}" : error,
                         HttpStatus = 500,
                     },
@@ -551,15 +522,12 @@ public class ClaudeCodeProvider : ProviderBase
                 // Exception occurred, but key is configured - show as available
                 return new[]
                 {
-                    new ProviderUsage
+                    new StatusProviderUsage
                 {
                     ProviderId = this.ProviderId,
                     ProviderName = providerLabel,
                     IsAvailable = true,
                     Description = "Connected (API key configured)",
-                    IsStatusOnly = true,
-                    IsQuotaBased = false,
-                    PlanType = this.Definition.PlanType,
                     RawJson = ex.ToString(),
                     HttpStatus = 500,
                 },
@@ -598,7 +566,7 @@ public class ClaudeCodeProvider : ProviderBase
 
         double usagePercentage = budgetLimit > 0 ? (currentUsage / budgetLimit) * 100.0 : 0;
 
-        return new ProviderUsage
+        return new QuotaProviderUsage
         {
             ProviderId = this.ProviderId,
             ProviderName = providerLabel,

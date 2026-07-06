@@ -8,6 +8,7 @@ using System.Globalization;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Infrastructure.MonitorClient;
 
 namespace AIUsageTracker.Web.Services;
 
@@ -18,15 +19,7 @@ public class MonitorProcessService
     private readonly IMonitorService _monitorService;
     private readonly IMonitorLauncherClient _monitorLauncherClient;
 
-    public MonitorProcessService(ILogger<MonitorProcessService> logger, IMonitorService monitorService)
-        : this(logger, monitorService, new MonitorLauncherClient(new MonitorLauncher(Microsoft.Extensions.Logging.Abstractions.NullLogger<MonitorLauncher>.Instance)))
-    {
-    }
-
-    public MonitorProcessService(
-        ILogger<MonitorProcessService> logger,
-        IMonitorService monitorService,
-        IMonitorLauncherClient monitorLauncherClient)
+    public MonitorProcessService(ILogger<MonitorProcessService> logger, IMonitorService monitorService, IMonitorLauncherClient monitorLauncherClient)
     {
         this._logger = logger;
         this._monitorService = monitorService;
@@ -68,11 +61,16 @@ public class MonitorProcessService
             activity?.SetStatus(ActivityStatusCode.Ok);
             return CreateStatusResult(status, healthSnapshot, contractHandshake);
         }
-#pragma warning disable CA1031 // Network and HTTP calls can throw varied exception types
-        catch (Exception ex)
+        catch (HttpRequestException ex)
         {
-            this._logger.LogWarning(ex, "Failed to collect monitor health snapshot for web status API.");
-#pragma warning restore CA1031
+            this._logger.LogWarning(ex, "Failed to collect monitor health snapshot — HTTP request error.");
+            activity?.SetTag("error.type", ex.GetType().Name);
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            return CreateStatusResult(status, healthSnapshot: null, contractHandshake: null);
+        }
+        catch (TaskCanceledException ex)
+        {
+            this._logger.LogWarning(ex, "Failed to collect monitor health snapshot — request timed out.");
             activity?.SetTag("error.type", ex.GetType().Name);
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             return CreateStatusResult(status, healthSnapshot: null, contractHandshake: null);

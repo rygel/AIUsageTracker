@@ -3,7 +3,7 @@
 // </copyright>
 
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Infrastructure.MonitorClient;
 using Microsoft.Extensions.Logging;
 using Moq;
 

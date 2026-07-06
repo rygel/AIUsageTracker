@@ -99,7 +99,7 @@ public sealed class SyntheticProvider : ProviderBase
 
             return new[]
             {
-                new ProviderUsage
+                new QuotaProviderUsage
                 {
                     ProviderId = this.ProviderId,
                     ProviderName = providerLabel,

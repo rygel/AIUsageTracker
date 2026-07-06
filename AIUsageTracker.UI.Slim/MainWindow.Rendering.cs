@@ -9,6 +9,7 @@ using System.Windows.Media;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Core.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -169,7 +170,6 @@ public partial class MainWindow : Window
 
         var header = this.CreateCollapsibleHeaderGrid(margin);
 
-        // Toggle button
         var toggleText = this.CreateText(
             getCollapsed() ? "\u25B6" : "\u25BC",
             toggleFontSize,
@@ -180,7 +180,6 @@ public partial class MainWindow : Window
         toggleText.Opacity = toggleOpacity;
         toggleText.Tag = "ToggleIcon";
 
-        // Title
         var titleBlock = this.CreateText(
             titleText,
             10.0,
@@ -189,10 +188,8 @@ public partial class MainWindow : Window
             new Thickness(0, 0, 10, 0));
         titleBlock.VerticalAlignment = VerticalAlignment.Center;
 
-        // Separator line
         var line = this.CreateSeparator(accent, lineOpacity);
 
-        // Container
         var container = new StackPanel();
         if (!string.IsNullOrEmpty(groupKey))
         {
@@ -201,7 +198,6 @@ public partial class MainWindow : Window
 
         container.Visibility = getCollapsed() ? Visibility.Collapsed : Visibility.Visible;
 
-        // Click handler
         header.Cursor = System.Windows.Input.Cursors.Hand;
         header.MouseLeftButtonDown += this.CreateHeaderClickHandler(getCollapsed, setCollapsed, container, toggleText);
 
@@ -262,7 +258,7 @@ public partial class MainWindow : Window
         while (i < usages.Count)
         {
             var usage = usages[i];
-            var groupId = usage.GroupId;
+            var groupId = usage is WindowedProviderUsage w ? w.GroupId : (usage as ModelScopedProviderUsage)?.GroupId;
 
             if (string.IsNullOrEmpty(groupId))
             {
@@ -271,10 +267,15 @@ public partial class MainWindow : Window
                 continue;
             }
 
-            // Collect all cards in this group
             var groupCards = new List<ProviderUsage>();
-            while (i < usages.Count && string.Equals(usages[i].GroupId, groupId, StringComparison.OrdinalIgnoreCase))
+            while (i < usages.Count)
             {
+                var nextGroupId = usages[i] is WindowedProviderUsage w2 ? w2.GroupId : (usages[i] as ModelScopedProviderUsage)?.GroupId;
+                if (!string.Equals(nextGroupId, groupId, StringComparison.OrdinalIgnoreCase))
+                {
+                    break;
+                }
+
                 groupCards.Add(usages[i]);
                 i++;
             }
@@ -422,7 +423,6 @@ public partial class MainWindow : Window
             this.StatusText.Text = effectiveMessage;
         }
 
-        // Update LED color
         if (this.StatusLed != null)
         {
             this.StatusLed.Fill = indicatorKind switch

@@ -13,7 +13,7 @@ namespace AIUsageTracker.Web.Tests;
 public sealed class KestrelWebApplicationFactory<TEntryPoint> : IDisposable
     where TEntryPoint : class
 {
-    private readonly object _syncRoot = new();
+    private readonly Lock _syncRoot = new();
     private readonly StringBuilder _startupOutput = new();
     private readonly string _projectPath;
     private readonly IReadOnlyDictionary<string, string>? _environmentOverrides;

@@ -5,6 +5,7 @@
 using System.Reflection;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Core.Providers;
 
 namespace AIUsageTracker.Tests.UI;
 
@@ -35,8 +36,9 @@ public class SettingsWindowDeterministicFixtureTests
                 ProviderMetadataCatalog.Definitions,
                 d => d.HandlesProviderId(usage.ProviderId));
             Assert.Equal(ProviderMetadataCatalog.GetConfiguredDisplayName(usage.ProviderId), usage.ProviderName);
-            Assert.Equal(definition.PlanType, usage.PlanType);
-            Assert.Equal(definition.IsQuotaBased, usage.IsQuotaBased);
+            var quotaUsage = Assert.IsAssignableFrom<QuotaProviderUsage>(usage);
+            Assert.Equal(definition.PlanType, quotaUsage.PlanType);
+            Assert.Equal(definition.IsQuotaBased, quotaUsage.IsQuotaBased);
         }
 
         foreach (var historyRow in historyRows)

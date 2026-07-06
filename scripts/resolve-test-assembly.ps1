@@ -13,8 +13,8 @@ $ErrorActionPreference = "Stop"
 
 $root = Resolve-Path -LiteralPath $RootPath
 $candidatePaths = @(
-    "$ProjectName\bin\Debug\net8.0-windows10.0.17763.0\$AssemblyName",
-    "$ProjectName\bin\Debug\net8.0\$AssemblyName",
+    "$ProjectName\bin\Debug\net10.0-windows10.0.17763.0\$AssemblyName",
+    "$ProjectName\bin\Debug\net10.0\$AssemblyName",
     "$ProjectName\bin\Debug\$AssemblyName",
     "$ProjectName\$AssemblyName"
 ) | ForEach-Object { Join-Path $root $_ }

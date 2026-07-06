@@ -5,6 +5,7 @@
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Monitor.Services;
+using AIUsageTracker.Core.Providers;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -25,7 +26,7 @@ public class ProviderUsageProcessingPipelineTests
     {
         // With flat cards, the detail contract stage is a no-op.
         // This test verifies a valid usage passes through the pipeline correctly.
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "openai",
             ProviderName = "OpenAI",
@@ -42,7 +43,7 @@ public class ProviderUsageProcessingPipelineTests
             new[] { "openai" },
             isPrivacyMode: false);
 
-        var processed = Assert.Single(result.Usages);
+        var processed = (WindowedProviderUsage)Assert.Single(result.Usages);
         Assert.True(processed.IsAvailable);
         Assert.Equal(WindowKind.Burst, processed.WindowKind);
         Assert.Equal(0, result.DetailContractAdjustedCount);
@@ -51,7 +52,7 @@ public class ProviderUsageProcessingPipelineTests
     [Fact]
     public void Process_WhenHttpStatusIsSuccess_MarksUpstreamResponseValid()
     {
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "openai",
             ProviderName = "OpenAI",
@@ -73,7 +74,7 @@ public class ProviderUsageProcessingPipelineTests
     [Fact]
     public void Process_WhenNoUpstreamMetadata_MarksResponseAsNotAttempted()
     {
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "antigravity",
             ProviderName = "Antigravity",
@@ -98,7 +99,7 @@ public class ProviderUsageProcessingPipelineTests
         // Missing/Unavailable entries with a description are actionable
         // (e.g. "API Key missing", "auth token not found") and must reach
         // the DB so the UI can show them instead of stale cached data.
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "openrouter",
             ProviderName = "OpenRouter",
@@ -125,7 +126,7 @@ public class ProviderUsageProcessingPipelineTests
     {
         // Truly empty entries (no description, no quota data) are placeholders
         // and should not pollute the DB or UI.
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "openrouter",
             ProviderName = "OpenRouter",
@@ -149,7 +150,7 @@ public class ProviderUsageProcessingPipelineTests
     [Fact]
     public void Process_WhenPrivacyModeEnabled_RedactsSensitiveFields()
     {
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "openrouter",
             ProviderName = "OpenRouter",
@@ -177,7 +178,7 @@ public class ProviderUsageProcessingPipelineTests
     [Fact]
     public void Process_WhenPercentageInvalid_NormalizesFromUsageValues()
     {
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "zai",
             ProviderName = "Z.AI",
@@ -193,7 +194,7 @@ public class ProviderUsageProcessingPipelineTests
             new[] { "zai" },
             isPrivacyMode: false);
 
-        var processed = Assert.Single(result.Usages);
+        var processed = (QuotaProviderUsage)Assert.Single(result.Usages);
         Assert.Equal(30d, processed.UsedPercent);
         Assert.True(result.NormalizedCount >= 1);
     }
@@ -201,7 +202,7 @@ public class ProviderUsageProcessingPipelineTests
     [Fact]
     public void Process_WhenUsageIsDynamicChildOfActiveProvider_KeepsEntry()
     {
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "antigravity.claude-sonnet",
             ProviderName = "Claude Sonnet",
@@ -223,7 +224,7 @@ public class ProviderUsageProcessingPipelineTests
     [Fact]
     public void Process_WhenUsageIsCoReportedByActiveProvider_KeepsEntry()
     {
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "codex.spark",
             ProviderName = "OpenAI (GPT-5.3 Codex Spark)",
@@ -246,7 +247,7 @@ public class ProviderUsageProcessingPipelineTests
     [Fact]
     public void Process_WhenUsageMatchesCanonicalProviderAlias_KeepsEntry()
     {
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "gemini-cli.hourly",
             ProviderName = "Gemini CLI (Hourly)",
@@ -272,7 +273,7 @@ public class ProviderUsageProcessingPipelineTests
         var result = this._pipeline.Process(
             new[]
             {
-                new ProviderUsage
+                new WindowedProviderUsage
                 {
                     ProviderId = "gemini-cli.daily",
                     ProviderName = "Gemini CLI (Daily)",
@@ -282,7 +283,7 @@ public class ProviderUsageProcessingPipelineTests
                     IsAvailable = true,
                     AccountName = "alex@example.com",
                 },
-                new ProviderUsage
+                new WindowedProviderUsage
                 {
                     ProviderId = "gemini-cli.hourly",
                     ProviderName = "Gemini CLI (Hourly)",
@@ -303,7 +304,7 @@ public class ProviderUsageProcessingPipelineTests
     [Fact]
     public void Process_WhenUsageUsesUnsupportedDottedProviderId_FiltersInactiveEntry()
     {
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "openai.spark",
             ProviderName = "Unexpected Child",
@@ -325,7 +326,7 @@ public class ProviderUsageProcessingPipelineTests
     [Fact]
     public void Process_WhenProviderIdMissing_FiltersInvalidIdentity()
     {
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "   ",
             ProviderName = "Invalid",
@@ -347,7 +348,7 @@ public class ProviderUsageProcessingPipelineTests
     [Fact]
     public void Process_WhenUsageNotInActiveProviderSet_FiltersInactiveEntry()
     {
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "not-active-provider",
             ProviderName = "Not Active",
@@ -369,7 +370,7 @@ public class ProviderUsageProcessingPipelineTests
     [Fact]
     public void Process_WhenUnavailableWithoutDescription_NormalizesDescriptionAndUtcTimestamp()
     {
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "openai",
             ProviderName = " OpenAI ",
@@ -388,7 +389,7 @@ public class ProviderUsageProcessingPipelineTests
             new[] { "openai" },
             isPrivacyMode: false);
 
-        var processed = Assert.Single(result.Usages);
+        var processed = (QuotaProviderUsage)Assert.Single(result.Usages);
         Assert.Equal("OpenAI", processed.ProviderName);
         Assert.Equal(0, processed.RequestsUsed);
         Assert.Equal(0, processed.RequestsAvailable);
@@ -406,7 +407,7 @@ public class ProviderUsageProcessingPipelineTests
     {
         // With flat cards, NextResetTime on each card is independent.
         // A card with null NextResetTime should remain null after processing.
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "github-copilot",
             ProviderName = "GitHub Copilot",
@@ -421,7 +422,7 @@ public class ProviderUsageProcessingPipelineTests
             new[] { "github-copilot" },
             isPrivacyMode: false);
 
-        var processed = Assert.Single(result.Usages);
+        var processed = (QuotaProviderUsage)Assert.Single(result.Usages);
         Assert.Null(processed.NextResetTime);
     }
 
@@ -471,7 +472,7 @@ public class ProviderUsageProcessingPipelineTests
     {
         return
         [
-            new ProviderUsage
+            new WindowedProviderUsage
             {
                 ProviderId = " openai ",
                 ProviderName = " OpenAI ",
@@ -484,19 +485,19 @@ public class ProviderUsageProcessingPipelineTests
                 ConfigKey = "cfg-openai",
                 FetchedAt = default,
             },
-            new ProviderUsage
+            new WindowedProviderUsage
             {
                 ProviderId = string.Empty,
                 ProviderName = "Invalid",
                 IsAvailable = true,
             },
-            new ProviderUsage
+            new WindowedProviderUsage
             {
                 ProviderId = "anthropic",
                 ProviderName = "Anthropic",
                 IsAvailable = true,
             },
-            new ProviderUsage
+            new WindowedProviderUsage
             {
                 ProviderId = "openai",
                 ProviderName = "OpenAI",
@@ -507,7 +508,7 @@ public class ProviderUsageProcessingPipelineTests
                 RequestsAvailable = 0,
                 UsedPercent = 0,
             },
-            new ProviderUsage
+            new WindowedProviderUsage
             {
                 ProviderId = "openai",
                 ProviderName = "OpenAI",
@@ -521,7 +522,7 @@ public class ProviderUsageProcessingPipelineTests
     {
         return
         [
-            new ProviderUsage
+            new WindowedProviderUsage
             {
                 ProviderId = "openai",
                 ProviderName = "OpenAI",
@@ -540,7 +541,7 @@ public class ProviderUsageProcessingPipelineTests
     [Fact]
     public void Process_NormalizeFlatCard_PreservesWindowKind()
     {
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "codex",
             ProviderName = "Codex",
@@ -558,7 +559,7 @@ public class ProviderUsageProcessingPipelineTests
             new[] { "codex" },
             isPrivacyMode: false);
 
-        var processed = Assert.Single(result.Usages);
+        var processed = (WindowedProviderUsage)Assert.Single(result.Usages);
         Assert.Equal(WindowKind.Rolling, processed.WindowKind);
         Assert.Equal("weekly", processed.CardId);
         Assert.Equal("Weekly quota", processed.Name);
@@ -568,7 +569,7 @@ public class ProviderUsageProcessingPipelineTests
     public void Process_NormalizeFlatCard_PreservesNextResetTime()
     {
         var localTime = new DateTime(2026, 4, 1, 10, 0, 0, DateTimeKind.Local);
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "codex",
             CardId = "burst",
@@ -585,14 +586,14 @@ public class ProviderUsageProcessingPipelineTests
             new[] { "codex" },
             isPrivacyMode: false);
 
-        var processed = Assert.Single(result.Usages);
+        var processed = (QuotaProviderUsage)Assert.Single(result.Usages);
         Assert.NotNull(processed.NextResetTime);
     }
 
     [Fact]
     public void Process_NormalizeFlatCard_PreservesIsStale()
     {
-        var usage = new ProviderUsage
+        var usage = new WindowedProviderUsage
         {
             ProviderId = "codex",
             CardId = "burst",
@@ -621,7 +622,7 @@ public class ProviderUsageProcessingPipelineTests
     [Fact]
     public void Process_CodexSparkCard_PassesAuthorityViaCodexDefinition()
     {
-        var sparkBurst = new ProviderUsage
+        var sparkBurst = new WindowedProviderUsage
         {
             ProviderId = "codex.spark",
             ProviderName = "OpenAI (GPT-5.3 Codex Spark)",
@@ -651,7 +652,7 @@ public class ProviderUsageProcessingPipelineTests
     [Fact]
     public void Process_CodexSparkCard_IsRejectedWhenCodexNotActive()
     {
-        var orphaned = new ProviderUsage
+        var orphaned = new WindowedProviderUsage
         {
             ProviderId = "codex.spark",
             CardId = "spark.burst",

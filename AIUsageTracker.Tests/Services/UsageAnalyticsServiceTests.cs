@@ -3,7 +3,7 @@
 // </copyright>
 
 using AIUsageTracker.Core.Interfaces;
-using AIUsageTracker.Infrastructure.Services;
+using AIUsageTracker.Core.Services;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;

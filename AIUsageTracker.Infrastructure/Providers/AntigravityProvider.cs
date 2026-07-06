@@ -27,7 +27,7 @@ public class AntigravityProvider : ProviderBase
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<AntigravityProvider> _logger;
-    private ProviderUsage? _cachedUsage;
+    private QuotaProviderUsage? _cachedUsage;
     private List<ProviderUsage>? _cachedChildUsages;
     private DateTime _cacheTimestamp;
     private List<(int Pid, string Token, int? Port)>? _cachedProcessInfos;
@@ -92,7 +92,7 @@ public class AntigravityProvider : ProviderBase
                 return new[] { CreateNotRunningUsage(this.ProviderId, this.Definition) };
             }
 
-            this._cachedUsage = results.FirstOrDefault();
+            this._cachedUsage = results.FirstOrDefault() as QuotaProviderUsage;
             this._cacheTimestamp = DateTime.UtcNow;
             return results;
         }
@@ -103,21 +103,16 @@ public class AntigravityProvider : ProviderBase
         }
     }
 
-    private static ProviderUsage CreateNotRunningUsage(string providerId, ProviderDefinition definition)
+    private static StatusProviderUsage CreateNotRunningUsage(string providerId, ProviderDefinition definition)
     {
-        return new ProviderUsage
+        return new StatusProviderUsage
         {
             ProviderId = providerId,
             ProviderName = definition.DisplayName,
             IsAvailable = true,
-            UsedPercent = 0,
-            RequestsUsed = 0,
-            RequestsAvailable = 0,
             Description = IsAntigravityDesktopRunning()
                 ? "Antigravity running, waiting for language server"
                 : "Application not running",
-            IsQuotaBased = definition.IsQuotaBased,
-            PlanType = definition.PlanType,
         };
     }
 
@@ -147,18 +142,13 @@ public class AntigravityProvider : ProviderBase
                 description += " (Status unknown until next Antigravity refresh)";
 
                 return this.WithOfflineChildren(
-                    new ProviderUsage
+                    new StatusProviderUsage
                     {
                         ProviderId = this.ProviderId,
                         ProviderName = providerLabel,
                         IsAvailable = true,
-                        UsedPercent = 0,
-                        RequestsUsed = 0,
-                        RequestsAvailable = this._cachedUsage.RequestsAvailable,
                         AccountName = this._cachedUsage.AccountName,
                         Description = description,
-                        IsQuotaBased = this.Definition.IsQuotaBased,
-                        PlanType = this.Definition.PlanType,
                     },
                     config);
             }
@@ -170,18 +160,13 @@ public class AntigravityProvider : ProviderBase
         }
 
         return this.WithOfflineChildren(
-            new ProviderUsage
+            new StatusProviderUsage
             {
                 ProviderId = this.ProviderId,
                 ProviderName = providerLabel,
                 IsAvailable = true,
-                UsedPercent = 0,
-                RequestsUsed = 0,
-                RequestsAvailable = this._cachedUsage.RequestsAvailable,
                 AccountName = this._cachedUsage.AccountName,
                 Description = description,
-                IsQuotaBased = this.Definition.IsQuotaBased,
-                PlanType = this.Definition.PlanType,
             },
             config);
     }
@@ -393,21 +378,9 @@ public class AntigravityProvider : ProviderBase
         return ($" (Resets: ({dt.ToString("MMM dd HH:mm", CultureInfo.InvariantCulture)}))", dt);
     }
 
-    private static string ResolveDisplayModelName(string label)
-    {
-        return label;
-    }
-
     private sealed record ModelEntry(string Name, string ModelName, string GroupName, string Description, DateTime? NextResetTime, double? RemainingPct);
 
-    private static List<ModelEntry> SortEntries(List<ModelEntry> entries)
-    {
-        return entries
-            .OrderBy(e => e.Name, StringComparer.Ordinal)
-            .ToList();
-    }
-
-    private static void ApplySummaryRawNumbers(ProviderUsage summary, Dictionary<string, ClientModelConfig> configMap)
+    private static void ApplySummaryRawNumbers(QuotaProviderUsage summary, Dictionary<string, ClientModelConfig> configMap)
     {
         var quotas = configMap.Values
             .Where(c => c.QuotaInfo?.TotalRequests.HasValue == true)
@@ -750,7 +723,7 @@ public class AntigravityProvider : ProviderBase
             configMap.TryGetValue(label, out var modelConfig);
             var remainingPct = this.ResolveRemainingPercentage(label, modelConfig);
             var (resetDescription, nextResetTime) = ResolveResetInfo(modelConfig);
-            var modelName = ResolveDisplayModelName(label);
+            var modelName = label;
             var groupName = labelToGroup.TryGetValue(label, out var grp) ? grp : "Ungrouped Models";
             entries.Add(new ModelEntry(label, modelName, groupName, resetDescription, nextResetTime, remainingPct));
 
@@ -768,23 +741,20 @@ public class AntigravityProvider : ProviderBase
             this._cacheTimestamp = DateTime.UtcNow;
             return new List<ProviderUsage>
             {
-                new ProviderUsage
+                new StatusProviderUsage
                 {
                     ProviderId = this.ProviderId,
                     ProviderName = providerLabel,
                     IsAvailable = true,
-                    UsedPercent = 0,
-                    RequestsUsed = 0,
-                    RequestsAvailable = 0,
-                    IsQuotaBased = this.Definition.IsQuotaBased,
-                    PlanType = this.Definition.PlanType,
                     Description = "Usage unknown (no model quota data)",
                     AccountName = data.UserStatus.Email ?? string.Empty,
                 },
             };
         }
 
-        var sortedEntries = SortEntries(entries);
+        var sortedEntries = entries
+            .OrderBy(e => e.Name, StringComparer.Ordinal)
+            .ToList();
         var summary = this.BuildSummaryUsage(data.UserStatus, sortedEntries, minRemaining.Value, responseString, httpStatus, providerLabel);
         ApplySummaryRawNumbers(summary, configMap);
 
@@ -830,9 +800,9 @@ public class AntigravityProvider : ProviderBase
         return null;
     }
 
-    private ProviderUsage BuildSummaryUsage(UserStatus userStatus, List<ModelEntry> sortedEntries, double remainingPctTotal, string? rawJson, int httpStatus, string providerLabel)
+    private QuotaProviderUsage BuildSummaryUsage(UserStatus userStatus, List<ModelEntry> sortedEntries, double remainingPctTotal, string? rawJson, int httpStatus, string providerLabel)
     {
-        return new ProviderUsage
+        return new QuotaProviderUsage
         {
             ProviderId = this.ProviderId,
             ProviderName = providerLabel,
@@ -891,7 +861,7 @@ public class AntigravityProvider : ProviderBase
                 ? childId[(this.ProviderId.Length + 1)..]
                 : childId;
 
-            var childUsage = new ProviderUsage
+            var childUsage = new WindowedProviderUsage
             {
                 ProviderId = childId,
                 CardId = cardId,
