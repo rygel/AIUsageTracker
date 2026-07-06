@@ -370,9 +370,15 @@ public class OpenAIProvider : ProviderBase
 
         if (results.Count == 0)
         {
-            var primaryUsed = doc.RootElement.ReadDouble(JsonKeyRateLimit, JsonKeyPrimaryWindow, JsonKeyUsedPercent) ?? 0.0;
-            var secondaryUsed = doc.RootElement.ReadDouble(JsonKeyRateLimit, JsonKeySecondaryWindow, JsonKeyUsedPercent) ?? 0.0;
-            var used = Math.Max(primaryUsed, secondaryUsed);
+            var primaryUsed = doc.RootElement.ReadDouble(JsonKeyRateLimit, JsonKeyPrimaryWindow, JsonKeyUsedPercent);
+            var secondaryUsed = doc.RootElement.ReadDouble(JsonKeyRateLimit, JsonKeySecondaryWindow, JsonKeyUsedPercent);
+
+            if (!primaryUsed.HasValue && !secondaryUsed.HasValue)
+            {
+                return new[] { this.CreateUnavailableUsage("No usage window data in response", httpStatus) };
+            }
+
+            var used = Math.Max(primaryUsed ?? 0.0, secondaryUsed ?? 0.0);
             var remaining = Math.Clamp(100.0 - used, 0.0, 100.0);
             var usage = CreateWindowedUsage(config);
             usage.ProviderName = providerLabel;
