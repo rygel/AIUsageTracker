@@ -388,8 +388,8 @@ public sealed class MainWindowRuntimeLogicTests
         Assert.Contains("Temporarily paused after repeated failures", tooltip, StringComparison.Ordinal);
         Assert.DoesNotContain("limit:", tooltip, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("resets:", tooltip, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Daily budget:", tooltip, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Expected by now:", tooltip, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Pace target:", tooltip, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Expected at this point:", tooltip, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

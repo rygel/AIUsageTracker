@@ -23,6 +23,7 @@ namespace AIUsageTracker.Tests.UI;
 /// PrivacyBtn_Click → App.SetPrivacyMode → PrivacyChanged event →
 /// OnPrivacyChanged → _isPrivacyMode updated + button icon updated.
 /// </summary>
+[Collection("WpfState")]
 public class PrivacyButtonBehaviorTests
 {
     private static readonly TimeSpan StaTestTimeout = TimeSpan.FromSeconds(15);

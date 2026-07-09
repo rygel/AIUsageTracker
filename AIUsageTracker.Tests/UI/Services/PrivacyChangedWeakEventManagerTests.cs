@@ -11,6 +11,7 @@ namespace AIUsageTracker.Tests.UI.Services;
 /// <summary>
 /// Tests for the PrivacyChangedWeakEventManager.
 /// </summary>
+[Collection("WpfState")]
 public class PrivacyChangedWeakEventManagerTests
 {
     [Fact]

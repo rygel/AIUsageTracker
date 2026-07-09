@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.4.2-beta.7] - 2026-07-09
+
+### Fixed
+- **Tooltip daily budget uses mismatched window values for dual-bar providers**: The tooltip's pace calculation for dual-window cards (Codex, OpenAI) mixed `UsedPercent` and `NextResetTime` from the burst window with `PeriodDuration` from the rolling window, producing meaningless expected-vs-actual comparisons. Now correctly uses the rolling window's values for all three terms. Also renamed "Daily budget" to "Pace target" and "Expected by now" to "Expected at this point" for clarity.
+
 ## [2.4.2-beta.6] - 2026-07-06
 
 ### Fixed

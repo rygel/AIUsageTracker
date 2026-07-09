@@ -383,22 +383,46 @@ internal static partial class MainWindowRuntimeLogic
             AppendWindowLimitLines(tooltipBuilder, usage, useRelativeResetTime);
             AppendSingleResetLine(tooltipBuilder, usage, useRelativeResetTime);
 
-            var periodDuration = usage switch
+            double usedPct;
+            DateTime? nextReset;
+            TimeSpan? periodDuration;
+
+            if (usage is WindowedProviderUsage { WindowCards: { Count: > 0 } } wuWithCards)
             {
-                WindowedProviderUsage pw => pw.PeriodDuration,
-                ModelScopedProviderUsage pm => pm.PeriodDuration,
-                _ => null,
-            };
-            var nextReset = usage is QuotaProviderUsage q ? q.NextResetTime : null;
-            var usedPct = usage is QuotaProviderUsage q2 ? q2.UsedPercent : 0;
+                var rollingCard = wuWithCards.WindowCards.FirstOrDefault(c => c.WindowKind == WindowKind.Rolling);
+                if (rollingCard != null)
+                {
+                    usedPct = rollingCard.UsedPercent;
+                    nextReset = rollingCard.NextResetTime;
+                    periodDuration = rollingCard.PeriodDuration;
+                }
+                else
+                {
+                    periodDuration = null;
+                    nextReset = null;
+                    usedPct = 0;
+                }
+            }
+            else
+            {
+                periodDuration = usage switch
+                {
+                    WindowedProviderUsage pw => pw.PeriodDuration,
+                    ModelScopedProviderUsage pm => pm.PeriodDuration,
+                    _ => null,
+                };
+                nextReset = usage is QuotaProviderUsage q ? q.NextResetTime : null;
+                usedPct = usage is QuotaProviderUsage q2 ? q2.UsedPercent : 0;
+            }
+
             if (periodDuration.HasValue && periodDuration.Value.TotalDays >= 1)
             {
-                var dailyBudget = 100.0 / periodDuration.Value.TotalDays;
+                var targetPerDay = 100.0 / periodDuration.Value.TotalDays;
                 var elapsedDays = UsageMath.GetElapsedDays(nextReset, periodDuration);
-                var expectedAtThisPoint = dailyBudget * elapsedDays;
+                var expectedAtThisPoint = targetPerDay * elapsedDays;
                 tooltipBuilder.AppendLine();
-                tooltipBuilder.AppendLine(CultureInfo.InvariantCulture, $"Daily budget: {dailyBudget:F0}%/day");
-                tooltipBuilder.AppendLine(CultureInfo.InvariantCulture, $"Expected by now: {expectedAtThisPoint:F0}% | Actual: {usedPct:F0}%");
+                tooltipBuilder.AppendLine(CultureInfo.InvariantCulture, $"Pace target: {targetPerDay:F0}%/day");
+                tooltipBuilder.AppendLine(CultureInfo.InvariantCulture, $"Expected at this point: {expectedAtThisPoint:F0}% | Actual: {usedPct:F0}%");
             }
         }
 
