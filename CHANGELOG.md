@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.4.3-beta.3] - 2026-07-11
+
+### Fixed
+- **Tooltip missing per-window lines for Codex/OpenAI dual-bar providers**: `AppendWindowLine` checked `windowCard is not WindowedProviderUsage`, but Codex creates `ModelScopedProviderUsage` objects for its burst/rolling window cards (a sibling type, not a subclass). The per-window lines ("5h limit: X% remaining", "Weekly limit: ...") were silently skipped. Widened the type check to `QuotaProviderUsage` (the common base class).
+
 ## [2.4.3-beta.2] - 2026-07-11
 
 ### Fixed
