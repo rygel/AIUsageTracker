@@ -45,10 +45,10 @@ public sealed class GroupedUsageProjectionServiceTests
     }
 
     [Fact]
-    public void Build_WhenMostRecentEntryIsError_PrimaryUsageReflectsErrorState()
+    public void Build_WhenMostRecentEntryIsError_PrimaryPrefersHealthyEntry()
     {
-        // Older successful entry + newer error entry — primary must be the newest so the
-        // error reason is surfaced rather than showing stale successful data.
+        // Older successful entry + newer error entry — primary must prefer the
+        // healthy entry so summary data reflects real usage, not zeroed error data.
         var old = DateTime.UtcNow.AddHours(-19);
         var now = DateTime.UtcNow;
 
@@ -76,8 +76,11 @@ public sealed class GroupedUsageProjectionServiceTests
 
         var provider = Assert.Single(snapshot.Providers);
 
-        // Description must come from the most recent entry, not the stale successful one.
-        Assert.Equal("HTTP 401: Unauthorized", provider.Description);
+        // Primary should be the healthy entry even though it's older — error data
+        // must not overwrite real summary fields.
+        Assert.Equal("58% remaining", provider.Description);
+        Assert.Equal(42, provider.UsedPercent);
+        Assert.True(provider.IsAvailable); // group has at least one healthy entry
     }
 
     [Fact]
@@ -249,7 +252,7 @@ public sealed class GroupedUsageProjectionServiceTests
     }
 
     [Fact]
-    public void Build_MinimaxIoAndCodingPlan_MergesUnderMinimaxOwner()
+    public void Build_MinimaxIoAndCodingPlan_ProjectAsSeparateProviders()
     {
         var usages = new[]
         {
@@ -296,8 +299,12 @@ public sealed class GroupedUsageProjectionServiceTests
 
         var snapshot = GroupedUsageProjectionService.Build(usages);
 
-        var group = Assert.Single(snapshot.Providers);
-        Assert.Equal("minimax", group.ProviderId);
-        Assert.True(group.IsAvailable);
+        var minimaxIo = Assert.Single(snapshot.Providers, p => string.Equals(p.ProviderId, "minimax-io", StringComparison.Ordinal));
+        var minimaxCoding = Assert.Single(snapshot.Providers, p => string.Equals(p.ProviderId, "minimax-coding-plan", StringComparison.Ordinal));
+
+        Assert.Equal("MiniMax.io", minimaxIo.ProviderName);
+        Assert.Equal("Minimax.io Coding Plan", minimaxCoding.ProviderName);
+        Assert.Empty(minimaxIo.Models);
+        Assert.Empty(minimaxCoding.Models);
     }
 }

@@ -37,7 +37,9 @@ public static class ProviderMetadataCatalog
         }
 
         return Definitions.FirstOrDefault(definition =>
-            ProviderFamilyPolicy.BelongsToProviderFamily(definition.HandledProviderIds, providerId, definition.FamilyMode));
+                string.Equals(definition.ProviderId, providerId, StringComparison.OrdinalIgnoreCase))
+            ?? Definitions.FirstOrDefault(definition =>
+                ProviderFamilyPolicy.BelongsToProviderFamily(definition.HandledProviderIds, providerId, definition.FamilyMode));
     }
 
     public static bool TryGet(string providerId, out ProviderDefinition definition)

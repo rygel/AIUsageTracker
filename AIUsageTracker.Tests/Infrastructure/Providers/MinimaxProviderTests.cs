@@ -827,11 +827,11 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
     }
 
     [Fact]
-    public void StaticDefinition_CodingPlan_IsInAdditionalHandledProviderIds()
+    public void CodingPlanDefinition_HasCorrectProperties()
     {
-        var definition = MinimaxProvider.StaticDefinition;
-        Assert.Contains(MinimaxProvider.CodingPlanProviderId, definition.AdditionalHandledProviderIds);
-        Assert.Equal("Minimax.io Coding Plan", definition.DisplayNameOverrides[MinimaxProvider.CodingPlanProviderId]);
+        var definition = MinimaxProvider.CodingPlanDefinition;
+        Assert.Equal(MinimaxProvider.CodingPlanProviderId, definition.ProviderId);
+        Assert.Equal("Minimax.io Coding Plan", definition.DisplayName);
     }
 
     private void SetupResponse(HttpStatusCode statusCode, string content, string? url = null)
