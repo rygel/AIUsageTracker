@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.4.3-beta.2] - 2026-07-11
+
+### Fixed
+- **Monitor writes port: 0 to monitor.json on hibernate suspend/resume**: After waking from hibernate, the Monitor saved `port: 0` to `monitor.json`, causing the Slim UI to lose its connection and show zero values for up to a minute. Now the port file is left untouched across hibernate cycles — the Monitor's port doesn't change.
+
 ## [2.4.3-beta.1] - 2026-07-11
 
 ### Fixed
