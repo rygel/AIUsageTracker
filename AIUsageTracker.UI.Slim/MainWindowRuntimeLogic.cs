@@ -489,7 +489,7 @@ internal static partial class MainWindowRuntimeLogic
         ProviderUsage? windowCard,
         bool useRelativeResetTime)
     {
-        if (windowCard is not WindowedProviderUsage wc || string.IsNullOrWhiteSpace(wc.Name))
+        if (windowCard is not QuotaProviderUsage wc || string.IsNullOrWhiteSpace(wc.Name))
         {
             return;
         }
