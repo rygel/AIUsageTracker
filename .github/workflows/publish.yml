@@ -84,8 +84,11 @@ jobs:
 
       - name: Extract Version and Channel
         id: extract
+        env:
+          INPUT_TAG: ${{ inputs.tag || '' }}
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          VERSION="${INPUT_TAG:-${GITHUB_REF#refs/tags/v}}"
+          VERSION="${VERSION#v}"
           if [[ "$VERSION" =~ -beta ]]; then
             CHANNEL="beta"
           else
@@ -137,8 +140,11 @@ jobs:
 
       - name: Extract Version and Channel
         id: extract
+        env:
+          INPUT_TAG: ${{ inputs.tag || '' }}
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          VERSION="${INPUT_TAG:-${GITHUB_REF#refs/tags/v}}"
+          VERSION="${VERSION#v}"
           if [[ "$VERSION" =~ -beta ]]; then
             CHANNEL="beta"
             PRERELEASE="true"
