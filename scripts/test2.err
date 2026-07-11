@@ -1,2 +1,0 @@
-[xUnit.net 00:00:02.56]     AIUsageTracker.Tests.UI.Services.PrivacyChangedWeakEventManagerTests.AddHandler_WithStrongReference_InvokesHandlerAfterGcCycle [FAIL]
-Test Run Failed.

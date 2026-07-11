@@ -1,2 +1,0 @@
-[xUnit.net 00:01:06.72]     AIUsageTracker.Tests.Core.MonitorProcessServiceTests.StartAgentDetailedAsync_ReturnsStartupFailureDetails_WhenStartupFailsWhileWaitingAsync [FAIL]
-Test Run Failed.
