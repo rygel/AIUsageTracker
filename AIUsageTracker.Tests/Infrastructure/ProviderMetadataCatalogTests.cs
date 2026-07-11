@@ -128,8 +128,8 @@ public class ProviderMetadataCatalogTests
     [InlineData("codex.spark", "codex.spark")]
     [InlineData("antigravity.claude-opus", "antigravity")]
     [InlineData("kimi", "kimi-for-coding")]
-    [InlineData("minimax-io", "minimax-io")]
-    [InlineData("minimax-coding-plan", "minimax-coding-plan")]
+    [InlineData("minimax-io", "minimax")]
+    [InlineData("minimax-coding-plan", "minimax")]
     [InlineData("minimax-global", "minimax")]
     [InlineData("opencode-go", "opencode-go")]
     [InlineData("unknown-provider", "unknown-provider")]
@@ -353,15 +353,6 @@ public class ProviderMetadataCatalogTests
     }
 
     [Theory]
-    [InlineData("codex.spark", false)]
-    [InlineData("codex", false)]
-    [InlineData("openai", false)]
-    public void IsVisibleDerivedProviderId_UsesProviderDefinitions(string providerId, bool expected)
-    {
-        Assert.Equal(expected, ProviderMetadataCatalog.IsVisibleDerivedProviderId(providerId));
-    }
-
-    [Theory]
     [InlineData("codex", true)]
     [InlineData("openai", false)]
     [InlineData("deepseek", false)]
@@ -410,7 +401,6 @@ public class ProviderMetadataCatalogTests
 
         Assert.Contains("codex.spark", providerIds);
         Assert.Contains("minimax", providerIds);
-        Assert.Contains("minimax-io", providerIds);
         Assert.DoesNotContain("openai", providerIds);
     }
 

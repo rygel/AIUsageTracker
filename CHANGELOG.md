@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2.4.3-beta.4] - 2026-07-11
+
+### Removed
+- **`SettingsAdditionalProviderIds` provider discovery** — Settings no longer dynamically discovers providers via `SettingsAdditionalProviderIds` or usage data. The settings list is a flat, hard-coded set of `ProviderDefinition` entries. Sub-providers with separate API keys (`minimax-io`, `minimax-coding-plan`) must have their own definition to appear in settings.
+- **`SelectPrimaryUsage` owner-matching fallback** — Removed the heuristic that tried to find a usage matching the group owner ID and fell back to the first usage. Groups simply use the most recent usage row. The `ProviderDefinition` is the sole authority for provider identity.
+
 ## [2.4.3-beta.3] - 2026-07-11
 
 ### Fixed

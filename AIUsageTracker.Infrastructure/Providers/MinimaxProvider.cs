@@ -50,7 +50,6 @@ public class MinimaxProvider : ProviderBase
             [InternationalLegacyProviderId] = "MiniMax.io",
             [CodingPlanProviderId] = "Minimax.io Coding Plan",
         },
-        SettingsAdditionalProviderIds = new[] { InternationalProviderId, CodingPlanProviderId },
         DiscoveryEnvironmentVariables = new[] { "MINIMAX_API_KEY" },
         IconAssetName = "minimax",
         BadgeColorHex = "#00CED1",

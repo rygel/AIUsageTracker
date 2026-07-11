@@ -167,12 +167,6 @@ public sealed class ProviderKeyDeletionEndToEndTests
         Assert.True(definition.ShowInMainWindow);
     }
 
-    [Fact]
-    public void Synthetic_IsNotVisibleDerivedProviderId()
-    {
-        Assert.False(ProviderMetadataCatalog.IsVisibleDerivedProviderId("synthetic"));
-    }
-
     // ───────────────────────────────────────────────────────────
     //  Expired state: subscription lapsed but key still present
     // ───────────────────────────────────────────────────────────

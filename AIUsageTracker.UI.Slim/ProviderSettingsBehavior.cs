@@ -7,5 +7,4 @@ namespace AIUsageTracker.UI.Slim;
 internal sealed record ProviderSettingsBehavior(
     ProviderInputMode InputMode,
     bool IsInactive,
-    bool IsDerivedVisible,
     string? SessionProviderLabel);

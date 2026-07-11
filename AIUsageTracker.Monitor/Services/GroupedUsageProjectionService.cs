@@ -35,7 +35,7 @@ public static class GroupedUsageProjectionService
     private static AgentGroupedProviderUsage BuildProviderGroup(IGrouping<string, ProviderUsage> group)
     {
         var providerId = group.Key;
-        var primary = SelectPrimaryUsage(group, providerId);
+        var primary = group.OrderByDescending(usage => usage.FetchedAt).First();
         var primaryQ = primary as QuotaProviderUsage;
         var models = BuildModels(group, providerId);
         var accountName = group
@@ -75,22 +75,6 @@ public static class GroupedUsageProjectionService
             Models = models,
             ProviderDetails = providerDetails,
         };
-    }
-
-    private static ProviderUsage SelectPrimaryUsage(IEnumerable<ProviderUsage> group, string ownerProviderId)
-    {
-        var ownerUsage = group
-            .Where(usage => string.Equals(usage.ProviderId, ownerProviderId, StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(usage => usage.FetchedAt)
-            .FirstOrDefault();
-
-        if (ownerUsage != null)
-        {
-            return ownerUsage;
-        }
-
-        throw new InvalidOperationException(
-            $"Grouped usage for owner '{ownerProviderId}' did not contain a matching owner row.");
     }
 
     private static List<AgentGroupedModelUsage> BuildModels(

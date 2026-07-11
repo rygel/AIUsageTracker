@@ -116,20 +116,8 @@ public partial class SettingsWindow
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Select(CreateDefaultDisplayConfig)
             .Select(config => new ProviderSettingsDisplayItem(config, IsDerived: false));
-        var explicitDisplayProviderIds = configuredProviderIds
-            .Concat(defaultProviderIds)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var derivedItems = usages
-            .Select(usage => new { Usage = usage, ProviderId = usage.ProviderId ?? string.Empty })
-            .Where(x =>
-                !string.IsNullOrWhiteSpace(x.ProviderId) &&
-                ProviderMetadataCatalog.IsVisibleDerivedProviderId(x.ProviderId) &&
-                !explicitDisplayProviderIds.Contains(x.ProviderId))
-            .Select(x => x.Usage)
-            .Select(usage => new ProviderSettingsDisplayItem(CreateDerivedConfig(usage), IsDerived: true));
 
         displayItems.AddRange(defaultItems);
-        displayItems.AddRange(derivedItems);
 
         return displayItems
             .OrderBy(item => ProviderMetadataCatalog.GetConfiguredDisplayName(item.Config.ProviderId), StringComparer.OrdinalIgnoreCase)
@@ -160,7 +148,6 @@ public partial class SettingsWindow
         return new ProviderSettingsBehavior(
             InputMode: inputMode,
             IsInactive: isInactive,
-            IsDerivedVisible: ProviderMetadataCatalog.IsVisibleDerivedProviderId(config.ProviderId ?? string.Empty),
             SessionProviderLabel: sessionProviderLabel);
     }
 

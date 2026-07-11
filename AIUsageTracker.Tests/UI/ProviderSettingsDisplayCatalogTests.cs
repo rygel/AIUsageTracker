@@ -76,7 +76,6 @@ public sealed class ProviderSettingsDisplayCatalogTests
         Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "codex.spark", StringComparison.Ordinal) && !item.IsDerived);
         Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "opencode-zen", StringComparison.Ordinal) && !item.IsDerived);
         Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "minimax", StringComparison.Ordinal) && !item.IsDerived);
-        Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "minimax-io", StringComparison.Ordinal) && !item.IsDerived);
     }
 
     [Fact]

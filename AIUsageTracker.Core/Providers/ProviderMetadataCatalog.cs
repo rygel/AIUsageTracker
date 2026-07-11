@@ -55,11 +55,6 @@ public static class ProviderMetadataCatalog
 
     public static string GetProviderOwnerId(string providerId)
     {
-        if (IsVisibleDerivedProviderId(providerId))
-        {
-            return providerId;
-        }
-
         return Find(providerId)?.ProviderId ?? providerId;
     }
 
@@ -164,7 +159,7 @@ public static class ProviderMetadataCatalog
     {
         return Definitions
             .Where(definition => definition.ShowInSettings)
-            .SelectMany(definition => new[] { definition.ProviderId }.Concat(definition.SettingsAdditionalProviderIds))
+            .Select(definition => definition.ProviderId)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
@@ -211,17 +206,6 @@ public static class ProviderMetadataCatalog
         }
 
         return !definition.NonPersistedProviderIds.Contains(providerId, StringComparer.OrdinalIgnoreCase);
-    }
-
-    public static bool IsVisibleDerivedProviderId(string providerId)
-    {
-        if (string.IsNullOrWhiteSpace(providerId))
-        {
-            return false;
-        }
-
-        return Definitions.Any(definition =>
-            definition.SettingsAdditionalProviderIds.Contains(providerId, StringComparer.OrdinalIgnoreCase));
     }
 
     public static bool TryCreateDefaultConfig(

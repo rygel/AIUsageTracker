@@ -249,7 +249,7 @@ public sealed class GroupedUsageProjectionServiceTests
     }
 
     [Fact]
-    public void Build_MinimaxIoAndCodingPlan_ProjectAsSeparateProviders()
+    public void Build_MinimaxIoAndCodingPlan_MergesUnderMinimaxOwner()
     {
         var usages = new[]
         {
@@ -296,12 +296,8 @@ public sealed class GroupedUsageProjectionServiceTests
 
         var snapshot = GroupedUsageProjectionService.Build(usages);
 
-        var minimaxIo = Assert.Single(snapshot.Providers, p => string.Equals(p.ProviderId, "minimax-io", StringComparison.Ordinal));
-        var minimaxCoding = Assert.Single(snapshot.Providers, p => string.Equals(p.ProviderId, "minimax-coding-plan", StringComparison.Ordinal));
-
-        Assert.Equal("MiniMax.io", minimaxIo.ProviderName);
-        Assert.Equal("Minimax.io Coding Plan", minimaxCoding.ProviderName);
-        Assert.Empty(minimaxIo.Models);
-        Assert.Empty(minimaxCoding.Models);
+        var group = Assert.Single(snapshot.Providers);
+        Assert.Equal("minimax", group.ProviderId);
+        Assert.True(group.IsAvailable);
     }
 }

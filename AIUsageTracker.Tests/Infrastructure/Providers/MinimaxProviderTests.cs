@@ -831,7 +831,6 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
     {
         var definition = MinimaxProvider.StaticDefinition;
         Assert.Contains(MinimaxProvider.CodingPlanProviderId, definition.AdditionalHandledProviderIds);
-        Assert.Contains(MinimaxProvider.CodingPlanProviderId, definition.SettingsAdditionalProviderIds);
         Assert.Equal("Minimax.io Coding Plan", definition.DisplayNameOverrides[MinimaxProvider.CodingPlanProviderId]);
     }
 

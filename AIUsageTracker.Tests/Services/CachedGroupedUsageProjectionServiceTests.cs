@@ -122,17 +122,17 @@ public sealed class CachedGroupedUsageProjectionServiceTests
 
         var snapshot = await service.GetGroupedUsageAsync();
 
-        // The configured MiniMax.io provider must appear.
-        var minimaxGroup = snapshot.Providers
-            .FirstOrDefault(p => string.Equals(p.ProviderId, "minimax-io", StringComparison.OrdinalIgnoreCase));
-        Assert.NotNull(minimaxGroup);
+        // The configured MiniMax.io provider must appear, merged under the minimax owner.
+        var minimaxGroup = Assert.Single(snapshot.Providers);
+        Assert.Equal("minimax", minimaxGroup.ProviderId, ignoreCase: true);
 
         // The group must reflect minimax-io data and remain available.
         Assert.True(
             minimaxGroup.IsAvailable,
             "MiniMax.io should be available because minimax-io has a key.");
 
-        Assert.DoesNotContain(snapshot.Providers, p =>
-            string.Equals(p.ProviderId, "minimax", StringComparison.OrdinalIgnoreCase));
+        // minimax (China, no key) and minimax-coding-plan (no key) are not in the snapshot
+        // because they were excluded from visible IDs, but their data feeds into the minimax group.
+        Assert.Single(snapshot.Providers);
     }
 }

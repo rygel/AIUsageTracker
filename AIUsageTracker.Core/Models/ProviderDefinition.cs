@@ -85,8 +85,6 @@ public sealed class ProviderDefinition : IEquatable<ProviderDefinition>
 
     public bool ShowInSettings { get; init; } = true;
 
-    public IReadOnlyCollection<string> SettingsAdditionalProviderIds { get; init; } = Array.Empty<string>();
-
     public IReadOnlyCollection<string> CoReportedProviderIds { get; init; } = Array.Empty<string>();
 
     public string? IconAssetName { get; init; }
