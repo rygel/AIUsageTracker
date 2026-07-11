@@ -2,10 +2,11 @@
 
 ## [Unreleased]
 
-## [2.4.2-beta.7] - 2026-07-09
+## [2.4.3-beta.1] - 2026-07-11
 
 ### Fixed
 - **Tooltip daily budget uses mismatched window values for dual-bar providers**: The tooltip's pace calculation for dual-window cards (Codex, OpenAI) mixed `UsedPercent` and `NextResetTime` from the burst window with `PeriodDuration` from the rolling window, producing meaningless expected-vs-actual comparisons. Now correctly uses the rolling window's values for all three terms. Also renamed "Daily budget" to "Pace target" and "Expected by now" to "Expected at this point" for clarity.
+- **Publish workflow create-release fails on workflow_dispatch**: `GITHUB_REF` is a branch ref on manual dispatch, not a tag ref. Fixed `generate-appcast` and `create-release` jobs to read version from `inputs.tag` when triggered via `workflow_dispatch`. Also added explicit `tag_name` to `softprops/action-gh-release` for the same reason.
 
 ## [2.4.2-beta.6] - 2026-07-06
 
