@@ -115,13 +115,11 @@ public sealed class PowerStateListener : IHostedService, IDisposable
     {
         this._logger.LogInformation("System suspend detected — pausing scheduler");
         this._onSuspend();
-        MonitorInfoPersistence.SaveMonitorInfo(port: 0, debug: false, logger: this._logger, pathProvider: this._pathProvider, startupStatus: "suspended");
     }
 
     private void HandleResume()
     {
         this._logger.LogInformation("System resume detected — resuming scheduler");
         this._onResume();
-        MonitorInfoPersistence.SaveMonitorInfo(port: 0, debug: false, logger: this._logger, pathProvider: this._pathProvider, startupStatus: "running");
     }
 }
