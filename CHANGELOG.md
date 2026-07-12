@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [2.4.3-beta.5] - 2026-07-11
+
+### Changed
+- **`NormalizeUsage` now mutates in place** — The pipeline's normalization step no longer allocates a new `ProviderUsage` object for every entry. Instead it sanitizes and normalizes values directly on the received instance. No user-visible difference.
+- **Group summary aggregates across all available quota entries** — The projection service no longer picks a single "primary" usage entry for aggregated metrics. `RequestsUsed`, `RequestsAvailable`, and `UsedPercent` on the group summary now reflect the sum of all available quota entries in the group. This gives accurate totals when a provider reports multiple quota windows (e.g., burst + rolling).
+
+### Removed
+- **`CachedGroupedUsageProjectionService`** — Removed the caching wrapper around `IGroupedUsageProjectionService`. The in-memory cache was redundant: the database already caches the data, the projection is cheap, and the invalidation logic was fragile. The endpoint now calls the projection directly.
+
 ## [2.4.3-beta.4] - 2026-07-11
 
 ### Removed

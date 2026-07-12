@@ -216,149 +216,88 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         ref int normalizedCount,
         ref int privacyRedactedCount)
     {
-        var providerId = usage.ProviderId?.Trim() ?? string.Empty;
-        var providerName = string.IsNullOrWhiteSpace(usage.ProviderName)
-            ? providerId
-            : usage.ProviderName.Trim();
-        ProviderMetadataCatalog.TryGet(providerId, out var definition);
-
         var srcQuota = usage as QuotaProviderUsage;
-        var srcWindowed = usage as WindowedProviderUsage;
-        var srcModelScoped = usage as ModelScopedProviderUsage;
 
-        var requestsUsed = SanitizeNonNegativeFinite(srcQuota?.RequestsUsed ?? 0);
-        var requestsAvailable = SanitizeNonNegativeFinite(srcQuota?.RequestsAvailable ?? 0);
-        var requestsPercentage = srcQuota != null
-            ? NormalizePercentage(srcQuota, requestsUsed, requestsAvailable)
-            : 0;
-        var responseLatencyMs = SanitizeNonNegativeFinite(usage.ResponseLatencyMs);
-        var fetchedAt = NormalizeFetchedAt(usage.FetchedAt);
+        var origProviderId = usage.ProviderId;
+        var origProviderName = usage.ProviderName;
+        var origDescription = usage.Description;
+        var origFetchedAt = usage.FetchedAt;
+        var origHttpStatus = usage.HttpStatus;
+        var origResponseLatencyMs = usage.ResponseLatencyMs;
+        var origUpstreamResponseValidity = usage.UpstreamResponseValidity;
+        var origUpstreamResponseNote = usage.UpstreamResponseNote;
+        var origNextResetTime = srcQuota?.NextResetTime;
+        var origRequestsUsed = srcQuota?.RequestsUsed ?? 0;
+        var origRequestsAvailable = srcQuota?.RequestsAvailable ?? 0;
+        var origUsedPercent = srcQuota?.UsedPercent ?? 0;
+
+        usage.ProviderId = usage.ProviderId?.Trim() ?? string.Empty;
+        usage.ProviderName = string.IsNullOrWhiteSpace(usage.ProviderName)
+            ? usage.ProviderId
+            : usage.ProviderName.Trim();
+        var definition = ProviderMetadataCatalog.Find(usage.ProviderId);
+
+        if (srcQuota != null)
+        {
+            srcQuota.RequestsUsed = SanitizeNonNegativeFinite(srcQuota.RequestsUsed);
+            srcQuota.RequestsAvailable = SanitizeNonNegativeFinite(srcQuota.RequestsAvailable);
+            srcQuota.UsedPercent = NormalizePercentage(srcQuota, srcQuota.RequestsUsed, srcQuota.RequestsAvailable);
+            srcQuota.PlanType = definition?.PlanType ?? srcQuota.PlanType;
+            srcQuota.IsQuotaBased = definition?.IsQuotaBased ?? srcQuota.IsQuotaBased;
+            srcQuota.DisplayAsFraction = srcQuota.DisplayAsFraction || (definition?.DisplayAsFraction ?? false);
+            srcQuota.IsStatusOnly = srcQuota.IsStatusOnly || (definition?.IsStatusOnly ?? false);
+            srcQuota.IsCurrencyUsage = srcQuota.IsCurrencyUsage || (definition?.IsCurrencyUsage ?? false);
+            srcQuota.NextResetTime = srcQuota.NextResetTime?.ToUniversalTime();
+        }
+
+        usage.ResponseLatencyMs = SanitizeNonNegativeFinite(usage.ResponseLatencyMs);
+        usage.FetchedAt = NormalizeFetchedAt(usage.FetchedAt);
+        usage.HttpStatus = usage.HttpStatus is >= 0 and <= 599 ? usage.HttpStatus : 0;
+        usage.IsTooltipOnly = usage.IsTooltipOnly || (definition?.IsTooltipOnly ?? false);
+
         var description = (usage.Description ?? string.Empty).Trim();
         if (!usage.IsAvailable && string.IsNullOrWhiteSpace(description))
         {
             description = "Unavailable";
         }
+        usage.Description = description;
 
-        var httpStatus = usage.HttpStatus is >= 0 and <= 599 ? usage.HttpStatus : 0;
-
-        var usageNextResetTimeUtc = srcQuota?.NextResetTime?.ToUniversalTime();
-
-        // Contract: providers must populate NextResetTime on the root ProviderUsage when known.
-        // The processing pipeline does not infer or rewrite it from details.
-        var normalizedNextResetTimeUtc = usageNextResetTimeUtc;
-
-        var rawJson = usage.RawJson;
-        var accountName = usage.AccountName;
-        var configKey = usage.ConfigKey;
-        var upstreamResponseValidity = usage.UpstreamResponseValidity;
-        var upstreamResponseNote = usage.UpstreamResponseNote;
         if (isPrivacyMode)
         {
-            if (!string.IsNullOrWhiteSpace(rawJson) ||
-                !string.IsNullOrWhiteSpace(accountName) ||
-                !string.IsNullOrWhiteSpace(configKey))
+            if (!string.IsNullOrWhiteSpace(usage.RawJson) ||
+                !string.IsNullOrWhiteSpace(usage.AccountName) ||
+                !string.IsNullOrWhiteSpace(usage.ConfigKey))
             {
                 privacyRedactedCount++;
             }
 
-            rawJson = null;
-            accountName = string.Empty;
-            configKey = string.Empty;
+            usage.RawJson = null;
+            usage.AccountName = string.Empty;
+            usage.ConfigKey = string.Empty;
         }
 
-        // Create the appropriate concrete type preserving subtype-specific properties
-        ProviderUsage normalizedUsageCandidate;
-        if (usage is StatusProviderUsage)
-        {
-            normalizedUsageCandidate = new StatusProviderUsage();
-        }
-        else if (srcWindowed != null)
-        {
-            normalizedUsageCandidate = new WindowedProviderUsage
-            {
-                WindowKind = srcWindowed.WindowKind,
-                Name = srcWindowed.Name,
-                CardId = srcWindowed.CardId,
-                GroupId = srcWindowed.GroupId,
-                ParentProviderId = srcWindowed.ParentProviderId,
-                WindowCards = srcWindowed.WindowCards,
-                PeriodDuration = srcWindowed.PeriodDuration,
-            };
-        }
-        else if (srcModelScoped != null)
-        {
-            normalizedUsageCandidate = new ModelScopedProviderUsage
-            {
-                ModelName = srcModelScoped.ModelName,
-                WindowKind = srcModelScoped.WindowKind,
-                Name = srcModelScoped.Name,
-                CardId = srcModelScoped.CardId,
-                GroupId = srcModelScoped.GroupId,
-                PeriodDuration = srcModelScoped.PeriodDuration,
-            };
-        }
-        else
-        {
-            normalizedUsageCandidate = new QuotaProviderUsage();
-        }
+        var upstreamEval = usage.EvaluateUpstreamResponseValidity();
+        usage.UpstreamResponseValidity = upstreamEval.Validity;
+        usage.UpstreamResponseNote = upstreamEval.Note;
 
-        // Set common base properties (all subtypes)
-        normalizedUsageCandidate.ProviderId = providerId;
-        normalizedUsageCandidate.ProviderName = providerName;
-        normalizedUsageCandidate.IsAvailable = usage.IsAvailable;
-        normalizedUsageCandidate.State = usage.State;
-        normalizedUsageCandidate.IsTooltipOnly = usage.IsTooltipOnly || (definition?.IsTooltipOnly ?? false);
-        normalizedUsageCandidate.Description = description;
-        normalizedUsageCandidate.AuthSource = usage.AuthSource;
-        normalizedUsageCandidate.AccountName = accountName ?? string.Empty;
-        normalizedUsageCandidate.ConfigKey = configKey ?? string.Empty;
-        normalizedUsageCandidate.FetchedAt = fetchedAt;
-        normalizedUsageCandidate.ResponseLatencyMs = responseLatencyMs;
-        normalizedUsageCandidate.RawJson = rawJson;
-        normalizedUsageCandidate.HttpStatus = httpStatus;
-        normalizedUsageCandidate.UpstreamResponseValidity = upstreamResponseValidity;
-        normalizedUsageCandidate.UpstreamResponseNote = upstreamResponseNote ?? string.Empty;
-        normalizedUsageCandidate.IsStale = usage.IsStale;
-
-        // Set quota properties only for quota-bearing subtypes
-        if (normalizedUsageCandidate is QuotaProviderUsage quotaCandidate)
-        {
-            quotaCandidate.RequestsUsed = requestsUsed;
-            quotaCandidate.RequestsAvailable = requestsAvailable;
-            quotaCandidate.UsedPercent = requestsPercentage;
-            quotaCandidate.PlanType = definition?.PlanType ?? (srcQuota?.PlanType ?? PlanType.Usage);
-            quotaCandidate.IsQuotaBased = definition?.IsQuotaBased ?? (srcQuota?.IsQuotaBased ?? false);
-            quotaCandidate.DisplayAsFraction = (srcQuota?.DisplayAsFraction ?? false) || (definition?.DisplayAsFraction ?? false);
-            quotaCandidate.IsStatusOnly = (srcQuota?.IsStatusOnly ?? false) || (definition?.IsStatusOnly ?? false);
-            quotaCandidate.IsCurrencyUsage = (srcQuota?.IsCurrencyUsage ?? false) || (definition?.IsCurrencyUsage ?? false);
-            quotaCandidate.NextResetTime = normalizedNextResetTimeUtc;
-            quotaCandidate.ResetCreditsAvailable = srcQuota?.ResetCreditsAvailable;
-        }
-
-
-        var upstreamEvaluation = normalizedUsageCandidate.EvaluateUpstreamResponseValidity();
-        upstreamResponseValidity = upstreamEvaluation.Validity;
-        upstreamResponseNote = upstreamEvaluation.Note;
-
-        if (!StringEquals(providerId, usage.ProviderId) ||
-            !StringEquals(providerName, usage.ProviderName) ||
-            Math.Abs(requestsUsed - (srcQuota?.RequestsUsed ?? 0)) > 0.001 ||
-            Math.Abs(requestsAvailable - (srcQuota?.RequestsAvailable ?? 0)) > 0.001 ||
-            Math.Abs(requestsPercentage - (srcQuota?.UsedPercent ?? 0)) > 0.001 ||
-            Math.Abs(responseLatencyMs - usage.ResponseLatencyMs) > 0.001 ||
-            fetchedAt != usage.FetchedAt ||
-            !StringEquals(description, usage.Description) ||
-            httpStatus != usage.HttpStatus ||
-            normalizedNextResetTimeUtc != usageNextResetTimeUtc ||
-            upstreamResponseValidity != usage.UpstreamResponseValidity ||
-            !StringEquals(upstreamResponseNote, usage.UpstreamResponseNote))
+        if (!StringEquals(origProviderId, usage.ProviderId) ||
+            !StringEquals(origProviderName, usage.ProviderName) ||
+            Math.Abs(origResponseLatencyMs - usage.ResponseLatencyMs) > 0.001 ||
+            origFetchedAt != usage.FetchedAt ||
+            !StringEquals(origDescription, usage.Description) ||
+            origHttpStatus != usage.HttpStatus ||
+            origUpstreamResponseValidity != usage.UpstreamResponseValidity ||
+            !StringEquals(origUpstreamResponseNote, usage.UpstreamResponseNote) ||
+            (srcQuota != null && (
+                Math.Abs(origRequestsUsed - srcQuota.RequestsUsed) > 0.001 ||
+                Math.Abs(origRequestsAvailable - srcQuota.RequestsAvailable) > 0.001 ||
+                Math.Abs(origUsedPercent - srcQuota.UsedPercent) > 0.001 ||
+                origNextResetTime != srcQuota.NextResetTime)))
         {
             normalizedCount++;
         }
 
-        normalizedUsageCandidate.UpstreamResponseValidity = upstreamResponseValidity;
-        normalizedUsageCandidate.UpstreamResponseNote = upstreamResponseNote ?? string.Empty;
-        return normalizedUsageCandidate;
+        return usage;
     }
 
     private static bool StringEquals(string? left, string? right)

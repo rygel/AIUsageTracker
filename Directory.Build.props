@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
-    <TrackerVersion>2.4.3-beta.4</TrackerVersion>
-    <TrackerAssemblyVersion>2.4.2</TrackerAssemblyVersion>
+    <TrackerVersion>2.4.3-beta.5</TrackerVersion>
+    <TrackerAssemblyVersion>2.4.3</TrackerAssemblyVersion>
     <DefaultItemExcludes>$(DefaultItemExcludes);$(MSBuildProjectDirectory)\artifacts\**\*</DefaultItemExcludes>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AnalysisLevel>latest</AnalysisLevel>

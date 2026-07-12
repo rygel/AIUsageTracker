@@ -35,20 +35,68 @@ public static class GroupedUsageProjectionService
     private static AgentGroupedProviderUsage BuildProviderGroup(IGrouping<string, ProviderUsage> group)
     {
         var providerId = group.Key;
-        var primary = group.OrderByDescending(usage => usage.FetchedAt).First();
-        var primaryQ = primary as QuotaProviderUsage;
         var models = BuildModels(group, providerId);
         var accountName = group
             .OrderByDescending(usage => usage.FetchedAt)
             .Select(usage => usage.AccountName)
             .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
 
-        var nextResetTime = primaryQ?.NextResetTime
-            ?? models
-                .Where(model => model.NextResetTime.HasValue)
-                .Select(model => model.NextResetTime!.Value)
-                .OrderBy(reset => reset)
+        var availableQuota = group
+            .OfType<QuotaProviderUsage>()
+            .Where(q => q.IsAvailable)
+            .ToList();
+
+        double requestsUsed, requestsAvailable, usedPercent;
+        string description;
+        ProviderUsageState state;
+        PlanType planType;
+        bool isQuotaBased;
+        DateTime? nextResetTime;
+
+        if (availableQuota.Count > 0)
+        {
+            var newest = availableQuota.OrderByDescending(q => q.FetchedAt).First();
+            var totalUsed = availableQuota.Sum(q => q.RequestsUsed);
+            var totalAvailable = availableQuota.Sum(q => q.RequestsAvailable);
+
+            requestsUsed = totalUsed;
+            requestsAvailable = totalAvailable;
+            usedPercent = totalAvailable > 0
+                ? UsageMath.CalculateUsedPercent(totalUsed, totalAvailable)
+                : newest.UsedPercent;
+            description = newest.Description;
+            state = newest.State;
+            planType = newest.PlanType;
+            isQuotaBased = newest.IsQuotaBased;
+            nextResetTime = availableQuota
+                .Select(q => q.NextResetTime)
+                .Where(t => t.HasValue)
+                .OrderBy(t => t!.Value)
                 .FirstOrDefault();
+        }
+        else
+        {
+            var best = group
+                .OrderByDescending(u => u.IsAvailable)
+                .ThenByDescending(u => u.FetchedAt)
+                .First();
+            var bestQ = best as QuotaProviderUsage;
+
+            requestsUsed = 0;
+            requestsAvailable = 0;
+            usedPercent = 0;
+            description = best.Description;
+            state = best.State;
+            planType = bestQ?.PlanType ?? PlanType.Usage;
+            isQuotaBased = bestQ?.IsQuotaBased ?? false;
+            nextResetTime = bestQ?.NextResetTime;
+        }
+
+        nextResetTime ??= models
+            .Where(model => model.NextResetTime.HasValue)
+            .Select(model => model.NextResetTime!.Value)
+            .OrderBy(reset => reset)
+            .FirstOrDefault();
 
         var displayName = ProviderMetadataCatalog.GetConfiguredDisplayName(providerId);
         var providerDetails = (IReadOnlyList<ProviderUsage>)group
@@ -63,13 +111,13 @@ public static class GroupedUsageProjectionService
             ProviderName = displayName,
             AccountName = accountName,
             IsAvailable = group.Any(usage => usage.IsAvailable),
-            State = primary.State,
-            PlanType = primaryQ?.PlanType ?? PlanType.Usage,
-            IsQuotaBased = primaryQ?.IsQuotaBased ?? false,
-            RequestsUsed = primaryQ?.RequestsUsed ?? 0,
-            RequestsAvailable = primaryQ?.RequestsAvailable ?? 0,
-            UsedPercent = primaryQ?.UsedPercent ?? 0,
-            Description = primary.Description,
+            State = state,
+            PlanType = planType,
+            IsQuotaBased = isQuotaBased,
+            RequestsUsed = requestsUsed,
+            RequestsAvailable = requestsAvailable,
+            UsedPercent = usedPercent,
+            Description = description,
             FetchedAt = group.Max(usage => usage.FetchedAt),
             NextResetTime = nextResetTime,
             Models = models,

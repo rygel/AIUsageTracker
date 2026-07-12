@@ -43,7 +43,7 @@ public class MinimaxProvider : ProviderBase
             new(WindowKind.Burst, "5h", PeriodDuration: TimeSpan.FromHours(5)),
             new(WindowKind.Rolling, "Weekly", PeriodDuration: TimeSpan.FromDays(7)),
         },
-        AdditionalHandledProviderIds = new[] { InternationalProviderId, InternationalLegacyProviderId, CodingPlanProviderId },
+        AdditionalHandledProviderIds = new[] { InternationalLegacyProviderId },
         DisplayNameOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             [InternationalProviderId] = "MiniMax.io",
@@ -56,11 +56,53 @@ public class MinimaxProvider : ProviderBase
         BadgeInitial = "MM",
     };
 
+    public static ProviderDefinition InternationalDefinition { get; } = new(
+        InternationalProviderId,
+        "MiniMax.io",
+        PlanType.Coding,
+        isQuotaBased: true)
+    {
+        QuotaWindows = new QuotaWindowDefinition[]
+        {
+            new(WindowKind.Burst, "5h", PeriodDuration: TimeSpan.FromHours(5)),
+            new(WindowKind.Rolling, "Weekly", PeriodDuration: TimeSpan.FromDays(7)),
+        },
+        DiscoveryEnvironmentVariables = new[] { "MINIMAX_IO_API_KEY" },
+        ShowInSettings = true,
+        IconAssetName = "minimax",
+        BadgeColorHex = "#00CED1",
+        BadgeInitial = "MM",
+    };
+
+    public static ProviderDefinition CodingPlanDefinition { get; } = new(
+        CodingPlanProviderId,
+        "Minimax.io Coding Plan",
+        PlanType.Coding,
+        isQuotaBased: true)
+    {
+        QuotaWindows = new QuotaWindowDefinition[]
+        {
+            new(WindowKind.Burst, "5h", PeriodDuration: TimeSpan.FromHours(5)),
+            new(WindowKind.Rolling, "Weekly", PeriodDuration: TimeSpan.FromDays(7)),
+        },
+        DiscoveryEnvironmentVariables = new[] { "MINIMAX_CODING_PLAN_API_KEY" },
+        ShowInSettings = true,
+        IconAssetName = "minimax",
+        BadgeColorHex = "#00CED1",
+        BadgeInitial = "MM",
+    };
+
     /// <inheritdoc/>
     public override ProviderDefinition Definition => StaticDefinition;
 
     /// <inheritdoc/>
     public override string ProviderId => StaticDefinition.ProviderId;
+
+    /// <inheritdoc/>
+    public override bool CanHandleProviderId(string providerId) =>
+        base.CanHandleProviderId(providerId) ||
+        string.Equals(providerId, InternationalProviderId, StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(providerId, CodingPlanProviderId, StringComparison.OrdinalIgnoreCase);
 
     /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)

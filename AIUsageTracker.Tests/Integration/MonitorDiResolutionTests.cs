@@ -38,7 +38,6 @@ public class MonitorDiResolutionTests
         // Database
         services.AddSingleton<UsageDatabase>();
         services.AddSingleton<IUsageDatabase>(sp => sp.GetRequiredService<UsageDatabase>());
-        services.AddSingleton<CachedGroupedUsageProjectionService>();
 
         // Notification — use NoOp
         services.AddSingleton<INotificationService, NoOpNotificationService>();
