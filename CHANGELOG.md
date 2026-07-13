@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.4.4] - 2026-07-13
+
+### Fixed
+- **Codex tooltip shows "Reset credits available" again** — `GroupedUsageDisplayAdapter.Expand` only propagated `ResetCreditsAvailable` from a Burst window card. After the beta.6 simplification, codex now emits a single Rolling (weekly) window card for plans like "prolite" (no Burst sibling). The parent propagation now picks up `ResetCreditsAvailable` from whichever child card has it, regardless of `WindowKind`.
+
 ## [2.4.4-beta.3] - 2026-07-13
 
 ### Fixed
