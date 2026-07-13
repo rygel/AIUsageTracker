@@ -17,6 +17,7 @@ namespace AIUsageTracker.Infrastructure.Providers;
 public class CodexProvider : ProviderBase
 {
     private const string CodexSparkProviderId = "codex.spark";
+
     private const string WeeklyWindowLabel = "Weekly";
 
     public static ProviderDefinition StaticDefinition { get; } = new(
@@ -55,11 +56,6 @@ public class CodexProvider : ProviderBase
         },
     };
 
-    /// <summary>
-    /// Gets standalone provider definition for the Spark sub-model.
-    /// Registered in the catalog so it is grouped independently from the main codex provider,
-    /// enabling a separate dual-bar card (5h burst + weekly rolling) in the main window.
-    /// </summary>
     public static ProviderDefinition SparkDefinition { get; } = new(
         CodexSparkProviderId,
         "OpenAI (GPT-5.3 Codex Spark)",
@@ -70,7 +66,7 @@ public class CodexProvider : ProviderBase
         BadgeColorHex = "#008B8B",
         BadgeInitial = "AI",
         FamilyMode = ProviderFamilyMode.Standalone,
-        ShowInSettings = true,
+        ShowInSettings = false,
         SettingsMode = ProviderSettingsMode.SessionAuthStatus,
         SessionStatusLabel = "OpenAI (Codex)",
         AuthIdentityCandidatePathTemplates = new[]
@@ -84,6 +80,7 @@ public class CodexProvider : ProviderBase
             new(WindowKind.Rolling, WeeklyWindowLabel, PeriodDuration: TimeSpan.FromDays(7)),
         },
     };
+
 
     private const string UsageEndpoint = "https://chatgpt.com/backend-api/wham/usage";
     private const string AuthClaimKey = "https://api.openai.com/auth";
@@ -276,126 +273,6 @@ public class CodexProvider : ProviderBase
         return null;
     }
 
-    private static SparkWindow ExtractSparkWindow(JsonElement root)
-    {
-        var candidates = ParseAdditionalRateLimits(root);
-
-        var preferredAdditionalCandidate = SelectPreferredSparkCandidate(candidates);
-        if (preferredAdditionalCandidate.HasValue)
-        {
-            return preferredAdditionalCandidate.Value;
-        }
-
-        candidates = ParseRateLimitProperties(root);
-
-        var preferredRateLimitCandidate = SelectPreferredSparkCandidate(candidates);
-        return preferredRateLimitCandidate ?? new SparkWindow(Label: null, ModelName: null, PrimaryUsedPercent: null, PrimaryResetTime: null, PrimaryWindowSeconds: null, SecondaryUsedPercent: null, SecondaryResetTime: null, SecondaryWindowSeconds: null);
-    }
-
-    private static List<SparkWindow> ParseAdditionalRateLimits(JsonElement root)
-    {
-        var candidates = new List<SparkWindow>();
-
-        if (!root.TryGetProperty("additional_rate_limits", out var additionalRateLimits) ||
-            additionalRateLimits.ValueKind != JsonValueKind.Array)
-        {
-            return candidates;
-        }
-
-        foreach (var item in additionalRateLimits.EnumerateArray())
-        {
-            var modelName = item.ReadString("model_name") ?? item.ReadString("model");
-
-            if (!item.TryGetProperty(JsonKeyRateLimit, out var sparkRateLimit))
-            {
-                continue;
-            }
-
-            var sparkWindow = TryParseSparkWindowFromElement(sparkRateLimit, item.ReadString("limit_name"), modelName);
-            if (sparkWindow.HasValue)
-            {
-                candidates.Add(sparkWindow.Value);
-            }
-        }
-
-        return candidates;
-    }
-
-    private static List<SparkWindow> ParseRateLimitProperties(JsonElement root)
-    {
-        var candidates = new List<SparkWindow>();
-
-        if (!root.TryGetProperty(JsonKeyRateLimit, out var rateLimit) || rateLimit.ValueKind != JsonValueKind.Object)
-        {
-            return candidates;
-        }
-
-        foreach (var property in rateLimit.EnumerateObject())
-        {
-            if (property.Name.Equals(JsonKeyPrimaryWindow, StringComparison.OrdinalIgnoreCase) ||
-                property.Name.Equals(JsonKeySecondaryWindow, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            if (property.Value.ValueKind != JsonValueKind.Object)
-            {
-                continue;
-            }
-
-            var modelName = property.Value.ReadString("model_name") ?? property.Value.ReadString("model");
-            var sparkWindow = TryParseSparkWindowFromElement(property.Value, property.Name, modelName);
-            if (sparkWindow.HasValue)
-            {
-                candidates.Add(sparkWindow.Value);
-            }
-        }
-
-        return candidates;
-    }
-
-    private static SparkWindow? TryParseSparkWindowFromElement(JsonElement element, string? label, string? modelName)
-    {
-        var primaryUsedPercent = element.ReadDouble(JsonKeyPrimaryWindow, JsonKeyUsedPercent);
-        var primaryResetTime = ResolveWindowResetTime(
-            element.ReadDouble(JsonKeyPrimaryWindow, JsonKeyResetAt),
-            element.ReadDouble(JsonKeyPrimaryWindow, JsonKeyResetAfterSeconds));
-        var primaryWindowSeconds = element.ReadDouble(JsonKeyPrimaryWindow, JsonKeyLimitWindowSeconds);
-        var secondaryUsedPercent = element.ReadDouble(JsonKeySecondaryWindow, JsonKeyUsedPercent);
-        var secondaryResetTime = ResolveWindowResetTime(
-            element.ReadDouble(JsonKeySecondaryWindow, JsonKeyResetAt),
-            element.ReadDouble(JsonKeySecondaryWindow, JsonKeyResetAfterSeconds));
-        var secondaryWindowSeconds = element.ReadDouble(JsonKeySecondaryWindow, JsonKeyLimitWindowSeconds);
-        if (primaryUsedPercent.HasValue || primaryResetTime.HasValue || secondaryUsedPercent.HasValue || secondaryResetTime.HasValue)
-        {
-            return new SparkWindow(label, modelName, primaryUsedPercent, primaryResetTime, primaryWindowSeconds, secondaryUsedPercent, secondaryResetTime, secondaryWindowSeconds);
-        }
-
-        return null;
-    }
-
-    private static SparkWindow? SelectPreferredSparkCandidate(IReadOnlyCollection<SparkWindow> candidates)
-    {
-        if (candidates.Count == 0)
-        {
-            return null;
-        }
-
-        var match = candidates.Where(LooksLikeSparkWindow).Cast<SparkWindow?>().FirstOrDefault();
-        return match ?? candidates.First();
-    }
-
-    private static bool LooksLikeSparkWindow(SparkWindow candidate)
-    {
-        return ContainsSparkToken(candidate.Label) || ContainsSparkToken(candidate.ModelName);
-    }
-
-    private static bool ContainsSparkToken(string? value)
-    {
-        return !string.IsNullOrWhiteSpace(value) &&
-               value.Contains("spark", StringComparison.OrdinalIgnoreCase);
-    }
-
     private static CodexAuth? TryReadNativeAuth(JsonElement root)
     {
         foreach (var schema in StaticDefinition.SessionAuthFileSchemas)
@@ -500,7 +377,6 @@ public class CodexProvider : ProviderBase
             ? root.ReadDouble(JsonKeyRateLimit, JsonKeySecondaryWindow, JsonKeyResetAfterSeconds)
             : (double?)null;
 
-        var sparkWindow = ExtractSparkWindow(root);
         var accountIdentity = ResolveAccountIdentity(root, jwtEmail, authIdentity, accountId);
 
         var resetCreditsDouble = root.ReadDouble(JsonKeyRateLimitResetCredits, JsonKeyAvailableCount);
@@ -508,207 +384,77 @@ public class CodexProvider : ProviderBase
 
         var usages = new List<ProviderUsage>();
 
-        // Determine if primary window is weekly (new unified-window format)
-        var primaryIsWeekly = primaryLimit.HasValue && Math.Abs(primaryLimit.Value - WeeklyWindowSeconds) < 1;
-
-        if (primaryIsWeekly)
+        // Primary card — always created from primary_window
         {
-            // New format: primary_window IS the weekly window, secondary_window is null
+            var primaryResetTime = ResolveWindowResetTime(
+                root.ReadDouble(JsonKeyRateLimit, JsonKeyPrimaryWindow, JsonKeyResetAt),
+                primaryResetSeconds);
+            if (primaryUsedPercent.HasValue || primaryResetTime.HasValue)
+            {
+                var pct = primaryUsedPercent ?? 0.0;
+                var remaining = Math.Clamp(100.0 - pct, 0.0, 100.0);
+                var isWeekly = primaryLimit.HasValue && Math.Abs(primaryLimit.Value - WeeklyWindowSeconds) < 1;
+
+                var primaryCard = CreateModelScopedUsage(config);
+                primaryCard.ProviderName = providerLabel;
+                primaryCard.CardId = isWeekly ? "weekly" : "burst";
+                primaryCard.GroupId = config.ProviderId;
+                primaryCard.Name = isWeekly ? WeeklyWindowLabel : "5h";
+                primaryCard.WindowKind = isWeekly ? WindowKind.Rolling : WindowKind.Burst;
+                primaryCard.UsedPercent = pct;
+                primaryCard.RequestsUsed = pct;
+                primaryCard.RequestsAvailable = 100.0;
+                primaryCard.IsQuotaBased = this.Definition.IsQuotaBased;
+                primaryCard.PlanType = this.Definition.PlanType;
+                primaryCard.IsAvailable = true;
+                primaryCard.Description = $"{remaining.ToString("F0", CultureInfo.InvariantCulture)}% remaining";
+                primaryCard.AccountName = accountIdentity ?? string.Empty;
+                primaryCard.AuthSource = AuthSource.CodexNative(planType);
+                primaryCard.NextResetTime = primaryResetTime;
+                primaryCard.PeriodDuration = isWeekly ? TimeSpan.FromDays(7) : TimeSpan.FromHours(5);
+                primaryCard.ResetCreditsAvailable = resetCreditsAvailable;
+                primaryCard.RawJson = rawJson;
+                primaryCard.HttpStatus = httpStatus;
+                usages.Add(primaryCard);
+            }
+        }
+
+        // Secondary card — created from secondary_window if present
+        if (secondaryUsedPercent.HasValue)
+        {
             var weeklyResetTime = ResolveWindowResetTime(
-                root.ReadDouble(JsonKeyRateLimit, JsonKeyPrimaryWindow, JsonKeyResetAt),
-                primaryResetSeconds);
-            if (primaryUsedPercent.HasValue || weeklyResetTime.HasValue)
-            {
-                var weeklyPct = primaryUsedPercent ?? 0.0;
-                var weeklyCard = CreateModelScopedUsage(config);
-                weeklyCard.ProviderName = providerLabel;
-                weeklyCard.CardId = "weekly";
-                weeklyCard.GroupId = config.ProviderId;
-                weeklyCard.Name = WeeklyWindowLabel;
-                weeklyCard.WindowKind = WindowKind.Rolling;
-                weeklyCard.UsedPercent = weeklyPct;
-                weeklyCard.RequestsUsed = weeklyPct;
-                weeklyCard.RequestsAvailable = 100.0;
-                weeklyCard.IsQuotaBased = this.Definition.IsQuotaBased;
-                weeklyCard.PlanType = this.Definition.PlanType;
-                weeklyCard.IsAvailable = true;
-                weeklyCard.Description = $"{Math.Clamp(100.0 - weeklyPct, 0.0, 100.0).ToString("F0", CultureInfo.InvariantCulture)}% remaining | Plan: {planType}";
-                weeklyCard.AccountName = accountIdentity ?? string.Empty;
-                weeklyCard.AuthSource = AuthSource.CodexNative(planType);
-                weeklyCard.NextResetTime = weeklyResetTime;
-                weeklyCard.PeriodDuration = TimeSpan.FromDays(7);
-                weeklyCard.ResetCreditsAvailable = resetCreditsAvailable;
-                weeklyCard.RawJson = rawJson;
-                weeklyCard.HttpStatus = httpStatus;
-                usages.Add(weeklyCard);
-            }
-        }
-        else
-        {
-            // Old format: primary_window is burst (5h), secondary_window is weekly
-            var burstResetTime = ResolveWindowResetTime(
-                root.ReadDouble(JsonKeyRateLimit, JsonKeyPrimaryWindow, JsonKeyResetAt),
-                primaryResetSeconds);
-            if (primaryUsedPercent.HasValue || burstResetTime.HasValue)
-            {
-                var burstPct = primaryUsedPercent ?? 0.0;
-                var burstCard = CreateModelScopedUsage(config);
-                burstCard.ProviderName = providerLabel;
-                burstCard.CardId = "burst";
-                burstCard.GroupId = config.ProviderId;
-                burstCard.Name = "5h";
-                burstCard.WindowKind = WindowKind.Burst;
-                burstCard.UsedPercent = burstPct;
-                burstCard.RequestsUsed = burstPct;
-                burstCard.RequestsAvailable = 100.0;
-                burstCard.IsQuotaBased = this.Definition.IsQuotaBased;
-                burstCard.PlanType = this.Definition.PlanType;
-                burstCard.IsAvailable = true;
-                burstCard.Description = $"{Math.Clamp(100.0 - burstPct, 0.0, 100.0).ToString("F0", CultureInfo.InvariantCulture)}% remaining | Plan: {planType}";
-                burstCard.AccountName = accountIdentity ?? string.Empty;
-                burstCard.AuthSource = AuthSource.CodexNative(planType);
-                burstCard.NextResetTime = burstResetTime;
-                burstCard.PeriodDuration = TimeSpan.FromHours(5);
-                burstCard.ResetCreditsAvailable = resetCreditsAvailable;
-                burstCard.RawJson = rawJson;
-                burstCard.HttpStatus = httpStatus;
-                usages.Add(burstCard);
-            }
-
-            // Weekly card from secondary_window (old format)
-            if (secondaryUsedPercent.HasValue)
-            {
-                var weeklyResetTime = ResolveWindowResetTime(
-                    root.ReadDouble(JsonKeyRateLimit, JsonKeySecondaryWindow, JsonKeyResetAt),
-                    secondaryResetSeconds);
-                var weeklyRemaining = Math.Clamp(100.0 - secondaryUsedPercent.Value, 0.0, 100.0);
-                var effectiveSparkPercent = sparkWindow.HasWindowData
-                    ? (double?)Math.Max(sparkWindow.PrimaryUsedPercent ?? 0.0, sparkWindow.SecondaryUsedPercent ?? 0.0)
-                    : null;
-                var weeklyDesc = sparkWindow.HasWindowData && effectiveSparkPercent.HasValue
-                    ? $"{weeklyRemaining.ToString("F0", CultureInfo.InvariantCulture)}% remaining | Plan: {planType} | Spark: {effectiveSparkPercent.Value.ToString("F0", CultureInfo.InvariantCulture)}% used"
-                    : $"{weeklyRemaining.ToString("F0", CultureInfo.InvariantCulture)}% remaining | Plan: {planType}";
-                var weeklyCard = CreateModelScopedUsage(config);
-                weeklyCard.ProviderName = providerLabel;
-                weeklyCard.CardId = "weekly";
-                weeklyCard.GroupId = config.ProviderId;
-                weeklyCard.Name = WeeklyWindowLabel;
-                weeklyCard.WindowKind = WindowKind.Rolling;
-                weeklyCard.UsedPercent = secondaryUsedPercent.Value;
-                weeklyCard.RequestsUsed = secondaryUsedPercent.Value;
-                weeklyCard.RequestsAvailable = 100.0;
-                weeklyCard.IsQuotaBased = this.Definition.IsQuotaBased;
-                weeklyCard.PlanType = this.Definition.PlanType;
-                weeklyCard.IsAvailable = true;
-                weeklyCard.Description = weeklyDesc;
-                weeklyCard.AccountName = accountIdentity ?? string.Empty;
-                weeklyCard.AuthSource = AuthSource.CodexNative(planType);
-                weeklyCard.NextResetTime = weeklyResetTime;
-                weeklyCard.PeriodDuration = TimeSpan.FromDays(7);
-                weeklyCard.RawJson = rawJson;
-                weeklyCard.HttpStatus = httpStatus;
-                usages.Add(weeklyCard);
-            }
+                root.ReadDouble(JsonKeyRateLimit, JsonKeySecondaryWindow, JsonKeyResetAt),
+                secondaryResetSeconds);
+            var weeklyRemaining = Math.Clamp(100.0 - secondaryUsedPercent.Value, 0.0, 100.0);
+            var weeklyCard = CreateModelScopedUsage(config);
+            weeklyCard.ProviderName = providerLabel;
+            weeklyCard.CardId = "weekly";
+            weeklyCard.GroupId = config.ProviderId;
+            weeklyCard.Name = WeeklyWindowLabel;
+            weeklyCard.WindowKind = WindowKind.Rolling;
+            weeklyCard.UsedPercent = secondaryUsedPercent.Value;
+            weeklyCard.RequestsUsed = secondaryUsedPercent.Value;
+            weeklyCard.RequestsAvailable = 100.0;
+            weeklyCard.IsQuotaBased = this.Definition.IsQuotaBased;
+            weeklyCard.PlanType = this.Definition.PlanType;
+            weeklyCard.IsAvailable = true;
+            weeklyCard.Description = $"{weeklyRemaining.ToString("F0", CultureInfo.InvariantCulture)}% remaining";
+            weeklyCard.AccountName = accountIdentity ?? string.Empty;
+            weeklyCard.AuthSource = AuthSource.CodexNative(planType);
+            weeklyCard.NextResetTime = weeklyResetTime;
+            weeklyCard.PeriodDuration = TimeSpan.FromDays(7);
+            weeklyCard.RawJson = rawJson;
+            weeklyCard.HttpStatus = httpStatus;
+            usages.Add(weeklyCard);
         }
 
-        if (usages.Count == 0 && !sparkWindow.HasWindowData)
+        if (usages.Count == 0)
         {
             this._logger.LogWarning("[CODEX] No usage window data in response — returning error");
             return new List<ProviderUsage>
             {
                 this.CreateUnavailableUsageWithIdentity("No usage window data in response", accountIdentity, httpStatus),
             };
-        }
-
-        // Spark cards — check limit_window_seconds to determine window type
-        if (sparkWindow.HasWindowData)
-        {
-            var sparkDisplayName = ProviderMetadataCatalog.GetConfiguredDisplayName(CodexSparkProviderId);
-            var sparkPrimaryIsWeekly = sparkWindow.PrimaryWindowSeconds.HasValue &&
-                                       Math.Abs(sparkWindow.PrimaryWindowSeconds.Value - WeeklyWindowSeconds) < 1;
-            if (sparkPrimaryIsWeekly)
-            {
-                // New format: spark primary is weekly, secondary is null
-                var sparkWeeklyUsed = sparkWindow.PrimaryUsedPercent ?? 0.0;
-                var sparkWeeklyResetTime = sparkWindow.PrimaryResetTime;
-
-                var sparkWeeklyCard = CreateModelScopedUsage(config);
-                sparkWeeklyCard.ProviderId = CodexSparkProviderId;
-                sparkWeeklyCard.ProviderName = sparkDisplayName;
-                sparkWeeklyCard.CardId = "spark.weekly";
-                sparkWeeklyCard.GroupId = this.ProviderId;
-                sparkWeeklyCard.Name = WeeklyWindowLabel;
-                sparkWeeklyCard.WindowKind = WindowKind.Rolling;
-                sparkWeeklyCard.UsedPercent = sparkWeeklyUsed;
-                sparkWeeklyCard.RequestsUsed = sparkWeeklyUsed;
-                sparkWeeklyCard.RequestsAvailable = 100.0;
-                sparkWeeklyCard.IsQuotaBased = this.Definition.IsQuotaBased;
-                sparkWeeklyCard.PlanType = this.Definition.PlanType;
-                sparkWeeklyCard.IsAvailable = true;
-                sparkWeeklyCard.Description = $"{Math.Clamp(100.0 - sparkWeeklyUsed, 0.0, 100.0).ToString("F0", CultureInfo.InvariantCulture)}% remaining | Plan: {planType}";
-                sparkWeeklyCard.AccountName = accountIdentity ?? string.Empty;
-                sparkWeeklyCard.AuthSource = AuthSource.CodexNative(planType);
-                sparkWeeklyCard.NextResetTime = sparkWeeklyResetTime;
-                sparkWeeklyCard.PeriodDuration = TimeSpan.FromDays(7);
-                sparkWeeklyCard.RawJson = rawJson;
-                sparkWeeklyCard.HttpStatus = httpStatus;
-                usages.Add(sparkWeeklyCard);
-            }
-            else
-            {
-                // Old format: spark burst from primary, weekly from secondary
-                var sparkBurstUsed = sparkWindow.PrimaryUsedPercent ?? 0.0;
-                var sparkBurstResetTime = sparkWindow.PrimaryResetTime;
-
-                var sparkBurstCard = CreateModelScopedUsage(config);
-                sparkBurstCard.ProviderId = CodexSparkProviderId;
-                sparkBurstCard.ProviderName = sparkDisplayName;
-                sparkBurstCard.CardId = "spark.burst";
-                sparkBurstCard.GroupId = this.ProviderId;
-                sparkBurstCard.Name = "5h";
-                sparkBurstCard.WindowKind = WindowKind.Burst;
-                sparkBurstCard.UsedPercent = sparkBurstUsed;
-                sparkBurstCard.RequestsUsed = sparkBurstUsed;
-                sparkBurstCard.RequestsAvailable = 100.0;
-                sparkBurstCard.IsQuotaBased = this.Definition.IsQuotaBased;
-                sparkBurstCard.PlanType = this.Definition.PlanType;
-                sparkBurstCard.IsAvailable = true;
-                sparkBurstCard.Description = $"{Math.Clamp(100.0 - sparkBurstUsed, 0.0, 100.0).ToString("F0", CultureInfo.InvariantCulture)}% remaining | Plan: {planType}";
-                sparkBurstCard.AccountName = accountIdentity ?? string.Empty;
-                sparkBurstCard.AuthSource = AuthSource.CodexNative(planType);
-                sparkBurstCard.NextResetTime = sparkBurstResetTime;
-                sparkBurstCard.PeriodDuration = TimeSpan.FromHours(5);
-                sparkBurstCard.RawJson = rawJson;
-                sparkBurstCard.HttpStatus = httpStatus;
-                usages.Add(sparkBurstCard);
-
-                {
-                    var sparkWeeklyUsed = sparkWindow.SecondaryUsedPercent ?? 0.0;
-                    var sparkWeeklyResetTime = sparkWindow.SecondaryResetTime;
-
-                    var sparkWeeklyCard = CreateModelScopedUsage(config);
-                    sparkWeeklyCard.ProviderId = CodexSparkProviderId;
-                    sparkWeeklyCard.ProviderName = sparkDisplayName;
-                    sparkWeeklyCard.CardId = "spark.weekly";
-                    sparkWeeklyCard.GroupId = this.ProviderId;
-                    sparkWeeklyCard.Name = WeeklyWindowLabel;
-                    sparkWeeklyCard.WindowKind = WindowKind.Rolling;
-                    sparkWeeklyCard.UsedPercent = sparkWeeklyUsed;
-                    sparkWeeklyCard.RequestsUsed = sparkWeeklyUsed;
-                    sparkWeeklyCard.RequestsAvailable = 100.0;
-                    sparkWeeklyCard.IsQuotaBased = this.Definition.IsQuotaBased;
-                    sparkWeeklyCard.PlanType = this.Definition.PlanType;
-                    sparkWeeklyCard.IsAvailable = true;
-                    sparkWeeklyCard.Description = $"{Math.Clamp(100.0 - sparkWeeklyUsed, 0.0, 100.0).ToString("F0", CultureInfo.InvariantCulture)}% remaining | Plan: {planType}";
-                    sparkWeeklyCard.AccountName = accountIdentity ?? string.Empty;
-                    sparkWeeklyCard.AuthSource = AuthSource.CodexNative(planType);
-                    sparkWeeklyCard.NextResetTime = sparkWeeklyResetTime;
-                    sparkWeeklyCard.PeriodDuration = TimeSpan.FromDays(7);
-                    sparkWeeklyCard.RawJson = rawJson;
-                    sparkWeeklyCard.HttpStatus = httpStatus;
-                    usages.Add(sparkWeeklyCard);
-                }
-            }
         }
 
         return usages;
@@ -756,25 +502,6 @@ public class CodexProvider : ProviderBase
         {
             yield return path;
         }
-    }
-
-    private readonly record struct SparkWindow(
-        string? Label,
-        string? ModelName,
-        double? PrimaryUsedPercent,
-        DateTime? PrimaryResetTime,
-        double? PrimaryWindowSeconds,
-        double? SecondaryUsedPercent,
-        DateTime? SecondaryResetTime,
-        double? SecondaryWindowSeconds)
-    {
-        /// <summary>
-        /// Gets a value indicating whether true when any meaningful window data is present — usage percentages or reset timers.
-        /// Allows the Spark block to be processed even when the burst window just reset and the
-        /// API omits used_percent (returning only reset_after_seconds).
-        /// </summary>
-        public bool HasWindowData => this.PrimaryUsedPercent.HasValue || this.SecondaryUsedPercent.HasValue
-            || this.PrimaryResetTime.HasValue || this.SecondaryResetTime.HasValue;
     }
 
     private sealed class CodexAuth

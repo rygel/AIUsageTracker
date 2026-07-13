@@ -399,7 +399,6 @@ public class ProviderMetadataCatalogTests
     {
         var providerIds = ProviderMetadataCatalog.GetDefaultSettingsProviderIds();
 
-        Assert.Contains("codex.spark", providerIds);
         Assert.Contains("minimax", providerIds);
         Assert.DoesNotContain("openai", providerIds);
     }
