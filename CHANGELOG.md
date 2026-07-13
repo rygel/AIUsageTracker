@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [2.4.3-beta.7] - 2026-07-13
+
+### Removed
+- **Spark card from OpenAI Codex provider** — The `codex.spark` sub-model card is no longer generated. Its data came from unrelated rate-limit buckets and displayed wrong percentages for the main plan. The definition remains registered so existing database history is preserved, but no new cards are created and the provider no longer appears in settings.
+- **Plan type from card descriptions** — Descriptions like "72% remaining | Plan: plus" no longer include the plan-type suffix. Card descriptions now show only the percentage.
+
+### Changed
+- **Simplified CodexProvider window handling** — Removed the separate code paths for "new unified weekly window" vs "old dual-window" detection. Primary window data always produces a single card; a secondary window (when present) produces a second card. No format-detection branching.
+
 ## [2.4.3-beta.6] - 2026-07-12
 
 ### Fixed
