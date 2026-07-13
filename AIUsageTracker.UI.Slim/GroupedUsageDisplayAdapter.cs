@@ -61,7 +61,7 @@ internal static class GroupedUsageDisplayAdapter
                     FetchedAt = provider.FetchedAt,
                     NextResetTime = provider.NextResetTime,
                     ResetCreditsAvailable = windowCards
-                        .FirstOrDefault(c => c.WindowKind == WindowKind.Burst)?
+                        .FirstOrDefault(c => c.ResetCreditsAvailable.HasValue)?
                         .ResetCreditsAvailable,
                     PeriodDuration = FlatWindowCardBuilder.ResolvePeriodDuration(provider.ProviderId),
                     WindowCards = windowCards,

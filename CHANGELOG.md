@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+## [2.4.4-beta.3] - 2026-07-13
+
+### Fixed
+- **Codex tooltip shows "Reset credits available" again** — `GroupedUsageDisplayAdapter.Expand` only propagated `ResetCreditsAvailable` from a Burst window card. After the beta.6 simplification, codex now emits a single Rolling (weekly) window card for plans like "prolite" (no Burst sibling). The parent propagation now picks up `ResetCreditsAvailable` from whichever child card has it, regardless of `WindowKind`.
+
+## [2.4.4-beta.2] - 2026-07-13
+
+### Fixed
+- **Codex tooltip shows "Reset credits available" again** — `CodexProvider.BuildUsageAsync` only assigned `ResetCreditsAvailable` to the primary card. After the beta.6 window-handling simplification, codex now only emits one card for plans like "prolite" (the unified weekly window, 604800s, no secondary). The single card that exists is the weekly one — and previously it never received `ResetCreditsAvailable` from the provider, so the tooltip line at `MainWindowRuntimeLogic.cs:376` silently skipped it. The root-level `rate_limit_reset_credits` value is now mirrored onto both primary and secondary cards.
+
+## [2.4.4-beta.1] - 2026-07-13
+
+### Fixed
+- **Codex tooltip shows "Reset credits available" on weekly card again** — `CodexProvider.BuildUsageAsync` only assigned `ResetCreditsAvailable` to the primary card. When the burst fetch was stale or failing, the user only saw the fresh weekly card, which never had the field set, so the tooltip line at `MainWindowRuntimeLogic.cs:376-378` silently skipped it. The root-level `rate_limit_reset_credits` value is now mirrored onto the secondary card as well.
+
 ## [2.4.3] - 2026-07-13
 
 ### Fixed
