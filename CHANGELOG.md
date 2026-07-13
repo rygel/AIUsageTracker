@@ -2,55 +2,27 @@
 
 ## [Unreleased]
 
-## [2.4.3-beta.8] - 2026-07-13
+## [2.4.3] - 2026-07-13
 
 ### Fixed
-- **Aggregate percentage now sums only cards from the latest refresh batch** — When a provider changes plans (e.g., from dual-window burst+weekly to single-window weekly), the old burst card stayed in the 24h database window and was summed into the provider-level aggregate alongside the current card. This caused wrong provider-level percentages (e.g., 44% shown instead of 11%). The projection service now filters to only the most recent `FetchedAt` batch before summing.
-
-## [2.4.3-beta.7] - 2026-07-13
-
-### Removed
-- **Spark card from OpenAI Codex provider** — The `codex.spark` sub-model card is no longer generated. Its data came from unrelated rate-limit buckets and displayed wrong percentages for the main plan. The definition remains registered so existing database history is preserved, but no new cards are created and the provider no longer appears in settings.
-- **Plan type from card descriptions** — Descriptions like "72% remaining | Plan: plus" no longer include the plan-type suffix. Card descriptions now show only the percentage.
+- **Aggregate percentage now sums only cards from the latest refresh batch** — The projection service filters to only the most recent `FetchedAt` batch before summing, preventing stale cards from a previous plan format from distorting the provider-level aggregate.
+- **OpenAI/Codex providers now detect window type from `limit_window_seconds`** — The API changed its response format for some plans (e.g. "prolite"). Window type is now read from `limit_window_seconds` dynamically, supporting both old dual-window (burst + weekly) and new unified weekly format.
+- **Tooltip per-window lines for Codex/OpenAI dual-bar providers** — Widened type check to `QuotaProviderUsage` (common base class) so per-window lines appear for `ModelScopedProviderUsage` objects.
+- **Tooltip pace calculation uses correct window values for dual-bar providers** — Pace target now uses rolling window values for all three terms instead of mixing burst and rolling windows.
+- **Monitor no longer writes port: 0 to monitor.json on hibernate suspend/resume** — Port file is left untouched across hibernate cycles.
+- **Publish workflow create-release works on workflow_dispatch** — Appcast and release jobs read version from `inputs.tag` when triggered manually.
 
 ### Changed
-- **Simplified CodexProvider window handling** — Removed the separate code paths for "new unified weekly window" vs "old dual-window" detection. Primary window data always produces a single card; a secondary window (when present) produces a second card. No format-detection branching.
-
-## [2.4.3-beta.6] - 2026-07-12
-
-### Fixed
-- **OpenAI/Codex providers now detect window type from `limit_window_seconds`** — The API changed its response format: for some plans (e.g. "prolite"), `primary_window` now has `limit_window_seconds: 604800` (7-day weekly window) and `secondary_window` is `null`. Both `CodexProvider` and `OpenAIProvider` previously hardcoded `primary_window` = 5h burst and `secondary_window` = weekly, causing the weekly data to be shown as a burst card with wrong remaining percentage and missing reset time. Now `limit_window_seconds` is read from the JSON to determine the actual window type dynamically, supporting both the old dual-window format (burst + weekly) and the new unified weekly format. The same fix applies to spark windows in `additional_rate_limits`.
-
-## [2.4.3-beta.5] - 2026-07-11
-
-### Changed
-- **`NormalizeUsage` now mutates in place** — The pipeline's normalization step no longer allocates a new `ProviderUsage` object for every entry. Instead it sanitizes and normalizes values directly on the received instance. No user-visible difference.
-- **Group summary aggregates across all available quota entries** — The projection service no longer picks a single "primary" usage entry for aggregated metrics. `RequestsUsed`, `RequestsAvailable`, and `UsedPercent` on the group summary now reflect the sum of all available quota entries in the group. This gives accurate totals when a provider reports multiple quota windows (e.g., burst + rolling).
+- **Group summary aggregates across all available quota entries** — `RequestsUsed`, `RequestsAvailable`, and `UsedPercent` on group summaries now reflect the sum of all quota entries, giving accurate totals for providers with multiple windows (e.g., burst + rolling).
+- **Simplified CodexProvider window handling** — Removed separate code paths for unified vs dual-window detection. Primary window always produces one card; secondary window (when present) produces a second card.
+- **`NormalizeUsage` now mutates in place** — No allocation per entry, no user-visible difference.
 
 ### Removed
-- **`CachedGroupedUsageProjectionService`** — Removed the caching wrapper around `IGroupedUsageProjectionService`. The in-memory cache was redundant: the database already caches the data, the projection is cheap, and the invalidation logic was fragile. The endpoint now calls the projection directly.
-
-## [2.4.3-beta.4] - 2026-07-11
-
-### Removed
-- **`SettingsAdditionalProviderIds` provider discovery** — Settings no longer dynamically discovers providers via `SettingsAdditionalProviderIds` or usage data. The settings list is a flat, hard-coded set of `ProviderDefinition` entries. Sub-providers with separate API keys (`minimax-io`, `minimax-coding-plan`) must have their own definition to appear in settings.
-- **`SelectPrimaryUsage` owner-matching fallback** — Removed the heuristic that tried to find a usage matching the group owner ID and fell back to the first usage. Groups simply use the most recent usage row. The `ProviderDefinition` is the sole authority for provider identity.
-
-## [2.4.3-beta.3] - 2026-07-11
-
-### Fixed
-- **Tooltip missing per-window lines for Codex/OpenAI dual-bar providers**: `AppendWindowLine` checked `windowCard is not WindowedProviderUsage`, but Codex creates `ModelScopedProviderUsage` objects for its burst/rolling window cards (a sibling type, not a subclass). The per-window lines ("5h limit: X% remaining", "Weekly limit: ...") were silently skipped. Widened the type check to `QuotaProviderUsage` (the common base class).
-
-## [2.4.3-beta.2] - 2026-07-11
-
-### Fixed
-- **Monitor writes port: 0 to monitor.json on hibernate suspend/resume**: After waking from hibernate, the Monitor saved `port: 0` to `monitor.json`, causing the Slim UI to lose its connection and show zero values for up to a minute. Now the port file is left untouched across hibernate cycles — the Monitor's port doesn't change.
-
-## [2.4.3-beta.1] - 2026-07-11
-
-### Fixed
-- **Tooltip daily budget uses mismatched window values for dual-bar providers**: The tooltip's pace calculation for dual-window cards (Codex, OpenAI) mixed `UsedPercent` and `NextResetTime` from the burst window with `PeriodDuration` from the rolling window, producing meaningless expected-vs-actual comparisons. Now correctly uses the rolling window's values for all three terms. Also renamed "Daily budget" to "Pace target" and "Expected by now" to "Expected at this point" for clarity.
-- **Publish workflow create-release fails on workflow_dispatch**: `GITHUB_REF` is a branch ref on manual dispatch, not a tag ref. Fixed `generate-appcast` and `create-release` jobs to read version from `inputs.tag` when triggered via `workflow_dispatch`. Also added explicit `tag_name` to `softprops/action-gh-release` for the same reason.
+- **Spark card from OpenAI Codex provider** — The erroneous `codex.spark` sub-model card is no longer generated. Existing history preserved.
+- **Plan type from card descriptions** — Descriptions no longer include "| Plan: plus" suffix.
+- **`CachedGroupedUsageProjectionService`** — Redundant in-memory cache removed. Database already caches data; projection is cheap.
+- **`SettingsAdditionalProviderIds` provider discovery** — Settings now uses a flat set of `ProviderDefinition` entries. Sub-providers with separate API keys require their own definition.
+- **`SelectPrimaryUsage` owner-matching fallback** — Groups use the most recent usage row directly.
 
 ## [2.4.2-beta.6] - 2026-07-06
 
