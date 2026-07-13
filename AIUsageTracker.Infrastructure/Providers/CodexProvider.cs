@@ -443,6 +443,7 @@ public class CodexProvider : ProviderBase
             weeklyCard.AuthSource = AuthSource.CodexNative(planType);
             weeklyCard.NextResetTime = weeklyResetTime;
             weeklyCard.PeriodDuration = TimeSpan.FromDays(7);
+            weeklyCard.ResetCreditsAvailable = resetCreditsAvailable;
             weeklyCard.RawJson = rawJson;
             weeklyCard.HttpStatus = httpStatus;
             usages.Add(weeklyCard);
