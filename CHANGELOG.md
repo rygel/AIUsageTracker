@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.4.4-beta.1] - 2026-07-13
+
+### Fixed
+- **Codex tooltip shows "Reset credits available" on weekly card again** — `CodexProvider.BuildUsageAsync` only assigned `ResetCreditsAvailable` to the primary card. When the burst fetch was stale or failing, the user only saw the fresh weekly card, which never had the field set, so the tooltip line at `MainWindowRuntimeLogic.cs:376-378` silently skipped it. The root-level `rate_limit_reset_credits` value is now mirrored onto the secondary card as well.
+
 ## [2.4.3] - 2026-07-13
 
 ### Fixed
