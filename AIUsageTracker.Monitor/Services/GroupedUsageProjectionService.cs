@@ -55,9 +55,11 @@ public static class GroupedUsageProjectionService
 
         if (availableQuota.Count > 0)
         {
-            var newest = availableQuota.OrderByDescending(q => q.FetchedAt).First();
-            var totalUsed = availableQuota.Sum(q => q.RequestsUsed);
-            var totalAvailable = availableQuota.Sum(q => q.RequestsAvailable);
+            var newestFetchedAt = availableQuota.Max(q => q.FetchedAt.Ticks);
+            var currentBatch = availableQuota.Where(q => q.FetchedAt.Ticks == newestFetchedAt).ToList();
+            var newest = currentBatch.OrderByDescending(q => q.FetchedAt).First();
+            var totalUsed = currentBatch.Sum(q => q.RequestsUsed);
+            var totalAvailable = currentBatch.Sum(q => q.RequestsAvailable);
 
             requestsUsed = totalUsed;
             requestsAvailable = totalAvailable;
@@ -68,7 +70,7 @@ public static class GroupedUsageProjectionService
             state = newest.State;
             planType = newest.PlanType;
             isQuotaBased = newest.IsQuotaBased;
-            nextResetTime = availableQuota
+            nextResetTime = currentBatch
                 .Select(q => q.NextResetTime)
                 .Where(t => t.HasValue)
                 .OrderBy(t => t!.Value)

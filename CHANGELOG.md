@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.4.3-beta.8] - 2026-07-13
+
+### Fixed
+- **Aggregate percentage now sums only cards from the latest refresh batch** — When a provider changes plans (e.g., from dual-window burst+weekly to single-window weekly), the old burst card stayed in the 24h database window and was summed into the provider-level aggregate alongside the current card. This caused wrong provider-level percentages (e.g., 44% shown instead of 11%). The projection service now filters to only the most recent `FetchedAt` batch before summing.
+
 ## [2.4.3-beta.7] - 2026-07-13
 
 ### Removed
