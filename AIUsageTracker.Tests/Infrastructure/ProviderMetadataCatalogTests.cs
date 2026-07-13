@@ -42,9 +42,9 @@ public class ProviderMetadataCatalogTests
     [InlineData("gemini-cli.hourly", "gemini-cli", "Gemini CLI (Hourly)")]
     [InlineData("gemini-cli.daily", "gemini-cli", "Gemini CLI (Daily)")]
     [InlineData("kimi", "kimi-for-coding", "Kimi for Coding")]
-    [InlineData("minimax-io", "minimax", "MiniMax.io")]
+    [InlineData("minimax-io", "minimax-io", "MiniMax.io")]
     [InlineData("minimax-global", "minimax", "MiniMax.io")]
-    [InlineData("minimax-coding-plan", "minimax", "Minimax.io Coding Plan")]
+    [InlineData("minimax-coding-plan", "minimax-coding-plan", "Minimax.io Coding Plan")]
     [InlineData("opencode-go", "opencode-go", "OpenCode Go")]
     [InlineData("zai", "zai-coding-plan", "Z.AI")]
     public void Find_UsesProviderDefinitionsForAliases(string providerId, string expectedDefinitionId, string expectedDisplayName)
@@ -353,15 +353,6 @@ public class ProviderMetadataCatalogTests
     }
 
     [Theory]
-    [InlineData("codex.spark", false)]
-    [InlineData("codex", false)]
-    [InlineData("openai", false)]
-    public void IsVisibleDerivedProviderId_UsesProviderDefinitions(string providerId, bool expected)
-    {
-        Assert.Equal(expected, ProviderMetadataCatalog.IsVisibleDerivedProviderId(providerId));
-    }
-
-    [Theory]
     [InlineData("codex", true)]
     [InlineData("openai", false)]
     [InlineData("deepseek", false)]
@@ -408,9 +399,7 @@ public class ProviderMetadataCatalogTests
     {
         var providerIds = ProviderMetadataCatalog.GetDefaultSettingsProviderIds();
 
-        Assert.Contains("codex.spark", providerIds);
         Assert.Contains("minimax", providerIds);
-        Assert.Contains("minimax-io", providerIds);
         Assert.DoesNotContain("openai", providerIds);
     }
 

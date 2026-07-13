@@ -130,63 +130,10 @@ public class ProviderUsagePersistenceServiceTests
             Times.Never);
     }
 
-    [Fact]
-    public async Task PersistUsageAndDynamicProvidersAsync_InvalidatesGroupedUsageCacheAfterHistoryWriteAsync()
-    {
-        this._database.SetupSequence(database => database.GetLatestHistoryAsync(It.IsAny<IReadOnlyCollection<string>?>()))
-            .ReturnsAsync(new List<ProviderUsage>
-            {
-                new QuotaProviderUsage()
-                {
-                    ProviderId = "openai",
-                    ProviderName = "OpenAI",
-                    IsAvailable = true,
-                    FetchedAt = DateTime.UtcNow.AddMinutes(-5),
-                },
-            })
-            .ReturnsAsync(new List<ProviderUsage>
-            {
-                new QuotaProviderUsage()
-                {
-                    ProviderId = "anthropic",
-                    ProviderName = "Anthropic",
-                    IsAvailable = true,
-                    FetchedAt = DateTime.UtcNow,
-                },
-            });
-
-        var configService = new Mock<IConfigService>();
-        configService.Setup(s => s.GetConfigsAsync()).ReturnsAsync(new List<ProviderConfig>
-        {
-            new() { ProviderId = "openai" },
-            new() { ProviderId = "anthropic" },
-        });
-        var groupedCache = new CachedGroupedUsageProjectionService(this._database.Object, configService.Object);
-        _ = await groupedCache.GetGroupedUsageAsync();
-
-        var service = this.CreateService(groupedCache);
-        var activeProviderIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var usages = new List<ProviderUsage>
-        {
-            new QuotaProviderUsage()
-            {
-                ProviderId = "anthropic",
-                ProviderName = "Anthropic",
-                AuthSource = "test",
-            },
-        };
-
-        await service.PersistUsageAndDynamicProvidersAsync(usages, activeProviderIds);
-        _ = await groupedCache.GetGroupedUsageAsync();
-
-        this._database.Verify(database => database.GetLatestHistoryAsync(It.IsAny<IReadOnlyCollection<string>?>()), Times.Exactly(2));
-    }
-
-    private ProviderUsagePersistenceService CreateService(CachedGroupedUsageProjectionService? groupedUsageProjectionCache = null)
+    private ProviderUsagePersistenceService CreateService()
     {
         return new ProviderUsagePersistenceService(
             this._database.Object,
-            NullLogger<ProviderUsagePersistenceService>.Instance,
-            groupedUsageProjectionCache);
+            NullLogger<ProviderUsagePersistenceService>.Instance);
     }
 }

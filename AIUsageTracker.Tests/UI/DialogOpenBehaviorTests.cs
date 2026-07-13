@@ -18,6 +18,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Tests.UI;
 
+[Collection("WpfState")]
 public class DialogOpenBehaviorTests
 {
     private static readonly TimeSpan StaTestTimeout = TimeSpan.FromSeconds(15);

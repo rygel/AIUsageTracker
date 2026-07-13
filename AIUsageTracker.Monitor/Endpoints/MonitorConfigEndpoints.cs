@@ -27,7 +27,6 @@ internal static class MonitorConfigEndpoints
                 IConfigService configService,
                 ProviderRefreshService refreshService,
                 ProviderRefreshCircuitBreakerService circuitBreakerService,
-                CachedGroupedUsageProjectionService projectionService,
                 ILogger<Program> logger) =>
         {
             if (string.IsNullOrWhiteSpace(config.ProviderId))
@@ -38,10 +37,6 @@ internal static class MonitorConfigEndpoints
             logger.LogDebug("POST {Route} ({ProviderId})", MonitorApiRoutes.Config, config.ProviderId);
             await configService.SaveConfigAsync(config).ConfigureAwait(false);
 
-            // Invalidate the snapshot cache so the exclusion filter re-evaluates against the
-            // updated config (e.g. a cleared API key should immediately hide the provider).
-            projectionService.Invalidate();
-
             // Config/auth updates should retry immediately and not wait for a stale backoff window.
             circuitBreakerService.ResetProvider(config.ProviderId, "config update");
             var refreshQueued = refreshService.QueueForceRefresh(
@@ -51,7 +46,7 @@ internal static class MonitorConfigEndpoints
             return Results.Ok(new { message = "Config saved", refreshQueued });
         });
 
-        app.MapDelete(MonitorApiRoutes.ConfigByProviderTemplate, async (string providerId, IConfigService configService, CachedGroupedUsageProjectionService projectionService, ILogger<Program> logger) =>
+        app.MapDelete(MonitorApiRoutes.ConfigByProviderTemplate, async (string providerId, IConfigService configService, ILogger<Program> logger) =>
         {
             if (string.IsNullOrWhiteSpace(providerId))
             {
@@ -60,7 +55,6 @@ internal static class MonitorConfigEndpoints
 
             logger.LogDebug("DELETE {Route}: {ProviderId}", MonitorApiRoutes.ConfigByProviderTemplate, providerId);
             await configService.RemoveConfigAsync(providerId).ConfigureAwait(false);
-            projectionService.Invalidate();
             return Results.Ok(new { message = "Config removed" });
         });
 

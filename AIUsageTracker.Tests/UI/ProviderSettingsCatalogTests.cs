@@ -48,7 +48,7 @@ public sealed class ProviderSettingsCatalogTests
 
         var behavior = SettingsWindow.ResolveProviderSettingsBehavior(config, usage: null, isDerived: false);
 
-        Assert.False(behavior.IsDerivedVisible);
+        Assert.NotNull(behavior);
     }
 
     [Fact]

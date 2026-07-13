@@ -21,9 +21,8 @@ public class ProviderResponseDeserializationTests
     private static readonly string TestApiKey3 = Guid.NewGuid().ToString();
 
     /// <summary>
-    /// Codex provider: realistic response with primary_window, secondary_window, and
-    /// an additional_rate_limits entry for Spark. Verifies the flat-card output
-    /// including burst, weekly, and spark cards.
+    /// Codex provider: realistic response with primary_window and secondary_window.
+    /// Verifies the flat-card output including burst and weekly cards.
     /// </summary>
     /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
@@ -44,22 +43,6 @@ public class ProviderResponseDeserializationTests
                     "reset_after_seconds": 432000
                 }
             },
-            "additional_rate_limits": [
-                {
-                    "limit_name": "GPT-5.3-Codex-Spark",
-                    "model_name": "gpt-5.3-codex-spark",
-                    "rate_limit": {
-                        "primary_window": {
-                            "used_percent": 15.0,
-                            "reset_after_seconds": 10800
-                        },
-                        "secondary_window": {
-                            "used_percent": 22.0,
-                            "reset_after_seconds": 432000
-                        }
-                    }
-                }
-            ],
             "credits": {
                 "balance": 150.00,
                 "unlimited": false
@@ -86,8 +69,8 @@ public class ProviderResponseDeserializationTests
         // Act
         var usages = (await provider.GetUsageAsync(config)).Cast<ModelScopedProviderUsage>().ToList();
 
-        // Assert — flat cards: burst, weekly, spark.burst, spark.weekly
-        Assert.True(usages.Count >= 4, $"Expected at least 4 flat cards (burst, weekly, spark.burst, spark.weekly), got {usages.Count}");
+        // Assert — flat cards: burst, weekly
+        Assert.True(usages.Count >= 2, $"Expected at least 2 flat cards (burst, weekly), got {usages.Count}");
         Assert.All(usages, u => Assert.True(u.IsAvailable, $"Card {u.CardId} should be available"));
         Assert.All(usages, u => Assert.Equal(200, u.HttpStatus));
 
@@ -103,13 +86,6 @@ public class ProviderResponseDeserializationTests
         Assert.Equal("codex", weeklyCard.ProviderId);
         Assert.Equal(28.0, weeklyCard.UsedPercent, precision: 1);
         Assert.NotNull(weeklyCard.NextResetTime);
-
-        // Spark cards (additional_rate_limits) — independent provider with burst+rolling
-        var sparkBurst = usages.First(u => string.Equals(u.CardId, "spark.burst", StringComparison.Ordinal));
-        Assert.Equal("codex.spark", sparkBurst.ProviderId);
-        Assert.Contains("Spark", sparkBurst.ProviderName, StringComparison.OrdinalIgnoreCase);
-        var sparkWeekly = usages.First(u => string.Equals(u.CardId, "spark.weekly", StringComparison.Ordinal));
-        Assert.Equal("codex.spark", sparkWeekly.ProviderId);
 
         // All cards share the same GroupId for visual grouping
         Assert.All(usages, u => Assert.Equal("codex", u.GroupId));
@@ -153,10 +129,8 @@ public class ProviderResponseDeserializationTests
     }
 
     /// <summary>
-    /// Codex provider: response where the main rate_limit windows have no reset_after_seconds
-    /// but the additional_rate_limits entry has its own reset times.
-    /// Verifies that burst and weekly cards have null reset time (no cross-window fallbacks),
-    /// while the additional card's own windows carry their reset times.
+    /// Codex provider: response where the main rate_limit windows have no reset_after_seconds.
+    /// Verifies that burst and weekly cards have null reset time (no cross-window fallbacks).
     /// </summary>
     /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
@@ -168,17 +142,7 @@ public class ProviderResponseDeserializationTests
             "rate_limit": {
                 "primary_window": { "used_percent": 30.0 },
                 "secondary_window": { "used_percent": 55.0 }
-            },
-            "additional_rate_limits": [
-                {
-                    "limit_name": "GPT-5.3-Codex-Spark",
-                    "model_name": "gpt-5.3-codex-spark",
-                    "rate_limit": {
-                        "primary_window": { "used_percent": 30.0, "reset_after_seconds": 9000 },
-                        "secondary_window": { "used_percent": 55.0, "reset_after_seconds": 518400 }
-                    }
-                }
-            ]
+            }
         }
         """;
 
@@ -194,13 +158,6 @@ public class ProviderResponseDeserializationTests
 
         var weeklyCard = usages.First(u => string.Equals(u.CardId, "weekly", StringComparison.Ordinal));
         Assert.Null(weeklyCard.NextResetTime);
-
-        // Spark cards carry their own reset times from additional_rate_limits.
-        var sparkBurst = usages.First(u => string.Equals(u.CardId, "spark.burst", StringComparison.Ordinal));
-        Assert.NotNull(sparkBurst.NextResetTime);
-
-        var sparkWeekly = usages.First(u => string.Equals(u.CardId, "spark.weekly", StringComparison.Ordinal));
-        Assert.NotNull(sparkWeekly.NextResetTime);
     }
 
     /// <summary>

@@ -244,7 +244,7 @@ public class ProviderManager : IDisposable
             Description = $"[Error] {message}",
             State = ProviderUsageState.Error,
             UsedPercent = 0,
-            IsAvailable = true,
+            IsAvailable = false,
             IsQuotaBased = defaults.IsQuotaBased,
             PlanType = defaults.PlanType,
             HttpStatus = 500,

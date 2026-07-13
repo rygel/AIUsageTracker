@@ -84,8 +84,11 @@ jobs:
 
       - name: Extract Version and Channel
         id: extract
+        env:
+          INPUT_TAG: ${{ inputs.tag || '' }}
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          VERSION="${INPUT_TAG:-${GITHUB_REF#refs/tags/v}}"
+          VERSION="${VERSION#v}"
           if [[ "$VERSION" =~ -beta ]]; then
             CHANNEL="beta"
           else
@@ -137,8 +140,11 @@ jobs:
 
       - name: Extract Version and Channel
         id: extract
+        env:
+          INPUT_TAG: ${{ inputs.tag || '' }}
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          VERSION="${INPUT_TAG:-${GITHUB_REF#refs/tags/v}}"
+          VERSION="${VERSION#v}"
           if [[ "$VERSION" =~ -beta ]]; then
             CHANNEL="beta"
             PRERELEASE="true"
@@ -179,6 +185,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b  # v2
         with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
           files: |
             artifacts/**/*
             appcast/*.xml

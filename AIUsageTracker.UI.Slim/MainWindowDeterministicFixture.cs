@@ -62,9 +62,6 @@ internal static class MainWindowDeterministicFixture
     {
         var codexProviderId = CodexProvider.StaticDefinition.ProviderId;
         var codexDisplayName = CodexProvider.StaticDefinition.DisplayName;
-        var sparkProviderId = CodexProvider.SparkDefinition.ProviderId;
-        var sparkDisplayName = CodexProvider.SparkDefinition.DisplayName;
-
         // provider-id-guardrail-allow: deterministic fixture uses provider metadata constants
         yield return new WindowedProviderUsage
         {
@@ -105,49 +102,6 @@ internal static class MainWindowDeterministicFixture
             AccountName = string.Empty,
             AuthSource = scenario.AuthSource,
             NextResetTime = deterministicNow.AddDays(4),
-            PeriodDuration = TimeSpan.FromDays(7),
-        };
-
-        // Spark also emits burst + rolling so its card is dual-bar capable.
-        yield return new WindowedProviderUsage
-        {
-            ProviderId = sparkProviderId,
-            ProviderName = sparkDisplayName,
-            CardId = "spark.burst",
-            GroupId = sparkProviderId,
-            Name = "Spark 5-hour quota",
-            WindowKind = WindowKind.Burst,
-            IsAvailable = true,
-            IsQuotaBased = true,
-            PlanType = PlanType.Coding,
-            UsedPercent = 12.0,
-            RequestsUsed = 12.0,
-            RequestsAvailable = 100.0,
-            Description = "88% remaining | Plan: plus",
-            AccountName = string.Empty,
-            AuthSource = scenario.AuthSource,
-            NextResetTime = deterministicNow.AddHours(4),
-            PeriodDuration = TimeSpan.FromHours(5),
-        };
-
-        yield return new WindowedProviderUsage
-        {
-            ProviderId = sparkProviderId,
-            ProviderName = sparkDisplayName,
-            CardId = "spark.weekly",
-            GroupId = sparkProviderId,
-            Name = "Spark weekly quota",
-            WindowKind = WindowKind.Rolling,
-            IsAvailable = true,
-            IsQuotaBased = true,
-            PlanType = PlanType.Coding,
-            UsedPercent = 8.0,
-            RequestsUsed = 8.0,
-            RequestsAvailable = 100.0,
-            Description = "92% remaining | Plan: plus",
-            AccountName = string.Empty,
-            AuthSource = scenario.AuthSource,
-            NextResetTime = deterministicNow.AddDays(5),
             PeriodDuration = TimeSpan.FromDays(7),
         };
     }

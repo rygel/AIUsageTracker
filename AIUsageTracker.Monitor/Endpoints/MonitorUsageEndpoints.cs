@@ -3,7 +3,9 @@
 // </copyright>
 
 using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Core.Providers;
 using AIUsageTracker.Monitor.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -40,23 +42,26 @@ internal static class MonitorUsageEndpoints
 
     private static void MapGetGroupedUsage(WebApplication app)
     {
-        app.MapGet(MonitorApiRoutes.UsageGrouped, async (HttpRequest request, HttpResponse response, CachedGroupedUsageProjectionService projectionService, ILogger<Program> logger) =>
+        app.MapGet(MonitorApiRoutes.UsageGrouped, async (HttpResponse response, UsageDatabase db, IConfigService configService, ILogger<Program> logger) =>
         {
-            var cacheEntry = await projectionService.GetGroupedUsageWithMetadataAsync().ConfigureAwait(false);
-            ApplyUsageCachingHeaders(response, cacheEntry.ETag);
+            var configs = await configService.GetConfigsAsync().ConfigureAwait(false);
+            var visibleIds = ProviderMetadataCatalog.ExpandAcceptedUsageProviderIds(
+                configs
+                    .Where(c => !string.IsNullOrEmpty(c.ApiKey) ||
+                                ProviderMetadataCatalog.Find(c.ProviderId)?.SettingsMode != ProviderSettingsMode.StandardApiKey)
+                    .Select(c => c.ProviderId));
 
-            if (IsNotModified(request, cacheEntry.ETag))
-            {
-                logger.LogDebug("GET {Route} returning 304 Not Modified", MonitorApiRoutes.UsageGrouped);
-                return Results.StatusCode(StatusCodes.Status304NotModified);
-            }
+            var usage = await db.GetLatestHistoryAsync(visibleIds).ConfigureAwait(false);
+            var snapshot = GroupedUsageProjectionService.Build(usage);
+
+            ApplyUsageCachingHeaders(response);
 
             logger.LogDebug(
                 "GET {Route} returning {Count} grouped providers",
                 MonitorApiRoutes.UsageGrouped,
-                cacheEntry.Snapshot.Providers.Count);
+                snapshot.Providers.Count);
 
-            return Results.Ok(cacheEntry.Snapshot);
+            return Results.Ok(snapshot);
         });
     }
 

@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+## [2.4.3] - 2026-07-13
+
+### Fixed
+- **Aggregate percentage now sums only cards from the latest refresh batch** — The projection service filters to only the most recent `FetchedAt` batch before summing, preventing stale cards from a previous plan format from distorting the provider-level aggregate.
+- **OpenAI/Codex providers now detect window type from `limit_window_seconds`** — The API changed its response format for some plans (e.g. "prolite"). Window type is now read from `limit_window_seconds` dynamically, supporting both old dual-window (burst + weekly) and new unified weekly format.
+- **Tooltip per-window lines for Codex/OpenAI dual-bar providers** — Widened type check to `QuotaProviderUsage` (common base class) so per-window lines appear for `ModelScopedProviderUsage` objects.
+- **Tooltip pace calculation uses correct window values for dual-bar providers** — Pace target now uses rolling window values for all three terms instead of mixing burst and rolling windows.
+- **Monitor no longer writes port: 0 to monitor.json on hibernate suspend/resume** — Port file is left untouched across hibernate cycles.
+- **Publish workflow create-release works on workflow_dispatch** — Appcast and release jobs read version from `inputs.tag` when triggered manually.
+
+### Changed
+- **Group summary aggregates across all available quota entries** — `RequestsUsed`, `RequestsAvailable`, and `UsedPercent` on group summaries now reflect the sum of all quota entries, giving accurate totals for providers with multiple windows (e.g., burst + rolling).
+- **Simplified CodexProvider window handling** — Removed separate code paths for unified vs dual-window detection. Primary window always produces one card; secondary window (when present) produces a second card.
+- **`NormalizeUsage` now mutates in place** — No allocation per entry, no user-visible difference.
+
+### Removed
+- **Spark card from OpenAI Codex provider** — The erroneous `codex.spark` sub-model card is no longer generated. Existing history preserved.
+- **Plan type from card descriptions** — Descriptions no longer include "| Plan: plus" suffix.
+- **`CachedGroupedUsageProjectionService`** — Redundant in-memory cache removed. Database already caches data; projection is cheap.
+- **`SettingsAdditionalProviderIds` provider discovery** — Settings now uses a flat set of `ProviderDefinition` entries. Sub-providers with separate API keys require their own definition.
+- **`SelectPrimaryUsage` owner-matching fallback** — Groups use the most recent usage row directly.
+
 ## [2.4.2-beta.6] - 2026-07-06
 
 ### Fixed

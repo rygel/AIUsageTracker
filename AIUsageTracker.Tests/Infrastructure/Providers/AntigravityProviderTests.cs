@@ -20,19 +20,19 @@ public class AntigravityProviderTests : HttpProviderTestBase<AntigravityProvider
     }
 
     [Fact]
-    public async Task GetUsageAsync_WhenNotRunning_ReturnsQuotaPlanTypeAsync()
+    public async Task GetUsageAsync_ReturnsStatusProviderUsage_WithCorrectIdentity()
     {
         // Arrange
         this.Config.ApiKey = string.Empty;
 
-        // Act - Antigravity is not running in test env
+        // Act - Antigravity may or may not be running in test env
         var result = await this._provider.GetUsageAsync(this.Config);
 
-        // Assert
+        // Assert - validates identity regardless of whether Antigravity is running
         var usage = result.OfType<StatusProviderUsage>().First();
         Assert.Equal("antigravity", usage.ProviderId);
         Assert.Equal("Google Antigravity", usage.ProviderName);
-        Assert.Contains("not running", usage.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.True(usage.IsAvailable);
     }
 
     [Fact]

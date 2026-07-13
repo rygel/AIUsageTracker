@@ -24,8 +24,7 @@ public sealed class ProviderSettingsDisplayCatalogTests
 
         var items = SettingsWindow.CreateProviderDisplayItems(configs, usages);
 
-        var spark = Assert.Single(items, item => string.Equals(item.Config.ProviderId, "codex.spark", StringComparison.Ordinal));
-        Assert.False(spark.IsDerived);
+        Assert.DoesNotContain(items, item => string.Equals(item.Config.ProviderId, "codex.spark", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -43,8 +42,7 @@ public sealed class ProviderSettingsDisplayCatalogTests
 
         var items = SettingsWindow.CreateProviderDisplayItems(configs, usages);
 
-        Assert.Single(items, item => string.Equals(item.Config.ProviderId, "codex.spark", StringComparison.Ordinal));
-        Assert.False(items.Single(item => string.Equals(item.Config.ProviderId, "codex.spark", StringComparison.Ordinal)).IsDerived);
+        Assert.DoesNotContain(items, item => string.Equals(item.Config.ProviderId, "codex.spark", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -73,10 +71,9 @@ public sealed class ProviderSettingsDisplayCatalogTests
 
         Assert.DoesNotContain(items, item => string.Equals(item.Config.ProviderId, "openai", StringComparison.Ordinal));
         Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "codex", StringComparison.Ordinal) && !item.IsDerived);
-        Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "codex.spark", StringComparison.Ordinal) && !item.IsDerived);
+        Assert.DoesNotContain(items, item => string.Equals(item.Config.ProviderId, "codex.spark", StringComparison.Ordinal));
         Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "opencode-zen", StringComparison.Ordinal) && !item.IsDerived);
         Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "minimax", StringComparison.Ordinal) && !item.IsDerived);
-        Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "minimax-io", StringComparison.Ordinal) && !item.IsDerived);
     }
 
     [Fact]
@@ -142,12 +139,11 @@ public sealed class ProviderSettingsDisplayCatalogTests
         var orderedIds = items
             .Where(item =>
                 string.Equals(item.Config.ProviderId, "codex", StringComparison.Ordinal) ||
-                string.Equals(item.Config.ProviderId, "codex.spark", StringComparison.Ordinal) ||
                 string.Equals(item.Config.ProviderId, "deepseek", StringComparison.Ordinal))
             .Select(item => item.Config.ProviderId)
             .ToArray();
 
-        Assert.Equal(new[] { "codex", "codex.spark" }, orderedIds);
+        Assert.Equal(new[] { "codex" }, orderedIds);
     }
 
     [Fact]
@@ -162,6 +158,6 @@ public sealed class ProviderSettingsDisplayCatalogTests
         var items = SettingsWindow.CreateProviderDisplayItems(configs, Array.Empty<ProviderUsage>());
 
         Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "codex", StringComparison.Ordinal));
-        Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "codex.spark", StringComparison.Ordinal));
+        Assert.DoesNotContain(items, item => string.Equals(item.Config.ProviderId, "codex.spark", StringComparison.Ordinal));
     }
 }

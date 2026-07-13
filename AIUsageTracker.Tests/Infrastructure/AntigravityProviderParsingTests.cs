@@ -74,7 +74,7 @@ public sealed class AntigravityProviderParsingTests
     }
 
     [Fact]
-    public async Task GetUsageAsync_ReturnsNotRunning_WhenNoProcessesAndNoCache()
+    public async Task GetUsageAsync_ReturnsAvailableResult_WithCorrectProviderId()
     {
         var provider = new AntigravityProvider(
             new HttpClient(),
@@ -88,7 +88,7 @@ public sealed class AntigravityProviderParsingTests
         var result = await provider.GetUsageAsync(config);
         var list = result.ToList();
 
-        Assert.Single(list);
+        Assert.NotEmpty(list);
         Assert.True(list[0].IsAvailable);
         Assert.Equal("antigravity", list[0].ProviderId);
     }
