@@ -24,6 +24,8 @@ public class OpenAIProvider : ProviderBase
     private const string JsonKeySecondaryWindow = "secondary_window";
     private const string JsonKeyUsedPercent = "used_percent";
     private const string JsonKeyResetAfterSeconds = "reset_after_seconds";
+    private const string JsonKeyLimitWindowSeconds = "limit_window_seconds";
+    private const double WeeklyWindowSeconds = 604800.0;
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<OpenAIProvider> _logger;
@@ -131,6 +133,10 @@ public class OpenAIProvider : ProviderBase
 
     private static (DateTime? BurstResetTime, double? BurstUsed, string BurstDesc, DateTime? WeeklyResetTime, double? WeeklyUsed, string WeeklyDesc, string? CreditsDesc) ParseOpenAiSessionWindows(JsonElement root)
     {
+        // Read limit_window_seconds to determine if primary is weekly (new format)
+        var primaryLimitSeconds = root.ReadDouble(JsonKeyRateLimit, JsonKeyPrimaryWindow, JsonKeyLimitWindowSeconds);
+        var primaryIsWeekly = primaryLimitSeconds.HasValue && Math.Abs(primaryLimitSeconds.Value - WeeklyWindowSeconds) < 1;
+
         var primaryUsed = root.ReadDouble(JsonKeyRateLimit, JsonKeyPrimaryWindow, JsonKeyUsedPercent);
         var primaryReset = root.ReadDouble(JsonKeyRateLimit, JsonKeyPrimaryWindow, JsonKeyResetAfterSeconds);
         var primaryResetTime = ResolveWindowResetTime(root, JsonKeyPrimaryWindow);
@@ -139,26 +145,41 @@ public class OpenAIProvider : ProviderBase
         double? burstUsed = null;
         string burstDesc = string.Empty;
 
-        if (primaryUsed.HasValue || primaryResetTime.HasValue)
-        {
-            burstUsed = Math.Clamp(primaryUsed ?? 0.0, 0.0, 100.0);
-            burstDesc = FormatResetDescription(primaryReset);
-            burstResetTime = primaryResetTime;
-        }
-
-        var weeklyUsedVal = root.ReadDouble(JsonKeyRateLimit, JsonKeySecondaryWindow, JsonKeyUsedPercent);
-        var weeklyReset = root.ReadDouble(JsonKeyRateLimit, JsonKeySecondaryWindow, JsonKeyResetAfterSeconds);
-        var weeklyResetTime = ResolveWindowResetTime(root, JsonKeySecondaryWindow);
-
         DateTime? weeklyResetTimeParsed = null;
         double? weeklyUsed = null;
         string weeklyDesc = string.Empty;
 
-        if (weeklyUsedVal.HasValue || weeklyResetTime.HasValue)
+        if (primaryIsWeekly)
         {
-            weeklyUsed = Math.Clamp(weeklyUsedVal ?? 0.0, 0.0, 100.0);
-            weeklyDesc = FormatResetDescription(weeklyReset);
-            weeklyResetTimeParsed = weeklyResetTime;
+            // New format: primary_window IS the weekly window
+            if (primaryUsed.HasValue || primaryResetTime.HasValue)
+            {
+                weeklyUsed = Math.Clamp(primaryUsed ?? 0.0, 0.0, 100.0);
+                weeklyDesc = FormatResetDescription(primaryReset);
+                weeklyResetTimeParsed = primaryResetTime;
+            }
+        }
+        else
+        {
+            // Old format: primary_window is burst (5h)
+            if (primaryUsed.HasValue || primaryResetTime.HasValue)
+            {
+                burstUsed = Math.Clamp(primaryUsed ?? 0.0, 0.0, 100.0);
+                burstDesc = FormatResetDescription(primaryReset);
+                burstResetTime = primaryResetTime;
+            }
+
+            // Secondary window is weekly in old format
+            var weeklyUsedVal = root.ReadDouble(JsonKeyRateLimit, JsonKeySecondaryWindow, JsonKeyUsedPercent);
+            var weeklyReset = root.ReadDouble(JsonKeyRateLimit, JsonKeySecondaryWindow, JsonKeyResetAfterSeconds);
+            var weeklyResetTime = ResolveWindowResetTime(root, JsonKeySecondaryWindow);
+
+            if (weeklyUsedVal.HasValue || weeklyResetTime.HasValue)
+            {
+                weeklyUsed = Math.Clamp(weeklyUsedVal ?? 0.0, 0.0, 100.0);
+                weeklyDesc = FormatResetDescription(weeklyReset);
+                weeklyResetTimeParsed = weeklyResetTime;
+            }
         }
 
         var credits = root.ReadDouble("credits", "balance");

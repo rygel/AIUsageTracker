@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.4.3-beta.6] - 2026-07-12
+
+### Fixed
+- **OpenAI/Codex providers now detect window type from `limit_window_seconds`** — The API changed its response format: for some plans (e.g. "prolite"), `primary_window` now has `limit_window_seconds: 604800` (7-day weekly window) and `secondary_window` is `null`. Both `CodexProvider` and `OpenAIProvider` previously hardcoded `primary_window` = 5h burst and `secondary_window` = weekly, causing the weekly data to be shown as a burst card with wrong remaining percentage and missing reset time. Now `limit_window_seconds` is read from the JSON to determine the actual window type dynamically, supporting both the old dual-window format (burst + weekly) and the new unified weekly format. The same fix applies to spark windows in `additional_rate_limits`.
+
 ## [2.4.3-beta.5] - 2026-07-11
 
 ### Changed
