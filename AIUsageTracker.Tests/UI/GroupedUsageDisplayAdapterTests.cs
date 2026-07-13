@@ -912,4 +912,47 @@ public class GroupedUsageDisplayAdapterTests
         Assert.False(card.IsQuotaBased);
         Assert.Equal(PlanType.Usage, card.PlanType);
     }
+
+    [Fact]
+    public void Expand_CodexSingleWeeklyCard_PropagatesResetCreditsToParent()
+    {
+        // Regression: codex on "prolite" plans returns a single weekly (rolling) card
+        // with no burst sibling. The parent-propagation must pick up reset credits
+        // from the rolling window — not only from a burst window card.
+        var snapshot = new AgentGroupedUsageSnapshot
+        {
+            Providers = new[]
+            {
+                new AgentGroupedProviderUsage
+                {
+                    ProviderId = "codex",
+                    ProviderName = "OpenAI (Codex)",
+                    IsAvailable = true,
+                    IsQuotaBased = true,
+                    PlanType = PlanType.Coding,
+                    UsedPercent = 69,
+                    Description = "69% remaining",
+                    ProviderDetails = new[]
+                    {
+                        new ModelScopedProviderUsage
+                        {
+                            ProviderId = "codex",
+                            Name = "Weekly",
+                            CardId = "weekly",
+                            WindowKind = WindowKind.Rolling,
+                            UsedPercent = 69,
+                            IsAvailable = true,
+                            IsQuotaBased = true,
+                            ResetCreditsAvailable = 3,
+                        },
+                    },
+                },
+            },
+        };
+
+        var usages = GroupedUsageDisplayAdapter.Expand(snapshot);
+
+        var parent = (WindowedProviderUsage)Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex", StringComparison.Ordinal));
+        Assert.Equal(3, parent.ResetCreditsAvailable);
+    }
 }
