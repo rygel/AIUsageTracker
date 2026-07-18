@@ -63,6 +63,9 @@ internal static class GroupedUsageDisplayAdapter
                     ResetCreditsAvailable = windowCards
                         .FirstOrDefault(c => c.ResetCreditsAvailable.HasValue)?
                         .ResetCreditsAvailable,
+                    ResetCreditExpirationsUtc = windowCards
+                        .FirstOrDefault(c => c.ResetCreditExpirationsUtc?.Count > 0)?
+                        .ResetCreditExpirationsUtc,
                     PeriodDuration = FlatWindowCardBuilder.ResolvePeriodDuration(provider.ProviderId),
                     WindowCards = windowCards,
                 });

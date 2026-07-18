@@ -45,6 +45,7 @@ internal static class FlatWindowCardBuilder
                 NextResetTime = modelState.NextResetTime,
                 PeriodDuration = ResolvePeriodDuration(provider.ProviderId),
                 ResetCreditsAvailable = model.ResetCreditsAvailable,
+                ResetCreditExpirationsUtc = model.ResetCreditExpirationsUtc,
             });
         }
 

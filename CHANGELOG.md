@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.4.5-beta.1] - 2026-07-18
+
+### Added
+- **Per-reset credit expiration list in Codex tooltip** — `Reset credits available: N` is now followed by one bullet per available reset, sorted earliest-to-expire first, showing local date/time and a relative-time hint (e.g. `  - Wed Jul 15, 10:00 (in 3 days)`). Supports three Codex API shapes (`credits[]`, `resets_at[]`, `next_refresh_times[]`) and stores timestamps as UTC ticks in a new `reset_credit_expirations_utc` TEXT column (JSON array). New Evolve migration V16 adds the column; legacy bootstrap via `EnsureColumn` covers older DBs. Backed by regression tests `Expand_CodexSingleWeeklyCard_PropagatesResetCreditsToParent`, `BuildTooltipContent_WithResetCreditExpirations_ListsEachEarliestFirst`, `BuildTooltipContent_WithoutResetCreditExpirations_DoesNotRenderExpiryLines`, and updated `RunMigrations_LegacyDatabaseWithoutEvolveMetadata_AddsMissingProviderColumns`.
+
 ## [2.4.4] - 2026-07-13
 
 ### Fixed

@@ -376,6 +376,15 @@ internal static partial class MainWindowRuntimeLogic
         if (usage is QuotaProviderUsage qReset && qReset.ResetCreditsAvailable.HasValue)
         {
             tooltipBuilder.AppendLine($"Reset credits available: {qReset.ResetCreditsAvailable.Value}");
+            if (qReset.ResetCreditExpirationsUtc is { Count: > 0 } expirations)
+            {
+                foreach (var expiry in expirations)
+                {
+                    var localExpiry = expiry.ToLocalTime();
+                    tooltipBuilder.AppendLine(
+                        $"  - {localExpiry:ddd MMM d, HH:mm} ({UsageMath.FormatRelativeTime(localExpiry)})");
+                }
+            }
         }
 
         if (ShouldRenderDerivedUsageDetails(usage))

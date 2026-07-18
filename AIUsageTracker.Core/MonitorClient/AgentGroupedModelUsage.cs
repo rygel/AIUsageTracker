@@ -22,6 +22,12 @@ public sealed class AgentGroupedModelUsage
     /// </summary>
     public int? ResetCreditsAvailable { get; set; }
 
+    /// <summary>
+    /// Gets or sets the per-reset expiration timestamps (UTC). Each entry corresponds to one
+    /// available reset credit; the earliest entry is the next credit that becomes usable.
+    /// </summary>
+    public IReadOnlyList<DateTime>? ResetCreditExpirationsUtc { get; set; }
+
     public string Description { get; set; } = string.Empty;
 
     public double? EffectiveUsedPercentage { get; set; }

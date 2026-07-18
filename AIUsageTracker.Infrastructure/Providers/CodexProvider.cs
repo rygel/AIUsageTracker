@@ -382,6 +382,12 @@ public class CodexProvider : ProviderBase
         var resetCreditsDouble = root.ReadDouble(JsonKeyRateLimitResetCredits, JsonKeyAvailableCount);
         int? resetCreditsAvailable = resetCreditsDouble.HasValue ? (int)resetCreditsDouble.Value : (int?)null;
 
+        // Per-reset expirations: support a few common Codex response shapes:
+        //   1. credits: [ {resets_at|resetsAt|reset_at|available_at: "..."}, ... ]
+        //   2. resets_at: [ "..." ]
+        //   3. next_refresh_times: [ "..." ]
+        var resetCreditExpirations = ReadResetCreditExpirations(root);
+
         var usages = new List<ProviderUsage>();
 
         // Primary card — always created from primary_window
@@ -413,6 +419,7 @@ public class CodexProvider : ProviderBase
                 primaryCard.NextResetTime = primaryResetTime;
                 primaryCard.PeriodDuration = isWeekly ? TimeSpan.FromDays(7) : TimeSpan.FromHours(5);
                 primaryCard.ResetCreditsAvailable = resetCreditsAvailable;
+                primaryCard.ResetCreditExpirationsUtc = resetCreditExpirations;
                 primaryCard.RawJson = rawJson;
                 primaryCard.HttpStatus = httpStatus;
                 usages.Add(primaryCard);
@@ -502,6 +509,92 @@ public class CodexProvider : ProviderBase
         {
             yield return path;
         }
+    }
+
+    private static IReadOnlyList<DateTime>? ReadResetCreditExpirations(JsonElement root)
+    {
+        if (!root.TryGetProperty(JsonKeyRateLimitResetCredits, out var block)
+            || block.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        var found = new List<DateTime>();
+
+        // Shape 1: credits: [ { "resets_at" | "resetsAt" | "reset_at" | "available_at": ISO8601 } ]
+        if (block.TryGetProperty("credits", out var creditsEl) && creditsEl.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var entry in creditsEl.EnumerateArray())
+            {
+                if (entry.ValueKind != JsonValueKind.Object) continue;
+                if (TryReadIsoTimestampFromObject(entry, out var ts))
+                {
+                    found.Add(ts);
+                }
+            }
+        }
+
+        // Shape 2: resets_at: [ ISO8601 ]
+        if (found.Count == 0 && block.TryGetProperty("resets_at", out var resetsAtEl) && resetsAtEl.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var entry in resetsAtEl.EnumerateArray())
+            {
+                if (TryReadIsoTimestamp(entry, out var ts))
+                {
+                    found.Add(ts);
+                }
+            }
+        }
+
+        // Shape 3: next_refresh_times: [ ISO8601 ]
+        if (found.Count == 0 && block.TryGetProperty("next_refresh_times", out var nextRefreshEl) && nextRefreshEl.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var entry in nextRefreshEl.EnumerateArray())
+            {
+                if (TryReadIsoTimestamp(entry, out var ts))
+                {
+                    found.Add(ts);
+                }
+            }
+        }
+
+        if (found.Count == 0)
+        {
+            return null;
+        }
+
+        // Earliest-to-expire (soonest) first.
+        found.Sort();
+        return found;
+    }
+
+    private static bool TryReadIsoTimestampFromObject(JsonElement obj, out DateTime timestamp)
+    {
+        string[] candidates = { "resets_at", "resetsAt", "reset_at", "available_at", "availableAt" };
+        foreach (var key in candidates)
+        {
+            if (obj.TryGetProperty(key, out var tsEl) && TryReadIsoTimestamp(tsEl, out timestamp))
+            {
+                return true;
+            }
+        }
+
+        timestamp = default;
+        return false;
+    }
+
+    private static bool TryReadIsoTimestamp(JsonElement el, out DateTime timestamp)
+    {
+        timestamp = default;
+        if (el.ValueKind != JsonValueKind.String) return false;
+        var raw = el.GetString();
+        if (string.IsNullOrWhiteSpace(raw)) return false;
+        if (DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsed))
+        {
+            timestamp = DateTime.SpecifyKind(parsed, DateTimeKind.Utc);
+            return true;
+        }
+        return false;
     }
 
     private sealed class CodexAuth

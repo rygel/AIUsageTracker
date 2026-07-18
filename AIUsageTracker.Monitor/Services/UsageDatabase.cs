@@ -278,7 +278,7 @@ public class UsageDatabase : IUsageDatabase
                         upstream_response_validity, upstream_response_note,
                         parent_provider_id, card_id, group_id,
                         window_kind, model_name, name, card_type,
-                        reset_credits_available
+                        reset_credits_available, reset_credit_expirations_utc
                     ) VALUES (
                         @ProviderId,
                         @RequestsUsed, @RequestsAvailable, @RequestsPercentage,
@@ -287,7 +287,7 @@ public class UsageDatabase : IUsageDatabase
                         @UpstreamResponseValidity, @UpstreamResponseNote,
                         @ParentProviderId, @CardId, @GroupId,
                         @WindowKind, @ModelName, @Name, @CardType,
-                        @ResetCreditsAvailable
+                        @ResetCreditsAvailable, @ResetCreditExpirationsUtc
                     )";
 
                 await connection.ExecuteAsync(insertSql, toInsert).ConfigureAwait(false);
@@ -328,7 +328,8 @@ public class UsageDatabase : IUsageDatabase
             && string.Equals(newStatusMessage, last.StatusMessage ?? string.Empty, StringComparison.Ordinal)
             && string.Equals(newNextResetTime, last.NextResetTime, StringComparison.Ordinal)
             && string.Equals((usage as WindowedProviderUsage)?.Name ?? (usage as ModelScopedProviderUsage)?.Name, last.Name, StringComparison.Ordinal)
-            && q?.ResetCreditsAvailable == last.ResetCreditsAvailable;
+            && q?.ResetCreditsAvailable == last.ResetCreditsAvailable
+            && ExpirationsEqual(q?.ResetCreditExpirationsUtc, DeserializeResetCreditExpirations(last.ResetCreditExpirationsUtcSerialized));
     }
 
     private static void ClassifyHistoryEntries(
@@ -381,7 +382,8 @@ public class UsageDatabase : IUsageDatabase
                     m?.ModelName,
                     w?.Name ?? m?.Name,
                     GetCardType(u),
-                    q?.ResetCreditsAvailable));
+                    q?.ResetCreditsAvailable,
+                    SerializeResetCreditExpirations(q?.ResetCreditExpirationsUtc)));
             }
         }
     }
@@ -393,6 +395,40 @@ public class UsageDatabase : IUsageDatabase
         QuotaProviderUsage => "quota",
         _ => "status",
     };
+
+    private static string? SerializeResetCreditExpirations(IReadOnlyList<DateTime>? expirations)
+    {
+        if (expirations == null || expirations.Count == 0) return null;
+        var ticks = expirations.Select(d => d.ToUniversalTime().Ticks).ToArray();
+        return System.Text.Json.JsonSerializer.Serialize(ticks);
+    }
+
+    private static bool ExpirationsEqual(IReadOnlyList<DateTime>? a, IReadOnlyList<DateTime>? b)
+    {
+        if (ReferenceEquals(a, b)) return true;
+        if (a == null || b == null) return false;
+        if (a.Count != b.Count) return false;
+        for (var i = 0; i < a.Count; i++)
+        {
+            if (a[i].Ticks != b[i].Ticks) return false;
+        }
+        return true;
+    }
+
+    private static IReadOnlyList<DateTime>? DeserializeResetCreditExpirations(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        try
+        {
+            var ticks = System.Text.Json.JsonSerializer.Deserialize<long[]>(raw);
+            if (ticks == null || ticks.Length == 0) return null;
+            return ticks.Select(t => new DateTime(t, DateTimeKind.Utc)).ToArray();
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
     private static async Task<Dictionary<string, LastHistoryRow>> LoadLastHistoryRowsAsync(
         SqliteConnection connection,
@@ -414,7 +450,8 @@ public class UsageDatabase : IUsageDatabase
                    h.next_reset_time AS NextResetTime,
                    h.http_status AS HttpStatus,
                    h.name AS Name,
-                   h.reset_credits_available AS ResetCreditsAvailable
+                   h.reset_credits_available AS ResetCreditsAvailable,
+                    h.reset_credit_expirations_utc AS ResetCreditExpirationsUtcSerialized
             FROM provider_history h
             WHERE h.id IN (
                 SELECT MAX(id)
@@ -440,7 +477,8 @@ public class UsageDatabase : IUsageDatabase
         string? NextResetTime,
         long HttpStatus,
         string? Name,
-        long? ResetCreditsAvailable);
+        long? ResetCreditsAvailable,
+        string? ResetCreditExpirationsUtcSerialized);
 
     private sealed record HistoryInsertParams(
         string ProviderId,
@@ -462,7 +500,8 @@ public class UsageDatabase : IUsageDatabase
         string? ModelName,
         string? Name,
         string CardType,
-        int? ResetCreditsAvailable);
+        int? ResetCreditsAvailable,
+        string? ResetCreditExpirationsUtc);
 
     private sealed record HistoryTouchParams(long Id, long FetchedAt);
 
@@ -653,7 +692,8 @@ public class UsageDatabase : IUsageDatabase
                        h.model_name AS ModelName,
                        h.name AS Name,
                        COALESCE(h.card_type, 'quota') AS CardType,
-                       h.reset_credits_available AS ResetCreditsAvailable
+                       h.reset_credits_available AS ResetCreditsAvailable,
+                       h.reset_credit_expirations_utc AS ResetCreditExpirationsUtcSerialized
                 FROM provider_history h
                 LEFT JOIN providers p ON h.provider_id = p.provider_id
                 WHERE h.id IN (
@@ -666,6 +706,10 @@ public class UsageDatabase : IUsageDatabase
 
         object? param = providerIds != null ? new { providerIds = providerIds.ToArray() } : null;
         var dtoRows = (await connection.QueryAsync<HistoryRowDto>(sql, param).ConfigureAwait(false)).ToList();
+        foreach (var dto in dtoRows)
+        {
+            dto.ResetCreditExpirationsUtc = DeserializeResetCreditExpirations(dto.ResetCreditExpirationsUtcSerialized);
+        }
         var results = dtoRows.Select(ToTypedUsage).ToList();
 
         var quotaResults = results.OfType<QuotaProviderUsage>().ToList();
@@ -727,6 +771,11 @@ public class UsageDatabase : IUsageDatabase
         public string? ModelName { get; set; }
 
         public string? CardType { get; set; }
+
+        // Raw serialized JSON of per-reset expirations; mapped from reset_credit_expirations_utc.
+        // Dapper binds this string here; we then deserialize into ResetCreditExpirationsUtc
+        // (which is IReadOnlyList<DateTime> on the base class).
+        public string? ResetCreditExpirationsUtcSerialized { get; set; }
     }
 
     private static ProviderUsage ToTypedUsage(HistoryRowDto row) => row.CardType switch

@@ -56,4 +56,12 @@ public class QuotaProviderUsage : ProviderUsage
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? ResetCreditsAvailable { get; set; }
+
+    /// <summary>
+    /// Gets or sets the per-reset expiration timestamps (UTC). Each entry corresponds to one
+    /// available reset credit; the earliest entry is the next credit that becomes usable.
+    /// Null when the provider does not report per-reset expirations.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<DateTime>? ResetCreditExpirationsUtc { get; set; }
 }
