@@ -2,10 +2,10 @@
 
 ## [Unreleased]
 
-## [2.4.5-beta.1] - 2026-07-18
+## [2.4.4-beta.1] - 2026-07-18
 
-### Added
-- **Per-reset credit expiration list in Codex tooltip** — `Reset credits available: N` is now followed by one bullet per available reset, sorted earliest-to-expire first, showing local date/time and a relative-time hint (e.g. `  - Wed Jul 15, 10:00 (in 3 days)`). Supports three Codex API shapes (`credits[]`, `resets_at[]`, `next_refresh_times[]`) and stores timestamps as UTC ticks in a new `reset_credit_expirations_utc` TEXT column (JSON array). New Evolve migration V16 adds the column; legacy bootstrap via `EnsureColumn` covers older DBs. Backed by regression tests `Expand_CodexSingleWeeklyCard_PropagatesResetCreditsToParent`, `BuildTooltipContent_WithResetCreditExpirations_ListsEachEarliestFirst`, `BuildTooltipContent_WithoutResetCreditExpirations_DoesNotRenderExpiryLines`, and updated `RunMigrations_LegacyDatabaseWithoutEvolveMetadata_AddsMissingProviderColumns`.
+### Removed
+- **v2.4.5-beta.1 was published and immediately retracted.** The Codex API at `chatgpt.com/backend-api/wham/usage` returns `rate_limit_reset_credits` as `{available_count, applicable_available_count}` — it does **not** return per-reset expiration timestamps. The implemented per-reset expiration list in the tooltip was speculative parsing that did not match reality; the corresponding GitHub release, tag, and binary installer have been deleted. If the Codex API ever adds per-reset expirations, the parsing shape must be determined by capturing a live response, not inferred. v2.4.4 stable code is unchanged.
 
 ## [2.4.4] - 2026-07-13
 
