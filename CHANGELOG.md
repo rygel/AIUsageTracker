@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+## [2.4.5] - 2026-07-19
+
+### Added
+
+- **OpenAI reset-credit expiration dates in the usage tooltip** — hover over the OpenAI (Codex) usage card to see every available reset credit's expiration, ordered soonest-first and displayed in local date and time with a relative countdown.
+
+### Fixed
+
+- **Reset-credit expirations now survive the complete application pipeline** — dates from OpenAI's reset-credit detail endpoint are preserved through Monitor processing, SQLite history, grouped API serialization, and desktop tooltip rendering, including after refresh or restart.
+
+### Security
+
+- **Updated the SQLite dependency chain** — `Microsoft.Data.Sqlite` is now `10.0.10`, with the native SQLite bundle pinned to `2.1.12`, removing the resolved dependency affected by high-severity advisory `CVE-2025-6965`.
+
+### Changed
+
+- **Added a changed-file analyzer gate and current cleanup work packages** — new C# commits are checked for formatting and analyzer regressions before the Release build and core test gates run.
+- **Removed redundant framework package references** — .NET framework assemblies now provide JSON, hosting, HTTP, and drawing APIs without duplicate direct package references.
+
 ## [2.4.5-beta.5] - 2026-07-19
 
 ### Added
