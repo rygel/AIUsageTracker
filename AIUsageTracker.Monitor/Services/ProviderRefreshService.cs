@@ -6,9 +6,8 @@ using System.Diagnostics;
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Core.Services;
-using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Core.Providers;
+using AIUsageTracker.Core.Services;
 
 namespace AIUsageTracker.Monitor.Services;
 
