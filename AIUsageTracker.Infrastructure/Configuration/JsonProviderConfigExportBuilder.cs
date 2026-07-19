@@ -3,9 +3,7 @@
 // </copyright>
 
 using System.Text.Json;
-
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Core.Providers;
 
 namespace AIUsageTracker.Infrastructure.Configuration;
