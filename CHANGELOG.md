@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.4.5-beta.4] - 2026-07-19
+
+### Changed
+- **Updated the deterministic Windows screenshot baseline** — beta.4 includes the CI-approved reference image produced from the current interface; runtime behavior is otherwise unchanged from beta.3.
+
 ## [2.4.5-beta.3] - 2026-07-19
 
 ### Added
