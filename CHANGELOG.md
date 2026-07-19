@@ -4,9 +4,13 @@
 
 ## [2.4.5-beta.5] - 2026-07-19
 
+### Added
+
+- **OpenAI reset-credit expiration dates in the usage tooltip** — hover over the OpenAI (Codex) usage card to see the number of available reset credits and the expiration of each credit. Expirations are ordered soonest-first and shown in local date and time with a relative countdown, so it is immediately clear which credits need to be used first.
+
 ### Fixed
 
-- **OpenAI reset-credit expiration dates now survive monitor persistence** — the monitor now preserves `ResetCreditExpirationsUtc` when reconstructing typed history rows, so the grouped API and tooltip receive and display every stored expiry after refresh or restart.
+- **Reset-credit dates no longer disappear before reaching the tooltip** — the OpenAI detail endpoint and SQLite history contained the expiration data, but typed history reconstruction omitted it. The monitor now preserves every expiration through collection, persistence, grouped API serialization, and UI rendering, including after refresh or restart.
 - **Monitor startup failure regression test is deterministic** — removed the timed background file replacement race that could leave the suite waiting for 30 seconds.
 
 ### Changed
