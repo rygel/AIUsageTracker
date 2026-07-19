@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [2.4.5-beta.5] - 2026-07-19
+
+### Fixed
+
+- **OpenAI reset-credit expiration dates now survive monitor persistence** — the monitor now preserves `ResetCreditExpirationsUtc` when reconstructing typed history rows, so the grouped API and tooltip receive and display every stored expiry after refresh or restart.
+- **Monitor startup failure regression test is deterministic** — removed the timed background file replacement race that could leave the suite waiting for 30 seconds.
+
+### Changed
+
+- **Removed redundant framework package references** — .NET framework assemblies now provide JSON, hosting, HTTP, and drawing APIs without duplicate direct package references.
+
 ## [2.4.5-beta.4] - 2026-07-19
 
 ### Changed
