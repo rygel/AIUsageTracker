@@ -43,7 +43,8 @@ public class ImportService
 
         try
         {
-            using var reader = new StreamReader(stream);
+            // leaveOpen: true — caller owns the stream's lifetime; reader only borrows it.
+            using var reader = new StreamReader(stream, leaveOpen: true);
             var json = await reader.ReadToEndAsync().ConfigureAwait(false);
             var history = JsonSerializer.Deserialize<List<ProviderUsage>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
@@ -80,7 +81,8 @@ public class ImportService
 
         try
         {
-            using var reader = new StreamReader(stream);
+            // leaveOpen: true — caller owns the stream's lifetime; reader only borrows it.
+            using var reader = new StreamReader(stream, leaveOpen: true);
             var headerLine = await reader.ReadLineAsync().ConfigureAwait(false);
             if (string.IsNullOrEmpty(headerLine))
             {
@@ -88,9 +90,9 @@ public class ImportService
                 return (imported, skipped, errors);
             }
 
-            while (!reader.EndOfStream)
+            string? line;
+            while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) != null)
             {
-                var line = await reader.ReadLineAsync().ConfigureAwait(false);
                 if (string.IsNullOrWhiteSpace(line))
                 {
                     continue;
