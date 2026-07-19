@@ -75,7 +75,10 @@ public class ProviderDiscoveryServiceTests : IDisposable
                 },
             },
         };
-        File.WriteAllText(authFilePath, JsonSerializer.Serialize(authContent));
+        await using (var authStream = File.Create(authFilePath))
+        {
+            await JsonSerializer.SerializeAsync(authStream, authContent);
+        }
 
         var definition = new ProviderDefinition(
             "github-copilot",

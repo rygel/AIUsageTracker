@@ -49,7 +49,7 @@ public sealed class GitHubAuthServiceTests : IDisposable
         var appData = Path.Combine(tempRoot, "AppData", "Roaming");
         var hostsPath = Path.Combine(appData, "GitHub CLI", "hosts.yml");
         Directory.CreateDirectory(Path.GetDirectoryName(hostsPath)!);
-        File.WriteAllText(
+        await File.WriteAllTextAsync(
             hostsPath,
             "github.com:\n    git_protocol: https\n    user: rygel\n");
 

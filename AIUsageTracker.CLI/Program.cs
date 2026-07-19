@@ -3,14 +3,14 @@
 // </copyright>
 
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Providers;
 using AIUsageTracker.Infrastructure.Configuration;
 using AIUsageTracker.Infrastructure.Extensions;
 using AIUsageTracker.Infrastructure.MonitorClient;
-using AIUsageTracker.Infrastructure.Providers;
-using AIUsageTracker.Core.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -528,7 +528,9 @@ public static class Program
 
         if (json)
         {
-            Console.WriteLine(JsonSerializer.Serialize(usage, AppJsonContext.Default.ListProviderUsage));
+            using var usageStream = new MemoryStream();
+            await JsonSerializer.SerializeAsync(usageStream, usage, AppJsonContext.Default.ListProviderUsage).ConfigureAwait(false);
+            Console.WriteLine(Encoding.UTF8.GetString(usageStream.ToArray()));
         }
         else
         {
@@ -597,7 +599,9 @@ public static class Program
         var configs = await service.GetConfigsAsync().ConfigureAwait(false);
         if (json)
         {
-            Console.WriteLine(JsonSerializer.Serialize(configs, AppJsonContext.Default.ListProviderConfig));
+            using var configStream = new MemoryStream();
+            await JsonSerializer.SerializeAsync(configStream, configs, AppJsonContext.Default.ListProviderConfig).ConfigureAwait(false);
+            Console.WriteLine(Encoding.UTF8.GetString(configStream.ToArray()));
         }
         else
         {
