@@ -243,13 +243,13 @@ public class ZaiProviderTests : HttpProviderTestBase<ZaiProvider>
         Assert.Equal(2, cards.Count);
 
         // Card 1: TOKENS_LIMIT (zai-coding-plan) — 3% used
-        var tokenCard = cards.Single(c => c.ProviderId == "zai-coding-plan");
+        var tokenCard = cards.Single(c => string.Equals(c.ProviderId, "zai-coding-plan", StringComparison.Ordinal));
         Assert.True(tokenCard.IsAvailable);
         Assert.InRange(tokenCard.UsedPercent, 2.5, 3.5); // 3% used, 97% remaining
         Assert.Contains("Coding Plan", tokenCard.Description, StringComparison.Ordinal);
 
         // Card 2: TIME_LIMIT (zai) — 11% used
-        var timeCard = cards.Single(c => c.ProviderId == "zai");
+        var timeCard = cards.Single(c => string.Equals(c.ProviderId, "zai", StringComparison.Ordinal));
         Assert.True(timeCard.IsAvailable);
         Assert.InRange(timeCard.UsedPercent, 10.5, 11.5); // 11% used, 89% remaining
         Assert.Contains("Web Search & Reader", timeCard.Description, StringComparison.Ordinal);
