@@ -2,6 +2,8 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Globalization;
+
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.UI.Slim;
@@ -564,6 +566,7 @@ public sealed class MainWindowRuntimeLogicTests
 
         Assert.NotNull(tooltip);
         Assert.Contains("Reset credits available: 3", tooltip, StringComparison.Ordinal);
+        Assert.Contains("- Expires", tooltip, StringComparison.Ordinal);
 
         // All three expirations should appear in ascending chronological order. The tooltip's
         // localized date strings may collapse when timestamps fall in the same minute, so
@@ -573,8 +576,8 @@ public sealed class MainWindowRuntimeLogicTests
         Assert.Equal(3, bulletLines.Count);
 
         // Each bullet contains one of the three expirations in ascending order.
-        var idxEarlier = tooltip.IndexOf(earlier.ToLocalTime().ToString("ddd MMM d, HH:mm"), StringComparison.Ordinal);
-        var idxMiddle = tooltip.IndexOf(middle.ToLocalTime().ToString("ddd MMM d, HH:mm"), StringComparison.Ordinal);
+        var idxEarlier = tooltip.IndexOf(earlier.ToLocalTime().ToString("ddd MMM d, HH:mm", CultureInfo.InvariantCulture), StringComparison.Ordinal);
+        var idxMiddle = tooltip.IndexOf(middle.ToLocalTime().ToString("ddd MMM d, HH:mm", CultureInfo.InvariantCulture), StringComparison.Ordinal);
         Assert.True(idxEarlier > 0, "earlier expiry must be present");
         Assert.True(idxMiddle > idxEarlier, $"middle should appear after earlier (earlier idx={idxEarlier}, middle idx={idxMiddle})");
         Assert.True(idxMiddle > 0, "middle expiry must be present");

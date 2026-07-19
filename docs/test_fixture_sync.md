@@ -15,6 +15,7 @@ This document defines how provider test fixtures and deterministic screenshot fi
 - Real captured provider payloads (sanitized only for secrets/identifiers).
 - Checked-in snapshots:
   - `AIUsageTracker.Tests\TestData\Providers\antigravity_user_status.snapshot.json`
+  - `AIUsageTracker.Tests\TestData\Providers\codex_rate_limit_reset_credits.snapshot.json`
   - `AIUsageTracker.Tests\TestData\Providers\codex_wham_usage.snapshot.json`
   - `AIUsageTracker.Tests\TestData\Providers\gemini_cli_retrieve_user_quota.snapshot.json`
   - `AIUsageTracker.Tests\TestData\Providers\github_copilot_rate_limit.snapshot.json`
@@ -56,4 +57,3 @@ This document defines how provider test fixtures and deterministic screenshot fi
    - `dotnet run --project .\AIUsageTracker.UI.Slim\AIUsageTracker.UI.Slim.csproj --configuration Release -- --test --screenshot`
 6. Validate documentation image references:
    - `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-doc-images.ps1`
-

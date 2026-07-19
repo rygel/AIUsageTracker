@@ -81,8 +81,8 @@ public class CodexProvider : ProviderBase
         },
     };
 
-
     private const string UsageEndpoint = "https://chatgpt.com/backend-api/wham/usage";
+    private const string ResetCreditsEndpoint = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits";
     private const string AuthClaimKey = "https://api.openai.com/auth";
     private const string JsonKeyRateLimit = "rate_limit";
     private const string JsonKeyPrimaryWindow = "primary_window";
@@ -148,7 +148,7 @@ public class CodexProvider : ProviderBase
             var jwtPlanType = payload?.ReadString(AuthClaimKey, "chatgpt_plan_type");
             knownAccountIdentity = ResolveKnownAccountIdentity(email, authIdentity, accountId);
 
-            using var request = CreateUsageRequest(resolvedAccessToken, accountId);
+            using var request = CreateAuthenticatedRequest(UsageEndpoint, resolvedAccessToken, accountId);
             using var response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
@@ -171,7 +171,21 @@ public class CodexProvider : ProviderBase
             try
             {
                 var httpStatus = (int)response.StatusCode;
-                return this.BuildUsages(config, jsonDoc.RootElement, email, jwtPlanType, authIdentity, accountId, content, httpStatus);
+                var resetCreditExpirations = await this.GetResetCreditExpirationsAsync(
+                    jsonDoc.RootElement,
+                    resolvedAccessToken,
+                    accountId,
+                    cancellationToken).ConfigureAwait(false);
+                return this.BuildUsages(
+                    config,
+                    jsonDoc.RootElement,
+                    email,
+                    jwtPlanType,
+                    authIdentity,
+                    accountId,
+                    resetCreditExpirations,
+                    content,
+                    httpStatus);
             }
             catch (Exception ex) when (ex is JsonException or InvalidOperationException or KeyNotFoundException)
             {
@@ -191,9 +205,9 @@ public class CodexProvider : ProviderBase
         }
     }
 
-    private static HttpRequestMessage CreateUsageRequest(string accessToken, string? accountId)
+    private static HttpRequestMessage CreateAuthenticatedRequest(string endpoint, string accessToken, string? accountId)
     {
-        var request = new HttpRequestMessage(HttpMethod.Get, UsageEndpoint)
+        var request = new HttpRequestMessage(HttpMethod.Get, endpoint)
         {
             Headers =
             {
@@ -207,6 +221,43 @@ public class CodexProvider : ProviderBase
         }
 
         return request;
+    }
+
+    private async Task<IReadOnlyList<DateTime>?> GetResetCreditExpirationsAsync(
+        JsonElement usageRoot,
+        string accessToken,
+        string? accountId,
+        CancellationToken cancellationToken)
+    {
+        var availableCount = usageRoot.ReadDouble(JsonKeyRateLimitResetCredits, JsonKeyAvailableCount);
+        if (availableCount is not > 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var request = CreateAuthenticatedRequest(ResetCreditsEndpoint, accessToken, accountId);
+            using var response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                this._logger.LogWarning(
+                    "Codex reset-credit detail lookup failed with HTTP {StatusCode}",
+                    (int)response.StatusCode);
+                return null;
+            }
+
+            var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            using var document = JsonDocument.Parse(content);
+            return ReadResetCreditExpirations(document.RootElement);
+        }
+        catch (Exception ex) when (
+            ex is JsonException or HttpRequestException or IOException ||
+            (ex is TaskCanceledException && !cancellationToken.IsCancellationRequested))
+        {
+            this._logger.LogWarning(ex, "Codex reset-credit detail lookup failed");
+            return null;
+        }
     }
 
     private static bool TryGetErrorDetailMessage(JsonElement root, out string message)
@@ -356,6 +407,7 @@ public class CodexProvider : ProviderBase
         string? jwtPlanType,
         string? authIdentity,
         string? accountId,
+        IReadOnlyList<DateTime>? resetCreditExpirations,
         string? rawJson = null,
         int httpStatus = 200)
     {
@@ -381,12 +433,6 @@ public class CodexProvider : ProviderBase
 
         var resetCreditsDouble = root.ReadDouble(JsonKeyRateLimitResetCredits, JsonKeyAvailableCount);
         int? resetCreditsAvailable = resetCreditsDouble.HasValue ? (int)resetCreditsDouble.Value : (int?)null;
-
-        // Per-reset expirations: support a few common Codex response shapes:
-        //   1. credits: [ {resets_at|resetsAt|reset_at|available_at: "..."}, ... ]
-        //   2. resets_at: [ "..." ]
-        //   3. next_refresh_times: [ "..." ]
-        var resetCreditExpirations = ReadResetCreditExpirations(root);
 
         var usages = new List<ProviderUsage>();
 
@@ -513,48 +559,19 @@ public class CodexProvider : ProviderBase
 
     private static IReadOnlyList<DateTime>? ReadResetCreditExpirations(JsonElement root)
     {
-        if (!root.TryGetProperty(JsonKeyRateLimitResetCredits, out var block)
-            || block.ValueKind != JsonValueKind.Object)
+        if (!root.TryGetProperty("credits", out var credits) || credits.ValueKind != JsonValueKind.Array)
         {
             return null;
         }
 
         var found = new List<DateTime>();
-
-        // Shape 1: credits: [ { "resets_at" | "resetsAt" | "reset_at" | "available_at": ISO8601 } ]
-        if (block.TryGetProperty("credits", out var creditsEl) && creditsEl.ValueKind == JsonValueKind.Array)
+        foreach (var entry in credits.EnumerateArray())
         {
-            foreach (var entry in creditsEl.EnumerateArray())
+            if (entry.ValueKind == JsonValueKind.Object &&
+                entry.TryGetProperty("expires_at", out var expiresAt) &&
+                TryReadIsoTimestamp(expiresAt, out var timestamp))
             {
-                if (entry.ValueKind != JsonValueKind.Object) continue;
-                if (TryReadIsoTimestampFromObject(entry, out var ts))
-                {
-                    found.Add(ts);
-                }
-            }
-        }
-
-        // Shape 2: resets_at: [ ISO8601 ]
-        if (found.Count == 0 && block.TryGetProperty("resets_at", out var resetsAtEl) && resetsAtEl.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var entry in resetsAtEl.EnumerateArray())
-            {
-                if (TryReadIsoTimestamp(entry, out var ts))
-                {
-                    found.Add(ts);
-                }
-            }
-        }
-
-        // Shape 3: next_refresh_times: [ ISO8601 ]
-        if (found.Count == 0 && block.TryGetProperty("next_refresh_times", out var nextRefreshEl) && nextRefreshEl.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var entry in nextRefreshEl.EnumerateArray())
-            {
-                if (TryReadIsoTimestamp(entry, out var ts))
-                {
-                    found.Add(ts);
-                }
+                found.Add(timestamp);
             }
         }
 
@@ -568,32 +585,26 @@ public class CodexProvider : ProviderBase
         return found;
     }
 
-    private static bool TryReadIsoTimestampFromObject(JsonElement obj, out DateTime timestamp)
-    {
-        string[] candidates = { "resets_at", "resetsAt", "reset_at", "available_at", "availableAt" };
-        foreach (var key in candidates)
-        {
-            if (obj.TryGetProperty(key, out var tsEl) && TryReadIsoTimestamp(tsEl, out timestamp))
-            {
-                return true;
-            }
-        }
-
-        timestamp = default;
-        return false;
-    }
-
     private static bool TryReadIsoTimestamp(JsonElement el, out DateTime timestamp)
     {
         timestamp = default;
-        if (el.ValueKind != JsonValueKind.String) return false;
+        if (el.ValueKind != JsonValueKind.String)
+        {
+            return false;
+        }
+
         var raw = el.GetString();
-        if (string.IsNullOrWhiteSpace(raw)) return false;
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return false;
+        }
+
         if (DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsed))
         {
             timestamp = DateTime.SpecifyKind(parsed, DateTimeKind.Utc);
             return true;
         }
+
         return false;
     }
 
