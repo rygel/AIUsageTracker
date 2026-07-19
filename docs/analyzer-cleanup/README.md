@@ -1,5 +1,26 @@
 # Analyzer Cleanup Work Packages
 
+## Status
+
+Execution against the 2026-07-19 baseline (`cb78e429`), targeting `develop`:
+
+| Agent | Package | PR | State |
+| --- | --- | --- | --- |
+| C | 02A — provider tests | #736 | open |
+| A | 01A — non-test using order | #738 | open (6 files deferred to B/E) |
+| D | 02B — test using order | #739 | open |
+| B | 01B — Monitor/UI layout | #740 | open (picks up 01A's deferred SA1210/IDE0005) |
+| E | 03A — async serialization | #741 | open |
+| F | 03B — exception handling | #742 | open |
+| G | 03C–F — runtime correctness | #743 | open (4 atomic commits) |
+| — | IDE0009/SA1101 — Gemini production site | #745 | open |
+
+Agent H (rule promotion, Package 04) is **blocked** until A–G merge — it can only promote rule families whose live backlog is zero across the merged tree.
+
+**Known structural issue (#744):** the pre-commit analyzer gate runs all style/analyzer rules on every changed file, but this plan decomposes work by rule family per agent. Single-package PRs are landable only when a file's co-located warnings all belong to the same agent's scope. See issue #744 for options.
+
+The `file:line` references in `01-mechanical-style.md`, `02-test-project-findings.md`, and `03-runtime-correctness.md` are baseline-relative and will shift as the PRs above merge. Re-derive them with the inventory command below; do not trust the literal numbers post-merge.
+
 ## Purpose
 
 These documents divide the remaining analyzer backlog into non-overlapping assignments. They are designed for agents to execute after the beta release without mixing cleanup with product changes.
