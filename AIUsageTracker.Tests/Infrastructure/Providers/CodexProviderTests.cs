@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -248,6 +249,73 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
             var expectedEarliest = DateTime.Now.AddSeconds(3550);
             var expectedLatest = DateTime.Now.AddSeconds(3650);
             Assert.InRange(burst.NextResetTime!.Value, expectedEarliest, expectedLatest);
+        }
+        finally
+        {
+            TestTempPaths.CleanupPath(tempDir);
+        }
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_ResetCredits_PropagatesSortedExpirationDatesAsync()
+    {
+        var tempDir = TestTempPaths.CreateDirectory("codex-test-reset-credit-expirations");
+        var authPath = Path.Combine(tempDir, "auth.json");
+        var token = CreateJwt("user@example.com", "plus");
+
+        await File.WriteAllTextAsync(authPath, JsonSerializer.Serialize(new
+        {
+            tokens = new
+            {
+                access_token = token,
+                account_id = "acct_123",
+            },
+        }));
+
+        this.SetupHttpResponse("https://chatgpt.com/backend-api/wham/usage", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent(JsonSerializer.Serialize(new
+            {
+                plan_type = "plus",
+                rate_limit = new
+                {
+                    primary_window = new
+                    {
+                        used_percent = 29,
+                        limit_window_seconds = 604800,
+                        reset_at = 1784950041,
+                    },
+                },
+                rate_limit_reset_credits = new
+                {
+                    available_count = 3,
+                },
+            })),
+        });
+        this.SetupHttpResponse("https://chatgpt.com/backend-api/wham/rate-limit-reset-credits", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent(LoadFixture("codex_rate_limit_reset_credits.snapshot.json")),
+        });
+
+        var provider = new CodexProvider(this.HttpClient, this.Logger.Object, authPath);
+
+        try
+        {
+            var usage = Assert.Single(
+                (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" }))
+                    .OfType<ModelScopedProviderUsage>());
+
+            Assert.Equal(3, usage.ResetCreditsAvailable);
+            Assert.Equal(
+                new[]
+                {
+                    DateTime.Parse("2026-07-26T22:55:46.894538Z", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal),
+                    DateTime.Parse("2026-07-31T19:47:35.978539Z", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal),
+                    DateTime.Parse("2026-08-12T17:25:15.03266Z", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal),
+                },
+                usage.ResetCreditExpirationsUtc);
         }
         finally
         {

@@ -1,0 +1,33 @@
+{
+  "available_count": 3,
+  "total_earned_count": 0,
+  "credits": [
+    {
+      "id": "<redacted-1>",
+      "reset_type": "codex_rate_limits",
+      "status": "available",
+      "granted_at": "2026-06-26T22:55:46.894538Z",
+      "expires_at": "2026-07-26T22:55:46.894538Z",
+      "title": "Full reset",
+      "description": "Thanks for using Codex! You've been granted one free rate limit reset."
+    },
+    {
+      "id": "<redacted-2>",
+      "reset_type": "codex_rate_limits",
+      "status": "available",
+      "granted_at": "2026-07-01T19:47:35.978539Z",
+      "expires_at": "2026-07-31T19:47:35.978539Z",
+      "title": "Full reset",
+      "description": "Thanks for using Codex! You've been granted one free rate limit reset."
+    },
+    {
+      "id": "<redacted-3>",
+      "reset_type": "codex_rate_limits",
+      "status": "available",
+      "granted_at": "2026-07-13T17:25:15.03266Z",
+      "expires_at": "2026-08-12T17:25:15.03266Z",
+      "title": "Full reset",
+      "description": "Thanks for using Codex! You've been granted one free rate limit reset."
+    }
+  ]
+}

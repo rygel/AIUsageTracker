@@ -4,8 +4,8 @@
 
 using System.Globalization;
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Core.Providers;
+using AIUsageTracker.Infrastructure.Providers;
 
 namespace AIUsageTracker.UI.Slim;
 
@@ -375,7 +375,19 @@ internal static partial class MainWindowRuntimeLogic
 
         if (usage is QuotaProviderUsage qReset && qReset.ResetCreditsAvailable.HasValue)
         {
-            tooltipBuilder.AppendLine($"Reset credits available: {qReset.ResetCreditsAvailable.Value}");
+            tooltipBuilder.AppendLine(
+                CultureInfo.InvariantCulture,
+                $"Reset credits available: {qReset.ResetCreditsAvailable.Value}");
+            if (qReset.ResetCreditExpirationsUtc is { Count: > 0 } expirations)
+            {
+                foreach (var expiry in expirations.OrderBy(value => value))
+                {
+                    var localExpiry = expiry.ToLocalTime();
+                    tooltipBuilder.AppendLine(
+                        CultureInfo.InvariantCulture,
+                        $"  - Expires {localExpiry:ddd MMM d, HH:mm} ({UsageMath.FormatRelativeTime(localExpiry)})");
+                }
+            }
         }
 
         if (ShouldRenderDerivedUsageDetails(usage))

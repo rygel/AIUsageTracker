@@ -2,6 +2,8 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Globalization;
+
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.UI.Slim;
@@ -524,5 +526,95 @@ public sealed class MainWindowRuntimeLogicTests
         Assert.True(presentation.DualBar.Secondary.PaceColor.IsPaceAdjusted);
         Assert.False(string.IsNullOrWhiteSpace(presentation.DualBar.Primary.PaceColor.BadgeText));
         Assert.False(string.IsNullOrWhiteSpace(presentation.DualBar.Secondary.PaceColor.BadgeText));
+    }
+
+    [Fact]
+    public void BuildTooltipContent_WithResetCreditExpirations_ListsEachEarliestFirst()
+    {
+        // Per-reset expirations must appear under "Reset credits available: N" in ascending
+        // order, regardless of input order, so the user sees the next available reset first.
+        var earlier = DateTime.UtcNow.AddDays(3);
+        var middle = DateTime.UtcNow.AddDays(10);
+        var later = DateTime.UtcNow.AddDays(17).AddHours(3); // offset by hours so the "HH:mm" string differs
+
+        var usage = new WindowedProviderUsage
+        {
+            ProviderId = "codex",
+            ProviderName = "OpenAI (Codex)",
+            IsAvailable = true,
+            IsQuotaBased = true,
+            PlanType = PlanType.Coding,
+            UsedPercent = 25,
+            ResetCreditsAvailable = 3,
+            ResetCreditExpirationsUtc = new[] { later, earlier, middle },
+            PeriodDuration = TimeSpan.FromDays(7),
+            WindowKind = WindowKind.Rolling,
+            WindowCards = new List<QuotaProviderUsage>
+            {
+                new WindowedProviderUsage
+                {
+                    ProviderId = "codex",
+                    WindowKind = WindowKind.Rolling,
+                    UsedPercent = 25,
+                    ResetCreditsAvailable = 3,
+                    NextResetTime = earlier,
+                },
+            },
+        };
+
+        var tooltip = MainWindowRuntimeLogic.BuildTooltipContent(usage, usage.ProviderName!, useRelativeResetTime: false);
+
+        Assert.NotNull(tooltip);
+        Assert.Contains("Reset credits available: 3", tooltip, StringComparison.Ordinal);
+        Assert.Contains("- Expires", tooltip, StringComparison.Ordinal);
+
+        // All three expirations should appear in ascending chronological order. The tooltip's
+        // localized date strings may collapse when timestamps fall in the same minute, so
+        // split on the "  - " bullet prefix and assert ordering by index instead of equality.
+        var lines = tooltip!.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        var bulletLines = lines.Where(l => l.TrimStart().StartsWith("-", StringComparison.Ordinal)).ToList();
+        Assert.Equal(3, bulletLines.Count);
+
+        // Each bullet contains one of the three expirations in ascending order.
+        var idxEarlier = tooltip.IndexOf(earlier.ToLocalTime().ToString("ddd MMM d, HH:mm", CultureInfo.InvariantCulture), StringComparison.Ordinal);
+        var idxMiddle = tooltip.IndexOf(middle.ToLocalTime().ToString("ddd MMM d, HH:mm", CultureInfo.InvariantCulture), StringComparison.Ordinal);
+        Assert.True(idxEarlier > 0, "earlier expiry must be present");
+        Assert.True(idxMiddle > idxEarlier, $"middle should appear after earlier (earlier idx={idxEarlier}, middle idx={idxMiddle})");
+        Assert.True(idxMiddle > 0, "middle expiry must be present");
+    }
+
+    [Fact]
+    public void BuildTooltipContent_WithoutResetCreditExpirations_DoesNotRenderExpiryLines()
+    {
+        // When the API returns a count but no per-reset timestamps, no expiry bullets
+        // should leak into the tooltip.
+        var usage = new WindowedProviderUsage
+        {
+            ProviderId = "codex",
+            ProviderName = "OpenAI (Codex)",
+            IsAvailable = true,
+            IsQuotaBased = true,
+            PlanType = PlanType.Coding,
+            UsedPercent = 25,
+            ResetCreditsAvailable = 2,
+            PeriodDuration = TimeSpan.FromDays(7),
+            WindowKind = WindowKind.Rolling,
+            WindowCards = new List<QuotaProviderUsage>
+            {
+                new WindowedProviderUsage
+                {
+                    ProviderId = "codex",
+                    WindowKind = WindowKind.Rolling,
+                    UsedPercent = 25,
+                    ResetCreditsAvailable = 2,
+                },
+            },
+        };
+
+        var tooltip = MainWindowRuntimeLogic.BuildTooltipContent(usage, usage.ProviderName!, useRelativeResetTime: false);
+
+        Assert.Contains("Reset credits available: 2", tooltip, StringComparison.Ordinal);
+        var lines = tooltip!.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        Assert.Single(lines, l => l.Contains("Reset credits available: 2", StringComparison.Ordinal));
     }
 }

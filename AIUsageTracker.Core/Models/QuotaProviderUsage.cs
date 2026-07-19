@@ -56,4 +56,12 @@ public class QuotaProviderUsage : ProviderUsage
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? ResetCreditsAvailable { get; set; }
+
+    /// <summary>
+    /// Gets or sets the available reset-credit expiration timestamps (UTC), earliest first.
+    /// The provider may cap detail rows, so this list can be shorter than <see cref="ResetCreditsAvailable"/>.
+    /// Null when the provider reports only the count.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<DateTime>? ResetCreditExpirationsUtc { get; set; }
 }

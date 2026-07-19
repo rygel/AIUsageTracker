@@ -2,6 +2,67 @@
 
 ## [Unreleased]
 
+## [2.4.5] - 2026-07-19
+
+### Added
+
+- **OpenAI reset-credit expiration dates in the usage tooltip** — hover over the OpenAI (Codex) usage card to see every available reset credit's expiration, ordered soonest-first and displayed in local date and time with a relative countdown.
+
+### Fixed
+
+- **Reset-credit expirations now survive the complete application pipeline** — dates from OpenAI's reset-credit detail endpoint are preserved through Monitor processing, SQLite history, grouped API serialization, and desktop tooltip rendering, including after refresh or restart.
+
+### Security
+
+- **Updated the SQLite dependency chain** — `Microsoft.Data.Sqlite` is now `10.0.10`, with the native SQLite bundle pinned to `2.1.12`, removing the resolved dependency affected by high-severity advisory `CVE-2025-6965`.
+
+### Changed
+
+- **Added a changed-file analyzer gate and current cleanup work packages** — new C# commits are checked for formatting and analyzer regressions before the Release build and core test gates run.
+- **Removed redundant framework package references** — .NET framework assemblies now provide JSON, hosting, HTTP, and drawing APIs without duplicate direct package references.
+
+## [2.4.5-beta.5] - 2026-07-19
+
+### Added
+
+- **OpenAI reset-credit expiration dates in the usage tooltip** — hover over the OpenAI (Codex) usage card to see the number of available reset credits and the expiration of each credit. Expirations are ordered soonest-first and shown in local date and time with a relative countdown, so it is immediately clear which credits need to be used first.
+
+### Fixed
+
+- **Reset-credit dates no longer disappear before reaching the tooltip** — the OpenAI detail endpoint and SQLite history contained the expiration data, but typed history reconstruction omitted it. The monitor now preserves every expiration through collection, persistence, grouped API serialization, and UI rendering, including after refresh or restart.
+- **Monitor startup failure regression test is deterministic** — removed the timed background file replacement race that could leave the suite waiting for 30 seconds.
+
+### Changed
+
+- **Removed redundant framework package references** — .NET framework assemblies now provide JSON, hosting, HTTP, and drawing APIs without duplicate direct package references.
+
+## [2.4.5-beta.4] - 2026-07-19
+
+### Changed
+- **Updated the deterministic Windows screenshot baseline** — beta.4 includes the CI-approved reference image produced from the current interface; runtime behavior is otherwise unchanged from beta.3.
+
+## [2.4.5-beta.3] - 2026-07-19
+
+### Added
+- **OpenAI reset-credit expiration dates are visible in the tooltip** — each available reset credit is fetched from OpenAI's reset-credit detail endpoint and displayed soonest-first with its local expiration date, time, and relative time remaining.
+
+### Security
+- **Updated the SQLite dependency chain** — `Microsoft.Data.Sqlite` is now `10.0.10`, with the native SQLite bundle pinned to `2.1.12` so the resolved package graph no longer includes the high-severity `CVE-2025-6965` advisory.
+
+### Changed
+- **Added a repository-local changed-file analyzer gate** — the checked-in pre-commit hook now rejects staged C# changes with formatting, style, or analyzer findings and runs the Release build plus core and Monitor tests.
+- **Replaced stale analyzer cleanup handoffs** — current work packages provide exact warning inventories, non-overlapping agent scopes, and rule-promotion guidance for the post-release cleanup.
+
+## [2.4.5-beta.2] - 2026-07-18
+
+### Changed
+- **v2.4.5-beta.1 was reissued under a fresh `v2.4.5-beta.1` tag pointing at clean `v2.4.4` stable code, then bumped to `v2.4.5-beta.2`.** Same content as `v2.4.4` stable. Intended to fix the broken initial `v2.4.5-beta.1` install (commit `f406bf82`) that implemented per-reset credit expirations on the Codex tooltip using speculative parsing. The Codex API at `chatgpt.com/backend-api/wham/usage` returns `rate_limit_reset_credits` as `{available_count, applicable_available_count}` only — it does **not** return per-reset expiration timestamps. Any per-reset expiration display in the tooltip would require inspecting a live API response, not inferring it.
+
+## [2.4.5-beta.1] - 2026-07-18
+
+### Removed
+- **v2.4.5-beta.1 was originally published and immediately retracted.** The Codex API at `chatgpt.com/backend-api/wham/usage` returns `rate_limit_reset_credits` as `{available_count, applicable_available_count}` — it does **not** return per-reset expiration timestamps. The originally implemented per-reset expiration tooltip list was speculative parsing that did not match reality; the original binaries were never user-facing. This reissued `v2.4.5-beta.1` is an unmodified `v2.4.4` stable build intended as a clean upgrade target for users on the broken initial `v2.4.5-beta.1` install. If the Codex API ever adds per-reset expirations, the parsing shape must be determined by capturing a live response, not inferred.
+
 ## [2.4.4] - 2026-07-13
 
 ### Fixed
@@ -744,4 +805,3 @@
 
 ### CI/CD
 - Updated all GitHub Actions to latest major versions (checkout v6, setup-dotnet v5, upload-artifact v7, download-artifact v8, github-script v8, cache v5, codecov v5, create-pull-request v8, paths-filter v4) to eliminate Node.js 20 deprecation warnings.
-

@@ -2,10 +2,14 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Text.Json;
+
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Monitor.Services;
 using AIUsageTracker.Tests.Infrastructure;
+using AIUsageTracker.UI.Slim;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AIUsageTracker.Tests.Services;
@@ -174,6 +178,53 @@ public sealed class UsageDatabasePipelineTests : IDisposable
         Assert.Equal("burst", codex.CardId);
         Assert.Equal("5-hour quota", codex.Name);
         Assert.Equal(50.0, codex.UsedPercent, precision: 5);
+    }
+
+    [Fact]
+    public async Task Pipeline_ResetCreditExpirations_ReachTooltipAfterDatabaseRoundTripAsync()
+    {
+        var db = await this.CreateDatabaseAsync();
+        DateTime[] expirations =
+        [
+            new(2026, 7, 26, 22, 55, 46, DateTimeKind.Utc),
+            new(2026, 7, 31, 19, 47, 35, DateTimeKind.Utc),
+            new(2026, 8, 12, 17, 25, 15, DateTimeKind.Utc),
+        ];
+        var usage = new ModelScopedProviderUsage
+        {
+            ProviderId = "codex",
+            ProviderName = "OpenAI (Codex)",
+            CardId = "weekly",
+            GroupId = "codex",
+            Name = "Weekly",
+            WindowKind = WindowKind.Rolling,
+            RequestsUsed = 32,
+            RequestsAvailable = 100,
+            UsedPercent = 32,
+            IsAvailable = true,
+            IsQuotaBased = true,
+            Description = "68% remaining",
+            HttpStatus = 200,
+            FetchedAt = DateTime.UtcNow.AddMinutes(-1),
+            ResetCreditsAvailable = 3,
+            ResetCreditExpirationsUtc = expirations,
+        };
+
+        var processed = this._pipeline.Process([usage], activeProviderIds: ["codex"], isPrivacyMode: false);
+        await db.StoreHistoryAsync(processed.Usages);
+
+        var persisted = Assert.IsType<ModelScopedProviderUsage>(Assert.Single(await db.GetLatestHistoryAsync()));
+        Assert.Equal(expirations, persisted.ResetCreditExpirationsUtc);
+
+        var snapshot = GroupedUsageProjectionService.Build([persisted]);
+        var json = JsonSerializer.Serialize(snapshot, MonitorJsonSerializer.DefaultOptions);
+        var clientSnapshot = JsonSerializer.Deserialize<AgentGroupedUsageSnapshot>(json, MonitorJsonSerializer.DefaultOptions);
+        var displayUsage = Assert.Single(GroupedUsageDisplayAdapter.Expand(clientSnapshot));
+        Assert.Equal(expirations, displayUsage.ResetCreditExpirationsUtc);
+
+        var tooltip = MainWindowRuntimeLogic.BuildTooltipContent(displayUsage, "OpenAI (Codex)");
+        Assert.NotNull(tooltip);
+        Assert.Equal(expirations.Length, tooltip.Split("  - Expires ", StringSplitOptions.None).Length - 1);
     }
 
     [Fact]

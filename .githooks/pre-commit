@@ -1,8 +1,17 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 
-set -euo pipefail
+set -eu
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
+repo_root="$(git rev-parse --show-toplevel)"
+gate="$repo_root/scripts/pre-commit-analyzer-gate.ps1"
 
-"${REPO_ROOT}/scripts/pre-commit-check.sh" --staged
+if command -v pwsh >/dev/null 2>&1; then
+    exec pwsh -NoProfile -File "$gate" -AgentOwner git-pre-commit -AgentTask changed-file-analyzer-gate
+fi
+
+if command -v powershell.exe >/dev/null 2>&1; then
+    exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$gate" -AgentOwner git-pre-commit -AgentTask changed-file-analyzer-gate
+fi
+
+echo "Analyzer gate requires PowerShell (pwsh or powershell.exe)." >&2
+exit 1

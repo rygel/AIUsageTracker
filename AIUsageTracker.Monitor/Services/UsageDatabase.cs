@@ -7,7 +7,6 @@ using System.Globalization;
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Core.Providers;
 using Dapper;
 using Microsoft.Data.Sqlite;
@@ -278,7 +277,7 @@ public class UsageDatabase : IUsageDatabase
                         upstream_response_validity, upstream_response_note,
                         parent_provider_id, card_id, group_id,
                         window_kind, model_name, name, card_type,
-                        reset_credits_available
+                        reset_credits_available, reset_credit_expirations_utc
                     ) VALUES (
                         @ProviderId,
                         @RequestsUsed, @RequestsAvailable, @RequestsPercentage,
@@ -287,7 +286,7 @@ public class UsageDatabase : IUsageDatabase
                         @UpstreamResponseValidity, @UpstreamResponseNote,
                         @ParentProviderId, @CardId, @GroupId,
                         @WindowKind, @ModelName, @Name, @CardType,
-                        @ResetCreditsAvailable
+                        @ResetCreditsAvailable, @ResetCreditExpirationsUtc
                     )";
 
                 await connection.ExecuteAsync(insertSql, toInsert).ConfigureAwait(false);
@@ -328,7 +327,8 @@ public class UsageDatabase : IUsageDatabase
             && string.Equals(newStatusMessage, last.StatusMessage ?? string.Empty, StringComparison.Ordinal)
             && string.Equals(newNextResetTime, last.NextResetTime, StringComparison.Ordinal)
             && string.Equals((usage as WindowedProviderUsage)?.Name ?? (usage as ModelScopedProviderUsage)?.Name, last.Name, StringComparison.Ordinal)
-            && q?.ResetCreditsAvailable == last.ResetCreditsAvailable;
+            && q?.ResetCreditsAvailable == last.ResetCreditsAvailable
+            && ExpirationsEqual(q?.ResetCreditExpirationsUtc, DeserializeResetCreditExpirations(last.ResetCreditExpirationsUtcSerialized));
     }
 
     private static void ClassifyHistoryEntries(
@@ -381,7 +381,8 @@ public class UsageDatabase : IUsageDatabase
                     m?.ModelName,
                     w?.Name ?? m?.Name,
                     GetCardType(u),
-                    q?.ResetCreditsAvailable));
+                    q?.ResetCreditsAvailable,
+                    SerializeResetCreditExpirations(q?.ResetCreditExpirationsUtc)));
             }
         }
     }
@@ -393,6 +394,28 @@ public class UsageDatabase : IUsageDatabase
         QuotaProviderUsage => "quota",
         _ => "status",
     };
+
+    private static string? SerializeResetCreditExpirations(IReadOnlyList<DateTime>? expirations)
+    {
+        return expirations is { Count: > 0 }
+            ? System.Text.Json.JsonSerializer.Serialize(expirations.Select(d => d.ToUniversalTime().Ticks))
+            : null;
+    }
+
+    private static bool ExpirationsEqual(IReadOnlyList<DateTime>? left, IReadOnlyList<DateTime>? right) =>
+        ReferenceEquals(left, right) || (left != null && right != null && left.SequenceEqual(right));
+
+    private static IReadOnlyList<DateTime>? DeserializeResetCreditExpirations(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        return System.Text.Json.JsonSerializer.Deserialize<long[]>(raw)?
+            .Select(ticks => new DateTime(ticks, DateTimeKind.Utc))
+            .ToArray();
+    }
 
     private static async Task<Dictionary<string, LastHistoryRow>> LoadLastHistoryRowsAsync(
         SqliteConnection connection,
@@ -414,7 +437,8 @@ public class UsageDatabase : IUsageDatabase
                    h.next_reset_time AS NextResetTime,
                    h.http_status AS HttpStatus,
                    h.name AS Name,
-                   h.reset_credits_available AS ResetCreditsAvailable
+                   h.reset_credits_available AS ResetCreditsAvailable,
+                    h.reset_credit_expirations_utc AS ResetCreditExpirationsUtcSerialized
             FROM provider_history h
             WHERE h.id IN (
                 SELECT MAX(id)
@@ -440,7 +464,8 @@ public class UsageDatabase : IUsageDatabase
         string? NextResetTime,
         long HttpStatus,
         string? Name,
-        long? ResetCreditsAvailable);
+        long? ResetCreditsAvailable,
+        string? ResetCreditExpirationsUtcSerialized);
 
     private sealed record HistoryInsertParams(
         string ProviderId,
@@ -462,7 +487,8 @@ public class UsageDatabase : IUsageDatabase
         string? ModelName,
         string? Name,
         string CardType,
-        int? ResetCreditsAvailable);
+        int? ResetCreditsAvailable,
+        string? ResetCreditExpirationsUtc);
 
     private sealed record HistoryTouchParams(long Id, long FetchedAt);
 
@@ -653,7 +679,8 @@ public class UsageDatabase : IUsageDatabase
                        h.model_name AS ModelName,
                        h.name AS Name,
                        COALESCE(h.card_type, 'quota') AS CardType,
-                       h.reset_credits_available AS ResetCreditsAvailable
+                       h.reset_credits_available AS ResetCreditsAvailable,
+                       h.reset_credit_expirations_utc AS ResetCreditExpirationsUtcSerialized
                 FROM provider_history h
                 LEFT JOIN providers p ON h.provider_id = p.provider_id
                 WHERE h.id IN (
@@ -666,6 +693,11 @@ public class UsageDatabase : IUsageDatabase
 
         object? param = providerIds != null ? new { providerIds = providerIds.ToArray() } : null;
         var dtoRows = (await connection.QueryAsync<HistoryRowDto>(sql, param).ConfigureAwait(false)).ToList();
+        foreach (var dto in dtoRows)
+        {
+            dto.ResetCreditExpirationsUtc = DeserializeResetCreditExpirations(dto.ResetCreditExpirationsUtcSerialized);
+        }
+
         var results = dtoRows.Select(ToTypedUsage).ToList();
 
         var quotaResults = results.OfType<QuotaProviderUsage>().ToList();
@@ -708,18 +740,6 @@ public class UsageDatabase : IUsageDatabase
         return results;
     }
 
-    /// <summary>
-    /// Computes a per-provider burn rate (requests/hour) from historical rows and stamps
-    /// it onto the in-memory <see cref="ProviderUsage.UsagePerHour"/> property.
-    /// Uses the row closest to one hour ago (within a 30–120 min window) as the baseline.
-    /// Returns null for a provider when there is insufficient history or the counter reset.
-    /// </summary>
-    /// <summary>
-    /// Dapper-mapped DTO that captures every column from <c>provider_history</c>,
-    /// including the subtype discriminator (<c>card_type</c>) and fields that
-    /// belong to specific subtypes (<c>parent_provider_id</c>, <c>model_name</c>).
-    /// Inherits all quota fields from <see cref="QuotaProviderUsage"/>.
-    /// </summary>
     private sealed class HistoryRowDto : QuotaProviderUsage
     {
         public string? ParentProviderId { get; set; }
@@ -727,6 +747,8 @@ public class UsageDatabase : IUsageDatabase
         public string? ModelName { get; set; }
 
         public string? CardType { get; set; }
+
+        public string? ResetCreditExpirationsUtcSerialized { get; set; }
     }
 
     private static ProviderUsage ToTypedUsage(HistoryRowDto row) => row.CardType switch
@@ -737,7 +759,8 @@ public class UsageDatabase : IUsageDatabase
         _ => CopyTo(new QuotaProviderUsage(), row),
     };
 
-    private static T CopyTo<T>(T target, HistoryRowDto source) where T : ProviderUsage
+    private static T CopyTo<T>(T target, HistoryRowDto source)
+        where T : ProviderUsage
     {
         target.ProviderId = source.ProviderId;
         target.ProviderName = source.ProviderName;
@@ -768,6 +791,7 @@ public class UsageDatabase : IUsageDatabase
             quota.IsStatusOnly = source.IsStatusOnly;
             quota.NextResetTime = source.NextResetTime;
             quota.ResetCreditsAvailable = source.ResetCreditsAvailable;
+            quota.ResetCreditExpirationsUtc = source.ResetCreditExpirationsUtc;
             quota.UsagePerHour = source.UsagePerHour;
             quota.WindowKind = source.WindowKind;
             quota.Name = source.Name;
@@ -778,7 +802,6 @@ public class UsageDatabase : IUsageDatabase
 
         return target;
     }
-
 
     private static async Task StampUsageRatesAsync(SqliteConnection connection, IReadOnlyList<QuotaProviderUsage> results)
     {

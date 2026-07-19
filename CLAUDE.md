@@ -295,6 +295,17 @@ These rules come from 80+ cycles of dogfooding. They prevent the most common sou
 - **Test after every build.** Run the project's test suite after implementing. Suggest follow-up tasks from learnings when meaningful.
 - **Build patiently.** Validate each phase against the last. Don't rush through implementation — test through the UI, not just the API.
 
+### Release Versioning — Never Reuse, Always Bump
+- **NEVER overwrite an existing tag** like `vX.Y.Z-beta.N` with new (potentially broken) code. The user's auto-updater and any installed copy are pinned to that tag — re-tagging makes the auto-updater silently overwrite a working install with broken code, or fails to detect a new release.
+- **Before tagging a release**, run `git tag -l "vX.Y.Z*"` and `gh release list --limit 5` to see what already exists. If the tag you're about to push matches an existing one, **bump the version** (e.g. `-beta.N` → `-beta.N+1`) instead of force-overwriting.
+- **Before deciding the version number**, check the installed app's actual product version on disk:
+  ```powershell
+  (Get-Item "C:\Users\Alexander\AppData\Local\Programs\AIUsageTracker\AIUsageTracker.exe").VersionInfo.ProductVersion
+  ```
+  Use this — combined with the published tags — to derive the next version.
+- **When the user already has `v2.4.X-beta.N` installed** (broken or not), the next fix MUST be `v2.4.X-beta.N+1`. Re-tagging the same beta is wrong because the auto-updater will not offer an "upgrade" to the same string.
+- **If you tagged the wrong release**, the recovery is `git tag -d <tag>` + `git push origin :refs/tags/<tag>` + `gh release delete <tag> -y`, then build a fresh tag with a bumped `-beta.N+1`. Don't try to reuse or overwrite tags — git's repo rules will block the latter anyway.
+
 ### Security
 - **Audit before widening access.** Before any build that adds endpoints, modifies auth/RLS, introduces new user types, or changes access controls — review the security implications first. Fix findings before shipping.
 - **Flag access-widening changes.** If a build touches auth, RLS policies, API keys, or user-facing access, note "Security surface reviewed" in the build report's `discovered_issues` or `architecture_notes`.

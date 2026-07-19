@@ -209,6 +209,8 @@ public class DatabaseMigrationService
                 details_json TEXT,
                 parent_provider_id TEXT REFERENCES providers(provider_id) ON DELETE SET NULL,
                 card_type TEXT,
+                reset_credits_available INTEGER,
+                reset_credit_expirations_utc TEXT,
                 FOREIGN KEY (provider_id) REFERENCES providers(provider_id) ON DELETE CASCADE
             );
 
@@ -256,6 +258,7 @@ public class DatabaseMigrationService
         EnsureColumn(connection, TableProviderHistory, "name", "TEXT");
         EnsureColumn(connection, TableProviderHistory, "card_type", "TEXT");
         EnsureColumn(connection, TableProviderHistory, "reset_credits_available", "INTEGER");
+        EnsureColumn(connection, TableProviderHistory, "reset_credit_expirations_utc", "TEXT");
 
         // Convert fetched_at TEXT → INTEGER epoch. All columns are ensured above
         // so the table recreation preserves all data.
@@ -327,6 +330,7 @@ public class DatabaseMigrationService
                 name TEXT,
                 card_type TEXT,
                 reset_credits_available INTEGER,
+                reset_credit_expirations_utc TEXT,
                 FOREIGN KEY (provider_id) REFERENCES providers(provider_id) ON DELETE CASCADE
             );
             INSERT INTO provider_history_new ({historyTarget})
