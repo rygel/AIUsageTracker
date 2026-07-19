@@ -16,6 +16,7 @@ internal static class UpdateInstallerHelper
     /// process via taskkill /F. Without this save, any unsaved preference
     /// changes (including UpdateChannel) are lost.
     /// </summary>
+    /// <returns>A task that represents the asynchronous download and install operation.</returns>
     public static async Task DownloadAndInstallAsync(
         Window owner,
         UpdateInfo updateInfo,
@@ -85,9 +86,21 @@ internal static class UpdateInstallerHelper
                 await preferencesStore.SaveAsync(App.Preferences).ConfigureAwait(true);
                 logger.LogInformation("[UPDATE] Preferences force-saved before installer launch");
             }
-            catch (Exception saveEx)
+            catch (InvalidOperationException saveEx)
             {
-                logger.LogWarning(saveEx, "[UPDATE] Failed to force-save preferences before installer launch");
+                logger.LogWarning(saveEx, "[UPDATE] Preferences service unavailable; force-save skipped before installer launch");
+            }
+            catch (System.IO.IOException saveEx)
+            {
+                logger.LogWarning(saveEx, "[UPDATE] Preferences force-save I/O failure before installer launch");
+            }
+            catch (System.Text.Json.JsonException saveEx)
+            {
+                logger.LogWarning(saveEx, "[UPDATE] Preferences force-save serialization failure before installer launch");
+            }
+            catch (UnauthorizedAccessException saveEx)
+            {
+                logger.LogWarning(saveEx, "[UPDATE] Preferences force-save denied by file permissions before installer launch");
             }
 
             UiDiagnosticFileLog.Write($"[UPDATE] Starting download: {updateInfo.DownloadUrl}");
