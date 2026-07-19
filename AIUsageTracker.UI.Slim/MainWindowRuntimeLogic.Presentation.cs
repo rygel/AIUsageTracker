@@ -8,12 +8,10 @@
 // rendered. Never use card.Name ?? "Burst" or any hardcoded fallback. Always
 // read from the definition. No filtering by type (.OfType<WindowedProviderUsage>).
 // All QuotaProviderUsage subtypes are valid window cards.
-
 using System.Globalization;
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Infrastructure.Helpers;
-using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Core.Providers;
+using AIUsageTracker.Infrastructure.Helpers;
 
 namespace AIUsageTracker.UI.Slim;
 
