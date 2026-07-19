@@ -2,13 +2,14 @@
 
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.1.72" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.5" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.5" />
     <PackageReference Include="NetSparkleUpdater.SparkleUpdater" Version="3.0.4" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.5" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.5" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.5" />
     <PackageReference Include="System.Management" Version="10.0.5" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.12" />
     <ProjectReference Include="..\AIUsageTracker.Core\AIUsageTracker.Core.csproj" />
   </ItemGroup>
 
@@ -23,5 +24,4 @@
   </PropertyGroup>
 
 </Project>
-
 

@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [2.4.5-beta.3] - 2026-07-19
+
+### Added
+- **OpenAI reset-credit expiration dates are visible in the tooltip** — each available reset credit is fetched from OpenAI's reset-credit detail endpoint and displayed soonest-first with its local expiration date, time, and relative time remaining.
+
+### Security
+- **Updated the SQLite dependency chain** — `Microsoft.Data.Sqlite` is now `10.0.10`, with the native SQLite bundle pinned to `2.1.12` so the resolved package graph no longer includes the high-severity `CVE-2025-6965` advisory.
+
+### Changed
+- **Added a repository-local changed-file analyzer gate** — the checked-in pre-commit hook now rejects staged C# changes with formatting, style, or analyzer findings and runs the Release build plus core and Monitor tests.
+- **Replaced stale analyzer cleanup handoffs** — current work packages provide exact warning inventories, non-overlapping agent scopes, and rule-promotion guidance for the post-release cleanup.
+
 ## [2.4.5-beta.2] - 2026-07-18
 
 ### Changed
@@ -754,4 +766,3 @@
 
 ### CI/CD
 - Updated all GitHub Actions to latest major versions (checkout v6, setup-dotnet v5, upload-artifact v7, download-artifact v8, github-script v8, cache v5, codecov v5, create-pull-request v8, paths-filter v4) to eliminate Node.js 20 deprecation warnings.
-
