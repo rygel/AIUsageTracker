@@ -5,7 +5,6 @@
 using System.Net;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
-using AIUsageTracker.Tests.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AIUsageTracker.Tests.Infrastructure.Providers;
@@ -21,7 +20,7 @@ public class AnthropicUsageProviderTests : HttpProviderTestBase<AnthropicUsagePr
 
     public AnthropicUsageProviderTests()
     {
-        _config = new ProviderConfig
+        this._config = new ProviderConfig
         {
             ProviderId = "anthropic-usage",
             ApiKey = TestAdminKey,
@@ -54,7 +53,7 @@ public class AnthropicUsageProviderTests : HttpProviderTestBase<AnthropicUsagePr
             r => r.RequestUri != null && r.RequestUri.ToString().StartsWith(CostUrl, StringComparison.Ordinal),
             errorResponse);
 
-        var results = await this._provider.GetUsageAsync(_config);
+        var results = await this._provider.GetUsageAsync(this._config);
 
         var usage = Assert.Single(results);
         Assert.False(usage.IsAvailable);
@@ -83,18 +82,18 @@ public class AnthropicUsageProviderTests : HttpProviderTestBase<AnthropicUsagePr
             r => r.RequestUri != null && r.RequestUri.ToString().StartsWith(UsageUrl, StringComparison.Ordinal),
             usageResponse);
 
-        var results = (await this._provider.GetUsageAsync(_config))
+        var results = (await this._provider.GetUsageAsync(this._config))
             .Cast<QuotaProviderUsage>()
             .ToList();
 
         Assert.Equal(2, results.Count);
 
-        var costCard = results.FirstOrDefault(c => c.CardId == "daily-cost");
+        var costCard = results.FirstOrDefault(c => string.Equals(c.CardId, "daily-cost", StringComparison.Ordinal));
         Assert.NotNull(costCard);
         Assert.True(costCard!.IsAvailable);
         Assert.Contains("$5.42", costCard.Description, StringComparison.Ordinal);
 
-        var tokenCard = results.FirstOrDefault(c => c.CardId == "daily-tokens");
+        var tokenCard = results.FirstOrDefault(c => string.Equals(c.CardId, "daily-tokens", StringComparison.Ordinal));
         Assert.NotNull(tokenCard);
         Assert.True(tokenCard!.IsAvailable);
         Assert.Contains("20,000 tokens", tokenCard.Description, StringComparison.Ordinal);
@@ -122,7 +121,7 @@ public class AnthropicUsageProviderTests : HttpProviderTestBase<AnthropicUsagePr
             r => r.RequestUri != null && r.RequestUri.ToString().StartsWith(UsageUrl, StringComparison.Ordinal),
             usageResponse);
 
-        var results = await this._provider.GetUsageAsync(_config);
+        var results = await this._provider.GetUsageAsync(this._config);
 
         var usage = Assert.Single(results);
         Assert.True(usage.IsAvailable);
@@ -150,7 +149,7 @@ public class AnthropicUsageProviderTests : HttpProviderTestBase<AnthropicUsagePr
             r => r.RequestUri != null && r.RequestUri.ToString().StartsWith(UsageUrl, StringComparison.Ordinal),
             usageResponse);
 
-        var results = (await this._provider.GetUsageAsync(_config))
+        var results = (await this._provider.GetUsageAsync(this._config))
             .Cast<QuotaProviderUsage>()
             .ToList();
 
@@ -198,7 +197,7 @@ public class AnthropicUsageProviderTests : HttpProviderTestBase<AnthropicUsagePr
             r => r.RequestUri != null && r.RequestUri.ToString().StartsWith(UsageUrl, StringComparison.Ordinal),
             usageResponse);
 
-        await this._provider.GetUsageAsync(_config);
+        await this._provider.GetUsageAsync(this._config);
 
         Assert.NotNull(capturedRequest);
         Assert.Null(capturedRequest!.Headers.Authorization);
