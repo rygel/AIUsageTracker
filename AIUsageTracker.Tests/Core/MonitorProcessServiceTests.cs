@@ -102,25 +102,25 @@ public sealed class MonitorProcessServiceTests : IDisposable
             Errors = new List<string> { "Startup status: starting" },
         });
 
+        var processChecks = 0;
         var launcher = new MonitorLauncher(
             monitorInfoCandidatePathsOverride: () => new[] { infoPath },
             healthCheckOverride: _ => Task.FromResult(false),
-            processRunningOverride: _ => Task.FromResult(true));
-
-        _ = Task.Run(async () =>
+            processRunningOverride: async _ =>
         {
-            await Task.Delay(250).ConfigureAwait(false);
-            var replacementPath = Path.Combine(this._tempDirectory, $"monitor-{Guid.NewGuid():N}.json");
-            var replacementInfo = new MonitorInfo
+            if (Interlocked.Increment(ref processChecks) == 2)
             {
-                Port = 5000,
-                ProcessId = 9999,
-                Errors = new List<string> { "Startup status: failed: port bind failed" },
-            };
-            await File.WriteAllTextAsync(
-                replacementPath,
-                JsonSerializer.Serialize(replacementInfo)).ConfigureAwait(false);
-            File.Replace(replacementPath, infoPath, destinationBackupFileName: null, ignoreMetadataErrors: true);
+                await File.WriteAllTextAsync(
+                    infoPath,
+                    JsonSerializer.Serialize(new MonitorInfo
+                    {
+                        Port = 5000,
+                        ProcessId = 9999,
+                        Errors = new List<string> { "Startup status: failed: port bind failed" },
+                    })).ConfigureAwait(false);
+            }
+
+            return true;
         });
 
         var service = this.CreateService(launcher: launcher);

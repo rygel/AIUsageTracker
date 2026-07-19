@@ -7,7 +7,6 @@ using System.Globalization;
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Core.Providers;
 using Dapper;
 using Microsoft.Data.Sqlite;
@@ -398,36 +397,24 @@ public class UsageDatabase : IUsageDatabase
 
     private static string? SerializeResetCreditExpirations(IReadOnlyList<DateTime>? expirations)
     {
-        if (expirations == null || expirations.Count == 0) return null;
-        var ticks = expirations.Select(d => d.ToUniversalTime().Ticks).ToArray();
-        return System.Text.Json.JsonSerializer.Serialize(ticks);
+        return expirations is { Count: > 0 }
+            ? System.Text.Json.JsonSerializer.Serialize(expirations.Select(d => d.ToUniversalTime().Ticks))
+            : null;
     }
 
-    private static bool ExpirationsEqual(IReadOnlyList<DateTime>? a, IReadOnlyList<DateTime>? b)
-    {
-        if (ReferenceEquals(a, b)) return true;
-        if (a == null || b == null) return false;
-        if (a.Count != b.Count) return false;
-        for (var i = 0; i < a.Count; i++)
-        {
-            if (a[i].Ticks != b[i].Ticks) return false;
-        }
-        return true;
-    }
+    private static bool ExpirationsEqual(IReadOnlyList<DateTime>? left, IReadOnlyList<DateTime>? right) =>
+        ReferenceEquals(left, right) || (left != null && right != null && left.SequenceEqual(right));
 
     private static IReadOnlyList<DateTime>? DeserializeResetCreditExpirations(string? raw)
     {
-        if (string.IsNullOrWhiteSpace(raw)) return null;
-        try
-        {
-            var ticks = System.Text.Json.JsonSerializer.Deserialize<long[]>(raw);
-            if (ticks == null || ticks.Length == 0) return null;
-            return ticks.Select(t => new DateTime(t, DateTimeKind.Utc)).ToArray();
-        }
-        catch
+        if (string.IsNullOrWhiteSpace(raw))
         {
             return null;
         }
+
+        return System.Text.Json.JsonSerializer.Deserialize<long[]>(raw)?
+            .Select(ticks => new DateTime(ticks, DateTimeKind.Utc))
+            .ToArray();
     }
 
     private static async Task<Dictionary<string, LastHistoryRow>> LoadLastHistoryRowsAsync(
@@ -710,6 +697,7 @@ public class UsageDatabase : IUsageDatabase
         {
             dto.ResetCreditExpirationsUtc = DeserializeResetCreditExpirations(dto.ResetCreditExpirationsUtcSerialized);
         }
+
         var results = dtoRows.Select(ToTypedUsage).ToList();
 
         var quotaResults = results.OfType<QuotaProviderUsage>().ToList();
@@ -752,18 +740,6 @@ public class UsageDatabase : IUsageDatabase
         return results;
     }
 
-    /// <summary>
-    /// Computes a per-provider burn rate (requests/hour) from historical rows and stamps
-    /// it onto the in-memory <see cref="ProviderUsage.UsagePerHour"/> property.
-    /// Uses the row closest to one hour ago (within a 30–120 min window) as the baseline.
-    /// Returns null for a provider when there is insufficient history or the counter reset.
-    /// </summary>
-    /// <summary>
-    /// Dapper-mapped DTO that captures every column from <c>provider_history</c>,
-    /// including the subtype discriminator (<c>card_type</c>) and fields that
-    /// belong to specific subtypes (<c>parent_provider_id</c>, <c>model_name</c>).
-    /// Inherits all quota fields from <see cref="QuotaProviderUsage"/>.
-    /// </summary>
     private sealed class HistoryRowDto : QuotaProviderUsage
     {
         public string? ParentProviderId { get; set; }
@@ -772,9 +748,6 @@ public class UsageDatabase : IUsageDatabase
 
         public string? CardType { get; set; }
 
-        // Raw serialized JSON of per-reset expirations; mapped from reset_credit_expirations_utc.
-        // Dapper binds this string here; we then deserialize into ResetCreditExpirationsUtc
-        // (which is IReadOnlyList<DateTime> on the base class).
         public string? ResetCreditExpirationsUtcSerialized { get; set; }
     }
 
@@ -786,7 +759,8 @@ public class UsageDatabase : IUsageDatabase
         _ => CopyTo(new QuotaProviderUsage(), row),
     };
 
-    private static T CopyTo<T>(T target, HistoryRowDto source) where T : ProviderUsage
+    private static T CopyTo<T>(T target, HistoryRowDto source)
+        where T : ProviderUsage
     {
         target.ProviderId = source.ProviderId;
         target.ProviderName = source.ProviderName;
@@ -817,6 +791,7 @@ public class UsageDatabase : IUsageDatabase
             quota.IsStatusOnly = source.IsStatusOnly;
             quota.NextResetTime = source.NextResetTime;
             quota.ResetCreditsAvailable = source.ResetCreditsAvailable;
+            quota.ResetCreditExpirationsUtc = source.ResetCreditExpirationsUtc;
             quota.UsagePerHour = source.UsagePerHour;
             quota.WindowKind = source.WindowKind;
             quota.Name = source.Name;
@@ -827,7 +802,6 @@ public class UsageDatabase : IUsageDatabase
 
         return target;
     }
-
 
     private static async Task StampUsageRatesAsync(SqliteConnection connection, IReadOnlyList<QuotaProviderUsage> results)
     {

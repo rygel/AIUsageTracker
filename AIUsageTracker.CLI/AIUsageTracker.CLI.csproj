@@ -10,7 +10,6 @@
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.5" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.5" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.5" />
-    <PackageReference Include="System.Text.Json" Version="10.0.5" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -25,6 +24,5 @@
   </PropertyGroup>
 
 </Project>
-
 
 
