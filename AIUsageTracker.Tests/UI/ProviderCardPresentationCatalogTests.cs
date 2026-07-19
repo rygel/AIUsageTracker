@@ -334,6 +334,7 @@ public sealed class ProviderCardPresentationCatalogTests
         var usages = GroupedUsageDisplayAdapter.Expand(snapshot);
         var usage = Assert.Single(usages);
         var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
+
         // Codex DualBarLabels: Burst="5h", Rolling="Weekly"
         Assert.Equal("5h 16% remaining | Weekly 84% remaining", presentation.StatusText);
     }

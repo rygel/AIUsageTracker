@@ -3,7 +3,6 @@
 // </copyright>
 
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Core.Providers;
 
 namespace AIUsageTracker.Monitor.Services;
@@ -260,6 +259,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         {
             description = "Unavailable";
         }
+
         usage.Description = description;
 
         if (isPrivacyMode)
