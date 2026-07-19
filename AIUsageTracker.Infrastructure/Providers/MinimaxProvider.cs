@@ -210,9 +210,16 @@ public class MinimaxProvider : ProviderBase
             var remainsResponse = JsonSerializer.Deserialize<MinimaxRemainsResponse>(responseString);
             if (remainsResponse?.BaseResp?.StatusCode != 0 || remainsResponse.ModelRemains == null || remainsResponse.ModelRemains.Count == 0)
             {
-                var errMsg = remainsResponse?.BaseResp is { StatusCode: not 0, StatusMsg: not null }
-                    ? remainsResponse.BaseResp.StatusMsg
-                    : "Invalid MiniMax response";
+                string errMsg;
+                if (remainsResponse?.BaseResp is { StatusCode: not 0, StatusMsg: string statusMsg })
+                {
+                    errMsg = statusMsg;
+                }
+                else
+                {
+                    errMsg = "Invalid MiniMax response";
+                }
+
                 return new[]
                 {
                     new QuotaProviderUsage
