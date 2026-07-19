@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.4.5-beta.2] - 2026-07-18
+
+### Changed
+- **v2.4.5-beta.1 was reissued under a fresh `v2.4.5-beta.1` tag pointing at clean `v2.4.4` stable code, then bumped to `v2.4.5-beta.2`.** Same content as `v2.4.4` stable. Intended to fix the broken initial `v2.4.5-beta.1` install (commit `f406bf82`) that implemented per-reset credit expirations on the Codex tooltip using speculative parsing. The Codex API at `chatgpt.com/backend-api/wham/usage` returns `rate_limit_reset_credits` as `{available_count, applicable_available_count}` only — it does **not** return per-reset expiration timestamps. Any per-reset expiration display in the tooltip would require inspecting a live API response, not inferring it.
+
 ## [2.4.5-beta.1] - 2026-07-18
 
 ### Removed
