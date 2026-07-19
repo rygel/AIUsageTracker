@@ -28,7 +28,10 @@ internal sealed class TestWebHost : IDisposable
         var tempDirectory = TestTempPaths.CreateDirectory("aiusagetracker-webtests");
 
         var scenarioPath = Path.Combine(tempDirectory, "monitor-scenario.json");
-        await File.WriteAllTextAsync(scenarioPath, JsonSerializer.Serialize(scenario)).ConfigureAwait(false);
+        using (var scenarioStream = File.Create(scenarioPath))
+        {
+            await JsonSerializer.SerializeAsync(scenarioStream, scenario).ConfigureAwait(false);
+        }
 
         var factory = new KestrelWebApplicationFactory<Program>(new Dictionary<string, string>(StringComparer.Ordinal)
         {
