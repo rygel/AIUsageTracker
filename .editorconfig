@@ -13,7 +13,8 @@ dotnet_diagnostic.IDE0005.severity = warning
 dotnet_diagnostic.IDE0055.severity = warning
 dotnet_diagnostic.IDE0065.severity = warning
 dotnet_diagnostic.IDE0009.severity = error
-dotnet_diagnostic.CA1031.severity = warning
+dotnet_diagnostic.CA1031.severity = error
+dotnet_diagnostic.CA2024.severity = error
 # TODO: fix violations then promote to error (was inert due to dot_diagnostic prefix typo)
 dotnet_diagnostic.CA1062.severity = error
 dotnet_diagnostic.CA1307.severity = error
@@ -26,7 +27,8 @@ dotnet_diagnostic.CA2300.severity = warning
 # are enforced in architecture tests because the patterns are project-specific and
 # need tighter control than generic analyzer packages provide.
 dotnet_diagnostic.VSTHRD002.severity = warning
-dotnet_diagnostic.VSTHRD103.severity = warning
+dotnet_diagnostic.VSTHRD003.severity = error
+dotnet_diagnostic.VSTHRD103.severity = error
 dotnet_diagnostic.VSTHRD105.severity = warning
 dotnet_diagnostic.VSTHRD110.severity = warning
 # TODO: fix violations then promote to error (was inert due to dot_diagnostic prefix typo)
