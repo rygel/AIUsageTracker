@@ -49,6 +49,17 @@ This document provides essential information for agentic coding assistants worki
 - **DO NOT** show only a subset of providers (e.g., only antigravity) on startup
 - The UI must show provider cards immediately, even if data is stale or unavailable
 
+### Privacy Mode Scope (CRITICAL — read before touching privacy code)
+
+**Privacy mode is a UI-only concern. It has NO effect on data recording.**
+
+- `IsPrivacyMode` controls what the **user sees** in the Slim UI: it hides account names, masks usage values, blanks identifiers, etc.
+- It does NOT control database storage. Provider response bodies (`raw_snapshots`), `provider_history`, and `reset_events` MUST be recorded **continuously and unconditionally** regardless of `IsPrivacyMode`.
+- The processing pipeline (`ProviderUsageProcessingPipeline.NormalizeUsage`) redacts only the **display-bound** fields under privacy mode: `AccountName`, `ConfigKey`. Everything else — including `RawJson` — is the audit trail and must be preserved.
+- Rationale: privacy mode is for screen-sharing/UI screenshots; the database is the diagnostic record that backs trend analysis, error investigation, and provider behavior changes. Gaps in that record destroy the product's value.
+- A previous version of the pipeline nulled `RawJson` in privacy mode, which silently disabled `raw_snapshots` writes for the entire duration privacy mode was on (e.g. a 4-day gap with zero snapshots for any provider). **Treat any change that nulls/clears/skips `RawJson` in privacy mode as a regression and revert it.**
+- If you ever genuinely need to redact a field inside `RawJson` for privacy reasons, do it field-by-field with a redaction strategy — never blanket-null.
+
 ### Lean Code Requirement
 - **The goal is to keep as little source code as necessary** to deliver required functionality across these applications.
 - Prefer deleting redundant layers/wrappers over adding new abstraction when behavior can remain clear and testable.

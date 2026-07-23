@@ -85,7 +85,7 @@ public class ZaiProvider : ProviderBase
 
         if (limits == null || limits.Count == 0)
         {
-            return this.BuildNoLimitsResult(config, responseString, httpStatus);
+            return this.BuildWindowInactiveResult(config, responseString, httpStatus);
         }
 
         foreach (var limit in limits)
@@ -156,6 +156,30 @@ public class ZaiProvider : ProviderBase
                 PlanType = this.Definition.PlanType,
                 RawJson = responseString,
                 HttpStatus = httpStatus,
+            },
+        };
+    }
+
+    private ProviderUsage[] BuildWindowInactiveResult(ProviderConfig config, string responseString, int httpStatus)
+    {
+        this._logger.LogDebug("[ZAI] Response successful but `data` is empty — quota window inactive (5h rolling reset)");
+        var label = ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId);
+        return new[]
+        {
+            new QuotaProviderUsage
+            {
+                ProviderId = this.ProviderId,
+                ProviderName = label,
+                IsAvailable = true,
+                Description = "Quota window inactive (5h rolling)",
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
+                UsedPercent = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 0,
+                RawJson = responseString,
+                HttpStatus = httpStatus,
+                UpstreamResponseValidity = UpstreamResponseValidity.Valid,
             },
         };
     }

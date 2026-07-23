@@ -39,9 +39,9 @@ public abstract class ProviderUsage
     public double ResponseLatencyMs { get; set; }
 
     /// <summary>
-    /// Gets or sets raw JSON response from the provider API. Intentional audit trail — stored in the database
-    /// and privacy-redacted in the processing pipeline when privacy mode is enabled.
-    /// Not surfaced in the UI; used for diagnostics and post-hoc debugging.
+    /// Gets or sets raw JSON response from the provider API. Intentional audit trail — always
+    /// stored in the database regardless of privacy mode. Privacy mode is UI-only and does not
+    /// affect database recording. Not surfaced in the UI; used for diagnostics and post-hoc debugging.
     /// </summary>
     public string? RawJson { get; set; }
 

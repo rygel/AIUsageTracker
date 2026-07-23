@@ -264,14 +264,12 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
 
         if (isPrivacyMode)
         {
-            if (!string.IsNullOrWhiteSpace(usage.RawJson) ||
-                !string.IsNullOrWhiteSpace(usage.AccountName) ||
+            if (!string.IsNullOrWhiteSpace(usage.AccountName) ||
                 !string.IsNullOrWhiteSpace(usage.ConfigKey))
             {
                 privacyRedactedCount++;
             }
 
-            usage.RawJson = null;
             usage.AccountName = string.Empty;
             usage.ConfigKey = string.Empty;
         }
