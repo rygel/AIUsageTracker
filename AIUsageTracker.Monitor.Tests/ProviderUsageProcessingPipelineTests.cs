@@ -170,8 +170,40 @@ public class ProviderUsageProcessingPipelineTests
         var processed = Assert.Single(result.Usages);
         Assert.Equal(string.Empty, processed.AccountName);
         Assert.Equal(string.Empty, processed.ConfigKey);
-        Assert.Null(processed.RawJson);
+        Assert.Equal("{ \"secret\": \"value\" }", processed.RawJson);
         Assert.Equal(1, result.PrivacyRedactedCount);
+    }
+
+    [Fact]
+    public void Process_WhenPrivacyModeEnabled_PreservesRawJsonAsAuditTrail()
+    {
+        // Per AGENTS.md "Privacy Mode Scope": privacy mode is UI-only.
+        // raw_snapshots MUST keep being written in privacy mode (the audit trail backs
+        // trend analysis and error investigation). Previously the pipeline nulled RawJson
+        // here, which silently disabled snapshot writes for the entire duration privacy
+        // mode was on (4-day gap, 0 snapshots for any provider).
+        var rawJson = "{\"code\":200,\"msg\":\"Operation successful\",\"data\":{\"limits\":[]},\"success\":true}";
+        var usage = new QuotaProviderUsage
+        {
+            ProviderId = "zai-coding-plan",
+            ProviderName = "Z.ai Coding Plan",
+            IsAvailable = true,
+            IsQuotaBased = true,
+            AccountName = "user@example.com",
+            ConfigKey = "zai-config",
+            RawJson = rawJson,
+            HttpStatus = 200,
+        };
+
+        var result = this._pipeline.Process(
+            new[] { usage },
+            new[] { "zai-coding-plan" },
+            isPrivacyMode: true);
+
+        var processed = Assert.Single(result.Usages);
+        Assert.Equal(rawJson, processed.RawJson);
+        Assert.Equal(string.Empty, processed.AccountName);
+        Assert.Equal(string.Empty, processed.ConfigKey);
     }
 
     [Fact]

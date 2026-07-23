@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2.4.6-beta.1] - 2026-07-23
+
+### Fixed
+
+- **Z.AI provider stops "Temporarily paused" loop on inactive quota windows** — when the Z.AI API returns HTTP 200 with `{"code":200,"msg":"Operation successful","data":{},"success":true}` (no active 5-hour rolling window yet), the provider now surfaces a successful "Quota window inactive (5h rolling)" card instead of opening the circuit breaker after 15 empty-data failures.
+- **Privacy mode no longer silently disables `raw_snapshots` writes** — the audit trail of provider response bodies is now stored continuously regardless of the UI privacy setting. Privacy mode is documented in `AGENTS.md` as UI-only (it redacts `AccountName` and `ConfigKey` for display, but never suppresses database recording). Previously, any user with `IsPrivacyMode=true` had a complete snapshot gap for the entire duration privacy mode was enabled (e.g. a 4-day gap with zero snapshots for any provider).
+
 ## [2.4.5-beta.5] - 2026-07-19
 
 ### Added

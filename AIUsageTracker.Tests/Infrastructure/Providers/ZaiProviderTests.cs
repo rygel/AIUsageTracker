@@ -298,4 +298,35 @@ public class ZaiProviderTests : HttpProviderTestBase<ZaiProvider>
         var hoursUntilReset = (usage.NextResetTime!.Value - DateTime.Now).TotalHours;
         Assert.InRange(hoursUntilReset, 2.5, 3.5);
     }
+
+    [Fact]
+    public async Task GetUsageAsync_EmptyData_ReturnsSuccessfulWindowInactiveCardAsync()
+    {
+        // Z.AI returns HTTP 200 with `{"code":200,"msg":"Operation successful","data":{},"success":true}`
+        // when the rolling 5h window has just rolled over and no usage has accrued yet.
+        // This is a SUCCESSFUL upstream response — it must NOT be treated as a failure
+        // (which would open the circuit breaker and surface as "Temporarily paused").
+        var responseContent = JsonSerializer.Serialize(new
+        {
+            code = 200,
+            msg = "Operation successful",
+            data = new { },
+            success = true,
+        });
+
+        this.SetupHttpResponse("https://api.z.ai/api/monitor/usage/quota/limit", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent(responseContent),
+        });
+
+        var result = await this._provider.GetUsageAsync(this.Config);
+
+        var usage = Assert.Single(result.OfType<QuotaProviderUsage>());
+        Assert.True(
+            usage.IsAvailable,
+            "Empty `data:{}` is a successful upstream response — must keep circuit closed and surface as available.");
+        Assert.Equal(200, usage.HttpStatus);
+        Assert.Contains("window", usage.Description, StringComparison.OrdinalIgnoreCase);
+    }
 }
