@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2.4.6-beta.2] - 2026-07-27
+
+### Added
+
+- **Z.AI provider surfaces the weekly GLM quota** — Z.AI's live API (since 2026-07-24) returns a third limit entry for a 1-week rolling `TOKENS_LIMIT` (`unit=6, number=1`) that the provider was previously silently dropping. The provider now classifies each `TOKENS_LIMIT` window by its `(unit, number)` pair and emits a separate card per window: a 5-hour rolling burst (`5h`) and a 1-week rolling weekly quota (`Weekly`). Each window card carries its own `WindowKind`, `PeriodDuration`, `CardId`, `GroupId`, and `NextResetTime`. The weekly card surfaces what's previously been hidden — your real weekly GLM quota (e.g. at 100% when the 5h window is fresh, the UI no longer falsely shows full quota available).
+- **Z.AI provider uses `QuotaWindowDefinition` declarations** — `ZaiProvider.StaticDefinition` now declares the two `QuotaWindow` entries (5h + Weekly) so the rendering layer can drive card display from declaration rather than parsing the live response shape at runtime.
+
 ## [2.4.6-beta.1] - 2026-07-23
 
 ### Fixed
