@@ -40,6 +40,11 @@ public class ZaiProvider : ProviderBase
         IconAssetName = "zai",
         BadgeColorHex = "#20B2AA",
         BadgeInitial = "Z",
+        QuotaWindows = new QuotaWindowDefinition[]
+        {
+            new(WindowKind.Burst,   "5h",     PeriodDuration: TimeSpan.FromHours(5)),
+            new(WindowKind.Rolling, "Weekly", PeriodDuration: TimeSpan.FromDays(7)),
+        },
     };
 
     /// <inheritdoc/>
@@ -102,19 +107,36 @@ public class ZaiProvider : ProviderBase
 
         var results = new List<ProviderUsage>();
 
-        // Process TOKENS_LIMIT (coding plan tokens, 5h rolling window)
-        var tokenLimit = this.SelectTokenLimit(limits);
-        if (tokenLimit != null)
+        // Process each distinct TOKENS_LIMIT window. As of 2026-07-27 the live API
+        // returns up to two token windows: a 5-hour rolling (unit=3, number=5) and
+        // a weekly rolling GLM quota (unit=6, number=1). Each window gets its own
+        // card; we never silently drop a window (regression: previously the Weekly
+        // window at 100% was hidden behind the 5h fresh window).
+        foreach (var tokenLimit in limits.Where(l =>
+            l.Type != null && (l.Type.Equals("TOKENS_LIMIT", StringComparison.OrdinalIgnoreCase) ||
+                               l.Type.Equals("Tokens", StringComparison.OrdinalIgnoreCase))))
         {
-            this._logger.LogDebug("[ZAI] Processing TOKENS_LIMIT as main card");
+            var window = ClassifyTokenWindow(tokenLimit);
+            this._logger.LogDebug(
+                "[ZAI] Processing TOKENS_LIMIT window={Window} unit={Unit} number={Number} percentage={Pct}",
+                window.Label,
+                tokenLimit.Unit,
+                tokenLimit.Number,
+                tokenLimit.Percentage);
+
             var tokenResult = this.ProcessTokenLimit(tokenLimit);
             if (tokenResult.RemainingPercent.HasValue)
             {
-                var windowDuration = tokenLimit.Unit == 3 && tokenLimit.Number.HasValue
-                    ? TimeSpan.FromHours(tokenLimit.Number.Value)
-                    : (TimeSpan?)null;
-                var (nextReset, resetStr) = this.ResolveResetTimeInfo(tokenLimit, windowDuration, limits);
-                results.Add(this.BuildTokenUsageResult(tokenResult, config, responseString, httpStatus, nextReset, resetStr));
+                var (nextReset, resetStr) = this.ResolveResetTimeInfo(tokenLimit, window.Duration, limits);
+                results.Add(this.BuildWindowedUsageResult(
+                    tokenResult,
+                    tokenLimit,
+                    config,
+                    responseString,
+                    httpStatus,
+                    window,
+                    nextReset,
+                    resetStr));
             }
             else
             {
@@ -199,6 +221,35 @@ public class ZaiProvider : ProviderBase
                 ?? tokenLimits.FirstOrDefault();
     }
 
+    private readonly record struct TokenWindowClassification(
+        string CardId,
+        string Label,
+        WindowKind Kind,
+        TimeSpan Duration);
+
+    /// <summary>
+    /// Maps a Z.AI TOKENS_LIMIT row to one of the declared quota windows. The (unit, number)
+    /// pair on the API tells us which window this row represents:
+    /// <list type="bullet">
+    ///   <item><c>unit=3, number=5</c> — 5-hour rolling burst window</item>
+    ///   <item><c>unit=6, number=1</c> — 1-week rolling GLM quota (added 2026-07-24)</item>
+    ///   <item>no unit/number — legacy fallback, treated as 5h (most common historical pattern)</item>
+    /// </list>
+    /// </summary>
+    private static TokenWindowClassification ClassifyTokenWindow(ZaiQuotaLimitItem limit)
+    {
+        return (limit.Unit, limit.Number) switch
+        {
+            (3, 5) => new TokenWindowClassification("5h", "5h", WindowKind.Burst, TimeSpan.FromHours(5)),
+            (6, 1) => new TokenWindowClassification("weekly", "Weekly", WindowKind.Rolling, TimeSpan.FromDays(7)),
+
+            // Future-proof variants observed in other providers; harmless if never sent.
+            (4, 7) => new TokenWindowClassification("weekly", "Weekly", WindowKind.Rolling, TimeSpan.FromDays(7)),
+            (5, 1) => new TokenWindowClassification("monthly", "Monthly", WindowKind.Rolling, TimeSpan.FromDays(30)),
+            _ => new TokenWindowClassification("5h", "5h", WindowKind.Burst, TimeSpan.FromHours(5)),
+        };
+    }
+
     private ProviderUsage[] BuildUnknownUsageResult(ProviderConfig config, string responseString, int httpStatus)
     {
         var label = ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId);
@@ -218,11 +269,13 @@ public class ZaiProvider : ProviderBase
         };
     }
 
-    private ProviderUsage BuildTokenUsageResult(
+    private ProviderUsage BuildWindowedUsageResult(
         TokenLimitResult tokenResult,
+        ZaiQuotaLimitItem tokenLimit,
         ProviderConfig config,
         string responseString,
         int httpStatus,
+        TokenWindowClassification window,
         DateTime? nextResetTime,
         string resetStr)
     {
@@ -238,17 +291,31 @@ public class ZaiProvider : ProviderBase
             }
             : tokenResult;
 
-        var finalDescription = (string.IsNullOrEmpty(tokenResult.DetailInfo)
-            ? $"{finalRemainingPercent.ToString("F1", CultureInfo.InvariantCulture)}% remaining"
-            : tokenResult.DetailInfo) + resetStr;
+        // Description: prefer the detailed "X% Remaining of YM tokens limit | Plan: X" format
+        // when raw counts are present. Weekly rows in the live API only carry `percentage`,
+        // so fall back to a simple "X% remaining" message in that case.
+        string baseDescription;
+        if (tokenResult.HasRawLimitData && !string.IsNullOrEmpty(tokenResult.DetailInfo))
+        {
+            baseDescription = tokenResult.DetailInfo + resetStr;
+        }
+        else
+        {
+            baseDescription = tokenResult.HasRawLimitData
+                ? (tokenResult.DetailInfo + resetStr)
+                : $"{finalRemainingPercent.ToString("F1", CultureInfo.InvariantCulture)}% remaining{resetStr}";
+        }
+
+        var finalDescription = FormatDescription(baseDescription, tokenResult.PlanDescription);
 
         this._logger.LogInformation(
-            "Z.AI TOKENS_LIMIT - UsedPercent: {UsedPercent}%, RequestsUsed: {RequestsUsed}%, Description: {Description}",
+            "Z.AI {Label} - UsedPercent: {UsedPercent}%, RequestsUsed: {RequestsUsed}, Description: {Description}",
+            window.Label,
             finalUsedPercent,
             tokenResult.RequestsUsed,
             finalDescription);
 
-        return new QuotaProviderUsage
+        return new WindowedProviderUsage
         {
             ProviderId = this.ProviderId,
             ProviderName = label,
@@ -258,7 +325,12 @@ public class ZaiProvider : ProviderBase
             IsQuotaBased = this.Definition.IsQuotaBased,
             PlanType = this.Definition.PlanType,
             DisplayAsFraction = tokenResult.RequestsAvailable > 100,
-            Description = FormatDescription(finalDescription, tokenResult.PlanDescription),
+            WindowKind = window.Kind,
+            PeriodDuration = window.Duration,
+            CardId = window.CardId,
+            GroupId = this.ProviderId,
+            Name = window.Label,
+            Description = finalDescription,
             NextResetTime = nextResetTime,
             IsAvailable = true,
             RawJson = responseString,

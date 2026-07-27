@@ -96,8 +96,14 @@ public class ZaiProviderTests : HttpProviderTestBase<ZaiProvider>
     }
 
     [Fact]
-    public async Task GetUsageAsync_MultipleLimits_SelectsActiveLimitAsync()
+    public async Task GetUsageAsync_LegacyTwoTokenLimits_BothRenderAsCardsAsync()
     {
+        // Regression for the old "select active limit" behaviour that picked one
+        // of two TOKENS_LIMIT rows and silently dropped the other. As of 2026-07-27
+        // Z.AI returns THREE limits (5h, Weekly, monthly tools); the provider must
+        // render each distinct token window as its own card.
+        // This test exercises a legacy 2-token-limit response (no unit/number)
+        // where both rows lack unit metadata and should still both render.
         // Arrange
         var responseContent = JsonSerializer.Serialize(new
         {
@@ -134,12 +140,13 @@ public class ZaiProviderTests : HttpProviderTestBase<ZaiProvider>
         // Act
         var result = await this._provider.GetUsageAsync(this.Config);
 
-        // Assert
-        var usage = result.OfType<QuotaProviderUsage>().Single();
-
-        // Active limit has 100M remaining = 0% used; description should show 100% remaining
-        Assert.Equal(0, usage.UsedPercent, 1); // 0% used (100% remaining)
-        Assert.Contains("Remaining", usage.Description, StringComparison.Ordinal);
+        // Assert: both limit rows render as cards (Strategy A — never silently drop).
+        var tokenCards = result.OfType<QuotaProviderUsage>()
+            .Where(c => string.Equals(c.ProviderId, "zai-coding-plan", StringComparison.Ordinal))
+            .ToList();
+        Assert.Equal(2, tokenCards.Count);
+        Assert.Contains(tokenCards, c => c.UsedPercent >= 99); // 100M used
+        Assert.Contains(tokenCards, c => c.UsedPercent < 1);   // fresh
     }
 
     [Fact]
@@ -328,5 +335,92 @@ public class ZaiProviderTests : HttpProviderTestBase<ZaiProvider>
             "Empty `data:{}` is a successful upstream response — must keep circuit closed and surface as available.");
         Assert.Equal(200, usage.HttpStatus);
         Assert.Contains("window", usage.Description, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_LiveSchemaWithWeeklyLimit_Emits5hAndWeeklyTokenCardsAsync()
+    {
+        // Z.AI's live API (observed 2026-07-27) returns THREE limits:
+        //   1. TOKENS_LIMIT unit=3 number=5  → 5-hour rolling (TOKENS_LIMIT)
+        //   2. TOKENS_LIMIT unit=6 number=1  → 1-week rolling GLM weekly (NEW — was silently dropped)
+        //   3. TIME_LIMIT  unit=5 number=1  → monthly tools/search/reader (TIME_LIMIT)
+        //
+        // The provider must emit BOTH token windows as separate cards.
+        // The weekly card matters: when GLM weekly hits 100%, the user genuinely has
+        // no quota left for the rest of the week — the UI must surface that.
+        var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var weeklyResetMs = nowMs + 7L * 24 * 3600 * 1000;
+        var monthlyResetMs = nowMs + 30L * 24 * 3600 * 1000;
+
+        var responseContent = JsonSerializer.Serialize(new
+        {
+            data = new
+            {
+                limits = new object[]
+                {
+                    new
+                    {
+                        type = "TOKENS_LIMIT",
+                        unit = 3,
+                        number = 5L,
+                        percentage = 0.0,
+                    },
+                    new
+                    {
+                        type = "TOKENS_LIMIT",
+                        unit = 6,
+                        number = 1L,
+                        percentage = 100.0,
+                        nextResetTime = weeklyResetMs,
+                    },
+                    new
+                    {
+                        type = "TIME_LIMIT",
+                        unit = 5,
+                        number = 1L,
+                        usage = 1000L,
+                        currentValue = 0L,
+                        remaining = 1000L,
+                        percentage = 0.0,
+                        nextResetTime = monthlyResetMs,
+                        usageDetails = new[]
+                        {
+                            new { modelCode = "search-prime", usage = 0L },
+                            new { modelCode = "web-reader", usage = 0L },
+                            new { modelCode = "zread", usage = 0L },
+                        },
+                    },
+                },
+            },
+        });
+
+        this.SetupHttpResponse("https://api.z.ai/api/monitor/usage/quota/limit", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent(responseContent),
+        });
+
+        var result = await this._provider.GetUsageAsync(this.Config);
+        var cards = result.OfType<QuotaProviderUsage>().ToList();
+
+        // 2 token cards (zai-coding-plan: 5h + Weekly) + 1 time card (zai: monthly) = 3 total
+        Assert.Equal(3, cards.Count);
+
+        // 5h card: fresh window at 0% — its description must reflect the unit=3/number=5 mapping
+        var fiveHour = cards.Single(c => string.Equals(c.ProviderId, "zai-coding-plan", StringComparison.Ordinal) && string.Equals(c.Name, "5h", StringComparison.Ordinal));
+        Assert.Equal(0.0, fiveHour.UsedPercent, 1);
+        Assert.Equal(WindowKind.Burst, fiveHour.WindowKind);
+        Assert.Equal(TimeSpan.FromHours(5), fiveHour.PeriodDuration);
+        Assert.Equal("5h", fiveHour.CardId);
+        Assert.True(fiveHour.IsAvailable);
+
+        // Weekly card: 100% used at the live API — must be surfaced, not silently dropped
+        var weekly = cards.Single(c => string.Equals(c.ProviderId, "zai-coding-plan", StringComparison.Ordinal) && string.Equals(c.Name, "Weekly", StringComparison.Ordinal));
+        Assert.Equal(100.0, weekly.UsedPercent, 1);
+        Assert.Equal(WindowKind.Rolling, weekly.WindowKind);
+        Assert.Equal(TimeSpan.FromDays(7), weekly.PeriodDuration);
+        Assert.Equal("weekly", weekly.CardId);
+        Assert.True(weekly.IsAvailable);
+        Assert.NotNull(weekly.NextResetTime);
     }
 }
