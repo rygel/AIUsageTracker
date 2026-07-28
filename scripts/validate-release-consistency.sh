@@ -105,11 +105,14 @@ fi
 # `<<<<<<< HEAD` as a redirection operator with no target). The
 # `[ScriptBlock]::Create()` call parses without executing; if the file
 # has a syntax error, the call throws.
+# (Note: the GitHub Actions windows-latest runner ships with PowerShell
+# 7.x where `[System.Management.Automation.LanguageParser]` is not
+# directly accessible. Using `[ScriptBlock]::Create()` works on every
+# supported runtime.)
 echo ""
 echo "Validating PowerShell syntax on release scripts..."
 ps_scripts=(
   "scripts/publish-app.ps1"
-  "scripts/setup.iss"
 )
 for ps in "${ps_scripts[@]}"; do
   if [[ ! -f "$ps" ]]; then
@@ -117,7 +120,7 @@ for ps in "${ps_scripts[@]}"; do
     continue
   fi
   if command -v pwsh >/dev/null 2>&1; then
-    if ! pwsh -NoProfile -Command "try { [System.Management.Automation.LanguageParser]::ParseFile('$PWD/$ps', [ref]\$null, [ref]\$errs); if (\$errs -and \$errs.Count -gt 0) { Write-Host (\$errs | Out-String); exit 1 } } catch { Write-Host \$_.Exception.Message; exit 1 }" 2>&1; then
+    if ! pwsh -NoProfile -Command "try { [scriptblock]::Create((Get-Content -Raw '$PWD/$ps')) } catch { Write-Host \$_.Exception.Message; exit 1 }" 2>&1; then
       echo "ERROR: PowerShell syntax error in $ps"
       failed=1
     else
