@@ -6,6 +6,7 @@ on:
     paths:
       - "setup.iss"
       - "scripts/setup.iss"
+      - "scripts/publish-app.ps1"
       - "scripts/validate-setup-build.ps1"
       - "scripts/validate-release-consistency.sh"
       - "scripts/generate-appcast.sh"
@@ -18,6 +19,7 @@ on:
     paths:
       - "setup.iss"
       - "scripts/setup.iss"
+      - "scripts/publish-app.ps1"
       - "scripts/validate-setup-build.ps1"
       - "scripts/validate-release-consistency.sh"
       - "scripts/generate-appcast.sh"

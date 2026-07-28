@@ -72,6 +72,62 @@ if ! grep -Fq "## [$version]" CHANGELOG.md; then
   failed=1
 fi
 
+# Detect leftover git conflict markers across the entire tracked tree.
+# Regression guard for the v2.4.6 stable release: the dev->main merge
+# during release prep left <<<<<<< / ======= / >>>>>>> markers in
+# scripts/publish-app.ps1 that the existing version-content checks did
+# not catch. PowerShell then aborted the osx-arm64 publish step with
+# "Missing file specification after redirection operator" and the
+# v2.4.6 release had to be re-tagged.
+# Scan all files that git knows about (excluding this validation script
+# itself and a few noise paths) and fail on any conflict marker.
+echo ""
+echo "Scanning tracked files for unresolved git conflict markers..."
+marker_violations=$(git ls-files \
+  | grep -v -E '^(\.gitignore|README\.md|AGENTS\.md|docs/.*\.md)$' \
+  | grep -v -E '^scripts/validate-release-consistency\.sh$' \
+  | xargs -I {} sh -c 'grep -lE "^(<{7}|={7}|>{7})( |$)" "{}" 2>/dev/null' \
+  | xargs -I {} grep -lE "^(<{7}|={7}|>{7})( |$)" "{}" 2>/dev/null \
+  || true)
+if [[ -n "$marker_violations" ]]; then
+  echo "ERROR: Unresolved git conflict markers found in:"
+  for f in $marker_violations; do
+    echo "  - $f"
+    grep -nE "^(<{7}|={7}|>{7})( |$)" "$f" | head -3 | sed 's/^/      /'
+  done
+  failed=1
+else
+  echo "  no conflict markers found"
+fi
+
+# PowerShell syntax check on the release scripts. This catches the
+# exact failure mode from the v2.4.6 release (PowerShell parsing
+# `<<<<<<< HEAD` as a redirection operator with no target). The
+# `[ScriptBlock]::Create()` call parses without executing; if the file
+# has a syntax error, the call throws.
+echo ""
+echo "Validating PowerShell syntax on release scripts..."
+ps_scripts=(
+  "scripts/publish-app.ps1"
+  "scripts/setup.iss"
+)
+for ps in "${ps_scripts[@]}"; do
+  if [[ ! -f "$ps" ]]; then
+    echo "WARNING: $ps missing — skipping syntax check"
+    continue
+  fi
+  if command -v pwsh >/dev/null 2>&1; then
+    if ! pwsh -NoProfile -Command "try { [System.Management.Automation.LanguageParser]::ParseFile('$PWD/$ps', [ref]\$null, [ref]\$errs); if (\$errs -and \$errs.Count -gt 0) { Write-Host (\$errs | Out-String); exit 1 } } catch { Write-Host \$_.Exception.Message; exit 1 }" 2>&1; then
+      echo "ERROR: PowerShell syntax error in $ps"
+      failed=1
+    else
+      echo "  $ps OK"
+    fi
+  else
+    echo "  pwsh not on PATH — skipping PowerShell syntax check on $ps"
+  fi
+done
+
 if [[ "$failed" -ne 0 ]]; then
   echo "Release consistency validation failed."
   exit 1
