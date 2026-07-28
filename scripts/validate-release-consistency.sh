@@ -120,7 +120,7 @@ for ps in "${ps_scripts[@]}"; do
     continue
   fi
   if command -v pwsh >/dev/null 2>&1; then
-    if ! pwsh -NoProfile -Command "try { [scriptblock]::Create((Get-Content -Raw '$PWD/$ps')) } catch { Write-Host \$_.Exception.Message; exit 1 }" 2>&1; then
+    if ! pwsh -NoProfile -Command "try { [scriptblock]::Create((Get-Content -Raw './$ps')) } catch { Write-Host \$_.Exception.Message; exit 1 }" 2>&1; then
       echo "ERROR: PowerShell syntax error in $ps"
       failed=1
     else
