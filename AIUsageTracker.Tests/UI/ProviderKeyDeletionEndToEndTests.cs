@@ -3,9 +3,9 @@
 // </copyright>
 
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Providers;
 using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.UI.Slim;
-using AIUsageTracker.Core.Providers;
 
 namespace AIUsageTracker.Tests.UI;
 

@@ -380,7 +380,8 @@ public partial class MainWindow : Window
             // By now it should already be done or nearly done. Just await it.
             this.LogDiagnostic("[DIAGNOSTIC] Awaiting monitor warmup task...");
             this.ShowStatus("Loading...", StatusType.Info);
-            var monitorReady = await App.MonitorWarmupTask.ConfigureAwait(true);
+            var warmupTask = App.MonitorWarmupTask; // ui-thread-guardrail-allow: task is owned by App startup; awaiting on UI thread is intentional.
+            var monitorReady = await warmupTask.ConfigureAwait(true);
             this.LogDiagnostic($"[DIAGNOSTIC] Monitor warmup completed, ready={monitorReady}");
 
             if (!monitorReady)

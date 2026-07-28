@@ -4,7 +4,6 @@
 
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Core.Providers;
 
 namespace AIUsageTracker.Monitor.Services;

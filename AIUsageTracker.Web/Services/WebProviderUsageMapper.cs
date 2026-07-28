@@ -19,7 +19,7 @@ internal static class WebProviderUsageMapper
         var description = row.status_message ?? string.Empty;
         var fetchedAt = ParseDateTimeUtc(row.fetched_at);
 
-        if (cardType == "status")
+        if (string.Equals(cardType, "status", StringComparison.Ordinal))
         {
             return new StatusProviderUsage
             {

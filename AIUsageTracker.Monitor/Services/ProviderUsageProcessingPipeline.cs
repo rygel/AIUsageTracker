@@ -3,7 +3,6 @@
 // </copyright>
 
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Core.Providers;
 
 namespace AIUsageTracker.Monitor.Services;
@@ -260,18 +259,17 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         {
             description = "Unavailable";
         }
+
         usage.Description = description;
 
         if (isPrivacyMode)
         {
-            if (!string.IsNullOrWhiteSpace(usage.RawJson) ||
-                !string.IsNullOrWhiteSpace(usage.AccountName) ||
+            if (!string.IsNullOrWhiteSpace(usage.AccountName) ||
                 !string.IsNullOrWhiteSpace(usage.ConfigKey))
             {
                 privacyRedactedCount++;
             }
 
-            usage.RawJson = null;
             usage.AccountName = string.Empty;
             usage.ConfigKey = string.Empty;
         }

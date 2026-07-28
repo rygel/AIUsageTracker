@@ -242,6 +242,7 @@ public class DatabaseMigrationService
         EnsureColumn(connection, TableProviders, "config_json", "TEXT");
         EnsureColumn(connection, TableProviders, "auth_source", "TEXT DEFAULT 'manual'");
         EnsureColumn(connection, TableProviders, "plan_type", "TEXT DEFAULT 'usage'");
+
         // Ensure ALL provider_history columns exist before the timestamp conversion,
         // because the conversion recreates the table and copies all columns.
         EnsureColumn(connection, TableProviderHistory, "next_reset_time", "TEXT");

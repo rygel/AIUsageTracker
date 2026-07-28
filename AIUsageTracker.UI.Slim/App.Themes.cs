@@ -489,9 +489,17 @@ public partial class App
                 return value == 1 ? AppTheme.Light : AppTheme.Dark;
             }
         }
-        catch (Exception)
+        catch (System.Security.SecurityException ex)
         {
-            // Registry key not found or inaccessible — fall back to Dark
+            Services.UiDiagnosticFileLog.Write($"[THEME] Registry read denied, falling back to Dark: {ex.Message}");
+        }
+        catch (System.IO.IOException ex)
+        {
+            Services.UiDiagnosticFileLog.Write($"[THEME] Registry read I/O failure, falling back to Dark: {ex.Message}");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Services.UiDiagnosticFileLog.Write($"[THEME] Registry access unauthorized, falling back to Dark: {ex.Message}");
         }
 
         return AppTheme.Dark;

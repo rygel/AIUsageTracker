@@ -174,15 +174,22 @@ public sealed class ConfigServiceExtendedTests : IDisposable
         Assert.Contains("antigravity", loaded.SuppressedProviderIds);
     }
 
+#pragma warning disable MA0004
     private async Task WriteProvidersJsonAsync(object data)
     {
-        var json = data is string s ? s : JsonSerializer.Serialize(data);
-#pragma warning disable MA0004
-        await File.WriteAllTextAsync(
-            Path.Combine(this._tempDir, "providers.json"),
-            json);
-#pragma warning restore MA0004
+        var targetPath = Path.Combine(this._tempDir, "providers.json");
+        if (data is string s)
+        {
+            await File.WriteAllTextAsync(targetPath, s);
+            return;
+        }
+
+        await using (var stream = File.Create(targetPath))
+        {
+            await JsonSerializer.SerializeAsync(stream, data).ConfigureAwait(false);
+        }
     }
+#pragma warning restore MA0004
 
     private sealed class TestPathProvider : IAppPathProvider
     {

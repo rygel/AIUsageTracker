@@ -423,6 +423,28 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         Assert.Contains("Invalid MiniMax response", usage.Description, StringComparison.Ordinal);
     }
 
+    // Regression for CS8601: when status_code != 0 and status_msg is present,
+    // the provider must surface the API's status_msg (a non-null string captured
+    // via pattern matching), not the generic "Invalid MiniMax response" fallback.
+    [Fact]
+    public async Task GetUsageAsync_NonZeroStatusWithMessage_SurfacesApiStatusMsgAsync()
+    {
+        var responseJson = """
+            {
+                "base_resp": { "status_code": 4001, "status_msg": "quota exhausted" }
+            }
+            """;
+
+        this.SetupResponse(HttpStatusCode.OK, responseJson);
+
+        var result = await this._provider.GetUsageAsync(this.Config);
+
+        var usage = result.Single();
+        Assert.False(usage.IsAvailable);
+        Assert.Contains("quota exhausted", usage.Description, StringComparison.Ordinal);
+        Assert.DoesNotContain("Invalid MiniMax response", usage.Description, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task GetUsageAsync_RateLimited_ReturnsUnavailableAsync()
     {

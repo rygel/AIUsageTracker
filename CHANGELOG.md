@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [2.4.6] - 2026-07-27
+
+Stable release consolidating `2.4.6-beta.1` and `2.4.6-beta.2`. Recommended upgrade for all users — most importantly anyone with `IsPrivacyMode=true` was missing `raw_snapshots` writes for the entire duration privacy mode was enabled, and Z.AI users were seeing their weekly GLM quota silently dropped behind a fresh 5h window.
+
+### Fixed
+
+- **Z.AI provider stops "Temporarily paused" loop on inactive quota windows** — when the Z.AI API returns HTTP 200 with `{"code":200,"msg":"Operation successful","data":{},"success":true}` (no active 5-hour rolling window yet), the provider now surfaces a successful "Quota window inactive (5h rolling)" card instead of opening the circuit breaker after 15 empty-data failures.
+- **Privacy mode no longer silently disables `raw_snapshots` writes** — the audit trail of provider response bodies is now stored continuously regardless of the UI privacy setting. Privacy mode is documented in `AGENTS.md` as UI-only (it redacts `AccountName` and `ConfigKey` for display, but never suppresses database recording). Previously, any user with `IsPrivacyMode=true` had a complete snapshot gap for the entire duration privacy mode was enabled (e.g. a 4-day gap with zero snapshots for any provider).
+
+### Added
+
+- **Z.AI provider surfaces the weekly GLM quota** — Z.AI's live API (since 2026-07-24) returns a third limit entry for a 1-week rolling `TOKENS_LIMIT` (`unit=6, number=1`) that the provider was previously silently dropping. The provider now classifies each `TOKENS_LIMIT` window by its `(unit, number)` pair and emits a separate card per window: a 5-hour rolling burst (`5h`) and a 1-week rolling weekly quota (`Weekly`). Each window card carries its own `WindowKind`, `PeriodDuration`, `CardId`, `GroupId`, and `NextResetTime`. The weekly card surfaces what's previously been hidden — your real weekly GLM quota (e.g. at 100% when the 5h window is fresh, the UI no longer falsely shows full quota available).
+- **Z.AI provider uses `QuotaWindowDefinition` declarations** — `ZaiProvider.StaticDefinition` now declares the two `QuotaWindow` entries (5h + Weekly) so the rendering layer can drive card display from declaration rather than parsing the live response shape at runtime.
+
 ## [2.4.5] - 2026-07-19
 
 ### Added

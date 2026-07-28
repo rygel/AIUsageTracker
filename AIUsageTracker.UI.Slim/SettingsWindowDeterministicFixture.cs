@@ -3,8 +3,8 @@
 // </copyright>
 
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Core.Providers;
+using AIUsageTracker.Infrastructure.Providers;
 
 namespace AIUsageTracker.UI.Slim;
 

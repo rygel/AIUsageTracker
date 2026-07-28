@@ -5,7 +5,6 @@
 using System.Net;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
-using AIUsageTracker.Tests.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AIUsageTracker.Tests.Infrastructure.Providers;
@@ -20,7 +19,7 @@ public class GroqProviderTests : HttpProviderTestBase<GroqProvider>
 
     public GroqProviderTests()
     {
-        _config = new ProviderConfig
+        this._config = new ProviderConfig
         {
             ProviderId = "groq",
             ApiKey = TestApiKey,
@@ -57,7 +56,7 @@ public class GroqProviderTests : HttpProviderTestBase<GroqProvider>
 
         this.SetupHttpResponse(ModelsUrl, response);
 
-        var results = await this._provider.GetUsageAsync(_config);
+        var results = await this._provider.GetUsageAsync(this._config);
         var cards = results.ToList();
 
         Assert.Equal(2, cards.Count);
@@ -66,14 +65,14 @@ public class GroqProviderTests : HttpProviderTestBase<GroqProvider>
         Assert.All(cards, c => Assert.IsType<QuotaProviderUsage>(c));
 
         var dailyRequests = Assert.IsType<QuotaProviderUsage>(
-            cards.First(c => c is QuotaProviderUsage q && q.CardId == "daily-requests"));
+            cards.First(c => c is QuotaProviderUsage q && string.Equals(q.CardId, "daily-requests", StringComparison.Ordinal)));
         Assert.Equal(14400, dailyRequests.RequestsAvailable);
         Assert.Equal(30, dailyRequests.RequestsUsed);
         Assert.True(dailyRequests.UsedPercent < 1);
         Assert.NotNull(dailyRequests.NextResetTime);
 
         var perMinuteTokens = Assert.IsType<QuotaProviderUsage>(
-            cards.First(c => c is QuotaProviderUsage q && q.CardId == "per-minute-tokens"));
+            cards.First(c => c is QuotaProviderUsage q && string.Equals(q.CardId, "per-minute-tokens", StringComparison.Ordinal)));
         Assert.Equal(18000, perMinuteTokens.RequestsAvailable);
         Assert.Equal(3, perMinuteTokens.RequestsUsed);
         Assert.NotNull(perMinuteTokens.NextResetTime);
@@ -89,7 +88,7 @@ public class GroqProviderTests : HttpProviderTestBase<GroqProvider>
 
         this.SetupHttpResponse(ModelsUrl, response);
 
-        var results = await this._provider.GetUsageAsync(_config);
+        var results = await this._provider.GetUsageAsync(this._config);
         var usage = Assert.Single(results);
 
         Assert.True(usage.IsAvailable);
@@ -107,7 +106,7 @@ public class GroqProviderTests : HttpProviderTestBase<GroqProvider>
 
         this.SetupHttpResponse(ModelsUrl, response);
 
-        var results = await this._provider.GetUsageAsync(_config);
+        var results = await this._provider.GetUsageAsync(this._config);
         var usage = Assert.Single(results);
 
         Assert.False(usage.IsAvailable);
@@ -127,7 +126,7 @@ public class GroqProviderTests : HttpProviderTestBase<GroqProvider>
 
         this.SetupHttpResponse(ModelsUrl, response);
 
-        var results = await this._provider.GetUsageAsync(_config);
+        var results = await this._provider.GetUsageAsync(this._config);
         var card = Assert.IsType<QuotaProviderUsage>(Assert.Single(results));
 
         Assert.Equal("daily-requests", card.CardId);

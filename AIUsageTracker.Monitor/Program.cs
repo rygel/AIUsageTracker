@@ -13,7 +13,6 @@ using AIUsageTracker.Monitor.Endpoints;
 using AIUsageTracker.Monitor.Hubs;
 using AIUsageTracker.Monitor.Logging;
 using AIUsageTracker.Monitor.Services;
-using AIUsageTracker.Core.Providers;
 
 namespace AIUsageTracker.Monitor;
 
@@ -33,8 +32,12 @@ public partial class Program
         {
             Console.Title = "AI Usage Tracker - Monitor";
         }
-        catch (PlatformNotSupportedException) { /* Console.Title not supported */ }
-        catch (System.IO.IOException) { /* Console.Title I/O failure */ }
+        catch (PlatformNotSupportedException)
+        { /* Console.Title not supported */
+        }
+        catch (System.IO.IOException)
+        { /* Console.Title I/O failure */
+        }
 
         IAppPathProvider pathProvider = new DefaultAppPathProvider();
         var holdsStartupMutex = false;

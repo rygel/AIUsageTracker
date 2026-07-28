@@ -116,7 +116,7 @@ public class GeminiProvider : ProviderBase
                 var accessToken = await this.RefreshTokenAsync(account.RefreshToken).ConfigureAwait(false);
                 var buckets = await this.FetchQuotaAsync(accessToken, account.ProjectId).ConfigureAwait(false);
                 var allBuckets = buckets ?? new List<Bucket>();
-                var modelQuotaCards = BuildModelQuotaCards(config, providerLabel, allBuckets, account.Email);
+                var modelQuotaCards = this.BuildModelQuotaCards(config, providerLabel, allBuckets, account.Email);
                 this._logger.LogDebug(
                     "Gemini quota received {BucketCount} bucket(s) and resolved {ModelCount} model card(s): {BucketSummary}",
                     allBuckets.Count,

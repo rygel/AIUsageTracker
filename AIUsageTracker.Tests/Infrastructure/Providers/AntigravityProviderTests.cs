@@ -5,8 +5,8 @@
 using System.Net;
 using System.Reflection;
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Core.Providers;
+using AIUsageTracker.Infrastructure.Providers;
 
 namespace AIUsageTracker.Tests.Infrastructure.Providers;
 

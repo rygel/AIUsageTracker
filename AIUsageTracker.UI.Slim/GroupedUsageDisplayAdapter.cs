@@ -9,10 +9,8 @@
 // decide what to render. No .OfType<T>(), no .Where(WindowKind != ...), no
 // hardcoded fallbacks (?? "Burst", ?? false). The definition declares what
 // cards exist; this code passes the Monitor's raw values through to them.
-
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
-using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Core.Providers;
 
 namespace AIUsageTracker.UI.Slim;
