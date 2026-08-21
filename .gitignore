@@ -226,6 +226,7 @@ docs/backup_*/
 memory.md
 problems.md
 task.md
+.commandcode/
 
 # Local static-analysis exports
 sonarqube_issues.json
@@ -496,6 +497,7 @@ target/
 
 # Temporary and Log files
 *.log
+scripts/*.err
 *.tmp
 *.bak
 *.swp
