@@ -28,7 +28,7 @@ A reusable composite action that consolidates:
 - name: Setup .NET with Cache
   uses: ./.github/actions/setup-dotnet-cache
   with:
-    dotnet-version: "8.0.x"
+    dotnet-version: "10.0.x"
     cache-key-prefix: "workflow-specific"
 ```
 
@@ -95,7 +95,7 @@ When creating new workflows that need .NET:
    - name: Setup .NET with Cache
      uses: ./.github/actions/setup-dotnet-cache
      with:
-       dotnet-version: "8.0.x"
+       dotnet-version: "10.0.x"
        cache-key-prefix: "your-prefix"
    ```
 
@@ -131,7 +131,7 @@ When creating new workflows that need .NET:
 strategy:
   matrix:
     os: [windows-latest, windows-2022, ubuntu-latest]
-    dotnet: ['8.0.x']
+    dotnet: ['10.0.x']
 runs-on: ${{ matrix.os }}
 ```
 **Benefit:** Catch OS-specific bugs before release, especially important for file path handling and timezone issues
