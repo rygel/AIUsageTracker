@@ -11,6 +11,7 @@ namespace AIUsageTracker.Monitor.Security;
 internal sealed class MonitorApiAuthenticationMiddleware
 {
     private const string BearerPrefix = "Bearer ";
+    private const string AccessTokenQueryKey = "access_token";
 
     private readonly string _accessToken;
     private readonly RequestDelegate _next;
@@ -40,21 +41,36 @@ internal sealed class MonitorApiAuthenticationMiddleware
 
     private static bool RequiresAuthentication(PathString path)
     {
-        return path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase) &&
-               !string.Equals(path.Value, MonitorApiRoutes.Health, StringComparison.OrdinalIgnoreCase);
+        bool isApi = path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase) &&
+                      !string.Equals(path.Value, MonitorApiRoutes.Health, StringComparison.OrdinalIgnoreCase);
+
+        bool isHubUsage = string.Equals(path.Value, MonitorApiRoutes.HubUsage, StringComparison.OrdinalIgnoreCase);
+
+        return isApi || isHubUsage;
     }
 
     private static bool HasValidBearerToken(HttpRequest request, string expectedToken)
     {
         var header = request.Headers.Authorization.ToString();
-        if (!header.StartsWith(BearerPrefix, StringComparison.OrdinalIgnoreCase))
+        if (header.StartsWith(BearerPrefix, StringComparison.OrdinalIgnoreCase))
         {
-            return false;
+            var presentedToken = header[BearerPrefix.Length..].Trim();
+            return TokenMatches(presentedToken, expectedToken);
         }
 
-        var presentedToken = header[BearerPrefix.Length..].Trim();
-        var expectedHash = SHA256.HashData(Encoding.UTF8.GetBytes(expectedToken));
-        var presentedHash = SHA256.HashData(Encoding.UTF8.GetBytes(presentedToken));
+        var queryToken = request.Query[AccessTokenQueryKey].ToString();
+        if (!string.IsNullOrWhiteSpace(queryToken))
+        {
+            return TokenMatches(queryToken.Trim(), expectedToken);
+        }
+
+        return false;
+    }
+
+    private static bool TokenMatches(string presented, string expected)
+    {
+        var expectedHash = SHA256.HashData(Encoding.UTF8.GetBytes(expected));
+        var presentedHash = SHA256.HashData(Encoding.UTF8.GetBytes(presented));
         return CryptographicOperations.FixedTimeEquals(expectedHash, presentedHash);
     }
 }

@@ -18,7 +18,10 @@ public partial class MainWindow : Window
             this._logger.LogInformation("Initializing SignalR connection to {HubUrl}", hubUrl);
 
             this._hubConnection = new HubConnectionBuilder()
-                .WithUrl(hubUrl)
+                .WithUrl(hubUrl, options =>
+                {
+                    options.AccessTokenProvider = () => Task.FromResult(this._monitorService.MonitorAccessToken);
+                })
                 .WithAutomaticReconnect()
                 .Build();
 

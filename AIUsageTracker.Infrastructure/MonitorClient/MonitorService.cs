@@ -70,6 +70,9 @@ public class MonitorService : IMonitorService
     public string AgentUrl { get; set; } = DefaultAgentUrl;
 
     /// <inheritdoc/>
+    public string? MonitorAccessToken => this._monitorAccessToken;
+
+    /// <inheritdoc/>
     public IReadOnlyList<string> LastAgentErrors { get; private set; } = new List<string>();
 
     public static void LogDiagnostic(string message)

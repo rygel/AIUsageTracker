@@ -11,6 +11,8 @@ public interface IMonitorService
 {
     string AgentUrl { get; set; }
 
+    string? MonitorAccessToken { get; }
+
     IReadOnlyList<string> LastAgentErrors { get; }
 
     Task RefreshAgentInfoAsync();

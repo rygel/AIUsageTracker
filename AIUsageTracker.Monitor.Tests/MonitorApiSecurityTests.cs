@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System;
 using System.Net;
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
@@ -143,5 +144,88 @@ public sealed class MonitorApiSecurityTests
 
         Assert.False(request.PreserveApiKey);
         Assert.Equal("replacement-secret", merged.ApiKey);
+    }
+
+    [Fact]
+    public async Task AuthenticationMiddleware_AllowsHubWithBearerTokenAsync()
+    {
+        var nextCalled = false;
+        var middleware = new MonitorApiAuthenticationMiddleware(
+            _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            },
+            AccessToken);
+        var context = new DefaultHttpContext();
+        context.Request.Path = MonitorApiRoutes.HubUsage;
+        context.Request.Headers.Authorization = $"Bearer {AccessToken}";
+
+        await middleware.InvokeAsync(context);
+
+        Assert.True(nextCalled);
+        Assert.Equal((int)HttpStatusCode.OK, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AuthenticationMiddleware_AllowsHubWithAccessTokenQueryAsync()
+    {
+        var nextCalled = false;
+        var middleware = new MonitorApiAuthenticationMiddleware(
+            _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            },
+            AccessToken);
+        var context = new DefaultHttpContext();
+        context.Request.Path = MonitorApiRoutes.HubUsage;
+        context.Request.QueryString = new QueryString("?access_token=" + Uri.EscapeDataString(AccessToken));
+
+        await middleware.InvokeAsync(context);
+
+        Assert.True(nextCalled);
+        Assert.Equal((int)HttpStatusCode.OK, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AuthenticationMiddleware_RejectsHubWithoutTokenAsync()
+    {
+        var nextCalled = false;
+        var middleware = new MonitorApiAuthenticationMiddleware(
+            _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            },
+            AccessToken);
+        var context = new DefaultHttpContext();
+        context.Request.Path = MonitorApiRoutes.HubUsage;
+
+        await middleware.InvokeAsync(context);
+
+        Assert.False(nextCalled);
+        Assert.Equal((int)HttpStatusCode.Unauthorized, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AuthenticationMiddleware_RejectsHubWithWrongTokenAsync()
+    {
+        var nextCalled = false;
+        var middleware = new MonitorApiAuthenticationMiddleware(
+            _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            },
+            AccessToken);
+        var context = new DefaultHttpContext();
+        context.Request.Path = MonitorApiRoutes.HubUsage;
+        context.Request.Headers.Authorization = "Bearer wrong-token-value";
+
+        await middleware.InvokeAsync(context);
+
+        Assert.False(nextCalled);
+        Assert.Equal((int)HttpStatusCode.Unauthorized, context.Response.StatusCode);
     }
 }

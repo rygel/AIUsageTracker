@@ -9,7 +9,7 @@
 
 ### Security
 
-- **Monitor loopback API secured with bearer auth (contract v2)** — the `/api/*` endpoints now require `Authorization: Bearer <token>` using the ACL-protected access token stored in `monitor.json` (`MonitorInfoPersistence.AclToken`). `/api/health` remains unauthenticated. The API contract version has been bumped from 1 to 2 (`MonitorApiContract.Version`). Provider configuration responses are redacted via the new `ProviderConfigResponse` DTO — `api_key` and other secrets are no longer returned to API consumers. Known limitation: the `/hubs/usage` SignalR hub is not yet authenticated.
+- **Monitor loopback API secured with bearer auth (contract v2)** — the `/api/*` endpoints now require `Authorization: Bearer <token>` using the ACL-protected access token stored in `monitor.json` (`MonitorInfoPersistence.AclToken`). `/api/health` remains unauthenticated. The API contract version has been bumped from 1 to 2 (`MonitorApiContract.Version`). Provider configuration responses are redacted via the new `ProviderConfigResponse` DTO — `api_key` and other secrets are no longer returned to API consumers. The `/hubs/usage` SignalR hub is authenticated via `Authorization: Bearer <token>` header or `access_token` query parameter.
 
 ## [2.4.6-beta.2] - 2026-07-27
 

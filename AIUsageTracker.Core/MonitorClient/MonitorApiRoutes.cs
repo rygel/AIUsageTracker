@@ -22,6 +22,7 @@ public static class MonitorApiRoutes
     public const string HistoryByProviderTemplate = "/api/history/{providerId}";
     public const string ConfigByProviderTemplate = "/api/config/{providerId}";
     public const string ResetsByProviderTemplate = "/api/resets/{providerId}";
+    public const string HubUsage = "/hubs/usage";
 
     public static string UsageByProvider(string providerId) =>
         $"/api/usage/{EscapePathSegment(providerId)}";
