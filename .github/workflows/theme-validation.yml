@@ -16,8 +16,6 @@ on:
       - "scripts/sync-theme-catalog.ps1"
       - "scripts/verify-theme-manifest-change.ps1"
       - "scripts/verify_slim_theme_smoke.ps1"
-      - "design/FEATURES_KEYBOARDS_THEMES.md"
-      - "design/README.md"
       - ".github/workflows/theme-validation.yml"
 
 concurrency:

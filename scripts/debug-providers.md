@@ -1,62 +1,15 @@
-# API Debug Script Infrastructure
+# debug-providers.ps1
 
-A unified PowerShell tool to fetch and save API responses from multiple AI providers for testing and debugging.
-
-## Usage
+Captures provider HTTP JSON into `test-fixtures/` (or `-OutputDir`). Parameter is `-Providers` (string array).
 
 ```powershell
-# Fetch all configured providers
 .\scripts\debug-providers.ps1
-
-# Fetch specific provider
-.\scripts\debug-providers.ps1 -Provider codex
-
-# Fetch multiple providers
-.\scripts\debug-providers.ps1 -Providers @("codex", "kimi", "anthropic")
-
-# Custom output directory
+.\scripts\debug-providers.ps1 -Providers @("codex","kimi")
 .\scripts\debug-providers.ps1 -OutputDir "test-fixtures\custom"
 ```
 
-## Supported Providers
+Hashtable keys in `$availableProviders`: `codex`, `kimi`, `anthropic`, `openai`, `openrouter`, `mistral`, `deepseek`, `zai`, `xiaomi`, `synthetic`, `opencode`, `minimax`, `github-copilot`, `claude-code`, `antigravity`. No `grok` entry.
 
-| Provider | Environment Variable | API Endpoint |
-|----------|---------------------|--------------|
-| codex | (auto from ~/.codex/auth.json) | https://chatgpt.com/backend-api/wham/usage |
-| kimi | KIMI_API_KEY | https://api.kimi.com/coding/v1/usages |
-| anthropic | ANTHROPIC_API_KEY | https://api.anthropic.com/v1/usage |
-| openai | OPENAI_API_KEY | https://api.openai.com/v1/usage |
-| openrouter | OPENROUTER_API_KEY | https://openrouter.ai/api/v1/credits |
-| mistral | MISTRAL_API_KEY | https://api.mistral.ai/v1/me |
-| deepseek | DEEPSEEK_API_KEY | https://api.deepseek.com/user/balance |
-| zai | ZAI_API_KEY | https://api.z.ai/api/monitor/usage/quota/limit |
-| xiaomi | XIAOMI_API_KEY | https://api.xiaomimimo.com/v1/user/balance |
-| synthetic | SYNTHETIC_API_KEY | (from config) |
-| opencode | OPENCODE_API_KEY | (from config) |
-| minimax | MINIMAX_API_KEY | (from config) |
-| github-copilot | GITHUB_TOKEN | https://api.github.com/copilot_internal/usage |
+Codex token: `%USERPROFILE%\.codex\auth.json`. Other keys: env vars in the script, plus `%USERPROFILE%\.ai-consumption-tracker\auth.json` (legacy path; not `DefaultAppPathProvider`).
 
-## Output
-
-Files are saved to `test-fixtures/` with timestamp format:
-```
-test-fixtures/codex-2026-03-04T17-30-00.json
-test-fixtures/kimi-2026-03-04T17-30-00.json
-```
-
-## Requirements
-
-- PowerShell 5.1+
-- API keys set in environment variables (see table above)
-- For Codex: access to `~/.codex/auth.json`
-
-## Troubleshooting
-
-### "No API key found"
-- Set the corresponding environment variable
-- Or add provider config to Monitor
-
-### "Request failed"
-- Check API key is valid
-- Check network connectivity
-- Verify API endpoint is correct
+Filenames: `{name}-{yyyy-MM-ddTHH-mm-ss}.json`.

@@ -512,3 +512,6 @@ ci_screenshots/
 build-task107.err
 test-task107.err
 build-hib.err
+
+# Local build/merge diagnostics
+*.err

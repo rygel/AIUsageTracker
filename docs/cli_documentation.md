@@ -1,84 +1,18 @@
-# AIUsageTracker CLI Documentation
+# CLI (`act`)
 
-The AIUsageTracker CLI allows you to monitor API usage and balance for various AI providers directly from your terminal. It includes privacy features to mask sensitive information in logs and UI.
+Entry: `AIUsageTracker.CLI/Program.cs`. Empty-args banner: `act <command> [options]`. Assembly/installer name: `AIUsageTracker.CLI` (`setup.iss` shortcut `{app}\AIUsageTracker.CLI.exe`). `Main` starts the Monitor before parsing (`MonitorLifecycleService`), so there is no no-op `--help`; `--help` prints `Unknown command`.
 
-## Basic Usage
+| Command | Options | Behavior |
+|---|---|---|
+| `status` | `--all`, `--json` | Current usage. Without `--all`, rows with `IsAvailable == false` are dropped (`ShowStatusAsync`). |
+| `history` | `[days]` (default 7), `--json` | History |
+| `list` | `--json` | Configured providers |
+| `set-key` | `<provider-id> [api-key]` | Prompt if key omitted |
+| `remove-key` | `<provider-id>` | Remove key |
+| `scan` | | Discover keys |
+| `config` | `[key] [value]` | Show or set a preference |
+| `agent` | `start\|stop\|restart\|info` | Monitor process (`ManageAgentAsync`) |
 
-```powershell
-opencode-tracker <command> [options]
-```
+`check [provider-id]` and `export --format csv|json --days N --output <file>` (export defaults: csv, 30 days) are implemented but omitted from the empty-args banner. The banner lists `agent …|log`; `log` hits `Unknown agent command`.
 
-## Commands
-
-### `status`
-Displays the current usage status for all active providers. By default, it lists only those providers where a valid API key has been found or configured.
-
-**Syntax:**
-```bash
-opencode-tracker status [options]
-```
-
-**Options:**
-- `--all`: Show all configured providers, including those with missing API keys or those that are currently unavailable.
-- `--json`: Output the status information in JSON format. This is useful for programmatic consumption or piping to other tools.
-
-**Example Output (Table):**
-```text
-Provider                             | Type           | Used       | Description
---------------------------------------------------------------------------------------------------
-OpenCode                             | Pay-As-You-Go  | 15%        | 150.00 / 1000.00 credits
-Anthropic                            | Pay-As-You-Go  | 0%         | Not Found
-Minimax                              | Pay-As-You-Go  | 0%         | Discovered via Environment Variable
-```
-
-### `list`
-Lists all configured providers found in the configuration files or environment variables.
-
-**Syntax:**
-```bash
-opencode-tracker list [options]
-```
-
-**Options:**
-- `--json`: Output the list in JSON format.
-
-## Configuration
-
-### File-Based Configuration
-The CLI looks for a configuration file named `auth.json` in the following locations:
-1. `%USERPROFILE%\.local\share\opencode\auth.json`
-2. `%APPDATA%\opencode\auth.json`
-3. `%LOCALAPPDATA%\opencode\auth.json`
-4. `%USERPROFILE%\.opencode\auth.json`
-
-**Format:**
-```json
-{
-  "provider-id": {
-    "key": "your-api-key",
-    "type": "pay-as-you-go" // or "quota-based"
-  }
-}
-```
-
-### Environment Variables
-You can also configure specific providers securely using environment variables. These are discovered automatically and do not need to be written to a file.
-
-| Provider | Environment Variable | Alternate Variable |
-| :--- | :--- | :--- |
-| **Minimax** | `MINIMAX_API_KEY` | |
-| **Xiaomi** | `XIAOMI_API_KEY` | `MIMO_API_KEY` |
-| **Kimi (Moonshot)** | `KIMI_API_KEY` | `MOONSHOT_API_KEY` |
-
-## Supported Providers
-- **Standard**: OpenCode, OpenRouter, Anthropic, Gemini, OpenAI (Generic)
-- **Chinese LLMs**: Minimax, Xiaomi (MiMo), Kimi (Moonshot)
-- **Generic**: Any provider interacting via standard HTTP headers can be configured manually.
-
-## Privacy & Security
-
-The application now includes enhanced privacy features:
-- **PII Masking**: Email addresses and sensitive user information are automatically masked in debug logs (e.g., `t*****t@example.com`).
-- **Locale Independence**: Usage data is consistently formatted regardless of system locale settings.
-- **Provider Consistency**: Correct handling of quota-based (Z.AI, Copilot) vs. usage-based (OpenAI, DeepSeek) providers.
-
+Env vars: `docs/environment_variables.md`.
