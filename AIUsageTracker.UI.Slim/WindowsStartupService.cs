@@ -28,10 +28,24 @@ internal static class WindowsStartupService
         }
 
         var exePath = Path.Combine(AppContext.BaseDirectory, "AIUsageTracker.exe");
+        Apply(startUi, key, exePath);
+    }
 
+    internal static void Apply(bool startUi, RegistryKey key, string exePath)
+    {
         if (startUi && File.Exists(exePath))
         {
-            key.SetValue(UiValueName, $"\"{exePath}\"");
+            var command = $"\"{exePath}\"";
+            var existing = key.GetValue(UiValueName, null, RegistryValueOptions.DoNotExpandEnvironmentNames) as string;
+            if (existing != null &&
+                key.GetValueKind(UiValueName) == RegistryValueKind.ExpandString &&
+                string.Equals(Environment.ExpandEnvironmentVariables(existing), command, StringComparison.OrdinalIgnoreCase))
+            {
+                // Keep the owner's portable registration only while it targets this installation.
+                return;
+            }
+
+            key.SetValue(UiValueName, command, RegistryValueKind.String);
         }
         else
         {
