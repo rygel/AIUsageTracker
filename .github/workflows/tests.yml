@@ -208,7 +208,7 @@ jobs:
         shell: pwsh
 
       - name: Upload test binaries
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
           name: test-binaries-debug
           path: |
@@ -251,7 +251,7 @@ jobs:
 
       - name: Upload results
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
           name: core-test-results
           path: TestResults/core-tests*.trx
@@ -286,7 +286,7 @@ jobs:
 
       - name: Upload results
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
           name: monitor-startup-config-results
           path: TestResults/monitor-startup-config*.trx
@@ -321,7 +321,7 @@ jobs:
 
       - name: Upload results
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
           name: monitor-test-results
           path: TestResults/monitor-tests*.trx
@@ -454,7 +454,7 @@ jobs:
 
       - name: Upload results
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
           name: web-test-results
           path: TestResults/web-tests*.trx
@@ -463,7 +463,7 @@ jobs:
 
       - name: Upload Web UI screenshots
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
           name: web-ui-screenshots
           path: |
